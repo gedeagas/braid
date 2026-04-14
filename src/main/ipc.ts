@@ -152,6 +152,14 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('pty:spawn', (_e, cwd: string) => ptyService.spawn(cwd))
   ipcMain.on('pty:write', (_e, id: string, data: string) => ptyService.write(id, data))
   ipcMain.on('pty:resize', (_e, id: string, cols: number, rows: number) => ptyService.resize(id, cols, rows))
+
+  // Dock badge
+  ipcMain.on('dock:setBadgeCount', (_e, count: number) => {
+    if (process.platform === 'darwin' && app.dock) {
+      const safe = Math.max(0, Math.floor(count) || 0)
+      app.dock.setBadge(safe > 0 ? String(safe) : '')
+    }
+  })
   ipcMain.handle('pty:kill', (_e, id: string) => ptyService.kill(id))
   ipcMain.handle('pty:runScript', (_e, cwd: string, command: string) => ptyService.runScript(cwd, command))
   ipcMain.handle('pty:readTerminalOutput', (_e, worktreePath: string) => ptyService.readTerminalOutput(worktreePath))

@@ -308,6 +308,11 @@ const api = {
     closeWindow: () => ipcRenderer.send('menu:closeWindow'),
   },
 
+  // Dock badge
+  dock: {
+    setBadgeCount: (count: number) => ipcRenderer.send('dock:setBadgeCount', count),
+  },
+
   // Notes
   notes: {
     load: (worktreeId: string) => ipcRenderer.invoke('notes:load', worktreeId) as Promise<string>,
