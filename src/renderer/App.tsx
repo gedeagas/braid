@@ -24,6 +24,7 @@ import { FeatureTour } from '@/components/Onboarding/FeatureTour'
 import { SimulatorTour } from '@/components/Onboarding/SimulatorTour'
 import { UpdateDialog } from '@/components/shared/UpdateDialog'
 import { useAutoUpdate } from '@/hooks/useAutoUpdate'
+import { initUpdateListeners } from '@/store/updater'
 
 /** Build the unified tab list matching SessionTabBar's reconciliation logic */
 function getUnifiedTabs(): string[] {
@@ -153,9 +154,11 @@ export default function App() {
     const unsubSettings = useUIStore.subscribe(syncSettings)
 
     const cleanup = initAgentEventListener()
+    const cleanupUpdater = initUpdateListeners()
     return () => {
       cleanup()
       unsubSettings()
+      cleanupUpdater()
     }
   }, [loadProjects, loadPersistedSessions])
 

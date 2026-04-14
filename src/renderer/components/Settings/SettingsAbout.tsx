@@ -1,9 +1,15 @@
 import { useTranslation } from 'react-i18next'
 import { VERSION_CODENAME } from '@/lib/appBrand'
+import { Button } from '@/components/ui'
+import { useAutoUpdate } from '@/hooks/useAutoUpdate'
 import pkg from '../../../../package.json'
 
 export function SettingsAbout() {
-  const { t } = useTranslation('settings')
+  const { t } = useTranslation(['settings', 'common'])
+  const { state, checkForUpdates } = useAutoUpdate()
+
+  const isChecking = state.status === 'checking'
+  const isDisabled = isChecking || state.status === 'downloading'
 
   return (
     <div className="settings-section">
@@ -12,27 +18,47 @@ export function SettingsAbout() {
         <div className="settings-about-wordmark-row">
           <span className="settings-about-wordmark">Braid</span>
           <span className="settings-about-version">
-            {t('about.version', { version: pkg.version })}
+            {t('about.version', { version: pkg.version, ns: 'settings' })}
           </span>
         </div>
         <p className="settings-about-codename">{VERSION_CODENAME}</p>
-        <p className="settings-about-tagline">{t('about.tagline')}</p>
+        <p className="settings-about-tagline">{t('about.tagline', { ns: 'settings' })}</p>
+      </div>
+
+      {/* Check for updates */}
+      <div className="settings-field settings-field--row">
+        <div>
+          <label className="settings-label">{t('update.check', { ns: 'common' })}</label>
+          {state.status === 'upToDate' && (
+            <p className="settings-hint settings-about-uptodate">
+              {t('update.upToDate', { ns: 'common' })}
+            </p>
+          )}
+        </div>
+        <Button
+          size="sm"
+          loading={isChecking}
+          disabled={isDisabled}
+          onClick={checkForUpdates}
+        >
+          {t('update.check', { ns: 'common' })}
+        </Button>
       </div>
 
       {/* Mission */}
       <div className="settings-card">
-        <p className="settings-card-title">{t('about.missionTitle')}</p>
-        <p className="settings-about-body">{t('about.mission')}</p>
+        <p className="settings-card-title">{t('about.missionTitle', { ns: 'settings' })}</p>
+        <p className="settings-about-body">{t('about.mission', { ns: 'settings' })}</p>
       </div>
 
       {/* Capabilities */}
       <div className="settings-card">
-        <p className="settings-card-title">{t('about.capabilitiesTitle')}</p>
+        <p className="settings-card-title">{t('about.capabilitiesTitle', { ns: 'settings' })}</p>
         <ul className="settings-about-features">
           {(['cap1', 'cap2', 'cap3', 'cap4'] as const).map((key) => (
             <li key={key} className="settings-about-feature">
               <span className="settings-about-feature-dot" />
-              <span>{t(`about.${key}`)}</span>
+              <span>{t(`about.${key}`, { ns: 'settings' })}</span>
             </li>
           ))}
         </ul>
@@ -40,8 +66,8 @@ export function SettingsAbout() {
 
       {/* Creator footer */}
       <div className="settings-about-footer">
-        <span className="settings-about-creator">{t('about.createdBy')}</span>
-        <span className="settings-about-meta">{t('about.builtIn')}</span>
+        <span className="settings-about-creator">{t('about.createdBy', { ns: 'settings' })}</span>
+        <span className="settings-about-meta">{t('about.builtIn', { ns: 'settings' })}</span>
       </div>
     </div>
   )

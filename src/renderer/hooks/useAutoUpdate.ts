@@ -1,122 +1,22 @@
 // ---------------------------------------------------------------------------
-// useAutoUpdate - subscribes to auto-updater IPC events from main process
+// useAutoUpdate - thin adapter over the Zustand updater store
 // ---------------------------------------------------------------------------
+//
+// Dev testing: in the browser console, call __simulateUpdate() to walk through
+// the full checking -> available -> downloading -> ready flow.
 
-import { useEffect, useReducer } from 'react'
+import { useUpdaterStore } from '@/store/updater'
+export type { UpdateState } from '@/store/updater'
 
-// ── State types ─────────────────────────────────────────────────────────────
+/** Safety timeout - if no response within 30s, assume something went wrong. */
+const CHECK_TIMEOUT_MS = 30_000
 
-interface IdleState {
-  status: 'idle'
-}
-
-interface AvailableState {
-  status: 'available'
-  version: string
-  releaseNotes: string
-  dismissed: boolean
-}
-
-interface DownloadingState {
-  status: 'downloading'
-  version: string
-  releaseNotes: string
-  percent: number
-}
-
-interface ReadyState {
-  status: 'ready'
-  version: string
-  dismissed: boolean
-}
-
-interface ErrorState {
-  status: 'error'
-  message: string
-}
-
-export type UpdateState =
-  | IdleState
-  | AvailableState
-  | DownloadingState
-  | ReadyState
-  | ErrorState
-
-// ── Actions ─────────────────────────────────────────────────────────────────
-
-type UpdateAction =
-  | { type: 'available'; version: string; releaseNotes: string }
-  | { type: 'progress'; percent: number }
-  | { type: 'ready'; version: string }
-  | { type: 'error'; message: string }
-  | { type: 'dismiss' }
-  | { type: 'startDownload' }
-  | { type: 'retry' }
-
-function updateReducer(state: UpdateState, action: UpdateAction): UpdateState {
-  switch (action.type) {
-    case 'available':
-      return {
-        status: 'available',
-        version: action.version,
-        releaseNotes: action.releaseNotes,
-        dismissed: false,
-      }
-    case 'startDownload':
-      if (state.status !== 'available') return state
-      return {
-        status: 'downloading',
-        version: state.version,
-        releaseNotes: state.releaseNotes,
-        percent: 0,
-      }
-    case 'progress':
-      if (state.status !== 'downloading') return state
-      return { ...state, percent: action.percent }
-    case 'ready':
-      return {
-        status: 'ready',
-        version: action.version,
-        dismissed: false,
-      }
-    case 'error':
-      return { status: 'error', message: action.message }
-    case 'dismiss':
-      if (state.status === 'available') return { ...state, dismissed: true }
-      if (state.status === 'ready') return { ...state, dismissed: true }
-      if (state.status === 'error') return { status: 'idle' }
-      return state
-    case 'retry':
-      // Reset to idle - the main process periodic check or an explicit
-      // checkForUpdates call will re-trigger the flow.
-      return { status: 'idle' }
-    default:
-      return state
-  }
-}
-
-// ── Hook ────────────────────────────────────────────────────────────────────
+/** Simulated check delay in dev mode so the spinner is visible. */
+const DEV_CHECK_DELAY_MS = 1_500
 
 export function useAutoUpdate() {
-  const [state, dispatch] = useReducer(updateReducer, { status: 'idle' } as UpdateState)
-
-  useEffect(() => {
-    const unsubs = [
-      window.api.updater.onUpdateAvailable((info: { version: string; releaseNotes: string }) => {
-        dispatch({ type: 'available', version: info.version, releaseNotes: info.releaseNotes })
-      }),
-      window.api.updater.onDownloadProgress((info: { percent: number }) => {
-        dispatch({ type: 'progress', percent: info.percent })
-      }),
-      window.api.updater.onUpdateDownloaded((info: { version: string }) => {
-        dispatch({ type: 'ready', version: info.version })
-      }),
-      window.api.updater.onError((info: { message: string }) => {
-        dispatch({ type: 'error', message: info.message })
-      }),
-    ]
-    return () => unsubs.forEach((fn) => fn())
-  }, [])
+  const state = useUpdaterStore((s) => s.state)
+  const dispatch = useUpdaterStore((s) => s.dispatch)
 
   return {
     state,
@@ -127,5 +27,79 @@ export function useAutoUpdate() {
     install: () => window.api.updater.install(),
     dismiss: () => dispatch({ type: 'dismiss' }),
     retry: () => dispatch({ type: 'retry' }),
+    checkForUpdates: async () => {
+      dispatch({ type: 'check' })
+      console.log('[updater] Dispatched check action')
+
+      const initiated = await window.api.updater.check()
+      console.log('[updater] Main process responded, initiated:', initiated)
+
+      if (!initiated) {
+        // Dev mode - simulate a brief check then show up-to-date
+        console.log('[updater] Dev mode: simulating check delay')
+        setTimeout(() => {
+          const current = useUpdaterStore.getState().state
+          if (current.status === 'checking') {
+            console.log('[updater] Dev mode: transitioning to upToDate')
+            dispatch({ type: 'upToDate' })
+          }
+        }, DEV_CHECK_DELAY_MS)
+        return
+      }
+
+      // Safety timeout: if electron-updater hangs, don't spin forever
+      setTimeout(() => {
+        const current = useUpdaterStore.getState().state
+        if (current.status === 'checking') {
+          console.warn('[updater] Check timed out after', CHECK_TIMEOUT_MS, 'ms')
+          dispatch({ type: 'error', message: 'Update check timed out. Please try again.' })
+        }
+      }, CHECK_TIMEOUT_MS)
+    },
+  }
+}
+
+// ── Dev tools ───────────────────────────────────────────────────────────────
+// Usage in console: __simulateUpdate() walks the full flow with delays.
+// __simulateUpdate('error') to simulate an error.
+
+if (import.meta.env.DEV) {
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(window as any).__simulateUpdate = async (scenario = 'success') => {
+    const dispatch = useUpdaterStore.getState().dispatch
+    console.log('[updater:sim] Starting simulation:', scenario)
+
+    dispatch({ type: 'check' })
+    await sleep(1500)
+
+    if (scenario === 'error') {
+      dispatch({ type: 'error', message: 'Simulated network error' })
+      return
+    }
+
+    if (scenario === 'upToDate') {
+      dispatch({ type: 'upToDate' })
+      return
+    }
+
+    dispatch({
+      type: 'available',
+      version: '99.0.0',
+      releaseNotes: '- Simulated update\n- For testing the full flow',
+    })
+    console.log('[updater:sim] Showing available dialog. Call __simulateUpdate() again to continue.')
+
+    await sleep(3000)
+    dispatch({ type: 'startDownload' })
+
+    for (let i = 0; i <= 100; i += 10) {
+      dispatch({ type: 'progress', percent: i })
+      await sleep(200)
+    }
+
+    dispatch({ type: 'ready', version: '99.0.0' })
+    console.log('[updater:sim] Done! "Restart" dialog should be visible.')
   }
 }

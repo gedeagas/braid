@@ -375,6 +375,12 @@ const api = {
       ipcRenderer.on('updater:error', handler)
       return () => ipcRenderer.removeListener('updater:error', handler)
     },
+    check: () => ipcRenderer.invoke('updater:check') as Promise<boolean>,
+    onUpToDate: (cb: () => void) => {
+      const handler = () => cb()
+      ipcRenderer.on('updater:up-to-date', handler)
+      return () => ipcRenderer.removeListener('updater:up-to-date', handler)
+    },
   },
 
   // Settings sync

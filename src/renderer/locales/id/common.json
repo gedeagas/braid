@@ -93,7 +93,10 @@
     },
     "later": "Nanti",
     "download": "Unduh",
-    "restart": "Mulai Ulang"
+    "restart": "Mulai Ulang",
+    "check": "Periksa Pembaruan",
+    "checking": "Memeriksa...",
+    "upToDate": "Braid sudah terbaru"
   },
   "tour": {
     "next": "Berikutnya",

@@ -100,3 +100,9 @@
   font-size: var(--text-base);
   color: var(--text-muted);
 }
+
+.settings-about-uptodate {
+  color: var(--color-success, var(--accent));
+  font-size: var(--text-base);
+  margin: var(--space-2) 0 0;
+}
