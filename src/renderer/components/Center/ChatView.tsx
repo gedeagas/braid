@@ -16,7 +16,8 @@ import { useShallow } from 'zustand/shallow'
 import { useSessionsStore, useActiveSession } from '@/store/sessions'
 import { useUIStore, selectSelectedDiffFile, selectActiveCenterView } from '@/store/ui'
 import { ChatMessageList } from './ChatMessageList'
-import { ChatInput, MAX_IMAGES, fileToDataUri } from './ChatInput'
+import { ChatInput, MAX_IMAGES } from './ChatInput'
+import { compressImage } from '@/lib/imageCompression'
 import { ChatHeader } from './ChatHeader'
 import { buildDiffCommentBlocks } from './diffCommentUtils'
 import type { Message, SlashCommand, SnippetAttachment, DiffComment } from '@/types'
@@ -205,7 +206,11 @@ export function ChatView({ worktreePath = '' }: ChatViewProps) {
     if (remaining <= 0) { flash('warning', t('imageLimitReached')); return }
     const toAdd = valid.slice(0, remaining)
     if (toAdd.length < valid.length) flash('warning', t('imageLimitReached'))
-    const uris = await Promise.all(toAdd.map(fileToDataUri))
+    const results = await Promise.allSettled(toAdd.map(compressImage))
+    const uris = results
+      .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled')
+      .map((r) => r.value)
+    if (uris.length === 0) return
     dispatch({ type: 'APPEND_IMAGES', uris })
   }, [attachedImages.length, dispatch, t])
 

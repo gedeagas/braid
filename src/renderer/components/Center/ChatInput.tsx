@@ -41,16 +41,6 @@ const CONTEXT_WARN_THRESHOLD = 0.75
 const CONTEXT_CRITICAL_THRESHOLD = 0.90
 export const MAX_IMAGES = 5
 
-/** Read a File as a base64 data URI */
-export function fileToDataUri(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result as string)
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
-}
-
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
 export type ChatInputVariant = 'default' | 'diff'
