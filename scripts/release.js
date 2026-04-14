@@ -83,8 +83,18 @@ if (fs.existsSync(changelogPath)) {
   const changelog = fs.readFileSync(changelogPath, 'utf-8')
   // Match the section for this version (from "## [VERSION]" to next "## [" or EOF)
   const versionEscaped = VERSION.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const sectionRe = new RegExp(`^## \\[${versionEscaped}\\][^\\n]*\\n([\\s\\S]*?)(?=\\n---\\n|\\n## \\[|$)`, 'm')
-  const match = changelog.match(sectionRe)
+  // Extract everything after the "## [VERSION]" header up to the next section or end of file
+  const headerRe = new RegExp(`^## \\[${versionEscaped}\\][^\\n]*\\n`, 'm')
+  const headerMatch = changelog.match(headerRe)
+  let sectionBody = ''
+  if (headerMatch) {
+    const start = headerMatch.index + headerMatch[0].length
+    // Find the next section boundary: "---" line or "## [" header
+    const rest = changelog.slice(start)
+    const nextSection = rest.search(/\n---\n|\n## \[/)
+    sectionBody = nextSection === -1 ? rest : rest.slice(0, nextSection)
+  }
+  const match = sectionBody.trim() ? [null, sectionBody] : null
 
   if (match && match[1].trim()) {
     const tmpNotes = path.join(DIST, '.release-notes.md')
