@@ -152,6 +152,8 @@
   "snippetAttached_other": "{{count}} snippets attached ({{lines}} lines)",
   "imageLimitReached": "Maximum 5 images — remove one to add more",
   "imageTooLarge": "Image too large (max 2MB)",
+  "imageLoadFailed_one": "{{count}} image failed to load",
+  "imageLoadFailed_other": "{{count}} images failed to load",
   "draftInputTooLarge": "Input too long — use a snippet for large text",
   "linkWorktree": "Link Worktree",
   "unlinkWorktree": "Unlink",

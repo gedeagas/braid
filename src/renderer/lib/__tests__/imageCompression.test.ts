@@ -73,6 +73,8 @@ describe('compressImage', () => {
 
     const result = await compressImage(file)
 
+    // 2048x1536 scaled to fit 1024 -> 1024x768
+    expect(drawImageSpy).toHaveBeenCalledWith(expect.anything(), 0, 0, 1024, 768)
     expect(toDataURLSpy).toHaveBeenCalledWith('image/jpeg', 0.65)
     expect(result).toBe('data:image/jpeg;base64,compressed')
   })
@@ -107,7 +109,8 @@ describe('compressImage', () => {
     const file = new File(['fake'], 'small.png', { type: 'image/png' })
     const result = await compressImage(file)
 
-    // Should still JPEG-encode but at original dimensions (no resize)
+    // Should still JPEG-encode but at original dimensions (400x300, no resize)
+    expect(drawImageSpy).toHaveBeenCalledWith(expect.anything(), 0, 0, 400, 300)
     expect(toDataURLSpy).toHaveBeenCalledWith('image/jpeg', 0.65)
     expect(result).toBe('data:image/jpeg;base64,compressed')
   })

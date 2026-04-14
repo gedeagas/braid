@@ -30,8 +30,8 @@ import { QueuedMessageBanner } from './QueuedMessageBanner'
 import { CONTEXT_WINDOW } from '@/lib/constants'
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
-const ACCEPTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
-const MAX_IMAGE_SIZE = 2 * 1024 * 1024
+export const ACCEPTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
+export const MAX_IMAGE_SIZE = 2 * 1024 * 1024
 const MAX_SNIPPET_SIZE = 100_000
 const MAX_SNIPPETS = 5
 const SNIPPET_LINE_THRESHOLD = 10
