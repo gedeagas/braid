@@ -1,6 +1,7 @@
 ---
 sidebar_position: 3
 title: Send Your First Message
+description: Start a conversation with Claude to explore your codebase, edit files, and run commands inside Braid.
 ---
 
 # Send Your First Message

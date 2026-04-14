@@ -1,6 +1,7 @@
 ---
 sidebar_position: 1
 title: Parallel Development with Worktrees
+description: Work on multiple features simultaneously using isolated Git worktrees, each with its own terminals and Claude sessions.
 ---
 
 # Parallel Development with Worktrees

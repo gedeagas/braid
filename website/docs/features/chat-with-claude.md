@@ -1,6 +1,7 @@
 ---
 sidebar_position: 2
 title: Chat with Claude
+description: Use Claude AI to read code, edit files, and run commands directly in your Git worktree through Braid's chat interface.
 ---
 
 # Chat with Claude
