@@ -7,8 +7,8 @@ const config: Config = {
   tagline: 'Manage worktrees. Run AI agents. Ship from isolated branches.',
   favicon: 'img/favicon.ico',
 
-  url: 'https://gedeagas.github.io',
-  baseUrl: '/braid/',
+  url: 'https://getbraid.dev',
+  baseUrl: '/',
 
   organizationName: 'gedeagas',
   projectName: 'Braid',
