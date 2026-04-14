@@ -1,9 +1,10 @@
-import React from 'react'
+import React, { useState } from 'react'
 import Link from '@docusaurus/Link'
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext'
 import useBaseUrl from '@docusaurus/useBaseUrl'
 import Layout from '@theme/Layout'
 import FeatureCard from '../components/FeatureCard'
+import DownloadDialog from '../components/DownloadDialog'
 import WorkflowSection from '../components/WorkflowSection'
 import {
   WorktreeIcon,
@@ -74,6 +75,7 @@ function DownloadIcon() {
 
 function HeroSection(): React.JSX.Element {
   const heroImg = useBaseUrl('/img/hero-screenshot.png')
+  const [downloadOpen, setDownloadOpen] = useState(false)
 
   return (
     <header className="hero-section">
@@ -88,13 +90,13 @@ function HeroSection(): React.JSX.Element {
         each scoped to its own Git worktree.
       </p>
       <div className="hero-buttons">
-        <Link
+        <button
           className="button button--primary button--lg"
-          to="/docs/getting-started/installation"
+          onClick={() => setDownloadOpen(true)}
         >
           <DownloadIcon />
           Download for macOS
-        </Link>
+        </button>
         <Link
           className="button button--secondary button--lg"
           href="https://github.com/gedeagas/braid"
@@ -108,6 +110,10 @@ function HeroSection(): React.JSX.Element {
           alt="Braid app screenshot showing the three-panel layout"
         />
       </div>
+      <DownloadDialog
+        open={downloadOpen}
+        onClose={() => setDownloadOpen(false)}
+      />
     </header>
   )
 }
