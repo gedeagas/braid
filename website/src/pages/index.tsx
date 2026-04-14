@@ -4,6 +4,7 @@ import useDocusaurusContext from '@docusaurus/useDocusaurusContext'
 import useBaseUrl from '@docusaurus/useBaseUrl'
 import Layout from '@theme/Layout'
 import FeatureCard from '../components/FeatureCard'
+import WorkflowSection from '../components/WorkflowSection'
 import {
   WorktreeIcon,
   AgentIcon,
@@ -142,6 +143,7 @@ export default function Home(): React.JSX.Element {
       <HeroSection />
       <main>
         <FeaturesSection />
+        <WorkflowSection />
       </main>
     </Layout>
   )
