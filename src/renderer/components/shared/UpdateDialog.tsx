@@ -3,7 +3,6 @@
 // ---------------------------------------------------------------------------
 
 import { useTranslation } from 'react-i18next'
-import ReactMarkdown from 'react-markdown'
 import { Dialog, Button } from '@/components/ui'
 import type { UpdateState } from '@/hooks/useAutoUpdate'
 
@@ -51,9 +50,11 @@ export function UpdateDialog({ state, onDownload, onInstall, onDismiss, onRetry 
         {state.releaseNotes && (
           <>
             <p className="update-dialog__notes-label">{t('update.available.whatsNew')}</p>
-            <div className="update-dialog__notes">
-              <ReactMarkdown>{state.releaseNotes}</ReactMarkdown>
-            </div>
+            {/* Release notes come as HTML from GitHub Releases API via electron-updater */}
+            <div
+              className="update-dialog__notes"
+              dangerouslySetInnerHTML={{ __html: state.releaseNotes }}
+            />
           </>
         )}
       </Dialog>
