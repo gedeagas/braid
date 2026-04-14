@@ -203,6 +203,9 @@ app.whenReady().then(async () => {
 })
 
 app.on('before-quit', () => {
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setBadge('')
+  }
   stopAutoUpdater()
   lspService.shutdownAll()
 })

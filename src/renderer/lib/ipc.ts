@@ -220,6 +220,10 @@ export const appWindow = {
   closeWindow: () => api().menu.closeWindow(),
 }
 
+export const dock = {
+  setBadgeCount: (count: number) => api().dock.setBadgeCount(count),
+}
+
 export const claudeConfig = {
   getPermissions: () => api().claudeConfig.getPermissions() as Promise<{ allow: string[]; deny: string[] }>,
   setPermissions: (perms: { allow: string[]; deny: string[] }) => api().claudeConfig.setPermissions(perms),
