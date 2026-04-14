@@ -57,7 +57,17 @@ const APP_BUNDLE_ID = process.env.APP_BUNDLE_ID || 'com.braidapp.desktop'
 const APP_VERSION = APP_PKG.version
 const ELECTRON_VERSION = ELECTRON_PKG.version // e.g. "39.8.0+wvcus"
 const TEAM_ID = process.env.APPLE_TEAM_ID || ''
-const SIGNING_IDENTITY = process.env.SIGNING_IDENTITY || (TEAM_ID ? `Developer ID Application (${TEAM_ID})` : '')
+const SIGNING_IDENTITY = process.env.SIGNING_IDENTITY || (() => {
+  if (!TEAM_ID) return ''
+  // Find the full identity name from the keychain - codesign requires an exact match
+  try {
+    const ids = require('child_process')
+      .execSync('security find-identity -v -p codesigning', { encoding: 'utf8' })
+    const match = ids.match(new RegExp(`"(Developer ID Application[^"]*\\(${TEAM_ID}\\))"`))
+    if (match) return match[1]
+  } catch {}
+  return `Developer ID Application (${TEAM_ID})`
+})()
 
 // ---------------------------------------------------------------------------
 // CLI
