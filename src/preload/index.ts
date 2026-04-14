@@ -351,6 +351,32 @@ const api = {
     },
   },
 
+  // Auto-updater
+  updater: {
+    download: () => ipcRenderer.invoke('updater:download'),
+    install: () => ipcRenderer.invoke('updater:install'),
+    onUpdateAvailable: (cb: (info: { version: string; releaseNotes: string; releaseDate: string }) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, info: { version: string; releaseNotes: string; releaseDate: string }) => cb(info)
+      ipcRenderer.on('updater:update-available', handler)
+      return () => ipcRenderer.removeListener('updater:update-available', handler)
+    },
+    onDownloadProgress: (cb: (info: { percent: number }) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, info: { percent: number }) => cb(info)
+      ipcRenderer.on('updater:download-progress', handler)
+      return () => ipcRenderer.removeListener('updater:download-progress', handler)
+    },
+    onUpdateDownloaded: (cb: (info: { version: string }) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, info: { version: string }) => cb(info)
+      ipcRenderer.on('updater:update-downloaded', handler)
+      return () => ipcRenderer.removeListener('updater:update-downloaded', handler)
+    },
+    onError: (cb: (info: { message: string }) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, info: { message: string }) => cb(info)
+      ipcRenderer.on('updater:error', handler)
+      return () => ipcRenderer.removeListener('updater:error', handler)
+    },
+  },
+
   // Settings sync
   settings: {
     sync: (values: Record<string, unknown>) => ipcRenderer.invoke('settings:sync', values),

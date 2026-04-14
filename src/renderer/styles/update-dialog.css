@@ -1,0 +1,72 @@
+/* ---------------------------------------------------------------------------
+   Update dialog - auto-update available / downloading / ready / error states
+   --------------------------------------------------------------------------- */
+
+.update-dialog__body {
+  font-size: var(--text-md);
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0 0 var(--space-12);
+}
+
+.update-dialog__notes-label {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-6);
+}
+
+.update-dialog__notes {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  line-height: 1.6;
+  max-height: 160px;
+  overflow-y: auto;
+  padding: var(--space-10);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ── Progress bar ────────────────────────────────────────────────────── */
+
+.update-dialog__progress {
+  height: var(--space-6);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  margin: var(--space-12) 0 var(--space-6);
+}
+
+.update-dialog__progress-bar {
+  height: 100%;
+  background: var(--accent);
+  border-radius: var(--radius-pill);
+  transition: width var(--duration-normal) ease-out;
+  min-width: 0;
+}
+
+.update-dialog__percent {
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  text-align: center;
+  margin: 0;
+}
+
+/* ── Error detail ────────────────────────────────────────────────────── */
+
+.update-dialog__error-detail {
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  line-height: 1.5;
+  padding: var(--space-8) var(--space-10);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  font-family: monospace;
+  word-break: break-word;
+  max-height: 80px;
+  overflow-y: auto;
+}
