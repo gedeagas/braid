@@ -21,7 +21,7 @@ import { lspService, LspServerConfig } from './services/lsp'
 import { jiraService } from './services/jira'
 import { githubAuthService } from './services/githubAuth'
 import { resolveCliPath } from './services/claudePath'
-import { downloadUpdate, installUpdate } from './services/autoUpdate'
+import { downloadUpdate, installUpdate, checkForUpdates } from './services/autoUpdate'
 
 // In-process settings cache — renderer pushes values here so main-process
 // services (agent.ts, pty.ts) can read them synchronously.
@@ -550,6 +550,7 @@ export function registerIpcHandlers(): void {
   // Auto-updater
   ipcMain.handle('updater:download', () => downloadUpdate())
   ipcMain.handle('updater:install', () => installUpdate())
+  ipcMain.handle('updater:check', () => checkForUpdates())
 
   // ── Menu ──────────────────────────────────────────────────────────────────
   ipcMain.on('menu:closeWindow', () => {
