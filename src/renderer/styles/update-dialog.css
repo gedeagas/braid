@@ -20,14 +20,44 @@
   font-size: var(--text-base);
   color: var(--text-secondary);
   line-height: 1.6;
-  max-height: 160px;
+  max-height: 200px;
   overflow-y: auto;
   padding: var(--space-10);
   background: var(--bg-tertiary);
   border-radius: var(--radius);
   border: 1px solid var(--border);
-  white-space: pre-wrap;
   word-break: break-word;
+}
+
+.update-dialog__notes p {
+  margin: 0 0 var(--space-6);
+}
+
+.update-dialog__notes p:last-child {
+  margin-bottom: 0;
+}
+
+.update-dialog__notes ul {
+  margin: 0 0 var(--space-6);
+  padding-left: var(--space-16);
+}
+
+.update-dialog__notes li {
+  margin-bottom: var(--space-2);
+}
+
+.update-dialog__notes a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.update-dialog__notes a:hover {
+  text-decoration: underline;
+}
+
+.update-dialog__notes strong {
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
 }
 
 /* ── Progress bar ────────────────────────────────────────────────────── */
