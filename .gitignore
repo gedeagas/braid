@@ -1,0 +1,39 @@
+node_modules/
+out/
+dist/
+**/.DS_Store
+*.tsbuildinfo
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Yarn 4
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# Electron
+release/
+.electron-zips/
+*.dmg
+*.snap
+*.AppImage
+*.exe
+*.deb
+*.rpm
+
+# Env / secrets
+.env
+.env.*
+*.pem
+*.key
+
+# Claude / editor
+.claude/
+docs/plans/
+.idea/
+.vscode/

@@ -1,0 +1,298 @@
+/* ─── Linked worktree chips (above chat input) ──────────────────────────── */
+
+.linked-worktree-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-6) var(--space-12) 0;
+}
+
+.linked-worktree-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-6) var(--space-3) var(--space-8);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  max-width: 200px;
+}
+
+.linked-worktree-chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.linked-worktree-chip-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: var(--radius-xs);
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.linked-worktree-chip-remove:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+/* Trigger button */
+
+.link-worktree-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-8);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-tertiary);
+  font-family: inherit;
+  font-size: var(--text-base);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.link-worktree-btn:hover {
+  color: var(--text-secondary);
+  border-color: var(--text-tertiary);
+  background: var(--bg-tertiary);
+}
+
+/* ─── Link Worktree Dialog ──────────────────────────────────────────────── */
+
+.lwt-dialog {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  width: 80vw;
+  max-width: 900px;
+  height: 80vh;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: var(--shadow-elevation-xl);
+}
+
+.lwt-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-20) var(--space-24) 0;
+}
+
+.lwt-dialog-header h2 {
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-semibold);
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.lwt-dialog-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  padding: 0;
+}
+
+.lwt-dialog-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.lwt-dialog-search {
+  margin: var(--space-16) var(--space-24) 0;
+  padding: var(--space-10) var(--space-14);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: var(--text-lg);
+  outline: none;
+}
+
+.lwt-dialog-search:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-tint-22);
+}
+
+.lwt-dialog-search::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Scrollable list */
+
+.lwt-dialog-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-16) var(--space-24);
+  min-height: 0;
+}
+
+.lwt-dialog-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.lwt-dialog-list::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: var(--radius-xs);
+}
+
+.lwt-dialog-empty {
+  padding: var(--space-32) 0;
+  font-size: var(--text-md);
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+/* Project group */
+
+.lwt-dialog-group {
+  margin-bottom: 18px;
+}
+
+.lwt-dialog-group:last-child {
+  margin-bottom: 0;
+}
+
+.lwt-dialog-group-label {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--text-secondary);
+  letter-spacing: 0.01em;
+  margin-bottom: var(--space-10);
+}
+
+.lwt-dialog-group-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-8);
+}
+
+/* Worktree card */
+
+.lwt-card {
+  display: block;
+  width: 100%;
+  padding: var(--space-12) var(--space-14);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color var(--duration-instant), background var(--duration-instant);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.lwt-card:hover,
+.lwt-card--highlighted {
+  background: var(--bg-hover);
+  border-color: var(--text-muted);
+}
+
+.lwt-card--linked {
+  border-color: var(--accent);
+  background: var(--accent-tint-10);
+}
+
+.lwt-card--linked:hover,
+.lwt-card--linked.lwt-card--highlighted {
+  background: var(--accent-tint-10);
+  border-color: var(--accent);
+}
+
+.lwt-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-8);
+}
+
+.lwt-card-branch {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  line-height: 1.4;
+  color: var(--text-primary);
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
+  min-width: 0;
+}
+
+.lwt-card-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--accent);
+  font-weight: var(--weight-medium);
+  flex-shrink: 0;
+  margin-top: var(--space-2);
+}
+
+.lwt-card-details {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin-top: var(--space-6);
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.lwt-card-upstream {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.lwt-card-path {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.lwt-card-meta {
+  flex-shrink: 0;
+  white-space: nowrap;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  margin-left: auto;
+}
+
+/* Footer hint */
+
+.lwt-dialog-footer {
+  padding: var(--space-12) var(--space-24);
+  border-top: 1px solid var(--border);
+  font-size: var(--text-base);
+  color: var(--text-tertiary);
+  text-align: center;
+}

@@ -1,0 +1,17 @@
+/* ============= Shiki CSS Variables Theme → Design Token Mapping ============= */
+/* Maps Shiki's css-variables theme tokens to our existing --hljs-* design      */
+/* tokens so diff syntax highlighting inherits the active theme's colors.       */
+
+:root {
+  --shiki-foreground: var(--hljs-base);
+  --shiki-background: transparent;
+  --shiki-token-constant: var(--hljs-number);
+  --shiki-token-string: var(--hljs-string);
+  --shiki-token-comment: var(--hljs-comment);
+  --shiki-token-keyword: var(--hljs-keyword);
+  --shiki-token-parameter: var(--hljs-variable);
+  --shiki-token-function: var(--hljs-title);
+  --shiki-token-string-expression: var(--hljs-string);
+  --shiki-token-punctuation: var(--hljs-base);
+  --shiki-token-link: var(--hljs-string);
+}

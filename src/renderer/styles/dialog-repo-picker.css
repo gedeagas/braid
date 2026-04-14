@@ -1,0 +1,94 @@
+/* ── Repo scanner / picker (AddProjectDialog) ────────────────────────────── */
+
+.dialog-found-header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-8);
+}
+
+.dialog-found-hint {
+  font-size: var(--text-base);
+  font-weight: var(--weight-normal);
+  color: var(--text-muted);
+}
+
+.dialog-repo-list {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.dialog-repo-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.dialog-repo-list::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: var(--radius-xs);
+}
+
+.dialog-repo-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-12);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background var(--duration-instant);
+}
+
+.dialog-repo-item:last-child {
+  border-bottom: none;
+}
+
+.dialog-repo-item:hover {
+  background: var(--bg-hover);
+}
+
+.dialog-repo-item__name {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dialog-repo-item__path {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.dialog-repo-item--already {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.dialog-repo-item--already:hover {
+  background: transparent;
+}
+
+.dialog-repo-badge {
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1px var(--space-5);
+  white-space: nowrap;
+  font-family: var(--font-sans);
+}

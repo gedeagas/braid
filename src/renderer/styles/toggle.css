@@ -1,0 +1,57 @@
+/* ── Toggle switch (Apple-style) — generic + legacy plugin alias ── */
+.toggle,
+.settings-plugin-toggle {
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.toggle input,
+.settings-plugin-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-track,
+.settings-plugin-toggle-track {
+  display: block;
+  width: 36px;
+  height: 20px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  position: relative;
+  transition: background var(--duration-slow), border-color var(--duration-slow);
+}
+
+.toggle-track::after,
+.settings-plugin-toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-elevation-xs);
+  transition: transform var(--duration-slow);
+}
+
+.toggle input:checked + .toggle-track,
+.settings-plugin-toggle input:checked + .settings-plugin-toggle-track {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.toggle input:checked + .toggle-track::after,
+.settings-plugin-toggle input:checked + .settings-plugin-toggle-track::after {
+  transform: translateX(16px);
+}
+
+.toggle input:disabled + .toggle-track {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

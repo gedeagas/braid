@@ -1,0 +1,238 @@
+/* ─── Image attach button ─── */
+.chat-attach-btn {
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.chat-attach-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ─── Image preview strip (above textarea) ─── */
+.chat-image-previews {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  padding: var(--space-10) 18px 0;
+}
+
+.chat-image-preview {
+  position: relative;
+  flex-shrink: 0;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.chat-image-preview img {
+  display: block;
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+}
+
+.chat-image-preview-remove {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  border: none;
+  border-radius: var(--radius-lg);
+  color: #fff;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0;
+  transition: opacity var(--duration-fast);
+}
+
+.chat-image-preview:hover .chat-image-preview-remove {
+  opacity: 1;
+}
+
+.chat-image-preview-remove:hover {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+/* Drag-over overlay */
+.chat-drag-overlay {
+  position: absolute;
+  inset: 0;
+  background: var(--accent-tint-8);
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-raised);
+  pointer-events: none;
+}
+
+.chat-drag-overlay-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-10);
+  color: var(--accent);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-medium);
+}
+
+/* User message image thumbnails */
+.chat-msg-user-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  margin-bottom: var(--space-6);
+  justify-content: flex-end;
+}
+
+.chat-msg-user-image {
+  max-width: 260px;
+  max-height: 200px;
+  border-radius: var(--radius-lg);
+  object-fit: cover;
+  border: 1px solid var(--overlay-8);
+  display: block;
+  cursor: pointer;
+  transition: opacity var(--duration-normal);
+}
+
+.chat-msg-user-image:hover {
+  opacity: 0.9;
+}
+
+/* Image Lightbox */
+.image-lightbox-root {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-lightbox);
+}
+
+.image-lightbox-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+
+.image-lightbox-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.image-lightbox-container:active {
+  cursor: grabbing;
+}
+
+.image-lightbox-img {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: var(--radius);
+  user-select: none;
+  transform-origin: center center;
+  will-change: transform;
+}
+
+/* Controls overlay — no-drag so Electron doesn't swallow clicks */
+.image-lightbox-controls {
+  -webkit-app-region: no-drag;
+  position: absolute;
+  top: var(--safe-area-top);
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: var(--space-8) var(--space-20);
+  pointer-events: none;
+  z-index: var(--z-base);
+}
+
+.image-lightbox-close {
+  -webkit-app-region: no-drag;
+  pointer-events: auto;
+  margin-left: auto;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #fff;
+  font-size: var(--text-5xl);
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: background var(--duration-normal);
+}
+
+.image-lightbox-close:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.image-lightbox-zoom-badge {
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  padding: var(--space-4) var(--space-10);
+  border-radius: var(--radius);
+  user-select: none;
+  opacity: 0;
+  transition: opacity var(--duration-slow);
+}
+
+.image-lightbox-zoom-badge.visible {
+  opacity: 1;
+}
+
+.image-lightbox-hint {
+  -webkit-app-region: no-drag;
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: var(--text-base);
+  padding: var(--space-8) var(--space-16);
+  border-radius: var(--radius-lg);
+  pointer-events: none;
+  user-select: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  white-space: nowrap;
+}
+
+.image-lightbox-hint.visible {
+  opacity: 1;
+}
+
+.image-lightbox-hint-sep {
+  width: 3px;
+  height: 3px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.4);
+  flex-shrink: 0;
+}

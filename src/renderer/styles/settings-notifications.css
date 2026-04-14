@@ -1,0 +1,110 @@
+/* ── Volume Slider (Settings > Notifications) ───────────────────────── */
+
+.settings-volume-slider {
+  flex: 1;
+  height: 4px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.settings-volume-pct {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  min-width: 32px;
+  text-align: right;
+}
+
+/* ── Toast Preview (Settings > Notifications) ────────────────────────── */
+
+.toast-preview-area {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-10);
+  padding: var(--space-14) var(--space-16);
+  margin: -8px 0 -4px;
+  border-radius: var(--radius-lg);
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 6px,
+    var(--overlay-3) 6px,
+    var(--overlay-3) 7px
+  );
+  border: 1px dashed var(--border);
+  transition: opacity var(--duration-slow);
+}
+
+.toast-preview-area--disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.toast-preview {
+  background: var(--green-tint-10);
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--olive);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-elevation-lg);
+  pointer-events: none;
+  transition: width var(--duration-slower) ease, padding var(--duration-slower) ease;
+}
+
+.toast-preview__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.toast-preview__icon {
+  flex-shrink: 0;
+  color: var(--olive);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+}
+
+.toast-preview__title {
+  flex: 1;
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: font-size var(--duration-slower) ease;
+}
+
+.toast-preview__dismiss {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: var(--text-lg);
+  line-height: 1;
+  opacity: 0.5;
+}
+
+.toast-preview__detail {
+  margin-top: var(--space-2);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: font-size var(--duration-slower) ease, padding-left var(--duration-slower) ease;
+}
+
+.toast-preview__progress {
+  margin-top: var(--space-6);
+  height: 2px;
+  border-radius: 1px;
+  background: var(--olive);
+  opacity: 0.5;
+  width: 65%;
+}
+
+.toast-preview__width-label {
+  flex-shrink: 0;
+  align-self: center;
+  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  opacity: 0.7;
+  transition: opacity var(--duration-slow);
+}

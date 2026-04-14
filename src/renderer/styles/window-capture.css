@@ -1,0 +1,188 @@
+/* ─── Window Capture Tab ───────────────────────────────────────────────────── */
+
+.wincap-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.wincap-centered {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  flex: 1;
+  color: var(--text-secondary);
+}
+
+/* Header bar (when streaming) */
+.wincap-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-6) var(--space-12);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  flex-shrink: 0;
+}
+
+.wincap-header-name {
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Stream container */
+.wincap-stream-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  overflow: hidden;
+}
+
+.wincap-video {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* Source list */
+.wincap-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-8) var(--space-12);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.wincap-list-title {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+}
+
+.wincap-source-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.wincap-source-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+  padding: var(--space-8);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.wincap-source-item:hover {
+  background: var(--bg-hover);
+}
+
+.wincap-thumbnail {
+  width: 120px;
+  height: 90px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  object-fit: contain;
+  background: #000;
+  flex-shrink: 0;
+}
+
+.wincap-source-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  flex: 1;
+}
+
+.wincap-source-name {
+  font-size: var(--text-md);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wincap-source-app {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+}
+
+/* Action buttons */
+.wincap-action-btn {
+  font-size: var(--text-base);
+  padding: var(--space-3) var(--space-10);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.wincap-action-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.wincap-connect-btn {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.wincap-connect-btn:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.wincap-disconnect-btn {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.wincap-disconnect-btn:hover {
+  background: var(--red);
+  color: #fff;
+}
+
+/* Empty / loading / error states */
+.wincap-empty-title {
+  font-size: var(--text-lg);
+  color: var(--text-secondary);
+}
+
+.wincap-empty-hint {
+  font-size: var(--text-base);
+  color: var(--text-tertiary);
+  text-align: center;
+  max-width: 280px;
+}
+
+.wincap-loading-text {
+  font-size: var(--text-md);
+  color: var(--text-tertiary);
+}
+
+.wincap-error-text {
+  font-size: var(--text-md);
+  color: var(--red);
+  text-align: center;
+  max-width: 280px;
+}

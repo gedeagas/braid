@@ -1,0 +1,285 @@
+/* ─── Notes view ────────────────────────────────────────────────────────────── */
+
+.notes-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: var(--text-md);
+}
+
+/* ── Toolbar ─────────────────────────────────────────────────────────────── */
+
+.notes-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  min-height: 33px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.notes-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.notes-tb-group {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+}
+
+.notes-tb-right {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.notes-tb-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  width: 26px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--text-base);
+  transition: background var(--duration-instant), color var(--duration-instant);
+  font-family: inherit;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.notes-tb-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.notes-tb-btn--active {
+  background: var(--accent-tint-10);
+  color: var(--accent);
+}
+
+.notes-tb-btn:disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.notes-tb-level {
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  margin-left: -1px;
+}
+
+.notes-tb-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--border);
+  margin: 0 var(--space-4);
+  flex-shrink: 0;
+}
+
+.notes-save-status {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  padding: 0 var(--space-4);
+  flex-shrink: 0;
+}
+
+.notes-save-status--saved {
+  color: var(--green);
+}
+
+/* ── Editor wrapper ──────────────────────────────────────────────────────── */
+
+.notes-editor-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+}
+
+.notes-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-md);
+  color: var(--text-muted);
+  background: var(--bg-primary);
+  z-index: var(--z-base);
+}
+
+/* ── Tiptap editor root ──────────────────────────────────────────────────── */
+
+.notes-editor {
+  height: 100%;
+}
+
+.notes-editor .ProseMirror {
+  min-height: 100%;
+  padding: var(--space-14) var(--space-16) var(--space-32);
+  outline: none;
+  font-size: var(--text-md);
+  line-height: 1.75;
+  color: var(--text-primary);
+  caret-color: var(--accent);
+}
+
+/* Placeholder */
+.notes-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+/* ── Prose elements ──────────────────────────────────────────────────────── */
+
+.notes-editor .ProseMirror > * + * {
+  margin-top: 0.5em;
+}
+
+.notes-editor .ProseMirror p {
+  margin: 0;
+}
+
+.notes-editor .ProseMirror h1,
+.notes-editor .ProseMirror h2,
+.notes-editor .ProseMirror h3,
+.notes-editor .ProseMirror h4 {
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  line-height: 1.3;
+  margin: 1.1em 0 0.3em;
+}
+
+.notes-editor .ProseMirror h1 { font-size: var(--text-3xl); }
+.notes-editor .ProseMirror h2 { font-size: var(--text-xl); }
+.notes-editor .ProseMirror h3 { font-size: var(--text-md); }
+.notes-editor .ProseMirror h4 { font-size: var(--text-base); text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); }
+
+.notes-editor .ProseMirror strong { font-weight: var(--weight-semibold); }
+.notes-editor .ProseMirror em { font-style: italic; }
+.notes-editor .ProseMirror s { text-decoration: line-through; color: var(--text-muted); }
+
+.notes-editor .ProseMirror code {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1px var(--space-4);
+}
+
+.notes-editor .ProseMirror pre {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-10) var(--space-12);
+  overflow-x: auto;
+  margin: 0.6em 0;
+}
+
+.notes-editor .ProseMirror pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: var(--text-base);
+}
+
+.notes-editor .ProseMirror blockquote {
+  border-left: 3px solid var(--border);
+  margin: 0.6em 0;
+  padding: var(--space-2) var(--space-12);
+  color: var(--text-secondary);
+}
+
+.notes-editor .ProseMirror hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1em 0;
+}
+
+/* Lists */
+.notes-editor .ProseMirror ul,
+.notes-editor .ProseMirror ol {
+  padding-left: 1.4em;
+  margin: 0.3em 0;
+}
+
+.notes-editor .ProseMirror li {
+  margin-bottom: 0.1em;
+}
+
+.notes-editor .ProseMirror li > p {
+  margin: 0;
+}
+
+/* Task list */
+.notes-editor .ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.notes-editor .ProseMirror ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-6);
+}
+
+.notes-editor .ProseMirror ul[data-type="taskList"] li > label {
+  flex-shrink: 0;
+  margin-top: var(--space-3);
+}
+
+.notes-editor .ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"] {
+  width: 13px;
+  height: 13px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.notes-editor .ProseMirror ul[data-type="taskList"] li > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.notes-editor .ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+/* Images */
+.notes-editor .ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+  display: block;
+  margin: var(--space-4) 0;
+}
+
+.notes-editor .ProseMirror img.ProseMirror-selectednode {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Selection */
+.notes-editor .ProseMirror ::selection {
+  background: var(--accent-tint-22);
+}

@@ -1,0 +1,216 @@
+/* ─── PR Merge Bar ─────────────────────────────────────────────────────────── */
+
+@keyframes pr-merge-fadein {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes pr-merge-dropdown-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.pr-merge-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+  padding: 0 var(--space-14);
+  height: 48px;
+  flex-shrink: 0;
+  -webkit-app-region: drag;
+  animation: pr-merge-fadein var(--duration-slow) ease-out;
+  transition: background var(--duration-normal), border-color var(--duration-normal);
+}
+
+/* ─── Adaptive bar backgrounds ────────────────────────────────────────────── */
+
+.pr-merge-bar--clean {
+  background: var(--green-tint-8, rgba(63, 185, 80, 0.08));
+  border-bottom: 1px solid var(--green-tint-15, rgba(63, 185, 80, 0.15));
+}
+
+.pr-merge-bar--warning {
+  background: var(--amber-tint-8, rgba(230, 162, 60, 0.08));
+  border-bottom: 1px solid var(--amber-tint-15, rgba(230, 162, 60, 0.15));
+}
+
+.pr-merge-bar--danger {
+  background: var(--red-tint-8, rgba(248, 81, 73, 0.08));
+  border-bottom: 1px solid var(--red-tint-15, rgba(248, 81, 73, 0.15));
+}
+
+.pr-merge-bar--draft {
+  background: var(--overlay-6, rgba(128, 128, 128, 0.06));
+  border-bottom: 1px solid var(--border);
+}
+
+.pr-merge-bar--merged {
+  background: var(--purple-tint-8, rgba(163, 113, 247, 0.08));
+  border-bottom: 1px solid var(--purple-tint-20, rgba(163, 113, 247, 0.2));
+}
+
+/* ─── PR badge (number + link) ────────────────────────────────────────────── */
+
+.pr-merge-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: var(--text-base);
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: color var(--duration-instant);
+  -webkit-app-region: no-drag;
+}
+
+.pr-merge-badge:hover {
+  color: var(--text-primary);
+}
+
+.pr-merge-badge-link-icon {
+  opacity: 0.5;
+  transition: opacity var(--duration-instant);
+}
+
+.pr-merge-badge:hover .pr-merge-badge-link-icon {
+  opacity: 0.8;
+}
+
+/* ─── Status line ─────────────────────────────────────────────────────────── */
+
+.pr-merge-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  font-size: var(--text-md);
+  color: var(--text-primary);
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.pr-merge-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+/* ─── Block reason pills ──────────────────────────────────────────────────── */
+
+.pr-merge-block-reasons {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.pr-merge-block-pill {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  background: var(--overlay-6);
+  padding: var(--space-1) var(--space-6);
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ─── Error badge ─────────────────────────────────────────────────────────── */
+
+.pr-merge-error {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--text-sm);
+  color: var(--red);
+  background: var(--red-tint-10, rgba(248, 81, 73, 0.1));
+  padding: var(--space-2) var(--space-8);
+  border-radius: var(--radius-pill);
+  flex-shrink: 0;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ─── Merge button ────────────────────────────────────────────────────────── */
+
+.pr-merge-btn-wrap {
+  position: relative;
+  flex-shrink: 0;
+  margin-left: auto;
+  -webkit-app-region: no-drag;
+}
+
+.pr-merge-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  padding: var(--space-4) var(--space-10);
+  border-radius: var(--radius);
+  border: 1px solid var(--green-tint-30, rgba(63, 185, 80, 0.3));
+  background: var(--green-tint-15, rgba(63, 185, 80, 0.15));
+  color: var(--green);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--duration-instant), border-color var(--duration-instant);
+}
+
+.pr-merge-btn:hover:not(:disabled) {
+  background: var(--green-tint-25, rgba(63, 185, 80, 0.25));
+  border-color: var(--green);
+}
+
+.pr-merge-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ─── Strategy dropdown ───────────────────────────────────────────────────── */
+
+.pr-merge-dropdown {
+  position: absolute;
+  top: calc(100% + var(--space-4));
+  right: 0;
+  z-index: var(--z-dropdown);
+  min-width: 180px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-elevation-lg);
+  overflow: hidden;
+  animation: pr-merge-dropdown-in var(--duration-normal) ease-out;
+}
+
+.pr-merge-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: var(--space-8) var(--space-12);
+  font-size: var(--text-md);
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--duration-instant);
+}
+
+.pr-merge-dropdown-item:hover {
+  background: var(--bg-hover);
+}
+
+.pr-merge-dropdown-item + .pr-merge-dropdown-item {
+  border-top: 1px solid var(--border);
+}
+
+/* ─── Mark-as-ready button override ───────────────────────────────────────── */
+
+.pr-merge-bar .btn {
+  -webkit-app-region: no-drag;
+  margin-left: auto;
+}

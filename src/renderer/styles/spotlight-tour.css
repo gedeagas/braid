@@ -1,0 +1,169 @@
+/* ── Spotlight Tour ────────────────────────────────────────────────────────── */
+
+.spotlight-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-lightbox);
+  pointer-events: auto;
+}
+
+.spotlight-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ── Coach Mark Card ──────────────────────────────────────────────────────── */
+
+.coach-mark {
+  position: fixed;
+  z-index: var(--z-lightbox);
+  max-width: 340px;
+  min-width: 260px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-elevation-2xl);
+  padding: var(--space-24) var(--space-24) var(--space-20);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-default);
+}
+
+.coach-mark--visible {
+  opacity: 1;
+}
+
+/* ── Arrow ────────────────────────────────────────────────────────────────── */
+
+.coach-mark__arrow {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  transform: rotate(45deg);
+}
+
+/* Arrow pointing left (card is to the right of target) */
+.coach-mark--right .coach-mark__arrow {
+  left: -7px;
+  top: 24px;
+  border-right: none;
+  border-top: none;
+}
+
+/* Arrow pointing right (card is to the left of target) */
+.coach-mark--left .coach-mark__arrow {
+  right: -7px;
+  top: 24px;
+  border-left: none;
+  border-bottom: none;
+}
+
+/* Arrow pointing up (card is below target) */
+.coach-mark--bottom .coach-mark__arrow {
+  top: -7px;
+  left: 24px;
+  border-bottom: none;
+  border-right: none;
+}
+
+/* Arrow pointing down (card is above target) */
+.coach-mark--top .coach-mark__arrow {
+  bottom: -7px;
+  left: 24px;
+  border-top: none;
+  border-left: none;
+}
+
+/* ── Text ─────────────────────────────────────────────────────────────────── */
+
+.coach-mark__title {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  line-height: var(--leading-snug);
+  margin: 0;
+}
+
+.coach-mark__description {
+  font-size: var(--text-md);
+  color: var(--text-secondary);
+  line-height: var(--leading-relaxed);
+  margin: 0;
+}
+
+/* ── Footer (dots + buttons) ──────────────────────────────────────────────── */
+
+.coach-mark__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  margin-top: var(--space-4);
+}
+
+.coach-mark__dots {
+  display: flex;
+  gap: var(--space-5);
+  align-items: center;
+}
+
+.coach-mark__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--border);
+  transition: all var(--duration-normal) var(--ease-default);
+}
+
+.coach-mark__dot--active {
+  width: 18px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+
+.coach-mark__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.coach-mark__skip {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--radius);
+  transition: color var(--duration-fast) var(--ease-default);
+}
+
+.coach-mark__skip:hover {
+  color: var(--text-secondary);
+}
+
+/* ── Entry / exit animations ──────────────────────────────────────────────── */
+
+@keyframes spotlight-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes spotlight-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.spotlight-overlay--entering {
+  animation: spotlight-fade-in var(--duration-slow) var(--ease-default) forwards;
+}
+
+.spotlight-overlay--exiting {
+  animation: spotlight-fade-out var(--duration-slow) var(--ease-default) forwards;
+  pointer-events: none;
+}

@@ -1,0 +1,28 @@
+{
+  "title": "Pintasan Keyboard",
+  "searchPlaceholder": "Cari pintasan...",
+  "categories": {
+    "general": "Umum",
+    "view": "Tampilan",
+    "navigation": "Navigasi"
+  },
+  "openSettings": "Buka Pengaturan",
+  "showShortcuts": "Pintasan Keyboard",
+  "toggleMissionControl": "Tampilkan/Sembunyikan Mission Control",
+  "toggleSidebar": "Tampilkan/Sembunyikan Sidebar Kiri",
+  "toggleRightPanel": "Tampilkan/Sembunyikan Panel Kanan",
+  "zoomIn": "Perbesar",
+  "zoomOut": "Perkecil",
+  "zoomReset": "Reset Zoom",
+  "toggleTerminal": "Tampilkan/Sembunyikan Terminal",
+  "newChatTab": "Tab Chat Baru",
+  "closeTab": "Tutup Tab Saat Ini",
+  "previousTab": "Tab Sebelumnya",
+  "nextTab": "Tab Selanjutnya",
+  "goToTab": "Pergi ke Tab 1-9",
+  "quickOpen": "Buka File Cepat",
+  "focusChat": "Fokus Input Chat",
+  "saveFile": "Simpan File",
+  "noResults": "Tidak ada pintasan yang cocok dengan \"{{query}}\"",
+  "empty": "Tidak ada pintasan"
+}

@@ -1,0 +1,147 @@
+/* ══════════════════════════════════════════════════════════════════
+   Theme Dialog
+   ══════════════════════════════════════════════════════════════════ */
+
+.theme-dialog {
+  max-width: 560px;
+  min-width: 460px;
+}
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: var(--space-10);
+  margin-bottom: 18px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.theme-swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-10) var(--space-8);
+  border-radius: var(--radius);
+  border: 2px solid transparent;
+  background: var(--bg-tertiary);
+  cursor: pointer;
+  transition: border-color var(--duration-fast), background var(--duration-fast);
+  position: relative;
+}
+
+.theme-swatch:hover {
+  background: var(--bg-hover);
+}
+
+.theme-swatch--active {
+  border-color: var(--accent);
+}
+
+.theme-swatch-colors {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  width: 48px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.theme-swatch-color {
+  width: 100%;
+  height: 100%;
+}
+
+.theme-swatch-name {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.theme-swatch--active .theme-swatch-name {
+  color: var(--accent);
+  font-weight: var(--weight-semibold);
+}
+
+.theme-swatch-delete {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-size: var(--text-base);
+  line-height: 1;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.theme-swatch:hover .theme-swatch-delete {
+  display: flex;
+}
+
+.theme-swatch-delete:hover {
+  background: var(--red-tint-15);
+  color: var(--red);
+}
+
+.theme-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-8);
+}
+
+/* ── Language selector ─────────────────────────────────────────────────── */
+.theme-dialog-section {
+  margin-top: var(--space-20);
+  padding-top: var(--space-16);
+  border-top: 1px solid var(--border);
+}
+
+.theme-dialog-section-title {
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-10);
+}
+
+.language-selector {
+  display: flex;
+  gap: var(--space-8);
+}
+
+.language-btn {
+  flex: 1;
+  padding: var(--space-6) var(--space-12);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: var(--text-md);
+  cursor: pointer;
+  transition: background var(--duration-instant), color var(--duration-instant), border-color var(--duration-instant);
+}
+
+.language-btn:hover {
+  background: var(--bg-hover, var(--bg-secondary));
+  color: var(--text-primary);
+}
+
+.language-btn--active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+

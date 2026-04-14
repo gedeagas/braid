@@ -1,0 +1,60 @@
+/* Log viewer */
+.checks-log-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-12);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.checks-log-back {
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-2) var(--space-6);
+  border-radius: var(--radius);
+  flex-shrink: 0;
+  transition: color var(--duration-instant);
+}
+
+.checks-log-back:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.checks-log-title {
+  flex: 1;
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.checks-log-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-8) 0;
+}
+
+.checks-log-loading {
+  padding: var(--space-12) var(--space-14);
+  font-size: var(--text-base);
+  color: var(--text-muted);
+}
+
+.checks-log-pre {
+  margin: 0;
+  padding: var(--space-4) var(--space-14) var(--space-12);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  line-height: 1.6;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+

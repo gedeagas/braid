@@ -1,0 +1,123 @@
+{
+  "cancel": "Batal",
+  "save": "Simpan",
+  "close": "Tutup",
+  "delete": "Hapus",
+  "add": "Tambah",
+  "create": "Buat",
+  "creating": "Membuat…",
+  "edit": "Edit",
+  "refresh": "Muat Ulang",
+  "browse": "Jelajahi",
+  "copy": "Salin",
+  "copied": "Tersalin",
+  "remove": "Hapus",
+  "submit": "Kirim",
+  "approve": "Setujui",
+  "reject": "Tolak",
+  "loading": "Memuat…",
+  "language": "Bahasa",
+  "english": "English",
+  "japanese": "日本語",
+  "importVSCodeTheme": "Impor Tema VSCode",
+  "theme": "Tema",
+  "removeTheme": "Hapus tema",
+  "toastDone": "Tugas selesai",
+  "toastError": "Agen berhenti — butuh bantuan",
+  "toastQuestion": "Agen memiliki pertanyaan",
+  "toastPlanReady": "Rencana siap untuk ditinjau",
+  "toastWaitingInput": "Input diperlukan",
+  "toastErrorCount": "{{count}} sesi membutuhkan perhatian",
+  "toastWaitingInputCount": "{{count}} sesi menunggu Anda",
+  "onboarding": {
+    "welcome": {
+      "title": "Selamat Datang di Braid",
+      "subtitle": "Ruang kerja Git bertenaga AI",
+      "description": "Braid menggabungkan Claude AI dengan Git worktree sehingga Anda bisa menjalankan beberapa agen coding secara paralel — masing-masing di cabangnya sendiri.",
+      "getStarted": "Mulai"
+    },
+    "doctor": {
+      "title": "Pemeriksaan Lingkungan",
+      "subtitle": "Memastikan semua alat Anda siap",
+      "retry": "Coba lagi",
+      "continue": "Lanjutkan",
+      "continueAnyway": "Lanjutkan saja",
+      "optional": "opsional",
+      "install": "Instal",
+      "installing": "Menginstal…",
+      "openDocs": "Buka docs",
+      "logIn": "Masuk",
+      "progressGit": "Menginstal Xcode tools…",
+      "progressClaude": "Menginstal Claude Code…",
+      "progressGh": "Menginstal GitHub CLI…",
+      "progressGhAuth": "Menunggu autentikasi browser…",
+      "progressAcli": "Menginstal Atlassian CLI…"
+    },
+    "project": {
+      "title": "Tambahkan Proyek Pertama",
+      "subtitle": "Buka repo Git lokal atau klon dari GitHub",
+      "openProject": "Buka Proyek",
+      "skip": "Lewati untuk sekarang"
+    }
+  },
+  "ghAuth": {
+    "title": "Masuk ke GitHub",
+    "instruction": "Masukkan kode ini di GitHub untuk menghubungkan akun Anda.",
+    "copied": "Kode disalin ke clipboard",
+    "polling": "Menunggu otorisasi…",
+    "openGitHub": "Buka GitHub",
+    "success": "Berhasil diautentikasi!",
+    "expired": "Kode kedaluwarsa",
+    "error": "Autentikasi gagal",
+    "retry": "Coba lagi",
+    "configuring": "Mengonfigurasi GitHub CLI…"
+  },
+  "tour": {
+    "next": "Berikutnya",
+    "back": "Kembali",
+    "skip": "Lewati tur",
+    "done": "Mengerti!",
+    "sidebar": {
+      "title": "Proyek Anda",
+      "description": "Proyek dan worktree Anda ada di sini. Setiap worktree adalah cabang terisolasi yang bisa Anda kerjakan secara bersamaan."
+    },
+    "addWorktree": {
+      "title": "Buat Worktree",
+      "description": "Buat worktree baru untuk mulai bekerja pada sebuah cabang. Setiap worktree adalah salinan terisolasi dari repo Anda."
+    },
+    "chatPanel": {
+      "title": "Chat dengan Claude",
+      "description": "Chat dengan Claude untuk menulis kode, memperbaiki bug, dan membangun fitur. Gunakan @ untuk menyebut file dan / untuk perintah."
+    },
+    "sessionTabs": {
+      "title": "Tab Sesi & File",
+      "description": "Jalankan beberapa sesi chat per worktree. Buka file sebagai tab editor bersamaan dengan chat Anda."
+    },
+    "rightPanel": {
+      "title": "File, Perubahan & Pemeriksaan",
+      "description": "Jelajahi file proyek, lihat perubahan git, dan pantau status CI — semua dalam satu panel."
+    },
+    "terminal": {
+      "title": "Terminal Terintegrasi",
+      "description": "Jalankan perintah, lihat log, dan eksekusi skrip tanpa meninggalkan aplikasi."
+    },
+    "missionControl": {
+      "title": "Mission Control",
+      "description": "Lihat semua worktree Anda sekaligus. Lacak sesi yang berjalan, PR, dan status CI di seluruh proyek."
+    },
+    "simulator": {
+      "intro": {
+        "title": "Pratinjau Simulator",
+        "description": "Pratinjau dan kontrol simulator iOS & Android langsung di Braid. Ketuk, geser, dan ketik di layar perangkat secara langsung."
+      },
+      "devices": {
+        "title": "Perangkat Anda",
+        "description": "Di sini muncul simulator yang tersedia. Nyalakan perangkat untuk memulai, lalu hubungkan untuk mulai streaming."
+      },
+      "connect": {
+        "title": "Nyalakan & Hubungkan",
+        "description": "Ketuk Nyalakan untuk memulai perangkat, lalu Hubungkan untuk streaming layarnya. Anda juga bisa menautkannya ke chat agar Claude bisa melihat UI."
+      }
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "title": "キーボードショートカット",
+  "searchPlaceholder": "ショートカットを検索...",
+  "categories": {
+    "general": "一般",
+    "view": "表示",
+    "navigation": "ナビゲーション"
+  },
+  "openSettings": "設定を開く",
+  "showShortcuts": "キーボードショートカット",
+  "toggleMissionControl": "ミッションコントロールの切り替え",
+  "toggleSidebar": "左サイドバーの切り替え",
+  "toggleRightPanel": "右パネルの切り替え",
+  "zoomIn": "拡大",
+  "zoomOut": "縮小",
+  "zoomReset": "ズームをリセット",
+  "toggleTerminal": "ターミナルの切り替え",
+  "newChatTab": "新しいチャットタブ",
+  "closeTab": "現在のタブを閉じる",
+  "previousTab": "前のタブ",
+  "nextTab": "次のタブ",
+  "goToTab": "タブ1-9に移動",
+  "quickOpen": "ファイルを開く",
+  "focusChat": "チャット入力にフォーカス",
+  "saveFile": "ファイルを保存",
+  "noResults": "「{{query}}」に一致するショートカットはありません",
+  "empty": "ショートカットはありません"
+}

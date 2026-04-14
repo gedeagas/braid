@@ -1,0 +1,342 @@
+/* ── Discovery Pattern Tags ─────────────────────────────────────────── */
+
+.settings-patterns-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  margin-bottom: var(--space-8);
+}
+
+.settings-pattern-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-8);
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: var(--text-base);
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+.settings-pattern-tag-text {
+  user-select: all;
+}
+
+.settings-pattern-tag-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0 var(--space-2);
+  font-size: var(--text-lg);
+  line-height: 1;
+}
+
+.settings-pattern-tag-remove:hover {
+  color: var(--red);
+}
+
+.settings-pattern-add {
+  display: flex;
+  gap: var(--space-6);
+}
+
+.settings-pattern-add .settings-input {
+  flex: 1;
+}
+
+/* ── LSP Settings (Project Settings) ───────────────────────────────── */
+
+.settings-lsp-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-16);
+}
+
+.settings-lsp-toggle-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  flex-shrink: 0;
+  padding-top: var(--space-2);
+}
+
+.settings-lsp-remove-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-8);
+  flex-shrink: 0;
+  transition: color var(--duration-instant), border-color var(--duration-instant), background var(--duration-instant);
+}
+
+.settings-lsp-remove-btn:hover {
+  color: var(--red, #f85149);
+  border-color: var(--red, #f85149);
+  background: var(--red-tint-10, rgba(255, 0, 0, 0.06));
+}
+
+/* ── Git Identity (Project Settings) ───────────────────────────────── */
+
+.settings-git-identity-toggle-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-16);
+}
+
+.settings-git-identity-error {
+  display: block;
+  font-size: var(--text-sm);
+  color: var(--red, #f85149);
+  margin-top: var(--space-3);
+}
+
+.settings-git-identity-save-btn {
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius);
+  color: white;
+  cursor: pointer;
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  padding: var(--space-6) var(--space-14);
+  transition: opacity var(--duration-normal);
+}
+
+.settings-git-identity-save-btn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.settings-git-identity-save-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+/* ── Script Monaco Editor ────────────────────────────────────────────── */
+
+.settings-script-editor {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.settings-script-placeholder {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: var(--text-md);
+  color: var(--text-muted);
+  pointer-events: none;
+  opacity: 0.6;
+  font-family: var(--font-mono);
+  white-space: pre-line;
+}
+
+.settings-run-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--green, #3fb950);
+  cursor: pointer;
+  font-size: var(--text-base);
+  padding: var(--space-3) var(--space-10);
+  transition: background var(--duration-instant), border-color var(--duration-instant);
+}
+
+.settings-run-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--green, #3fb950);
+}
+
+.settings-run-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* ── Path display with Open In button ──────────────────────────────── */
+
+.settings-path-row {
+  display: flex;
+  gap: var(--space-6);
+  align-items: center;
+}
+
+.settings-path-display {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-6) var(--space-10);
+  font-size: var(--text-md);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: all;
+}
+
+.settings-path-display.placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.open-in-trigger {
+  -webkit-app-region: no-drag;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--duration-instant), color var(--duration-instant);
+}
+
+.open-in-trigger:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.open-in-trigger-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* ── Split trigger (labeled mode in CenterPanel header) ──────────── */
+
+.open-in-split {
+  -webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
+  height: 30px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  overflow: hidden;
+  flex-shrink: 0;
+  margin-right: var(--space-2);
+}
+
+.open-in-split-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 0 var(--space-8);
+  height: 100%;
+  border: none;
+  background: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--text-md);
+  max-width: 160px;
+  transition: background var(--duration-instant), color var(--duration-instant);
+}
+
+.open-in-split-label:hover {
+  background: var(--bg-hover);
+}
+
+.open-in-split-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: var(--radius-xs);
+}
+
+.open-in-split-slash {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.open-in-split-chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 100%;
+  border: none;
+  border-left: 1px solid var(--border);
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--duration-instant), color var(--duration-instant);
+}
+
+.open-in-split-chevron:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* ── App items in dropdown ────────────────────────────────────────── */
+
+.open-in-app-item {
+  display: flex !important;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.open-in-app-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: var(--radius-xs);
+}
+
+.open-in-app-icon-placeholder {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.open-in-app-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.open-in-check {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.settings-browse-btn {
+  flex-shrink: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--text-base);
+  padding: var(--space-6) var(--space-12);
+  transition: background var(--duration-instant), color var(--duration-instant);
+}
+
+.settings-browse-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}

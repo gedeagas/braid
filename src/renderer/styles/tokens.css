@@ -1,0 +1,112 @@
+/* ── Design Tokens ────────────────────────────────────────────────────
+ *
+ * Two layers:
+ *   1. Primitive scale tokens — raw values on a named scale
+ *   2. Semantic tokens — purpose-mapped aliases
+ *
+ * Color tokens are NOT here — they are generated at runtime
+ * by applyTheme() in themes/apply.ts.
+ */
+
+:root {
+  /* ── Spacing ──────────────────────────────────────────────────────── */
+  --space-0: 0px;
+  --space-1: 1px;
+  --space-2: 2px;
+  --space-3: 3px;
+  --space-4: 4px;
+  --space-5: 5px;
+  --space-6: 6px;
+  --space-7: 7px;
+  --space-8: 8px;
+  --space-10: 10px;
+  --space-12: 12px;
+  --space-14: 14px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-28: 28px;
+  --space-32: 32px;
+  --space-40: 40px;
+
+  /* Semantic spacing */
+  --space-section-gap: var(--space-20);
+  --space-card-pad: var(--space-16);
+  --space-field-gap: var(--space-6);
+  --space-inline-gap: var(--space-8);
+  --space-list-gap: var(--space-4);
+
+  /* ── Typography ───────────────────────────────────────────────────── */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'Menlo', 'Monaco', 'Courier New', monospace;
+
+  --text-2xs: 9px;
+  --text-xs: 10px;
+  --text-sm: 11px;
+  --text-base: 12px;
+  --text-md: 13px;
+  --text-lg: 14px;
+  --text-xl: 15px;
+  --text-2xl: 16px;
+  --text-3xl: 17px;
+  --text-4xl: 20px;
+  --text-5xl: 28px;
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --leading-none: 1;
+  --leading-tight: 1.3;
+  --leading-snug: 1.4;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.55;
+  --leading-loose: 1.65;
+
+  /* ── Border Radius ────────────────────────────────────────────────── */
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-pill: 100px;
+  --radius-full: 50%;
+
+  /* ── Elevation / Shadows ──────────────────────────────────────────── */
+  /* Composed from opacity primitives set by applyTheme() */
+  --shadow-elevation-xs: 0 1px 3px var(--shadow-20);
+  --shadow-elevation-sm: 0 4px 12px var(--shadow-35);
+  --shadow-elevation-md: 0 6px 20px var(--shadow-35);
+  --shadow-elevation-lg: 0 8px 24px var(--shadow-40);
+  --shadow-elevation-xl: 0 12px 40px var(--shadow-45);
+  --shadow-elevation-2xl: 0 16px 48px var(--shadow-35), 0 4px 16px var(--shadow-20);
+  --shadow-focus: 0 0 0 2px var(--accent-tint-15);
+
+  /* ── Animation ────────────────────────────────────────────────────── */
+  --duration-instant: 0.1s;
+  --duration-fast: 0.12s;
+  --duration-normal: 0.15s;
+  --duration-slow: 0.2s;
+  --duration-slower: 0.25s;
+  --duration-shimmer: 1.5s;
+
+  --ease-default: ease;
+  --ease-out: ease-out;
+  --ease-in-out: ease-in-out;
+
+  /* ── Z-Index ──────────────────────────────────────────────────────── */
+  --z-base: 1;
+  --z-raised: 10;
+  --z-dropdown: 50;
+  --z-sticky: 100;
+  --z-overlay: 200;
+  --z-modal: 250;
+  --z-toast: 500;
+  --z-flash: 600;
+  --z-popover: 1000;
+  --z-lightbox: 9999;
+
+  /* ── Layout ───────────────────────────────────────────────────────── */
+  --safe-area-top: 48px;
+}

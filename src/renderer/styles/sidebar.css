@@ -1,0 +1,491 @@
+/* Project list */
+.project-group {
+  margin-bottom: var(--space-4);
+}
+
+.project-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-6) var(--space-8);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  user-select: none;
+}
+
+.project-header:hover {
+  background: var(--bg-hover);
+}
+
+.project-chevron {
+  font-size: var(--text-base);
+  transition: transform var(--duration-normal);
+  color: var(--text-muted);
+}
+
+.project-chevron.expanded {
+  transform: rotate(90deg);
+}
+
+.worktree-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-6) var(--space-8) var(--space-6) var(--space-24);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: var(--text-lg);
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.worktree-row:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.worktree-row.selected {
+  background: var(--accent-tint-15);
+  color: var(--text-primary);
+}
+
+/* Status dot */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+/* Badge variant — dot grows into a numbered circle */
+.status-dot.status-badge {
+  width: 16px;
+  height: 16px;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.02em;
+}
+
+.status-dot.status-badge.inactive {
+  border: 1.5px solid var(--text-muted);
+  color: var(--text-muted);
+  background: transparent;
+  opacity: 0.5;
+}
+.status-dot.status-badge.idle {
+  border: 1.5px solid var(--green);
+  color: var(--green);
+  background: transparent;
+}
+.status-dot.status-badge.running {
+  border: 1.5px solid var(--amber);
+  color: var(--amber);
+  background: transparent;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+.status-dot.status-badge.waiting_input {
+  border: 1.5px solid var(--accent);
+  color: var(--accent);
+  background: transparent;
+  animation: pulse-accent 1s ease-in-out infinite;
+}
+.status-dot.status-badge.error {
+  border: 1.5px solid var(--red);
+  color: var(--red);
+  background: transparent;
+}
+
+/* Pin status dot column — wide enough for badge */
+.worktree-row > .tooltip-wrapper:first-child {
+  width: 18px;
+  min-width: 18px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status-dot.inactive { background: var(--text-muted); opacity: 0.4; }
+.status-dot.idle { background: var(--olive); }
+.status-dot.running {
+  background: var(--amber);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+.status-dot.waiting_input {
+  background: var(--accent);
+  animation: pulse-accent 1s ease-in-out infinite;
+}
+.status-dot.error { background: var(--red); }
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--amber-glow); }
+  50% { box-shadow: 0 0 0 4px var(--amber-glow); }
+}
+
+@keyframes pulse-accent {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-tint-40); }
+  50% { box-shadow: 0 0 0 4px var(--accent-tint-40); }
+}
+
+/* PR icon */
+.pr-icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.worktree-row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-shrink: 0;
+  justify-content: flex-end;
+}
+
+.worktree-badge {
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+
+/* Buttons */
+.btn {
+  padding: var(--space-7) var(--space-14);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: var(--text-md);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  transition: background var(--duration-normal);
+}
+
+.btn:hover {
+  background: var(--bg-hover);
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn-danger {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+}
+
+.btn-danger:hover {
+  background: var(--red-tint-35, #da3633);
+}
+
+.btn-icon {
+  padding: var(--space-5) var(--space-7);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius);
+  font-size: var(--text-3xl);
+}
+
+.btn-icon:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.btn-icon-sm {
+  padding: var(--space-3) var(--space-5);
+  font-size: var(--text-xl);
+  opacity: 0;
+  transition: opacity var(--duration-instant);
+}
+
+.project-header:hover .btn-icon-sm {
+  opacity: 1;
+}
+
+/* Badge component */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--weight-medium);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+.badge--md { font-size: var(--text-sm); padding: var(--space-1) var(--space-6); }
+.badge--sm { font-size: var(--text-xs); padding: var(--space-1) var(--space-4); }
+.badge--default { background: var(--bg-tertiary); color: var(--text-secondary); }
+.badge--accent { background: var(--accent-tint-15); color: var(--accent); }
+.badge--success { background: var(--green-tint-15); color: var(--green); }
+.badge--warning { background: var(--amber-tint-15); color: var(--amber); }
+.badge--danger { background: var(--red-tint-15); color: var(--red); }
+.badge--muted { background: var(--overlay-6); color: var(--text-muted); }
+
+.project-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-shrink: 0;
+}
+
+.project-count {
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  font-weight: var(--weight-normal);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Feature 1 — Pin / Star Worktrees
+   ══════════════════════════════════════════════════════════════════ */
+
+.worktree-pin {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  padding: 0 var(--space-2);
+  line-height: 1;
+  flex-shrink: 0;
+  opacity: 0;
+  transform: scale(0.5);
+  transition: opacity var(--duration-fast) ease, transform var(--duration-fast) ease;
+  pointer-events: none;
+}
+
+.worktree-row:hover .worktree-pin {
+  opacity: 0.5;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+.worktree-pin:hover {
+  color: var(--accent) !important;
+  opacity: 1 !important;
+}
+
+/* Always visible and accented when pinned */
+.worktree-pin.pinned {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+  color: var(--accent);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Worktree drag-reorder
+   ══════════════════════════════════════════════════════════════════ */
+
+.worktree-row[draggable='true'] {
+  cursor: grab;
+}
+
+.worktree-row[draggable='true']:active {
+  cursor: grabbing;
+}
+
+/* Row being dragged fades — mirrors the project / tab DnD pattern */
+.worktree-row--dragging {
+  opacity: 0.4;
+}
+
+/* Drop target shows a top border accent line */
+.worktree-row--drop-target {
+  box-shadow: inset 0 2px 0 var(--accent);
+  border-radius: var(--radius);
+}
+
+/* Newly added worktree — brief highlight glow that fades out.
+   Skip animation when selected (`.selected` already provides accent background). */
+.worktree-row--new:not(.selected) {
+  animation: worktree-highlight 2s ease-out;
+}
+
+/* When selected, only show the left accent bar (no background animation needed) */
+.worktree-row--new.selected {
+  animation: worktree-highlight-bar 2s ease-out;
+}
+
+@keyframes worktree-highlight-bar {
+  0%  { box-shadow: inset 3px 0 0 var(--accent); }
+  70% { box-shadow: inset 3px 0 0 var(--accent); }
+  100% { box-shadow: none; }
+}
+
+@keyframes worktree-highlight {
+  0% {
+    background: var(--accent-tint-15);
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+  70% {
+    background: var(--accent-tint-15);
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+  100% {
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Feature 2 — Drag to Reorder Projects
+   ══════════════════════════════════════════════════════════════════ */
+
+.project-group[draggable='true'] {
+  cursor: grab;
+}
+
+.project-group[draggable='true']:active {
+  cursor: grabbing;
+}
+
+/* The project being dragged fades out (same visual as tab DnD) */
+.project-group--dragging {
+  opacity: 0.4;
+}
+
+/* Drop target gets a blue left-border accent on the header */
+.project-group--drop-target > .project-header {
+  box-shadow: inset 2px 0 0 var(--accent);
+  border-radius: var(--radius);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Feature 3 — Context Menu
+   ══════════════════════════════════════════════════════════════════ */
+
+.context-menu {
+  position: fixed;
+  z-index: var(--z-popover);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 20px var(--shadow-50), 0 1px 4px var(--shadow-35);
+  padding: var(--space-4) 0;
+  min-width: 180px;
+  font-size: var(--text-md);
+  user-select: none;
+}
+
+.context-menu-item {
+  display: block;
+  width: 100%;
+  padding: var(--space-7) var(--space-14);
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: var(--text-md);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--duration-instant);
+}
+
+.context-menu-item:hover {
+  background: var(--bg-hover);
+}
+
+.context-menu-item.danger {
+  color: var(--red);
+}
+
+.context-menu-item.danger:hover {
+  background: var(--red-tint-10);
+}
+
+.context-menu-item.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.context-menu-separator {
+  height: 1px;
+  background: var(--border);
+  margin: var(--space-4) 0;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Feature 4 — Notification Dot on Collapsed Projects
+   ══════════════════════════════════════════════════════════════════ */
+
+.project-notify-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+  margin-left: var(--space-4);
+}
+
+/* Reuses the existing pulse-accent keyframe */
+.project-notify-dot.waiting_input {
+  background: var(--accent);
+  animation: pulse-accent 1s ease-in-out infinite;
+}
+
+.project-notify-dot.error {
+  background: var(--red);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Extracted inline styles
+   ══════════════════════════════════════════════════════════════════ */
+
+.worktree-branch-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-16);
+  height: auto;
+  gap: var(--space-4);
+  text-align: center;
+}
+
+.sidebar-empty-state-text {
+  font-size: var(--text-md);
+  color: var(--text-muted);
+}
+
+.sidebar-empty-state-hint {
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+

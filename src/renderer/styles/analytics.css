@@ -1,0 +1,185 @@
+/* ── Analytics Settings Panel ────────────────────────────────────────── */
+
+/* Range selector */
+.analytics-range-bar {
+  display: flex;
+  gap: var(--space-4);
+  margin-bottom: var(--space-16);
+}
+
+.analytics-range-btn {
+  font-size: var(--text-base);
+  padding: var(--space-4) var(--space-10);
+  border-radius: var(--radius-sm);
+  opacity: 0.65;
+}
+
+.analytics-range-btn--active {
+  opacity: 1;
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Token note */
+.analytics-token-note {
+  margin-top: var(--space-6);
+  font-size: var(--text-sm);
+}
+
+/* Overview stat cards */
+.analytics-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-8);
+  margin-bottom: var(--space-4);
+}
+
+.analytics-stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-10) var(--space-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+}
+
+.analytics-stat-value {
+  font-size: var(--text-4xl);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.analytics-stat-label {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+/* Bar chart rows */
+.analytics-bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+  margin-bottom: var(--space-4);
+}
+
+.analytics-bar-row {
+  display: grid;
+  grid-template-columns: 140px 1fr auto;
+  align-items: center;
+  gap: var(--space-10);
+}
+
+.analytics-bar-row--tools {
+  grid-template-columns: 140px 1fr auto auto;
+}
+
+.analytics-bar-label {
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.analytics-bar-track {
+  height: 6px;
+  background: var(--bg-hover);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.analytics-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  transition: width 0.3s ease;
+  min-width: 2px;
+}
+
+.analytics-bar-count {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  min-width: 64px;
+}
+
+.analytics-bar-time {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
+  min-width: 52px;
+  text-align: right;
+  opacity: 0.75;
+}
+
+/* Activity chart header + tab switcher */
+.analytics-activity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--space-20);
+  margin-bottom: var(--space-10);
+}
+
+.analytics-activity-tabs {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.analytics-activity-tab {
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-8);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.analytics-activity-tab--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* Hour-of-day sparkline */
+.analytics-hour-grid {
+  display: flex;
+  gap: var(--space-2);
+  height: 44px; /* matches HOUR_CHART_H constant */
+  align-items: flex-end;
+}
+
+.analytics-hour-bar {
+  flex: 1;
+  background: var(--accent);
+  border-radius: var(--radius-xs) 2px 0 0;
+  opacity: 0.8;
+  transition: height var(--duration-slow) ease;
+  min-height: 2px;
+  cursor: default;
+}
+
+.analytics-hour-label-row {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.analytics-hour-label-cell {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.analytics-hour-label {
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  line-height: 1;
+}

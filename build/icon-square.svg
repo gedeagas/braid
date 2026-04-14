@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!--
+    Square variant — no squircle clip.
+    Use for: social media avatars, Open Graph images, favicon source,
+    marketing assets, platforms that apply their own corner radius.
+  -->
+  <defs>
+    <radialGradient id="bg-sq" cx="60%" cy="38%" r="72%">
+      <stop offset="0%"   stop-color="#12172a"/>
+      <stop offset="100%" stop-color="#060709"/>
+    </radialGradient>
+
+    <linearGradient id="sg-sq" gradientUnits="userSpaceOnUse" x1="80" y1="900" x2="960" y2="100">
+      <stop offset="0%"   stop-color="#0a1a3d"/>
+      <stop offset="30%"  stop-color="#1040a0"/>
+      <stop offset="65%"  stop-color="#3b82f6"/>
+      <stop offset="88%"  stop-color="#93c5fd"/>
+      <stop offset="100%" stop-color="#e0f2fe"/>
+    </linearGradient>
+
+    <linearGradient id="gap-sq" gradientUnits="userSpaceOnUse" x1="80" y1="900" x2="960" y2="100">
+      <stop offset="0%"   stop-color="#030507"/>
+      <stop offset="100%" stop-color="#080c16"/>
+    </linearGradient>
+
+    <mask id="m1-sq">
+      <path d="M -80,500 C 180,380 580,265 1100,170"
+            fill="none" stroke="white" stroke-width="64" stroke-linecap="round"/>
+    </mask>
+    <mask id="m2-sq">
+      <path d="M -80,690 C 180,570 580,455 1100,360"
+            fill="none" stroke="white" stroke-width="80" stroke-linecap="round"/>
+    </mask>
+    <mask id="m3-sq">
+      <path d="M -80,880 C 180,760 580,645 1100,550"
+            fill="none" stroke="white" stroke-width="96" stroke-linecap="round"/>
+    </mask>
+
+    <mask id="gap12-sq">
+      <path d="M -80,564 C 180,444 580,329 1100,234"
+            fill="none" stroke="white" stroke-width="10" stroke-linecap="round"/>
+    </mask>
+    <mask id="gap23-sq">
+      <path d="M -80,770 C 180,650 580,535 1100,440"
+            fill="none" stroke="white" stroke-width="10" stroke-linecap="round"/>
+    </mask>
+
+    <filter id="halo-sq" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="28"/>
+    </filter>
+
+    <radialGradient id="flare-sq" cx="82%" cy="10%" r="38%">
+      <stop offset="0%"   stop-color="#dbeafe" stop-opacity="0.20"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- No clipPath — full square canvas -->
+  <rect width="1024" height="1024" fill="url(#bg-sq)"/>
+
+  <rect width="1024" height="1024" fill="url(#sg-sq)" mask="url(#m3-sq)" opacity="0.30" filter="url(#halo-sq)"/>
+  <rect width="1024" height="1024" fill="url(#sg-sq)" mask="url(#m2-sq)" opacity="0.25" filter="url(#halo-sq)"/>
+  <rect width="1024" height="1024" fill="url(#sg-sq)" mask="url(#m1-sq)" opacity="0.20" filter="url(#halo-sq)"/>
+
+  <rect width="1024" height="1024" fill="url(#sg-sq)" mask="url(#m3-sq)" opacity="0.65"/>
+  <rect width="1024" height="1024" fill="url(#sg-sq)" mask="url(#m2-sq)" opacity="0.82"/>
+  <rect width="1024" height="1024" fill="url(#sg-sq)" mask="url(#m1-sq)" opacity="1.0"/>
+
+  <rect width="1024" height="1024" fill="url(#gap-sq)" mask="url(#gap12-sq)" opacity="0.9"/>
+  <rect width="1024" height="1024" fill="url(#gap-sq)" mask="url(#gap23-sq)" opacity="0.9"/>
+
+  <path d="M 20,470 C 270,354 620,242 1080,148"
+        fill="none" stroke="white" stroke-width="2"
+        stroke-linecap="round" opacity="0.28"/>
+
+  <rect width="1024" height="1024" fill="url(#flare-sq)"/>
+</svg>

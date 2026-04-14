@@ -1,0 +1,28 @@
+{
+  "title": "Keyboard Shortcuts",
+  "searchPlaceholder": "Search shortcuts...",
+  "categories": {
+    "general": "General",
+    "view": "View",
+    "navigation": "Navigation"
+  },
+  "openSettings": "Open Settings",
+  "showShortcuts": "Keyboard Shortcuts",
+  "toggleMissionControl": "Toggle Mission Control",
+  "toggleSidebar": "Toggle Left Sidebar",
+  "toggleRightPanel": "Toggle Right Panel",
+  "zoomIn": "Zoom In",
+  "zoomOut": "Zoom Out",
+  "zoomReset": "Reset Zoom",
+  "toggleTerminal": "Toggle Terminal",
+  "newChatTab": "New Chat Tab",
+  "closeTab": "Close Current Tab",
+  "previousTab": "Previous Tab",
+  "nextTab": "Next Tab",
+  "goToTab": "Go to Tab 1-9",
+  "quickOpen": "Quick Open File",
+  "focusChat": "Focus Chat Input",
+  "saveFile": "Save File",
+  "noResults": "No shortcuts matching \"{{query}}\"",
+  "empty": "No shortcuts"
+}

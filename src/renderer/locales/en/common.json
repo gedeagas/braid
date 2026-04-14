@@ -1,0 +1,123 @@
+{
+  "cancel": "Cancel",
+  "save": "Save",
+  "close": "Close",
+  "delete": "Delete",
+  "add": "Add",
+  "create": "Create",
+  "creating": "Creating…",
+  "edit": "Edit",
+  "refresh": "Refresh",
+  "browse": "Browse",
+  "copy": "Copy",
+  "copied": "Copied",
+  "remove": "Remove",
+  "submit": "Submit",
+  "approve": "Approve",
+  "reject": "Reject",
+  "loading": "Loading…",
+  "language": "Language",
+  "english": "English",
+  "japanese": "日本語",
+  "importVSCodeTheme": "Import VSCode Theme",
+  "theme": "Theme",
+  "removeTheme": "Remove theme",
+  "toastDone": "Task complete",
+  "toastError": "Agent stopped — needs help",
+  "toastQuestion": "Agent has a question",
+  "toastPlanReady": "Plan ready for review",
+  "toastWaitingInput": "Input needed",
+  "toastErrorCount": "{{count}} sessions need attention",
+  "toastWaitingInputCount": "{{count}} sessions waiting for you",
+  "onboarding": {
+    "welcome": {
+      "title": "Welcome to Braid",
+      "subtitle": "Your AI-powered Git workspace",
+      "description": "Braid combines Claude AI with Git worktrees so you can run multiple coding agents in parallel — each on its own branch.",
+      "getStarted": "Get Started"
+    },
+    "doctor": {
+      "title": "Environment Check",
+      "subtitle": "Making sure your tools are ready",
+      "retry": "Retry failed",
+      "continue": "Continue",
+      "continueAnyway": "Continue anyway",
+      "optional": "optional",
+      "install": "Install",
+      "installing": "Installing…",
+      "openDocs": "Open docs",
+      "logIn": "Log in",
+      "progressGit": "Installing Xcode tools…",
+      "progressClaude": "Installing Claude Code…",
+      "progressGh": "Installing GitHub CLI…",
+      "progressGhAuth": "Waiting for browser authentication…",
+      "progressAcli": "Installing Atlassian CLI…"
+    },
+    "project": {
+      "title": "Add Your First Project",
+      "subtitle": "Open a local Git repo or clone one from GitHub",
+      "openProject": "Open Project",
+      "skip": "Skip for now"
+    }
+  },
+  "ghAuth": {
+    "title": "Sign in to GitHub",
+    "instruction": "Enter this code on GitHub to connect your account.",
+    "copied": "Code copied to clipboard",
+    "polling": "Waiting for authorization\u2026",
+    "openGitHub": "Open GitHub",
+    "success": "Successfully authenticated!",
+    "expired": "Code expired",
+    "error": "Authentication failed",
+    "retry": "Try again",
+    "configuring": "Configuring GitHub CLI\u2026"
+  },
+  "tour": {
+    "next": "Next",
+    "back": "Back",
+    "skip": "Skip tour",
+    "done": "Got it!",
+    "sidebar": {
+      "title": "Your Projects",
+      "description": "Your projects and worktrees live here. Each worktree is an isolated branch you can work on simultaneously."
+    },
+    "addWorktree": {
+      "title": "Create a Worktree",
+      "description": "Create a new worktree to start working on a branch. Each worktree is a fully isolated copy of your repo."
+    },
+    "chatPanel": {
+      "title": "Chat with Claude",
+      "description": "Chat with Claude to write code, fix bugs, and build features. Use @ to mention files and / for slash commands."
+    },
+    "sessionTabs": {
+      "title": "Session & File Tabs",
+      "description": "Run multiple chat sessions per worktree. Open files as editor tabs alongside your chats."
+    },
+    "rightPanel": {
+      "title": "Files, Changes & Checks",
+      "description": "Browse your project files, view git changes, and monitor CI status — all in one panel."
+    },
+    "terminal": {
+      "title": "Integrated Terminal",
+      "description": "Run commands, view logs, and execute scripts without leaving the app."
+    },
+    "missionControl": {
+      "title": "Mission Control",
+      "description": "See all your worktrees at a glance. Track running sessions, PRs, and CI status across your entire project."
+    },
+    "simulator": {
+      "intro": {
+        "title": "Simulator Preview",
+        "description": "Preview and control iOS & Android simulators directly in Braid. Tap, swipe, and type on the live device screen."
+      },
+      "devices": {
+        "title": "Your Devices",
+        "description": "This is where your available simulators appear. Boot a device to power it on, then connect to start streaming."
+      },
+      "connect": {
+        "title": "Boot & Connect",
+        "description": "Tap Boot to start a device, then Connect to stream its screen. You can also link it to your chat so Claude can see the UI."
+      }
+    }
+  }
+}

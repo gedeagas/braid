@@ -1,0 +1,198 @@
+/* Mention (@file) autocomplete */
+
+.mention-autocomplete {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  z-index: var(--z-raised);
+  box-shadow: 0 -6px 24px var(--shadow-45), 0 -1px 6px var(--shadow-20);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slash-appear 0.1s ease-out;
+}
+
+.mention-list {
+  max-height: 280px;
+  overflow-y: auto;
+  padding: var(--space-4) 0;
+}
+
+.mention-item {
+  padding: var(--space-6) var(--space-12);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border-left: 2px solid transparent;
+  transition: background var(--duration-instant);
+}
+
+.mention-item:hover {
+  background: var(--bg-hover);
+}
+
+.mention-item.selected {
+  background: var(--bg-hover);
+  border-left-color: var(--accent);
+}
+
+.mention-item.selected .mention-item-name {
+  color: var(--accent-hover);
+}
+
+.mention-item-name {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+}
+
+.mention-item-dir {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.7;
+}
+
+.mention-item-match {
+  color: var(--text-primary);
+  background: var(--accent-tint-18);
+  border-radius: var(--radius-xs);
+  padding: 0 1px;
+  font-weight: var(--weight-bold);
+}
+
+.mention-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-5) var(--space-12) var(--space-6);
+  border-top: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.mention-footer-dot {
+  opacity: 0.4;
+}
+
+/* File chips strip (above input) */
+.mention-file-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  padding: var(--space-8) var(--space-12) 0;
+}
+
+.mention-file-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-8);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  font-size: var(--text-base);
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mention-file-chip-icon {
+  color: var(--accent);
+  font-weight: var(--weight-semibold);
+  flex-shrink: 0;
+}
+
+.mention-file-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mention-file-chip-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--text-base);
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.mention-file-chip-remove:hover {
+  background: var(--red-tint-15);
+  color: var(--red);
+}
+
+/* Terminal mention item */
+.mention-item-terminal {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.mention-item-terminal-icon {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+/* Terminal chip variant */
+.mention-file-chip--terminal .mention-file-chip-icon {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: var(--weight-bold);
+}
+
+/* Skeleton loading */
+.mention-item-skeleton {
+  pointer-events: none;
+  user-select: none;
+}
+
+.mention-skeleton-chip {
+  display: inline-block;
+  height: 10px;
+  border-radius: var(--radius);
+  background: linear-gradient(
+    90deg,
+    var(--border) 25%,
+    color-mix(in srgb, var(--border) 50%, var(--bg-primary)) 50%,
+    var(--border) 75%
+  );
+  background-size: 800px 100%;
+  animation: slash-shimmer 1.4s ease-in-out infinite;
+}
+
+.mention-skeleton-dir {
+  display: block;
+  height: 8px;
+  margin-top: var(--space-5);
+  border-radius: var(--radius-sm);
+  opacity: 0.6;
+}

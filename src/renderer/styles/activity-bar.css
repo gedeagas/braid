@@ -1,0 +1,150 @@
+/* ── Activity Bar ─ always-visible vertical icon rail ─────────────── */
+
+.activity-bar {
+  width: 48px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary);
+}
+
+.activity-bar-drag-region {
+  -webkit-app-region: drag;
+  height: 52px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.activity-bar-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
+  flex: 1;
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.activity-bar-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-4) 0 var(--space-8);
+  border-right: 1px solid var(--border);
+}
+
+.activity-bar-item {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  position: relative;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.activity-bar-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.activity-bar-item--active {
+  color: var(--text-primary);
+}
+
+/* Spacer in sidebar panel to clear macOS traffic lights vertically */
+.sidebar-panel-spacer {
+  height: 52px;
+  flex-shrink: 0;
+  -webkit-app-region: drag;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+}
+
+/* VSCode-style left accent bar for active item */
+.activity-bar-item--active::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 15%;
+  bottom: 15%;
+  width: 3px;
+  background: var(--accent);
+  border-radius: var(--radius-pill);
+}
+
+/* Active ring wrapper for embedded app icons (img/letter-avatar don't inherit color) */
+.app-favicon-active-ring {
+  display: flex;
+  border-radius: 3px; /* match AppFavicon's borderRadius */
+  box-shadow: 0 0 0 0 transparent;
+  transition: box-shadow var(--duration-fast);
+}
+
+.activity-bar-item--active .app-favicon-active-ring {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* Fills remaining vertical space below icons, draggable for window move */
+.activity-bar-drag-spacer {
+  flex: 1;
+  -webkit-app-region: drag;
+  min-height: var(--space-8);
+}
+
+/* ── App icons in activity bar ─────────────────────────────────────── */
+
+.activity-bar-divider {
+  width: var(--space-20);
+  height: 1px;
+  background: var(--border);
+  margin: var(--space-4) auto;
+  flex-shrink: 0;
+}
+
+.activity-bar-app-badge {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  min-width: var(--space-14);
+  height: var(--space-14);
+  line-height: var(--space-14);
+  text-align: center;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #fff;
+  pointer-events: none;
+}
+
+.activity-bar-app-badge:empty {
+  min-width: var(--space-8);
+  width: var(--space-8);
+  height: var(--space-8);
+  padding: 0;
+  top: var(--space-4);
+  right: var(--space-4);
+  border-radius: var(--radius-full);
+}
+
+.activity-bar-app--dormant {
+  opacity: 0.45;
+}
+
+.activity-bar-app--dragging {
+  opacity: 0.4;
+}
+
+.activity-bar-app--drag-over {
+  box-shadow: inset 0 2px 0 0 var(--accent);
+}

@@ -1,0 +1,123 @@
+{
+  "cancel": "キャンセル",
+  "save": "保存",
+  "close": "閉じる",
+  "delete": "削除",
+  "add": "追加",
+  "create": "作成",
+  "creating": "作成中…",
+  "edit": "編集",
+  "refresh": "更新",
+  "browse": "参照",
+  "copy": "コピー",
+  "copied": "コピーしました",
+  "remove": "削除",
+  "submit": "送信",
+  "approve": "承認",
+  "reject": "拒否",
+  "loading": "読み込み中…",
+  "language": "言語",
+  "english": "English",
+  "japanese": "日本語",
+  "importVSCodeTheme": "VSCodeテーマをインポート",
+  "theme": "テーマ",
+  "removeTheme": "テーマを削除",
+  "toastDone": "タスク完了",
+  "toastError": "エージェントが停止しました",
+  "toastQuestion": "エージェントからの質問",
+  "toastPlanReady": "プラン承認待ち",
+  "toastWaitingInput": "入力が必要です",
+  "toastErrorCount": "{{count}}件のセッションで問題が発生",
+  "toastWaitingInputCount": "{{count}}件のセッションがあなたの対応待ち",
+  "onboarding": {
+    "welcome": {
+      "title": "Braidへようこそ",
+      "subtitle": "AIを活用したGitワークスペース",
+      "description": "BraidはClaude AIとGitワークツリーを組み合わせ、複数のコーディングエージェントを並列実行できます。",
+      "getStarted": "はじめる"
+    },
+    "doctor": {
+      "title": "環境チェック",
+      "subtitle": "必要なツールの準備を確認しています",
+      "retry": "再試行",
+      "continue": "続ける",
+      "continueAnyway": "このまま続ける",
+      "optional": "任意",
+      "install": "インストール",
+      "installing": "インストール中…",
+      "openDocs": "ドキュメントを開く",
+      "logIn": "ログイン",
+      "progressGit": "Xcodeツールをインストール中…",
+      "progressClaude": "Claude Codeをインストール中…",
+      "progressGh": "GitHub CLIをインストール中…",
+      "progressGhAuth": "ブラウザ認証を待っています…",
+      "progressAcli": "Atlassian CLIをインストール中…"
+    },
+    "project": {
+      "title": "最初のプロジェクトを追加",
+      "subtitle": "ローカルのGitリポジトリを開くか、GitHubからクローンしてください",
+      "openProject": "プロジェクトを開く",
+      "skip": "後で追加する"
+    }
+  },
+  "ghAuth": {
+    "title": "GitHubにサインイン",
+    "instruction": "このコードをGitHubに入力してアカウントを接続してください。",
+    "copied": "コードをクリップボードにコピーしました",
+    "polling": "認証を待機中…",
+    "openGitHub": "GitHubを開く",
+    "success": "認証に成功しました！",
+    "expired": "コードの有効期限が切れました",
+    "error": "認証に失敗しました",
+    "retry": "再試行",
+    "configuring": "GitHub CLIを設定中…"
+  },
+  "tour": {
+    "next": "次へ",
+    "back": "戻る",
+    "skip": "ツアーをスキップ",
+    "done": "完了",
+    "sidebar": {
+      "title": "プロジェクト一覧",
+      "description": "プロジェクトとワークツリーがここに表示されます。各ワークツリーは独立したブランチで、同時に作業できます。"
+    },
+    "addWorktree": {
+      "title": "ワークツリーを作成",
+      "description": "新しいワークツリーを作成してブランチの作業を始めましょう。各ワークツリーはリポジトリの完全な独立コピーです。"
+    },
+    "chatPanel": {
+      "title": "Claudeとチャット",
+      "description": "Claudeとチャットしてコードを書いたり、バグを修正したり、機能を実装できます。@でファイルを参照、/でコマンドを実行。"
+    },
+    "sessionTabs": {
+      "title": "セッション＆ファイルタブ",
+      "description": "ワークツリーごとに複数のチャットセッションを実行できます。ファイルもエディタタブとして開けます。"
+    },
+    "rightPanel": {
+      "title": "ファイル・変更・チェック",
+      "description": "プロジェクトファイルの閲覧、Gitの変更確認、CIステータスの監視をひとつのパネルで。"
+    },
+    "terminal": {
+      "title": "統合ターミナル",
+      "description": "アプリを離れることなく、コマンドの実行、ログの確認、スクリプトの実行ができます。"
+    },
+    "missionControl": {
+      "title": "ミッションコントロール",
+      "description": "すべてのワークツリーを一覧で確認。実行中のセッション、PR、CIステータスをプロジェクト全体で追跡できます。"
+    },
+    "simulator": {
+      "intro": {
+        "title": "シミュレータープレビュー",
+        "description": "iOS・Androidシミュレーターを直接Braidで操作できます。タップ、スワイプ、テキスト入力をライブで実行。"
+      },
+      "devices": {
+        "title": "デバイス一覧",
+        "description": "利用可能なシミュレーターがここに表示されます。起動してから接続すると、ストリーミングが開始されます。"
+      },
+      "connect": {
+        "title": "起動と接続",
+        "description": "「起動」でデバイスを立ち上げ、「接続」で画面をストリーミング。チャットにリンクすればClaudeがUIを確認できます。"
+      }
+    }
+  }
+}

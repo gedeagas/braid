@@ -1,0 +1,348 @@
+/* ============= Diff Review (Center Panel) ============= */
+
+.diff-review {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.diff-review--loading,
+.diff-review--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-10);
+  flex: 1;
+  color: var(--text-muted);
+  font-size: var(--text-md);
+}
+
+/* Header */
+.diff-review-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-16);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.diff-review-filename {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+.diff-review-filepath {
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.diff-review-stats {
+  display: flex;
+  gap: var(--space-6);
+  flex-shrink: 0;
+}
+
+/* Scrollable diff body */
+.diff-review-scroll {
+  flex: 1;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  line-height: 1.5;
+}
+
+.diff-review-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.diff-review-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: var(--radius-sm);
+}
+
+.diff-review-scroll:hover::-webkit-scrollbar-thumb {
+  background: var(--border);
+}
+
+/* Hunk */
+.diff-review-hunk + .diff-review-hunk {
+  border-top: 1px solid var(--border);
+}
+
+/* Gap expander between hunks */
+.diff-review-gap-expander {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-6);
+  padding: var(--space-4) var(--space-16);
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--text-base);
+  cursor: pointer;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.diff-review-gap-expander:hover {
+  background: var(--accent-tint-6);
+  color: var(--accent);
+}
+
+.diff-review-gap-icon {
+  font-size: var(--text-md);
+  letter-spacing: 2px;
+}
+
+/* Interactive diff line */
+.diff-review-line {
+  display: flex;
+  min-height: 20px;
+  position: relative;
+}
+
+.diff-review-line.diff-line-add { background: var(--green-tint-10); }
+.diff-review-line.diff-line-del { background: var(--red-tint-10); }
+
+/* Multiline selection highlight */
+.diff-review-line--selected {
+  outline: 1px solid var(--accent-tint-15);
+  outline-offset: -1px;
+}
+.diff-review-line--selected.diff-line-add { background: color-mix(in srgb, var(--green-tint-10) 50%, var(--accent-tint-10) 50%); }
+.diff-review-line--selected.diff-line-del { background: color-mix(in srgb, var(--red-tint-10) 50%, var(--accent-tint-10) 50%); }
+.diff-review-line--selected.diff-line-ctx { background: var(--accent-tint-6); }
+
+/* GitHub-style comment gutter */
+.diff-review-gutter {
+  width: 24px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.diff-review-gutter-icon {
+  width: 18px;
+  height: 18px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-radius: var(--radius-full);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  line-height: 1;
+}
+
+/* Show "+" on line hover */
+.diff-review-line:hover .diff-review-gutter-icon {
+  display: flex;
+}
+
+/* Always show dot for lines with existing comments */
+.diff-review-gutter--has-comment .diff-review-gutter-icon {
+  display: flex;
+}
+
+/* Disable text selection while dragging */
+.diff-review--dragging {
+  user-select: none;
+}
+
+/* Existing comment display (below a line) */
+.diff-review-comment-display {
+  padding: var(--space-4) var(--space-8) var(--space-4) 24px;
+  margin-left: 24px;
+  background: var(--accent-tint-6);
+  border-left: 2px solid var(--accent);
+  cursor: pointer;
+  transition: background var(--duration-fast);
+}
+
+.diff-review-comment-display:hover {
+  background: var(--accent-tint-10);
+}
+
+.diff-review-comment-range {
+  font-size: var(--text-2xs);
+  font-family: var(--font-mono);
+  color: var(--accent);
+  font-weight: var(--weight-semibold);
+  flex-shrink: 0;
+  margin-right: var(--space-6);
+}
+
+.diff-review-comment-text {
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  white-space: pre-wrap;
+}
+
+/* Inline comment editor */
+.diff-review-comment-editor {
+  padding: var(--space-8) var(--space-12);
+  margin: var(--space-4) var(--space-8) var(--space-4) 24px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.diff-review-comment-editor-ref {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-4) var(--space-6);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-8);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  overflow: hidden;
+}
+
+.diff-review-comment-editor-gutter {
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+  font-weight: var(--weight-bold);
+}
+
+.diff-review-comment-editor-gutter.diff-line-add { color: var(--green); }
+.diff-review-comment-editor-gutter.diff-line-del { color: var(--red); }
+.diff-review-comment-editor-gutter.diff-line-ctx { color: var(--text-muted); }
+
+.diff-review-comment-editor-code {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-secondary);
+}
+
+.diff-review-comment-editor-line {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+/* Multiline range reference in editor */
+.diff-review-comment-editor-ref--range {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.diff-review-comment-editor-range-label {
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  color: var(--accent);
+  padding-bottom: var(--space-2);
+}
+
+.diff-review-comment-editor-range-lines {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.diff-review-comment-editor-range-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.diff-review-comment-textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 48px;
+  max-height: 120px;
+  padding: var(--space-6) var(--space-8);
+  font-size: var(--text-base);
+  font-family: var(--font-sans);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color var(--duration-fast);
+}
+
+.diff-review-comment-textarea:focus {
+  border-color: var(--accent);
+}
+
+.diff-review-comment-actions {
+  display: flex;
+  gap: var(--space-6);
+  margin-top: var(--space-6);
+}
+
+.diff-review-comment-delete,
+.diff-review-comment-delete:hover {
+  margin-left: auto;
+  color: var(--red);
+}
+
+/* Tab styling for diff tabs */
+.tab-diff svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* Review button in changes file list */
+.change-review-btn {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  font-family: var(--font-mono);
+  opacity: 0;
+  transition: opacity var(--duration-fast);
+}
+
+.change-row:hover .change-review-btn {
+  opacity: 1;
+}
+
+.change-review-btn:hover {
+  background: var(--accent-tint-10);
+  color: var(--accent);
+}
+
+/* ============= Diff comment info strip (above chat input in changes mode) === */
+
+.diff-comment-chips-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-4) var(--space-10);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  background: var(--accent-tint-10);
+  border-radius: var(--radius) var(--radius) 0 0;
+}

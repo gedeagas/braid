@@ -1,0 +1,640 @@
+/* ============= Tool Call Group (tcg) ============= */
+.tcg {
+  margin: var(--space-2) 0;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
+}
+
+.tcg-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-6) 0;
+  cursor: pointer;
+  user-select: none;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: var(--text-lg);
+  font-family: inherit;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.tcg-header:hover {
+  color: var(--text-primary);
+}
+
+.tcg-chevron {
+  color: var(--text-muted);
+  width: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tcg-chevron.open {
+  /* no change needed for SVG */
+}
+
+.tcg-label {
+  font-size: var(--text-lg);
+}
+
+.tcg-body {
+  padding: var(--space-4) 0 var(--space-4) var(--space-8);
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Individual tool call row */
+.tcg-row {
+  margin-bottom: var(--space-2);
+  border-radius: var(--radius);
+}
+
+.tcg-row-open {
+  background: var(--bg-secondary);
+  margin-bottom: var(--space-4);
+}
+
+.tcg-row-main {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-5) var(--space-8);
+  font-size: var(--text-lg);
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  width: 100%;
+  max-width: 100%;
+  text-align: left;
+  border-radius: var(--radius);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.tcg-row-main:hover {
+  background: var(--bg-hover);
+}
+
+.tcg-row-chevron {
+  color: var(--text-muted);
+  width: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tcg-row-chevron.open {
+  /* no change needed for SVG */
+}
+
+.tcg-row-icon {
+  width: 19px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.tcg-row-name {
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  font-size: var(--text-lg);
+  flex-shrink: 0;
+}
+
+/* Expanded detail area */
+.tcg-row-detail {
+  padding: 0 var(--space-6) var(--space-6) var(--space-40);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.tcg-row-code {
+  margin: var(--space-4) 0;
+  padding: var(--space-10) var(--space-12);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  line-height: 1.55;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.tcg-row-code.hljs {
+  background: var(--bg-tertiary);
+  color: var(--hljs-base);
+}
+
+.tcg-row-code-error {
+  border-color: var(--red);
+  color: var(--red);
+  background: color-mix(in srgb, var(--red) 8%, var(--bg-tertiary));
+}
+
+.tcg-row-code-result {
+  color: var(--text-muted);
+  max-height: 200px;
+}
+
+/* File badge */
+.tcg-file-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) 9px;
+  font-size: var(--text-md);
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+.tcg-file-badge--clickable {
+  cursor: pointer;
+  transition: background var(--duration-normal), border-color var(--duration-normal), color var(--duration-normal);
+}
+.tcg-file-badge--clickable:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.tcg-file-icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Open in Editor button inside expanded tool detail */
+.tcg-open-editor-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-3) var(--space-10);
+  margin-bottom: var(--space-6);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-base);
+  font-family: inherit;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--duration-normal), border-color var(--duration-normal), color var(--duration-normal);
+}
+.tcg-open-editor-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Tool summary (Bash command, Task description, Grep pattern, etc.) */
+.tcg-summary {
+  color: var(--text-secondary);
+  font-size: var(--text-md);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
+  max-width: min(420px, 100%);
+}
+
+/* Diff stats */
+.tcg-diff {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  font-size: var(--text-md);
+  font-family: var(--font-mono);
+}
+
+.tcg-diff-add {
+  color: var(--green);
+}
+
+.tcg-diff-del {
+  color: var(--red);
+}
+
+/* Tool error */
+.tcg-error {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-6);
+  padding: var(--space-4) 0 var(--space-4) var(--space-28);
+  font-size: var(--text-md);
+}
+
+.tcg-error-icon {
+  color: var(--red);
+  display: inline-flex;
+  align-items: center;
+}
+
+.tcg-error-label {
+  color: var(--red);
+  font-weight: var(--weight-semibold);
+}
+
+.tcg-error-text {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) 9px;
+  font-size: var(--text-md);
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: min(420px, 100%);
+  min-width: 0;
+}
+
+/* Interleaved text inside tool group */
+.tcg-text {
+  padding: var(--space-5) 0 var(--space-5) var(--space-28);
+  font-size: var(--text-lg);
+  color: var(--text-primary);
+  line-height: 1.65;
+}
+
+.tcg-text p {
+  margin: 0 0 var(--space-6) 0;
+}
+
+.tcg-text p:last-child {
+  margin-bottom: 0;
+}
+
+.tcg-text code {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  padding: var(--space-2) var(--space-6);
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  font-family: var(--font-mono);
+}
+
+.tcg-text pre {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-12) var(--space-16);
+  overflow-x: auto;
+  margin: var(--space-10) 0;
+  font-size: var(--text-md);
+  line-height: 1.55;
+}
+
+.tcg-text pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+}
+
+/* Tables inside tool call groups */
+.tcg-text table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: var(--space-10) 0;
+  font-size: var(--text-md);
+  overflow-x: auto;
+  display: block;
+}
+
+.tcg-text thead tr {
+  border-bottom: 2px solid var(--border);
+}
+
+.tcg-text th {
+  text-align: left;
+  padding: var(--space-6) var(--space-12);
+  font-weight: var(--weight-semibold);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.tcg-text td {
+  padding: var(--space-6) var(--space-12);
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.tcg-text tr:last-child td {
+  border-bottom: none;
+}
+
+.tcg-text tbody tr:hover {
+  background: var(--overlay-3);
+}
+
+/* Error tint on group header */
+.tcg-header--error {
+  color: var(--red);
+}
+.tcg-header--error:hover {
+  color: var(--red);
+  opacity: 0.9;
+}
+.tcg-header-error-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--red);
+  flex-shrink: 0;
+}
+
+/* Elapsed time in group header */
+.tcg-header-elapsed {
+  margin-left: auto;
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Elapsed time per tool row — pushed to far right */
+.tcg-row-elapsed {
+  margin-left: auto;
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* In-flight spinner on tool call row */
+.tcg-row-spinner {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: var(--radius-full);
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+/* Code block wrapper for copy button positioning */
+.tcg-code-wrapper {
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+.tcg-code-wrapper:hover .tcg-copy-btn {
+  opacity: 1;
+}
+
+/* Copy button on code blocks */
+.tcg-copy-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: var(--space-4);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--duration-normal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-base);
+}
+.tcg-copy-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+.tcg-copy-btn--inline {
+  position: static;
+  opacity: 1;
+}
+
+/* Actions row below result blocks (show more + copy) */
+.tcg-code-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-4) 0 0 0;
+}
+
+/* Todo list rendered for TodoWrite tool calls */
+.tcg-todo-list {
+  margin: var(--space-4) 0;
+  padding: var(--space-6) var(--space-10);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.tcg-todo-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+  padding: var(--space-4) var(--space-2);
+  font-size: var(--text-md);
+  line-height: 1.5;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-instant);
+}
+
+.tcg-todo-item + .tcg-todo-item {
+  border-top: 1px solid var(--border);
+}
+
+.tcg-todo-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  margin-top: 1px;
+}
+
+.tcg-todo-item--pending .tcg-todo-icon {
+  color: var(--text-muted);
+}
+
+.tcg-todo-item--in_progress .tcg-todo-icon {
+  color: var(--accent);
+}
+
+.tcg-todo-item--completed .tcg-todo-icon {
+  color: var(--green);
+}
+
+.tcg-todo-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.tcg-todo-item--in_progress .tcg-todo-content {
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
+}
+
+.tcg-todo-item--completed .tcg-todo-content {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+/* Show more / show less button */
+.tcg-show-more-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: var(--text-md);
+  font-family: inherit;
+  padding: var(--space-2) 0;
+}
+.tcg-show-more-btn:hover {
+  text-decoration: underline;
+}
+
+/* ── Inline Edit/Write diff ────────────────────────────────────────────────── */
+.tcg-inline-diff {
+  margin: var(--space-4) 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: auto;
+  max-height: 300px;
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  line-height: 1.55;
+}
+
+.tcg-inline-diff .diff-line-num {
+  display: none;
+}
+
+.tcg-inline-diff .diff-line {
+  min-height: unset;
+  padding: 0 var(--space-4);
+}
+
+.tcg-inline-diff .diff-line-content {
+  padding-right: var(--space-12);
+}
+
+/* ── Grep results ──────────────────────────────────────────────────────────── */
+.tcg-grep-results {
+  margin: var(--space-4) 0;
+  padding: var(--space-6) 0;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.tcg-grep-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-6);
+  padding: var(--space-2) var(--space-10);
+  min-width: 0;
+}
+
+.tcg-grep-line:hover {
+  background: var(--bg-hover);
+}
+
+.tcg-grep-line--raw {
+  color: var(--text-muted);
+  padding: var(--space-2) var(--space-10);
+}
+
+.tcg-grep-filepath {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: var(--space-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.tcg-grep-filepath:hover {
+  opacity: 0.8;
+}
+
+.tcg-grep-linenum {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  min-width: 28px;
+  text-align: right;
+}
+
+.tcg-grep-content {
+  color: var(--text-secondary);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tcg-grep-match {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--accent);
+  font-weight: var(--weight-semibold);
+  border-radius: var(--radius-xs);
+  padding: 0 var(--space-2);
+}
+
+/* ── Glob file list ────────────────────────────────────────────────────────── */
+.tcg-glob-results {
+  margin: var(--space-4) 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.tcg-glob-badge {
+  max-width: 260px;
+}
+
+.tcg-glob-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+

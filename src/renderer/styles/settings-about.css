@@ -1,0 +1,102 @@
+/* ── About Page ─────────────────────────────────────────────────────── */
+
+.settings-about-hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-28) var(--space-24);
+  border: 1px solid var(--accent-tint-15);
+  border-radius: var(--radius-lg);
+  background: var(--accent-tint-10);
+}
+
+.settings-about-wordmark-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-10);
+}
+
+.settings-about-wordmark {
+  font-size: var(--text-5xl);
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.settings-about-version {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  font-family: var(--font-mono);
+  color: var(--accent);
+  background: var(--accent-tint-15);
+  border-radius: var(--radius-lg);
+  padding: var(--space-2) 9px;
+}
+
+.settings-about-codename {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.settings-about-tagline {
+  font-size: var(--text-md);
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.settings-about-body {
+  font-size: var(--text-md);
+  color: var(--text-secondary);
+  line-height: 1.65;
+  margin: 0;
+}
+
+.settings-about-features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+}
+
+.settings-about-feature {
+  display: flex;
+  gap: var(--space-10);
+  align-items: flex-start;
+  font-size: var(--text-md);
+  color: var(--text-secondary);
+}
+
+.settings-about-feature-dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  margin-top: var(--space-5);
+}
+
+.settings-about-footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-8);
+  border-top: 1px solid var(--border);
+}
+
+.settings-about-creator {
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+.settings-about-meta {
+  font-size: var(--text-base);
+  color: var(--text-muted);
+}

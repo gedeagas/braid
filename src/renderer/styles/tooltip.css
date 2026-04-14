@@ -1,0 +1,133 @@
+/* ============= Tooltip ============= */
+@keyframes tooltip-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.tooltip-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.tooltip {
+  position: absolute;
+  z-index: var(--z-popover);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: var(--text-base);
+  line-height: 1.45;
+  padding: var(--space-5) 9px;
+  border-radius: var(--radius);
+  white-space: pre-line;
+  pointer-events: none;
+  box-shadow: 0 4px 16px var(--shadow-35), 0 1px 4px var(--shadow-20);
+  animation: tooltip-fade-in 0.12s ease-out;
+  width: max-content;
+}
+
+/* Positions */
+.tooltip--top {
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.tooltip--bottom {
+  top: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.tooltip--left {
+  right: calc(100% + 7px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.tooltip--right {
+  left: calc(100% + 7px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Portal variant — position: fixed with inline top/left from getBoundingClientRect() */
+.tooltip--portal {
+  position: fixed;
+}
+
+/* Override the absolute offsets; inline top/left provide the anchor point */
+.tooltip--portal.tooltip--top {
+  bottom: auto;
+  transform: translate(-50%, calc(-100% - 7px));
+}
+
+.tooltip--portal.tooltip--bottom {
+  transform: translate(-50%, 7px);
+}
+
+.tooltip--portal.tooltip--left {
+  right: auto;
+  transform: translate(calc(-100% - 7px), -50%);
+}
+
+.tooltip--portal.tooltip--right {
+  transform: translate(7px, -50%);
+}
+
+/* Arrows via ::after */
+.tooltip--top::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--border);
+}
+
+.tooltip--bottom::after {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-bottom-color: var(--border);
+}
+
+.tooltip--left::after {
+  content: '';
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 5px solid transparent;
+  border-left-color: var(--border);
+}
+
+.tooltip--right::after {
+  content: '';
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 5px solid transparent;
+  border-right-color: var(--border);
+}
+
+/* Keyboard shortcut badge */
+.tooltip-kbd {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1px var(--space-5);
+  margin-left: var(--space-7);
+  color: var(--text-muted);
+  line-height: 1.5;
+  vertical-align: baseline;
+}
+

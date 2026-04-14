@@ -1,0 +1,185 @@
+/* ── Settings: Apps ─────────────────────────────────────────────────────── */
+
+.settings-apps-presets {
+  display: flex;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+}
+
+.settings-apps-presets .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.settings-apps-custom-row {
+  display: flex;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+}
+
+.settings-apps-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.settings-apps-list-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-5) 0;
+  border-bottom: 1px solid var(--border);
+  cursor: grab;
+  transition: opacity var(--duration-normal);
+}
+
+.settings-apps-list-row:last-child {
+  border-bottom: none;
+}
+
+.settings-apps-list-row--dragging {
+  opacity: 0.4;
+}
+
+.settings-apps-list-row--drag-over {
+  border-top: 2px solid var(--accent);
+}
+
+.settings-apps-drag-handle {
+  color: var(--text-muted);
+  font-size: var(--text-base);
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.settings-apps-list-name {
+  flex: 0 0 auto;
+  font-size: var(--text-md);
+  color: var(--text-primary);
+}
+
+.settings-apps-list-url {
+  flex: 1;
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Web App Overlay ─────────────────────────────────────────────────────── */
+
+.web-app-overlay {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-primary);
+  min-width: 0;
+}
+
+/* Prevent webviews from swallowing mouse events during panel resize */
+body.resizing .web-app-overlay webview {
+  pointer-events: none;
+}
+
+/* ── Attention Chips ── session status pills in web app drag region ──────── */
+
+.drag-region--with-attention {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-12);
+}
+
+.attention-chips {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  -webkit-app-region: no-drag;
+  overflow: hidden;
+  flex: 1;
+  min-width: 0;
+}
+
+.attention-chip {
+  -webkit-app-region: no-drag;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-4) var(--space-10);
+  border-radius: var(--radius-pill);
+  background: var(--bg-hover);
+  border: none;
+  cursor: pointer;
+  transition: background var(--duration-fast);
+  max-width: 240px;
+  flex-shrink: 0;
+  font-family: inherit;
+}
+
+.attention-chip:hover {
+  background: var(--accent-tint-10);
+}
+
+.attention-chip-dot {
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.attention-chip-dot.waiting_input {
+  background: var(--accent);
+  animation: pulse-accent 1s ease-in-out infinite;
+}
+
+.attention-chip-dot.error {
+  background: var(--red);
+}
+
+.attention-chip-branch {
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attention-chip-separator {
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.attention-chip-status {
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.attention-overflow {
+  -webkit-app-region: no-drag;
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-4) var(--space-10);
+  border-radius: var(--radius-pill);
+  background: var(--overlay-6);
+  border: none;
+  font-family: inherit;
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.attention-overflow:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}

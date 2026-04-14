@@ -1,0 +1,44 @@
+import React from 'react'
+
+/** Regex matching @mention tokens: `@` preceded by start-of-string or whitespace, followed by non-space chars */
+export const MENTION_RE = /(^|\s)(@\S+)/g
+
+/**
+ * Parses text and returns React nodes with @mentions wrapped in highlighted spans.
+ * Used by both the input backdrop overlay and sent message bubbles.
+ */
+export function parseMentions(
+  text: string,
+  className: string,
+  Tag: 'mark' | 'span' = 'span'
+): React.ReactNode[] {
+  const parts: React.ReactNode[] = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+  MENTION_RE.lastIndex = 0
+  while ((match = MENTION_RE.exec(text)) !== null) {
+    const prefix = match[1]
+    const mention = match[2]
+    const start = match.index
+    if (start + prefix.length > lastIndex) {
+      parts.push(text.slice(lastIndex, start + prefix.length))
+    }
+    parts.push(<Tag key={start} className={className}>{mention}</Tag>)
+    lastIndex = start + match[0].length
+  }
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex))
+  return parts
+}
+
+/** Renders a backdrop div mirroring the textarea content with @mentions highlighted */
+export function InputHighlightBackdrop({ text }: { text: string }) {
+  const parts = parseMentions(text, 'chat-input-mention-hl', 'mark')
+  // Trailing newline ensures the backdrop's height matches the textarea when text ends with \n
+  parts.push('\n')
+
+  return (
+    <div className="chat-input-backdrop">
+      {parts}
+    </div>
+  )
+}

@@ -1,0 +1,25 @@
+/* ---------------------------------------------------------------------------
+ * Streaming word-by-word animations.
+ * Ported from Streamdown's styles.css. Each animated word gets a
+ * <span data-sd-animate> with CSS custom properties controlling the
+ * animation name, duration, easing, and staggered delay.
+ * --------------------------------------------------------------------------- */
+
+@keyframes sd-fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes sd-blurIn {
+  from { opacity: 0; filter: blur(4px); }
+  to { opacity: 1; filter: blur(0); }
+}
+
+@keyframes sd-slideUp {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+[data-sd-animate] {
+  animation: var(--sd-animation) var(--sd-duration) var(--sd-easing) var(--sd-delay, 0ms) both;
+}

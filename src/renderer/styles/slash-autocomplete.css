@@ -1,0 +1,204 @@
+/* Slash autocomplete */
+@keyframes slash-appear {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.slash-autocomplete {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  z-index: var(--z-raised);
+  box-shadow: 0 -6px 24px var(--shadow-45), 0 -1px 6px var(--shadow-20);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slash-appear 0.1s ease-out;
+}
+
+/* Scrollable command list — footer stays pinned below */
+.slash-list {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+/* Group container */
+.slash-group {
+  padding: var(--space-4) 0;
+}
+
+/* Section header row */
+.slash-group-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-5) var(--space-12) var(--space-3);
+  pointer-events: none;
+  user-select: none;
+}
+
+.slash-group-icon {
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  line-height: 1;
+}
+
+.slash-group-icon-skill {
+  color: var(--green);
+  font-size: var(--text-base);
+}
+
+.slash-group-label {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Divider between groups */
+.slash-group-divider {
+  height: 1px;
+  background: var(--border);
+  margin: var(--space-2) 0;
+}
+
+/* Individual command row — stacks name+hint on top, desc below */
+.slash-item {
+  padding: var(--space-7) var(--space-12);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border-left: 2px solid transparent;
+  transition: background var(--duration-instant);
+}
+
+.slash-item:hover {
+  background: var(--bg-hover);
+}
+
+.slash-item.selected {
+  background: var(--bg-hover);
+  border-left-color: var(--accent);
+}
+
+.slash-item.selected .slash-item-name {
+  color: var(--accent-hover);
+}
+
+/* First line: /commandname <hint> */
+.slash-item-header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-7);
+}
+
+.slash-item-name {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+}
+
+/* Argument hint — monospace, muted, e.g. "<file>" */
+.slash-item-hint {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  opacity: 0.7;
+}
+
+/* Second line: description prose */
+.slash-item-desc {
+  color: var(--text-secondary);
+  font-size: var(--text-base);
+  line-height: 1.4;
+  padding-left: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Highlighted match chars */
+.slash-item-match {
+  color: var(--text-primary);
+  background: var(--accent-tint-18);
+  border-radius: var(--radius-xs);
+  padding: 0 1px;
+  font-weight: var(--weight-bold);
+}
+
+/* Keyboard hint footer — always visible, outside scroll */
+.slash-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-5) var(--space-12) var(--space-6);
+  border-top: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.slash-footer-dot {
+  opacity: 0.4;
+}
+
+/* No-session hint shown before first message */
+.slash-no-session {
+  display: flex;
+  align-items: center;
+  gap: var(--space-7);
+  padding: var(--space-10) var(--space-14);
+  color: var(--text-muted);
+  font-size: var(--text-base);
+  opacity: 0.7;
+  user-select: none;
+  pointer-events: none;
+}
+
+.slash-no-session svg {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+/* Skeleton loading */
+.slash-item-skeleton {
+  pointer-events: none;
+  user-select: none;
+}
+
+@keyframes slash-shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+
+.slash-skeleton-chip {
+  display: inline-block;
+  height: 10px;
+  border-radius: var(--radius);
+  background: linear-gradient(
+    90deg,
+    var(--border) 25%,
+    color-mix(in srgb, var(--border) 50%, var(--bg-primary)) 50%,
+    var(--border) 75%
+  );
+  background-size: 800px 100%;
+  animation: slash-shimmer 1.4s ease-in-out infinite;
+}
+
+.slash-skeleton-desc {
+  display: block;
+  height: 8px;
+  margin-top: var(--space-5);
+  border-radius: var(--radius-sm);
+  opacity: 0.6;
+}
+

@@ -1,0 +1,9 @@
+/* ============= Diff Comment Chips (Chat Input) ============= */
+
+.diff-comment-chips-icon {
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  font-family: var(--font-mono);
+  color: var(--accent);
+  flex-shrink: 0;
+}

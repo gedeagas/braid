@@ -1,0 +1,434 @@
+/* ─── Checks view ──────────────────────────────────────────────────────────── */
+
+.checks-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  font-size: var(--text-md);
+  color: var(--text-primary);
+}
+
+/* PR Header */
+.checks-pr-header {
+  padding: var(--space-12) var(--space-14) var(--space-10);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.checks-pr-header:hover {
+  background: var(--bg-hover);
+}
+
+.checks-pr-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-6);
+  margin-bottom: var(--space-6);
+  flex-wrap: wrap;
+}
+
+.checks-pr-number {
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.checks-pr-name {
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.checks-pr-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+}
+
+.checks-pr-state {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  padding: var(--space-2) var(--space-8);
+  border-radius: var(--radius-xl);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.checks-pr-state--open {
+  background: var(--green-tint-15);
+  color: var(--green);
+}
+
+.checks-pr-state--draft {
+  background: var(--olive-tint-20);
+  color: var(--text-muted);
+}
+
+.checks-pr-state--closed {
+  background: var(--red-tint-15);
+  color: var(--red);
+}
+
+.checks-pr-state--merged {
+  background: var(--purple-tint-20);
+  color: #a371f7;
+}
+
+.checks-pr-branch {
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  background: var(--bg-tertiary);
+  padding: var(--space-2) var(--space-6);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Body */
+.checks-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-8) 0;
+}
+
+/* Sections */
+.checks-section {
+  padding: 0 0 var(--space-8);
+}
+
+.checks-section + .checks-section {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-8);
+}
+
+/* Legacy class — kept for ChecksViewSkeleton which builds headers by hand */
+.checks-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-14) var(--space-6);
+  gap: var(--space-8);
+}
+
+.checks-section-title {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.checks-section-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+/* Override base SectionHeader padding when used inside .checks-section */
+.checks-section > .section-header {
+  padding: var(--space-4) var(--space-14) var(--space-6);
+}
+.checks-section > .section-header .section-header-title {
+  letter-spacing: 0.06em;
+}
+
+/* Rows */
+.checks-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.checks-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-5) var(--space-14);
+  min-height: 30px;
+}
+
+.checks-row--clickable {
+  cursor: pointer;
+}
+
+.checks-row--clickable:hover {
+  background: var(--bg-hover);
+}
+
+.checks-row-label {
+  flex: 1;
+  font-size: var(--text-md);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.checks-row-meta {
+  font-size: var(--text-base);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+.check-status-badge {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  padding: var(--space-2) var(--space-7);
+  border-radius: var(--radius-lg);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.check-status-badge--pending {
+  background: var(--amber-tint-15, rgba(230, 162, 60, 0.15));
+  color: var(--amber);
+  border: 1px solid var(--amber-tint-30, rgba(230, 162, 60, 0.3));
+}
+
+.check-status-badge--success {
+  background: var(--green-tint-15);
+  color: var(--green);
+  border: 1px solid var(--green-tint-30, rgba(63, 185, 80, 0.3));
+}
+
+.check-status-badge--skipped {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.checks-deployment-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* Groups */
+.checks-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.checks-group-label {
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  padding: var(--space-6) var(--space-14) var(--space-2);
+  font-weight: var(--weight-medium);
+}
+
+/* Action buttons */
+.checks-action-btn {
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  padding: var(--space-3) var(--space-10);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background var(--duration-instant), border-color var(--duration-instant);
+  line-height: 1.6;
+}
+
+.checks-action-btn--secondary {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.checks-action-btn--secondary:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.checks-action-btn--primary {
+  background: var(--accent-tint-10);
+  color: var(--accent);
+  border-color: var(--accent-tint-30);
+}
+
+.checks-action-btn--primary:hover {
+  background: var(--accent-tint-18);
+  border-color: var(--accent);
+}
+
+.checks-action-btn--danger {
+  background: var(--red-tint-10);
+  color: var(--red);
+  border-color: var(--red-tint-30);
+}
+
+.checks-action-btn--danger:hover {
+  background: var(--red-tint-18);
+  border-color: var(--red);
+}
+
+/* Empty state */
+.checks-empty {
+  padding: var(--space-10) var(--space-14);
+  font-size: var(--text-base);
+  color: var(--text-muted);
+}
+
+/* ─── Skeleton loading ───────────────────────────────────────────────────────── */
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.3; }
+  50%       { opacity: 0.65; }
+}
+
+.skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-5) var(--space-14);
+  min-height: 30px;
+}
+
+.skeleton-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--text-muted);
+  flex-shrink: 0;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-bar {
+  height: 11px;
+  background: var(--text-muted);
+  border-radius: var(--radius);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-bar--sm    { width: 52px;  flex-shrink: 0; }
+.skeleton-bar--md    { width: 100px; flex-shrink: 0; }
+.skeleton-bar--flex  { flex: 1; max-width: 220px; }
+.skeleton-bar--badge { width: 44px; height: 18px; border-radius: var(--radius-lg); flex-shrink: 0; }
+.skeleton-bar--title { height: 13px; width: 200px; flex-shrink: 0; }
+.skeleton-bar--state { height: 20px; width: 52px; border-radius: var(--radius-lg); flex-shrink: 0; }
+.skeleton-bar--branch { height: 18px; width: 110px; border-radius: var(--radius-sm); flex-shrink: 0; }
+
+/* Cold-start full-view skeleton header */
+.checks-skeleton-header {
+  padding: var(--space-12) var(--space-14) var(--space-10);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.checks-skeleton-header-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  margin-bottom: var(--space-8);
+}
+.checks-skeleton-header-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+/* Footer */
+.checks-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: var(--space-8) var(--space-14);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.checks-last-updated {
+  font-size: var(--text-base);
+  color: var(--text-muted);
+}
+
+/* ─── No-PR empty state (hosts JiraSection below) ──────────────────────────── */
+
+.checks-no-pr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-24) var(--space-14) var(--space-16);
+  gap: var(--space-6);
+  text-align: center;
+}
+
+.checks-no-pr-title {
+  font-size: var(--text-lg);
+  color: var(--text-primary);
+}
+
+.checks-no-pr-hint {
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  margin-bottom: var(--space-6);
+}
+
+/* ─── Jira section ──────────────────────────────────────────────────────────── */
+
+.jira-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+/* Shared: used by JiraSection (right panel) AND AddWorktreeDialog (sidebar) */
+.jira-issue-key {
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Shared: used by JiraSection (right panel) AND AddWorktreeDialog (sidebar) */
+.jira-status-badge {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  padding: var(--space-2) var(--space-7);
+  border-radius: var(--radius-lg);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.jira-status-badge--new {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.jira-status-badge--indeterminate {
+  background: var(--amber-tint-15, rgba(230, 162, 60, 0.15));
+  color: var(--amber);
+  border: 1px solid var(--amber-tint-30, rgba(230, 162, 60, 0.3));
+}
+
+.jira-status-badge--done {
+  background: var(--green-tint-15);
+  color: var(--green);
+  border: 1px solid var(--green-tint-30, rgba(63, 185, 80, 0.3));
+}
+
+.jira-warn-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-3) var(--space-14) var(--space-5) 30px;
+  font-size: var(--text-base);
+  color: var(--amber);
+}
+
+.jira-warn-icon {
+  font-size: var(--text-sm);
+  flex-shrink: 0;
+}

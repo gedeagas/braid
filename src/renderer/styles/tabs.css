@@ -1,0 +1,452 @@
+/* ── Overlay scrollbar ──────────────────────────────────────────────────────
+   VS Code-style: thin semi-transparent indicator overlaid on the bottom
+   border. Never eats into content height (negative margin compensates).
+   Scroll via trackpad, mouse wheel, or click-drag (useDragScroll).
+   Apply .scrollbar-overlay to any horizontally-scrollable tab bar.          */
+.scrollbar-overlay {
+  scrollbar-width: thin;                          /* Firefox: thin native */
+  scrollbar-color: transparent transparent;       /* Firefox: hidden idle */
+  margin-bottom: -3px;  /* pull down so the var(--space-3) scrollbar overlaps the border, not content */
+  position: relative;
+  z-index: var(--z-base);
+}
+.scrollbar-overlay:hover {
+  scrollbar-color: var(--border) transparent;     /* Firefox: show on hover */
+}
+.scrollbar-overlay::-webkit-scrollbar {
+  height: 3px;
+}
+.scrollbar-overlay::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-overlay::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: var(--radius-sm);
+}
+.scrollbar-overlay:hover::-webkit-scrollbar-thumb {
+  background: var(--border);
+}
+.scrollbar-overlay::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Tab bar */
+.tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  /* No fixed height — content-driven so the scrollbar appears below the tab
+     content rather than eating into it (same approach as TabbedTerminal). */
+  align-items: stretch;
+  padding: 0 var(--space-4);
+  gap: var(--space-2);
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag; /* Prevent Electron window-drag from swallowing mouse events */
+  cursor: grab;
+}
+
+.tab-bar--dragging,
+.tab-bar--dragging * {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+
+/* ── Tab drag-reorder states ─────────────────────────────────── */
+.tab--dragging {
+  opacity: 0.35;
+}
+
+.tab--drop-target {
+  box-shadow: inset 2px 0 0 var(--accent) !important;
+}
+
+.tab[draggable="true"] {
+  cursor: grab;
+}
+
+.tab[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.tab {
+  padding: 0 var(--space-14);
+  font-size: var(--text-md);
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  white-space: nowrap;
+  margin-top: var(--space-3);
+  /* Explicit height: margin-top (3px) + height (37px) = var(--space-40) bottom edge.
+     Explicit heights are not overridden by align-items: stretch, so the
+     scrollbar indicator cannot shrink the tab. */
+  height: 37px;
+  transition: color var(--duration-normal), box-shadow var(--duration-normal), margin-top var(--duration-instant);
+}
+
+.tab:hover {
+  color: var(--text-primary);
+}
+
+.tab.active {
+  color: var(--text-primary);
+  margin-top: 0;
+  height: 40px; /* flush with tab bar top; bottom edge still at 40px */
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+/* ── Icon-only tab display ─────────────────────────────────── */
+.tab-bar[data-display="icons"] {
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-8);
+}
+
+.tab-bar[data-display="icons"] .tab {
+  padding: 0 var(--space-10);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.tab-bar[data-display="icons"] .tab:hover {
+  background: var(--bg-hover);
+}
+
+.tab-bar[data-display="icons"] .tab.active {
+  background: var(--accent-tint-10);
+}
+
+/* New chat / new terminal add button — larger + to match terminal tab bar */
+.tab--add {
+  font-size: var(--text-4xl);
+  padding: 0 var(--space-14);
+  line-height: 1;
+}
+
+/* ── Tab badge (file count indicator) ───────────────────────── */
+.tab-badge {
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--accent-tint-15);
+  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.tab.active .tab-badge {
+  background: var(--accent);
+  color: #fff;
+}
+
+.tab-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
+
+.tab-rename-input {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: var(--text-md);
+  font-family: inherit;
+  padding: var(--space-2) var(--space-6);
+  outline: none;
+  width: 140px;
+}
+
+
+.tab-close {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-lg);
+  border-radius: var(--radius-sm);
+  opacity: 0;
+  transition: opacity var(--duration-normal);
+  cursor: pointer;
+}
+
+.tab:hover .tab-close {
+  opacity: 0.6;
+}
+
+.tab-close:hover {
+  opacity: 1 !important;
+  background: var(--bg-hover);
+}
+
+/* File tabs in the center panel */
+.tab-file {
+  border-left: 1px solid var(--border);
+}
+
+.tab-file:first-of-type {
+  border-left: 1px solid var(--border);
+}
+
+.tab-file-icon {
+  display: flex;
+  align-items: center;
+  opacity: 0.8;
+}
+
+.tab-dirty {
+  font-size: var(--text-base);
+  color: var(--accent);
+  line-height: 1;
+  margin-left: -2px;
+}
+
+/* ── Tab status states ───────────────────────────────────────── */
+
+/* Running — slow breathing, "working in the background" */
+.tab--running {
+  animation: tab-breathe 2s ease-in-out infinite;
+}
+.tab--running.active {
+  box-shadow: inset 0 -2px 0 var(--amber);
+}
+@keyframes tab-breathe {
+  0%, 100% { background: var(--amber-tint-6); }
+  50%       { background: var(--amber-tint-14); }
+}
+
+/* Waiting — faster pulse, "hey, I need you" */
+.tab--waiting {
+  animation: tab-pulse 1s ease-in-out infinite;
+}
+.tab--waiting.active {
+  box-shadow: inset 0 -2px 0 var(--amber);
+}
+@keyframes tab-pulse {
+  0%, 100% { background: var(--amber-tint-10); }
+  50%       { background: var(--amber-tint-22); }
+}
+
+/* Error — flash once then holds, "something went wrong" */
+.tab--error {
+  animation: tab-error-flash 0.4s ease-out forwards;
+}
+.tab--error.active {
+  box-shadow: inset 0 -2px 0 var(--red);
+}
+@keyframes tab-error-flash {
+  0%   { background: var(--red-tint-35); }
+  100% { background: var(--red-tint-10); }
+}
+
+
+
+/* ── Setup Panel ──────────────────────────────────────────────── */
+
+.setup-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.setup-panel-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-6) var(--space-12);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.setup-panel-rerun {
+  font-size: var(--text-base);
+  padding: var(--space-3) var(--space-10);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-normal);
+}
+
+.setup-panel-rerun:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.setup-panel-rerun:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* File viewer (editor in center panel) */
+.file-viewer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-5) var(--space-14);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+  gap: var(--space-8);
+  min-height: 36px;
+}
+
+.file-viewer-path {
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+}
+
+.file-viewer-dirty {
+  color: var(--accent);
+  font-size: var(--text-base);
+  line-height: 1;
+}
+
+.file-viewer-save-btn {
+  font-size: var(--text-base);
+  padding: var(--space-4) var(--space-12);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-normal);
+  white-space: nowrap;
+}
+
+.file-viewer-save-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.file-viewer-save-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.file-viewer-save-btn.active:hover {
+  background: var(--accent-tint-10);
+}
+
+/* ─── Markdown preview pane ─────────────────────────────────────────────── */
+
+.md-preview {
+  height: 100%;
+  overflow-y: auto;
+  padding: var(--space-20) var(--space-28);
+  font-size: var(--text-lg);
+  line-height: 1.7;
+  color: var(--text);
+}
+
+.md-preview h1,
+.md-preview h2,
+.md-preview h3,
+.md-preview h4,
+.md-preview h5,
+.md-preview h6 {
+  margin: 1.2em 0 0.4em;
+  font-weight: var(--weight-semibold);
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.md-preview h1 { font-size: 1.6em; border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
+.md-preview h2 { font-size: 1.3em; border-bottom: 1px solid var(--border); padding-bottom: 0.2em; }
+.md-preview h3 { font-size: 1.1em; }
+
+.md-preview p { margin: 0.6em 0; }
+
+.md-preview a { color: var(--accent); text-decoration: none; }
+.md-preview a:hover { text-decoration: underline; }
+
+.md-preview code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--bg-tertiary, var(--bg-secondary));
+  border-radius: var(--radius-sm);
+  padding: 0.15em 0.35em;
+}
+
+.md-preview pre {
+  background: var(--bg-tertiary, var(--bg-secondary));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-12) var(--space-16);
+  overflow-x: auto;
+  margin: 0.8em 0;
+}
+
+.md-preview pre code {
+  background: none;
+  padding: 0;
+  font-size: var(--text-md);
+}
+
+.md-preview blockquote {
+  margin: 0.8em 0;
+  padding: 0.2em 1em;
+  border-left: 3px solid var(--accent);
+  color: var(--text-muted);
+}
+
+.md-preview ul,
+.md-preview ol {
+  margin: 0.6em 0;
+  padding-left: 1.6em;
+}
+
+.md-preview li { margin: 0.25em 0; }
+
+.md-preview table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.8em 0;
+  font-size: var(--text-md);
+}
+
+.md-preview th,
+.md-preview td {
+  border: 1px solid var(--border);
+  padding: var(--space-6) var(--space-12);
+  text-align: left;
+}
+
+.md-preview th {
+  background: var(--bg-secondary);
+  font-weight: var(--weight-semibold);
+}
+
+.md-preview img {
+  max-width: 100%;
+  border-radius: var(--radius);
+}
+
+.md-preview hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.4em 0;
+}
+

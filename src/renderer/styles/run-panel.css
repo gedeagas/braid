@@ -1,0 +1,330 @@
+/* ─── Run Scripts Panel ──────────────────────────────────────────────────── */
+
+.run-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.run-panel-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-8);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.run-panel-filter {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-base);
+  padding: var(--space-3) var(--space-8);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.run-panel-filter:focus {
+  border-color: var(--accent);
+}
+
+.run-panel-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--text-md);
+  flex-shrink: 0;
+}
+
+.run-panel-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.run-panel-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ─── Add custom form ──────────────────────────────────────────────────── */
+
+.run-panel-add-form {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-8);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.run-panel-add-input {
+  font-size: var(--text-base);
+  padding: var(--space-3) var(--space-8);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  outline: none;
+  width: 80px;
+}
+
+.run-panel-add-cmd {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+}
+
+.run-panel-add-input:focus {
+  border-color: var(--accent);
+}
+
+.run-panel-add-run {
+  color: var(--green);
+  border-color: var(--green);
+}
+
+/* ─── Script list ──────────────────────────────────────────────────────── */
+
+.run-panel-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-2) 0;
+  cursor: grab;
+}
+
+.run-panel-list:active {
+  cursor: grabbing;
+}
+
+.run-panel-group {
+  margin-bottom: var(--space-2);
+}
+
+.run-panel-group-header {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: var(--space-6) var(--space-10) var(--space-3);
+}
+
+.run-panel-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-4) var(--space-6) var(--space-4) var(--space-4);
+  cursor: inherit;
+}
+
+.run-panel-row:hover {
+  background: var(--bg-hover);
+}
+
+/* Drag grip handle — visible on hover for draggable rows */
+.run-panel-grip {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  cursor: grab;
+  opacity: 0;
+  flex-shrink: 0;
+  user-select: none;
+  transition: opacity var(--duration-instant);
+  line-height: 1;
+  margin-left: var(--space-2);
+  margin-right: -4px;
+}
+
+.run-panel-row:hover .run-panel-grip {
+  opacity: 0.5;
+}
+
+.run-panel-grip:hover {
+  opacity: 1 !important;
+}
+
+/* Drag states */
+.run-panel-row--dragging {
+  opacity: 0.35;
+}
+
+.run-panel-row--drag-over {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.run-panel-row-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  gap: 1px;
+}
+
+.run-panel-row-name-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.run-panel-row-name {
+  font-size: var(--text-md);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.run-panel-row-badge {
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  padding: 1px var(--space-5);
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.run-panel-row-cmd {
+  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Stale / unavailable row */
+.run-panel-row--stale {
+  opacity: 0.5;
+}
+
+.run-panel-row--stale .run-panel-row-name {
+  color: var(--text-muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--text-muted);
+}
+
+/* ─── Favorite star ───────────────────────────────────────────────────── */
+
+.run-panel-fav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--text-base);
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity var(--duration-instant), color var(--duration-instant);
+}
+
+.run-panel-fav--active {
+  color: var(--yellow, #e8a317);
+  opacity: 1;
+}
+
+.run-panel-row:hover .run-panel-fav {
+  opacity: 1;
+}
+
+.run-panel-fav:hover {
+  color: var(--yellow, #e8a317);
+}
+
+/* ─── Remove button (custom commands) ─────────────────────────────────── */
+
+.run-panel-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--text-xs);
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity var(--duration-instant), color var(--duration-instant), background var(--duration-instant);
+}
+
+.run-panel-row:hover .run-panel-remove {
+  opacity: 1;
+}
+
+.run-panel-remove:hover {
+  color: var(--red);
+  background: var(--red-tint-20, rgba(255, 0, 0, 0.1));
+}
+
+/* ─── Play button ─────────────────────────────────────────────────────── */
+
+.run-panel-play {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--green);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity var(--duration-instant), background var(--duration-instant);
+}
+
+.run-panel-row:hover .run-panel-play {
+  opacity: 1;
+}
+
+.run-panel-play:hover {
+  background: var(--bg-active, var(--bg-hover));
+}
+
+/* ─── Empty state ──────────────────────────────────────────────────────── */
+
+.run-panel-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-6);
+  flex: 1;
+  padding: var(--space-20);
+}
+
+.run-panel-empty-text {
+  font-size: var(--text-md);
+  color: var(--text-secondary);
+}
+
+.run-panel-empty-hint {
+  font-size: var(--text-base);
+  color: var(--text-tertiary);
+  text-align: center;
+}

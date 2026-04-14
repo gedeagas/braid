@@ -1,0 +1,43 @@
+/* Branch combobox — trigger styles for Add Worktree dialog */
+/* Dropdown/filter/list styles are handled by the generic Combobox component (combobox.css) */
+
+.branch-combobox {
+  position: relative;
+}
+
+.branch-combobox__trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-7);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-8) var(--space-10);
+  color: var(--text-primary);
+  font-size: var(--text-md);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color var(--duration-instant);
+}
+
+.branch-combobox__trigger:hover {
+  border-color: var(--border-hover, var(--border));
+}
+
+.branch-combobox__trigger:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.branch-combobox__trigger:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.branch-combobox__value {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

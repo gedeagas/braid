@@ -1,0 +1,125 @@
+/* ---------------------------------------------------------------------------
+   Flash toasts — lightweight ephemeral notifications
+   --------------------------------------------------------------------------- */
+
+.flash-container {
+  position: fixed;
+  z-index: var(--z-flash); /* above session toasts (500) */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-6);
+  pointer-events: none;
+}
+
+.flash-container--center {
+  bottom: var(--space-16);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.flash-container--bottom-right {
+  bottom: var(--space-16);
+  right: var(--space-16);
+  align-items: flex-end;
+}
+
+.flash {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-14);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-elevation-md);
+  pointer-events: auto;
+  animation: flash-slide-up 200ms ease-out forwards;
+  max-width: 420px;
+}
+
+.flash--dismissing {
+  animation: flash-fade-out 150ms ease-in forwards;
+}
+
+.flash--paused {
+  box-shadow: var(--shadow-elevation-lg);
+}
+
+/* ── Type variants ────────────────────────────────────────────────────── */
+
+.flash--info {
+  border-top: 2px solid var(--accent);
+}
+
+.flash--success {
+  border-top: 2px solid var(--olive);
+}
+
+.flash--warning {
+  border-top: 2px solid var(--amber);
+}
+
+.flash--error {
+  border-top: 2px solid var(--red);
+}
+
+/* ── Content ──────────────────────────────────────────────────────────── */
+
+.flash__icon {
+  flex-shrink: 0;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  width: 16px;
+  text-align: center;
+}
+
+.flash--info .flash__icon { color: var(--accent); }
+.flash--success .flash__icon { color: var(--olive); }
+.flash--warning .flash__icon { color: var(--amber); }
+.flash--error .flash__icon { color: var(--red); }
+
+.flash__message {
+  font-size: var(--text-md);
+  color: var(--text-primary);
+  line-height: 1.4;
+  word-break: break-word;
+  user-select: text;
+  cursor: text;
+}
+
+.flash__dismiss {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: var(--space-8) var(--space-10);
+  border-radius: var(--radius);
+  font-size: var(--text-3xl);
+  line-height: 1;
+  opacity: 0;
+  transition: opacity var(--duration-instant), color var(--duration-instant);
+}
+
+.flash:hover .flash__dismiss {
+  opacity: 1;
+}
+
+.flash__dismiss:hover {
+  color: var(--text-primary);
+}
+
+/* ── Animations ───────────────────────────────────────────────────────── */
+
+@keyframes flash-slide-up {
+  from { transform: translateY(12px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes flash-fade-out {
+  from { transform: translateY(0); opacity: 1; }
+  to   { transform: translateY(8px); opacity: 0; }
+}
+

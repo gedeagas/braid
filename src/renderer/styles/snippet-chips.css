@@ -1,0 +1,101 @@
+/* Snippet attachment chips (above chat input) */
+
+.snippet-chips {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-8) var(--space-12) 0;
+}
+
+.snippet-chip {
+  border-radius: var(--radius);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  min-width: 0;
+}
+
+.snippet-chip-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-5) var(--space-8);
+  font-size: var(--text-base);
+  min-height: 28px;
+}
+
+.snippet-chip-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background var(--duration-instant), color var(--duration-instant);
+}
+
+.snippet-chip-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.snippet-chip-preview {
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.snippet-chip-badge {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.snippet-chip-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background var(--duration-instant), color var(--duration-instant);
+}
+
+.snippet-chip-remove:hover {
+  background: var(--red-tint-15);
+  color: var(--red);
+}
+
+.snippet-chip-expanded {
+  margin: 0;
+  padding: var(--space-8) var(--space-10);
+  border-top: 1px solid var(--border);
+  background: var(--bg-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  color: var(--text-secondary);
+  overflow-x: auto;
+  max-height: 140px;
+  white-space: pre;
+  tab-size: 2;
+}

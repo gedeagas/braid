@@ -1,0 +1,623 @@
+/* File tree */
+.file-tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-4);
+  font-size: var(--text-lg);
+}
+
+.file-tree-body {
+  transition: opacity var(--duration-normal);
+}
+
+.file-tree-body.refreshing {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.file-tree-skeleton {
+  padding: var(--space-4) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.file-tree-skeleton-row {
+  height: 22px;
+  border-radius: var(--radius);
+  background: var(--bg-hover);
+  animation: skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+.panel-toolbar {
+  display: flex;
+  align-items: center;
+  padding: var(--space-4) var(--space-8);
+  flex-shrink: 0;
+  gap: var(--space-6);
+  font-size: var(--text-base);
+  color: var(--text-muted);
+}
+
+.panel-toolbar-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex: 1;
+  min-width: 0;
+}
+
+/* Shared refresh button — used across right panel tabs */
+.panel-refresh-btn {
+  background: var(--accent-tint-8);
+  border: 1px solid var(--accent-tint-15);
+  color: var(--accent);
+  cursor: pointer;
+  padding: var(--space-3) var(--space-8);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  flex-shrink: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  transition: color var(--duration-normal), background var(--duration-normal), border-color var(--duration-normal);
+}
+
+.panel-refresh-btn:hover {
+  background: var(--accent-tint-15);
+  border-color: var(--accent);
+}
+
+.panel-refresh-btn:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.panel-refresh-btn.refreshing svg {
+  animation: panel-refresh-spin 0.6s linear infinite;
+  color: var(--accent);
+}
+
+@keyframes panel-refresh-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.file-entry {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-6);
+  border-radius: var(--radius);
+  cursor: pointer;
+  color: var(--text-secondary);
+  user-select: none;
+  min-height: 25px;
+}
+
+.file-entry:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.file-entry.selected {
+  background: var(--accent-tint-15);
+  color: var(--text-primary);
+}
+
+.file-chevron {
+  width: 12px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+}
+
+.file-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.file-children {
+  padding-left: var(--space-12);
+}
+
+/* ============= Changes View ============= */
+.changes-root {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  padding-top: var(--space-4);
+}
+
+.changes-file-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-4) 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.changes-file-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.changes-file-list::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: var(--radius-sm);
+}
+
+.changes-file-list:hover::-webkit-scrollbar-thumb {
+  background: var(--border);
+}
+
+.changes-file-list::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+.changes-file-list.has-selection {
+  flex: none;
+  max-height: 40%;
+  min-height: 120px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Summary row */
+.changes-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-6) var(--space-12);
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  user-select: none;
+}
+
+.changes-count {
+  font-weight: var(--weight-semibold);
+  color: var(--text-secondary);
+}
+
+.changes-summary-pills {
+  display: flex;
+  gap: var(--space-6);
+}
+
+.changes-pill {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  padding: 1px var(--space-6);
+  border-radius: var(--radius-lg);
+  line-height: 1.4;
+}
+
+.changes-pill-A { background: var(--green-tint-15); color: var(--green); }
+.changes-pill-M { background: var(--amber-tint-15); color: var(--amber); }
+.changes-pill-D { background: var(--red-tint-15); color: var(--red); }
+
+/* File rows */
+.change-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-5) var(--space-12);
+  cursor: pointer;
+  font-size: var(--text-md);
+  color: var(--text-secondary);
+  transition: background var(--duration-instant);
+}
+
+.change-row:hover {
+  background: var(--bg-hover);
+}
+
+.change-row.selected {
+  background: var(--accent-tint-10);
+  color: var(--text-primary);
+}
+
+.change-badge {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  flex-shrink: 0;
+}
+
+.change-badge-M { background: var(--amber); color: #000; }
+.change-badge-A { background: var(--green); color: #000; }
+.change-badge-D { background: var(--red); color: #fff; }
+.change-badge-U { background: var(--text-muted); color: #fff; }
+.change-badge-R { background: var(--accent); color: #fff; }
+
+.change-file-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+.change-file-name {
+  font-size: var(--text-md);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.change-file-dir {
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Empty state */
+/* ============= Collapsible commit box ============= */
+.changes-commit-collapse {
+  max-height: 200px;
+  opacity: 1;
+  overflow: hidden;
+  transition: max-height var(--duration-slower) ease, opacity var(--duration-slow) ease;
+}
+.changes-commit-collapse.collapsed {
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ============= Clean state indicator ============= */
+.changes-clean-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: var(--space-8);
+  color: var(--text-muted);
+  animation: changes-clean-fadein 0.3s ease;
+}
+.changes-clean-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  font-size: var(--text-md);
+}
+.changes-clean-icon {
+  color: var(--green);
+  opacity: 0.5;
+}
+@keyframes changes-clean-fadein {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ============= Pull button in toolbar ============= */
+.changes-pull-btn {
+  background: var(--accent-tint-8);
+  border: 1px solid var(--accent-tint-15);
+  color: var(--accent);
+  padding: var(--space-3) var(--space-8);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background var(--duration-normal), color var(--duration-normal), border-color var(--duration-normal);
+}
+.changes-pull-btn:hover:not(:disabled) {
+  background: var(--accent-tint-15);
+}
+.changes-pull-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.changes-pull-btn--success {
+  background: var(--green-tint-10, rgba(0,180,80,0.1));
+  border-color: var(--green-tint-20, rgba(0,180,80,0.2));
+  color: var(--green);
+}
+.changes-pull-btn--error {
+  background: var(--red-tint-10, rgba(220,50,50,0.1));
+  border-color: var(--red-tint-20, rgba(220,50,50,0.2));
+  color: var(--red);
+}
+.changes-pull-btn--pulling {
+  opacity: 0.7;
+}
+
+/* ============= Toolbar actions group ============= */
+.panel-toolbar-actions {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-4);
+  flex-shrink: 0;
+}
+
+/* ============= Commit Box ============= */
+.changes-commit-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-8) var(--space-10);
+  border-bottom: 1px solid var(--border);
+}
+
+.changes-commit-input {
+  width: 100%;
+  min-height: 60px;
+  max-height: 120px;
+  padding: var(--space-6) var(--space-8);
+  font-size: var(--text-md);
+  font-family: var(--font-mono, var(--font-mono));
+  background: var(--bg-input, var(--bg-secondary));
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  resize: vertical;
+  outline: none;
+  line-height: 1.4;
+  box-sizing: border-box;
+}
+
+.changes-commit-input:focus {
+  border-color: var(--accent);
+}
+
+.changes-commit-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.changes-commit-input.generating {
+  background: linear-gradient(
+    90deg,
+    var(--bg-input, var(--bg-secondary)) 0%,
+    var(--accent-tint-10) 50%,
+    var(--bg-input, var(--bg-secondary)) 100%
+  );
+  background-size: 200% 100%;
+  animation: commit-shimmer var(--duration-shimmer) ease-in-out infinite;
+  border-color: var(--accent-tint-15);
+}
+
+.changes-commit-input.generating::placeholder {
+  color: var(--accent);
+  opacity: 0.8;
+}
+
+@keyframes commit-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.changes-generate-link {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: var(--text-base);
+  cursor: pointer;
+  padding: var(--space-2) 0;
+  align-self: flex-start;
+  transition: color var(--duration-normal);
+}
+
+.changes-generate-link:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+.changes-generate-link:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.changes-generate-link.generating {
+  color: var(--accent);
+  animation: generate-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes generate-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.changes-generate-link.error {
+  color: var(--red);
+}
+
+.changes-commit-btn {
+  width: 100%;
+  padding: var(--space-6) var(--space-12);
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  white-space: nowrap;
+  background: var(--accent);
+  color: #fff;
+  min-height: 32px;
+  transition: opacity var(--duration-normal);
+}
+
+.changes-commit-btn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.changes-commit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.changes-commit-btn--success {
+  background: var(--green);
+}
+
+.changes-commit-btn--error {
+  background: var(--red);
+}
+
+.changes-commit-count {
+  opacity: 0.75;
+  font-weight: var(--weight-normal);
+}
+
+/* ============= Push Banner ============= */
+.changes-push-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-6) var(--space-10);
+  border-bottom: 1px solid var(--border);
+  background: var(--accent-tint-8);
+  animation: changes-push-fadein 0.2s ease;
+}
+
+@keyframes changes-push-fadein {
+  from { opacity: 0; max-height: 0; }
+  to { opacity: 1; max-height: 40px; }
+}
+
+.changes-push-banner-text {
+  flex: 1;
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.changes-push-btn {
+  background: var(--accent-tint-8);
+  border: 1px solid var(--accent-tint-15);
+  color: var(--accent);
+  padding: var(--space-3) var(--space-8);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background var(--duration-normal), color var(--duration-normal), border-color var(--duration-normal);
+}
+.changes-push-btn:hover:not(:disabled) {
+  background: var(--accent-tint-15);
+}
+.changes-push-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.changes-push-btn--success {
+  background: var(--green-tint-10, rgba(0,180,80,0.1));
+  border-color: var(--green-tint-20, rgba(0,180,80,0.2));
+  color: var(--green);
+}
+.changes-push-btn--error {
+  background: var(--red-tint-10, rgba(220,50,50,0.1));
+  border-color: var(--red-tint-20, rgba(220,50,50,0.2));
+  color: var(--red);
+}
+.changes-push-btn--pushing {
+  opacity: 0.7;
+}
+
+/* ─── Push error panel ──────────────────────────────────────── */
+
+.push-error-panel {
+  margin: var(--space-8) var(--space-10);
+  padding: var(--space-8) var(--space-10);
+  background: var(--red-tint-8, rgba(220,50,50,0.08));
+  border: 1px solid var(--red-tint-20, rgba(220,50,50,0.2));
+  border-radius: var(--radius);
+  animation: push-error-slide-down var(--duration-normal) ease;
+}
+
+@keyframes push-error-slide-down {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.push-error-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  margin-bottom: var(--space-6);
+}
+
+.push-error-panel-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--red);
+}
+
+.push-error-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-shrink: 0;
+}
+
+.push-error-panel-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-6);
+  background: transparent;
+  border: 1px solid var(--red-tint-20, rgba(220,50,50,0.2));
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.push-error-panel-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.push-error-panel-btn--dismiss {
+  padding: var(--space-2) var(--space-4);
+  border-color: transparent;
+}
+
+.push-error-panel-body {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 120px;
+  overflow-y: auto;
+  line-height: 1.5;
+}
+

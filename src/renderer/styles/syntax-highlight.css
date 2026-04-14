@@ -1,0 +1,34 @@
+/* ============= Syntax Highlighting (highlight.js — theme-aware) ============= */
+.hljs {
+  color: var(--hljs-base);
+  background: transparent;
+}
+.hljs-comment,
+.hljs-quote { color: var(--hljs-comment); font-style: italic; }
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal { color: var(--hljs-keyword); }
+.hljs-name,
+.hljs-attribute { color: var(--hljs-attr-name); }
+.hljs-string,
+.hljs-doctag,
+.hljs-template-literal,
+.hljs-regexp { color: var(--hljs-string); }
+.hljs-title,
+.hljs-section,
+.hljs-built_in { color: var(--hljs-title); }
+.hljs-type,
+.hljs-class .hljs-title { color: var(--hljs-type); }
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet { color: var(--hljs-number); }
+.hljs-meta,
+.hljs-meta .hljs-keyword { color: var(--hljs-meta); }
+.hljs-variable,
+.hljs-template-variable { color: var(--hljs-variable); }
+.hljs-tag { color: var(--hljs-tag); }
+.hljs-attr { color: var(--hljs-attr); }
+.hljs-addition { color: var(--green); background: var(--green-tint-15); }
+.hljs-deletion { color: var(--red); background: var(--red-tint-15); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 600; }

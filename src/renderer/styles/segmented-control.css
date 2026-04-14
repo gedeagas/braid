@@ -1,0 +1,40 @@
+/* ── Segmented Control ───────────────────────────────────────────────── */
+
+.segmented-control {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+
+.segmented-control__btn {
+  background: none;
+  border: none;
+  border-right: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--text-base);
+  padding: var(--space-4) var(--space-12);
+  transition: background var(--duration-instant), color var(--duration-instant);
+}
+
+.segmented-control__btn:last-child {
+  border-right: none;
+}
+
+.segmented-control__btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.segmented-control__btn--active {
+  background: var(--accent-tint-15);
+  color: var(--accent);
+  font-weight: var(--weight-semibold);
+}
+
+.segmented-control__btn--active:hover {
+  background: var(--accent-tint-15);
+  color: var(--accent);
+}

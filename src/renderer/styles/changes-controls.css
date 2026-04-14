@@ -1,0 +1,188 @@
+/* ============= Section Headers ============= */
+.changes-section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-6) var(--space-10);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.changes-section-header:hover {
+  background: var(--bg-hover);
+}
+
+.changes-section-chevron {
+  font-size: var(--text-base);
+  transition: transform var(--duration-normal);
+  opacity: 0.6;
+}
+
+.changes-section-chevron.collapsed {
+  transform: rotate(-90deg);
+}
+
+.changes-section-title {
+  flex: 1;
+}
+
+.changes-section-count {
+  font-weight: var(--weight-normal);
+  opacity: 0.7;
+}
+
+.changes-section-btn {
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 1px var(--space-4);
+  border-radius: var(--radius-sm);
+  opacity: 0;
+  transition: opacity var(--duration-normal);
+}
+
+.changes-section-header:hover .changes-section-btn {
+  opacity: 1;
+}
+
+.changes-section-btn:hover {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+.changes-section-btn--danger {
+  color: var(--red);
+}
+
+.changes-section-btn--danger:hover {
+  background: color-mix(in srgb, var(--red) 15%, transparent);
+}
+
+.changes-section-files {
+  overflow: hidden;
+  transition: max-height var(--duration-slow) ease;
+  flex-shrink: 0;
+}
+
+.changes-section-files.collapsed {
+  max-height: 0 !important;
+}
+
+.changes-section-empty {
+  padding: var(--space-8) var(--space-10);
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  opacity: 0.5;
+  font-style: italic;
+}
+
+/* ============= Row Checkbox & Discard ============= */
+.change-row-checkbox {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all var(--duration-instant);
+  padding: 0;
+  color: #fff;
+  font-size: var(--text-base);
+}
+
+.change-row-checkbox:hover {
+  border-color: var(--accent);
+}
+
+.change-row-checkbox.checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.change-row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity var(--duration-instant);
+}
+
+.change-row:hover .change-row-actions {
+  opacity: 1;
+}
+
+.change-discard-btn {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: var(--text-base);
+  padding: 0;
+  transition: all var(--duration-instant);
+}
+
+.change-discard-btn:hover {
+  color: var(--red);
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+}
+
+
+/* ============= Neko Walk ============= */
+@keyframes neko-walk {
+  from { transform: translate(-100%, -50%); }
+  to   { transform: translate(calc(100vw + 100%), -50%); }
+}
+
+@keyframes neko-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.neko-walk-wrapper {
+  width: 100%;
+  height: 72px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: var(--space-4);
+  animation: neko-fade-in 0.6s ease-out forwards;
+}
+
+.neko-walk-cat {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  animation: neko-walk 12s linear infinite;
+  will-change: transform;
+}
+
+.neko-pre {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  line-height: 1.45;
+  color: var(--text-muted);
+  opacity: 0.75;
+  white-space: pre;
+  user-select: none;
+}
+
