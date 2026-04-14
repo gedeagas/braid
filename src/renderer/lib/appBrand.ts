@@ -1,10 +1,10 @@
 export const APP_DISPLAY_NAME = 'Braid'
 
 /**
- * Version codename — each major version (year) has a city name.
- * 26 → Shintomicho
+ * Version codename — each major version gets a star/constellation name.
+ * 26 → Polaris
  */
-export const VERSION_CODENAME = 'Shintomicho'
+export const VERSION_CODENAME = 'Polaris'
 
 /**
  * Internal codename — used for localStorage key prefixes, custom DOM events,

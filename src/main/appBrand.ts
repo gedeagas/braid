@@ -1,12 +1,12 @@
 export const APP_DISPLAY_NAME = 'Braid'
 
 /**
- * Version codename — each major version (year) has a city name.
- * 26 → Shintomicho
+ * Version codename — each major version gets a star/constellation name.
+ * 26 → Polaris
  *
  * Mirrored in src/renderer/src/lib/appBrand.ts — keep them in sync.
  */
-export const VERSION_CODENAME = 'Shintomicho'
+export const VERSION_CODENAME = 'Polaris'
 
 /**
  * Data directory name on disk (~/Braid/).
