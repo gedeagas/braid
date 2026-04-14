@@ -50,7 +50,7 @@ const features = [
     icon: <ThemeIcon />,
     title: 'Themes & Customization',
     description:
-      'Dark and light modes, custom themes, VSCode theme import. Configure models, prompts, and notifications.',
+      'Dark and light modes with custom themes. Configure models, prompts, and notifications.',
   },
 ]
 

@@ -53,7 +53,7 @@ You can have any number of file tabs open. Each tab loads independently, so open
 
 ## Theme integration
 
-The editor theme matches your app theme. When you switch between light and dark mode (or any custom theme), the editor updates automatically. Syntax colors, the background, the gutter, and the cursor all adapt to your chosen palette.
+The editor theme matches your app theme. When you switch between light and dark mode, the editor updates automatically. Syntax colors, the background, the gutter, and the cursor all adapt to your chosen palette.
 
 This means you never deal with a jarring contrast between the editor and the rest of the app. The theme applies instantly with no reload required.
 
