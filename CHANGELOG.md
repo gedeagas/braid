@@ -7,22 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - v26.1.0
 
-### Added
-
-- Icons and item counts on Mission Control sidebar tabs
-
-### Fixed
-
-- Onboarding auto-completes when a project already exists, preventing step 1 reset
-
-### Documentation
-
-- Add documentation pages for features, integrations, and settings
-
----
-
-## [26.0.2] - 2026-04-07
-
 Large feature release covering diff review, context tracking, streaming improvements, design system expansion, and MCP enhancements.
 
 ### Added
@@ -41,6 +25,7 @@ Large feature release covering diff review, context tracking, streaming improvem
 - Copy button and turn footer in chat messages
 - Per-worktree state for center view and changes panel
 - Diff comment cards for user messages
+- Icons and item counts on Mission Control sidebar tabs
 
 ### Changed
 
@@ -61,6 +46,7 @@ Large feature release covering diff review, context tracking, streaming improvem
 - ChatMessage code parsing and diff comment rendering
 - Timer leak with ref cleanup in copy button
 - Virtualization disabled by default in settings
+- Onboarding auto-completes when a project already exists, preventing step 1 reset
 
 ### Style
 
@@ -69,6 +55,10 @@ Large feature release covering diff review, context tracking, streaming improvem
 - Reduce tool call group margins for tighter layout
 - Add top padding to changes container
 - Add min-width: 0 to prevent text overflow
+
+### Documentation
+
+- Add documentation pages for features, integrations, and settings
 
 ---
 

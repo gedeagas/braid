@@ -4,7 +4,7 @@ import type * as Preset from '@docusaurus/preset-classic'
 
 const config: Config = {
   title: 'Braid',
-  tagline: 'Manage worktrees. Chat with Claude. Ship from isolated branches.',
+  tagline: 'Manage worktrees. Run AI agents. Ship from isolated branches.',
   favicon: 'img/favicon.ico',
 
   url: 'https://gedeagas.github.io',
@@ -78,6 +78,15 @@ const config: Config = {
           ],
         },
         {
+          title: 'Legal',
+          items: [
+            { label: 'Privacy Policy', to: '/privacy' },
+            { label: 'Terms of Service', to: '/terms' },
+            { label: 'プライバシーポリシー', to: '/privacy-ja' },
+            { label: '利用規約', to: '/terms-ja' },
+          ],
+        },
+        {
           title: 'More',
           items: [
             { label: 'GitHub', href: 'https://github.com/gedeagas/braid' },
@@ -90,7 +99,7 @@ const config: Config = {
     colorMode: {
       defaultMode: 'dark',
       disableSwitch: false,
-      respectPrefersColorScheme: true,
+      respectPrefersColorScheme: false,
     },
 
     prism: {
