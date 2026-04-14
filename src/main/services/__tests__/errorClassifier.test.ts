@@ -31,10 +31,55 @@ describe('classifyError', () => {
     expect(classifyError('Error: please run /login to authenticate')).toBe('auth')
   })
 
+  it('detects network errors - ENOTFOUND', () => {
+    expect(classifyError('getaddrinfo ENOTFOUND api.anthropic.com')).toBe('network')
+  })
+
+  it('detects network errors - ECONNREFUSED', () => {
+    expect(classifyError('connect ECONNREFUSED 127.0.0.1:443')).toBe('network')
+  })
+
+  it('detects network errors - ECONNRESET', () => {
+    expect(classifyError('socket hang up ECONNRESET')).toBe('network')
+  })
+
+  it('detects network errors - ETIMEDOUT', () => {
+    expect(classifyError('connect ETIMEDOUT 104.18.6.224:443')).toBe('network')
+  })
+
+  it('detects network errors - ENETUNREACH', () => {
+    expect(classifyError('connect ENETUNREACH ::1:443')).toBe('network')
+  })
+
+  it('detects network errors - socket hang up', () => {
+    expect(classifyError('socket hang up')).toBe('network')
+  })
+
+  it('detects network errors - fetch failed', () => {
+    expect(classifyError('TypeError: fetch failed')).toBe('network')
+  })
+
+  it('detects network errors - Failed to fetch', () => {
+    expect(classifyError('Failed to fetch')).toBe('network')
+  })
+
+  it('detects network errors - request timed out', () => {
+    expect(classifyError('request timed out')).toBe('network')
+  })
+
+  it('detects network errors - EAI_AGAIN', () => {
+    expect(classifyError('getaddrinfo EAI_AGAIN api.anthropic.com')).toBe('network')
+  })
+
+  it('prioritizes network over auth for connection-level failures', () => {
+    // ECONNREFUSED to auth endpoint is a network issue, not auth
+    expect(classifyError('connect ECONNREFUSED to auth server')).toBe('network')
+  })
+
   it('returns generic for unrelated errors', () => {
-    expect(classifyError('Network timeout')).toBe('generic')
     expect(classifyError('SDK import failed')).toBe('generic')
     expect(classifyError('Session process exited (code 1)')).toBe('generic')
+    expect(classifyError('Some random error occurred')).toBe('generic')
   })
 })
 

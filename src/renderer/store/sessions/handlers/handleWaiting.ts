@@ -127,6 +127,16 @@ export function handleError(ctx: HandlerContext, ev: Record<string, unknown>): v
     return
   }
 
+  if (ev.errorKind === 'network') {
+    if (!updateSession(store, sessionId, (current) => ({
+      ...basePatch(current),
+      pendingNetworkError: true
+    }))) return
+    persistSession(sessionId)
+    maybeShowToast(sessionId, 'error', createNotificationDeps())
+    return
+  }
+
   const errorMsg: Message = {
     id: msgId(),
     role: 'system',

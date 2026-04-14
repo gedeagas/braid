@@ -312,5 +312,11 @@
   "turnStats.input": "Input",
   "turnStats.output": "Output",
   "turnStats.cacheRead": "Cache baca",
-  "turnStats.cacheWrite": "Cache tulis"
+  "turnStats.cacheWrite": "Cache tulis",
+
+  "offlineHint": "Anda sedang offline",
+  "offlineSendDisabled": "Tidak dapat mengirim pesan saat offline",
+  "networkError": "Koneksi terputus",
+  "networkErrorMessage": "Periksa koneksi internet Anda dan coba lagi.",
+  "networkRetry": "Coba lagi"
 }

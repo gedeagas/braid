@@ -11,6 +11,7 @@ import { createDraftActions } from './handlers/draftActions'
 import { createWorktreeLinkActions } from './handlers/worktreeLinkActions'
 import { createUserInputActions } from './handlers/userInputActions'
 import { createAuthErrorActions } from './handlers/authErrorActions'
+import { createNetworkErrorActions } from './handlers/networkErrorActions'
 import type { SessionsState } from './storeTypes'
 
 export type { SessionsState, QueuedMessage } from './storeTypes'
@@ -39,6 +40,7 @@ export const useSessionsStore = create<SessionsState>((set, get, api) => ({
   ...createWorktreeLinkActions(set, get, api),
   ...createUserInputActions(set, get, api),
   ...createAuthErrorActions(set, get, api),
+  ...createNetworkErrorActions(set, get, api),
 
   // ---------------------------------------------------------------------------
   // Persistence — depends on hydratePersistedSessions directly, stays here

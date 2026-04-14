@@ -350,6 +350,10 @@
   color: var(--text-muted);
 }
 
+.checks-last-updated--stale {
+  color: var(--amber);
+}
+
 /* ─── No-PR empty state (hosts JiraSection below) ──────────────────────────── */
 
 .checks-no-pr {
