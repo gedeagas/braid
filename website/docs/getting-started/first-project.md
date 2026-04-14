@@ -1,6 +1,7 @@
 ---
 sidebar_position: 2
 title: Add Your First Project
+description: Add a Git repository to Braid as a project from a local path or GitHub URL and start creating worktrees.
 ---
 
 # Add Your First Project

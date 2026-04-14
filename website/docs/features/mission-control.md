@@ -1,6 +1,7 @@
 ---
 sidebar_position: 5
 title: Mission Control
+description: Kanban board overview of all active AI sessions and pull requests across every worktree in Braid.
 ---
 
 # Mission Control

@@ -1,6 +1,7 @@
 ---
 sidebar_position: 7
 title: Terminal
+description: Built-in terminal in Braid for running shell commands, build scripts, and interacting with your worktree.
 ---
 
 # Terminal

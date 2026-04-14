@@ -145,7 +145,10 @@ export default function Home(): React.JSX.Element {
   const { siteConfig } = useDocusaurusContext()
 
   return (
-    <Layout title={siteConfig.title} description={siteConfig.tagline}>
+    <Layout
+      title="AI Coding Agents, Parallelized"
+      description="Braid is the desktop workspace for AI-first developers. Run multiple AI coding agent sessions in parallel, each scoped to its own Git worktree."
+    >
       <HeroSection />
       <main>
         <FeaturesSection />

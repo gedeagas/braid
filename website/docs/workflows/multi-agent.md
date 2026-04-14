@@ -1,6 +1,7 @@
 ---
 sidebar_position: 4
 title: Multi-Agent Orchestration
+description: Coordinate multiple Claude AI sessions across worktrees to parallelize complex development tasks in Braid.
 ---
 
 # Multi-Agent Orchestration

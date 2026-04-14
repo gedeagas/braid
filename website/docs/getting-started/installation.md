@@ -1,6 +1,7 @@
 ---
 sidebar_position: 1
 title: Installation
+description: Install Braid on macOS and set up Git worktree management with AI coding agent sessions.
 ---
 
 # Installation
