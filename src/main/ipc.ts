@@ -109,6 +109,7 @@ export function registerIpcHandlers(): void {
     gitService.setGitUserConfig(repoPath, name, email)
   )
   ipcMain.handle('git:clearGitUserConfig', (_e, repoPath: string) => gitService.clearGitUserConfig(repoPath))
+  ipcMain.handle('git:initRepo', (_e, dirPath: string) => gitService.initRepo(dirPath))
   ipcMain.handle('git:isRepoRoot', (_e, repoPath: string) => gitService.isRepoRoot(repoPath))
   ipcMain.handle('git:findChildRepos', (_e, parentPath: string) => gitService.findChildRepos(parentPath))
 
@@ -415,6 +416,9 @@ export function registerIpcHandlers(): void {
   )
   ipcMain.handle('files:toRelativePaths', (_e, basePath: string, absolutePaths: string[]) =>
     filesService.toRelativePaths(basePath, absolutePaths)
+  )
+  ipcMain.handle('files:pathExists', (_e, dirPath: string) =>
+    filesService.pathExists(dirPath)
   )
   ipcMain.handle('files:detectPlatform', (_e, repoPath: string) =>
     filesService.detectPlatform(repoPath)
