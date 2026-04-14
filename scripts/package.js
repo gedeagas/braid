@@ -459,6 +459,21 @@ async function packageArch(arch) {
 
   const appPath = path.join(outputDir, `${APP_NAME}.app`)
 
+  // Inject app-update.yml so electron-updater doesn't throw ENOENT.
+  // setFeedURL() in autoUpdate.ts overrides the provider config for checking,
+  // but getOrCreateDownloadHelper() still reads this file at download time to
+  // get updaterCacheDirName for the disk cache directory.
+  const appUpdateYml = [
+    'provider: github',
+    'owner: gedeagas',
+    'repo: braid',
+    `updaterCacheDirName: ${APP_PKG.name}-updater`,
+    '',
+  ].join('\n')
+  const resourcesDir = path.join(appPath, 'Contents/Resources')
+  fs.writeFileSync(path.join(resourcesDir, 'app-update.yml'), appUpdateYml)
+  log('Injected app-update.yml into Resources/')
+
   // Fix native binary permissions (ASAR unpack strips +x from Mach-O helpers)
   fixNativePermissions(appPath)
 
