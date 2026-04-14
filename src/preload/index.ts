@@ -65,6 +65,8 @@ const api = {
       ipcRenderer.invoke('git:setGitUserConfig', repoPath, name, email) as Promise<void>,
     clearGitUserConfig: (repoPath: string) =>
       ipcRenderer.invoke('git:clearGitUserConfig', repoPath) as Promise<void>,
+    initRepo: (dirPath: string) =>
+      ipcRenderer.invoke('git:initRepo', dirPath) as Promise<void>,
     isRepoRoot: (repoPath: string) =>
       ipcRenderer.invoke('git:isRepoRoot', repoPath) as Promise<boolean>,
     findChildRepos: (parentPath: string) =>
@@ -238,6 +240,8 @@ const api = {
       ipcRenderer.invoke('files:copyToWorktree', src, dest, paths) as Promise<{ copied: string[]; failed: string[] }>,
     toRelativePaths: (basePath: string, absolutePaths: string[]) =>
       ipcRenderer.invoke('files:toRelativePaths', basePath, absolutePaths) as Promise<string[]>,
+    pathExists: (dirPath: string) =>
+      ipcRenderer.invoke('files:pathExists', dirPath) as Promise<boolean>,
     detectPlatform: (repoPath: string) =>
       ipcRenderer.invoke('files:detectPlatform', repoPath) as Promise<'mobile' | 'web' | 'unknown'>,
     detectFramework: (repoPath: string) =>

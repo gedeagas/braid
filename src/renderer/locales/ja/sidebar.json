@@ -91,5 +91,19 @@
   "jiraInvalidInput": "Jiraキー（例: PROJ-123）またはチケットURLを入力してください",
   "attentionWaiting": "入力待ち",
   "attentionError": "エラー",
-  "attentionOverflow": "+{{count}}件"
+  "attentionOverflow": "+{{count}}件",
+  "quickStartTab": "クイックスタート",
+  "quickStartNameLabel": "名前",
+  "quickStartNamePlaceholder": "my-project",
+  "quickStartLocationLabel": "場所",
+  "quickStartLocationPlaceholder": "~/projects",
+  "quickStartTemplateLabel": "テンプレート",
+  "quickStartTemplateEmpty": "空",
+  "quickStartCreateButton": "作成",
+  "quickStartCreating": "プロジェクトを作成中...",
+  "quickStartNameEmpty": "プロジェクト名を入力してください",
+  "quickStartNameInvalid": "名前は英数字で始まり、英数字、ドット、ハイフン、アンダースコアのみ使用できます",
+  "quickStartLocationEmpty": "場所を選択してください",
+  "quickStartPathExists": "その場所にはすでに同じ名前のフォルダが存在します",
+  "quickStartCreateFailed": "プロジェクトの作成に失敗しました"
 }

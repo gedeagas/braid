@@ -69,6 +69,8 @@ export const git = {
     api().git.setGitUserConfig(repoPath, name, email) as Promise<void>,
   clearGitUserConfig: (repoPath: string) =>
     api().git.clearGitUserConfig(repoPath) as Promise<void>,
+  initRepo: (dirPath: string) =>
+    api().git.initRepo(dirPath) as Promise<void>,
   isRepoRoot: (repoPath: string) =>
     api().git.isRepoRoot(repoPath) as Promise<boolean>,
   findChildRepos: (parentPath: string) =>
@@ -202,6 +204,7 @@ export const files = {
   getFileInfo: (worktreePath: string, paths: string[]) => api().files.getFileInfo(worktreePath, paths),
   copyToWorktree: (src: string, dest: string, paths: string[]) => api().files.copyToWorktree(src, dest, paths),
   toRelativePaths: (basePath: string, absolutePaths: string[]) => api().files.toRelativePaths(basePath, absolutePaths),
+  pathExists: (dirPath: string) => api().files.pathExists(dirPath) as Promise<boolean>,
   detectPlatform: (repoPath: string) => api().files.detectPlatform(repoPath) as Promise<import('@/types').ProjectPlatform>,
   detectFramework: (repoPath: string) => api().files.detectFramework(repoPath) as Promise<import('@/types').MobileFramework>,
 }
