@@ -41,11 +41,10 @@ const allFiles = fs.existsSync(DIST)
 
 const artifacts = allFiles.filter((f) => {
   const name = path.basename(f)
-  return (
-    name.endsWith('.dmg') ||
-    name.endsWith('-mac.zip') ||
-    name === 'latest-mac.yml'
-  )
+  if (name === 'latest-mac.yml') return true
+  // Only include artifacts for the current version
+  if (!name.includes(VERSION)) return false
+  return name.endsWith('.dmg') || name.endsWith('-mac.zip')
 })
 
 // Validate
