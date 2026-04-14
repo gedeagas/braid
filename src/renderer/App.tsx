@@ -22,6 +22,8 @@ import { FlashToastContainer } from '@/components/shared/FlashToastContainer'
 import { OnboardingOverlay } from '@/components/Onboarding/OnboardingOverlay'
 import { FeatureTour } from '@/components/Onboarding/FeatureTour'
 import { SimulatorTour } from '@/components/Onboarding/SimulatorTour'
+import { UpdateDialog } from '@/components/shared/UpdateDialog'
+import { useAutoUpdate } from '@/hooks/useAutoUpdate'
 
 /** Build the unified tab list matching SessionTabBar's reconciliation logic */
 function getUnifiedTabs(): string[] {
@@ -81,6 +83,7 @@ function activateTabByIndex(n: number): void {
 }
 
 export default function App() {
+  const autoUpdate = useAutoUpdate()
   const loadProjects = useProjectsStore((s) => s.loadProjects)
   const loadPersistedSessions = useSessionsStore((s) => s.loadPersistedSessions)
   const missionControlActive = useUIStore((s) => s.missionControlActive)
@@ -301,6 +304,13 @@ export default function App() {
       <QuickOpen />
       <ToastContainer />
       <FlashToastContainer />
+      <UpdateDialog
+        state={autoUpdate.state}
+        onDownload={autoUpdate.download}
+        onInstall={autoUpdate.install}
+        onDismiss={autoUpdate.dismiss}
+        onRetry={autoUpdate.retry}
+      />
       <OnboardingOverlay />
       <FeatureTour />
       <SimulatorTour />

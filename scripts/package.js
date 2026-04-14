@@ -339,6 +339,64 @@ async function makeDmg(appPath, arch) {
 }
 
 // ---------------------------------------------------------------------------
+// 7. ZIP for auto-update (electron-updater needs .zip, not .dmg)
+// ---------------------------------------------------------------------------
+
+function makeZip(appPath, arch) {
+  const zipName = `${APP_PKG.name}-${APP_VERSION}-${arch}-mac.zip`
+  const zipPath = path.join(OUT_DIR, zipName)
+
+  step('zip', `Creating ${zipName} for auto-update`)
+  const stop = timer('Creating update ZIP')
+
+  fs.mkdirSync(OUT_DIR, { recursive: true })
+
+  // ditto preserves code signatures, xattrs, and symlinks
+  execSync(`ditto -c -k --sequesterRsrc --keepParent "${appPath}" "${zipPath}"`)
+
+  const elapsed = stop()
+  const mb = (fs.statSync(zipPath).size / 1024 / 1024).toFixed(1)
+  log(`Update ZIP created in ${elapsed}s: ${zipPath} (${mb}MB)`)
+  return { zipPath, zipName }
+}
+
+// ---------------------------------------------------------------------------
+// 8. latest-mac.yml manifest for electron-updater
+// ---------------------------------------------------------------------------
+
+function writeUpdateManifest(artifacts) {
+  const crypto = require('crypto')
+
+  const files = artifacts.map(({ zipPath, zipName }) => {
+    const buffer = fs.readFileSync(zipPath)
+    const sha512 = crypto.createHash('sha512').update(buffer).digest('base64')
+    return { url: zipName, sha512, size: buffer.length }
+  })
+
+  // electron-updater expects YAML with top-level path/sha512 for the primary
+  // file (backwards compat) plus a files[] array for multi-arch.
+  const primary = files[0]
+  const lines = [
+    `version: ${APP_VERSION}`,
+    'files:',
+  ]
+  for (const f of files) {
+    lines.push(`  - url: ${f.url}`)
+    lines.push(`    sha512: ${f.sha512}`)
+    lines.push(`    size: ${f.size}`)
+  }
+  // Top-level path + sha512 required by electron-updater for compat
+  lines.push(`path: ${primary.url}`)
+  lines.push(`sha512: ${primary.sha512}`)
+  lines.push(`releaseDate: '${new Date().toISOString()}'`)
+
+  const ymlPath = path.join(OUT_DIR, 'latest-mac.yml')
+  fs.writeFileSync(ymlPath, lines.join('\n') + '\n')
+  log(`Update manifest written: ${ymlPath}`)
+  return ymlPath
+}
+
+// ---------------------------------------------------------------------------
 // Package one architecture
 // ---------------------------------------------------------------------------
 
@@ -405,7 +463,8 @@ async function packageArch(arch) {
   }
 
   const dmgPath = await makeDmg(appPath, arch)
-  return { arch, outputDir, appPath, dmgPath }
+  const { zipPath, zipName } = makeZip(appPath, arch)
+  return { arch, outputDir, appPath, dmgPath, zipPath, zipName }
 }
 
 // ---------------------------------------------------------------------------
@@ -429,13 +488,20 @@ async function main() {
     results.push(result)
   }
 
+  // Write auto-update manifest (latest-mac.yml)
+  writeUpdateManifest(
+    results.map((r) => ({ zipPath: r.zipPath, zipName: r.zipName }))
+  )
+
   const total = ((Date.now() - t0) / 1000).toFixed(1)
   console.log('\n' + '='.repeat(60))
   console.log('  Build complete!')
   console.log(`  Total time: ${total}s`)
   for (const r of results) {
     console.log(`  ${r.arch}: ${r.dmgPath}`)
+    console.log(`  ${r.arch}: ${r.zipPath} (auto-update)`)
   }
+  console.log(`  Manifest: dist/latest-mac.yml`)
   console.log('='.repeat(60))
 }
 

@@ -25,6 +25,7 @@ import { registerIpcHandlers } from './ipc'
 import { createAppMenu } from './menu'
 import { windowCaptureService } from './services/windowCapture'
 import { lspService } from './services/lsp'
+import { initAutoUpdater, stopAutoUpdater } from './services/autoUpdate'
 
 // Prevent EPIPE errors from crashing the process when stdout/stderr pipes break
 // (common in Electron when the renderer detaches or during hot-reload).
@@ -180,6 +181,11 @@ app.whenReady().then(async () => {
   createWindow()
   createAppMenu(mainWindow!)
 
+  // Auto-updater (only in packaged builds)
+  if (app.isPackaged) {
+    initAutoUpdater(mainWindow!)
+  }
+
   // Forward LSP events to renderer
   lspService.on('status', (update) => {
     mainWindow?.webContents.send('lsp:statusUpdate', update)
@@ -197,6 +203,7 @@ app.whenReady().then(async () => {
 })
 
 app.on('before-quit', () => {
+  stopAutoUpdater()
   lspService.shutdownAll()
 })
 

@@ -72,6 +72,29 @@
     "retry": "Try again",
     "configuring": "Configuring GitHub CLI\u2026"
   },
+  "update": {
+    "available": {
+      "title": "Update Available",
+      "body": "Braid v{{version}} is ready to download.",
+      "whatsNew": "What's new:"
+    },
+    "downloading": {
+      "title": "Downloading Update",
+      "body": "Downloading Braid v{{version}}..."
+    },
+    "ready": {
+      "title": "Update Ready",
+      "body": "Braid v{{version}} has been downloaded. Restart to apply the update."
+    },
+    "error": {
+      "title": "Update Failed",
+      "body": "Something went wrong while checking for updates.",
+      "retry": "Retry"
+    },
+    "later": "Later",
+    "download": "Download",
+    "restart": "Restart"
+  },
   "tour": {
     "next": "Next",
     "back": "Back",

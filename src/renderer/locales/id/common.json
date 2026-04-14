@@ -72,6 +72,29 @@
     "retry": "Coba lagi",
     "configuring": "Mengonfigurasi GitHub CLI…"
   },
+  "update": {
+    "available": {
+      "title": "Pembaruan Tersedia",
+      "body": "Braid v{{version}} siap untuk diunduh.",
+      "whatsNew": "Yang baru:"
+    },
+    "downloading": {
+      "title": "Mengunduh Pembaruan",
+      "body": "Mengunduh Braid v{{version}}..."
+    },
+    "ready": {
+      "title": "Pembaruan Siap",
+      "body": "Braid v{{version}} telah diunduh. Mulai ulang untuk menerapkan pembaruan."
+    },
+    "error": {
+      "title": "Pembaruan Gagal",
+      "body": "Terjadi kesalahan saat memeriksa pembaruan.",
+      "retry": "Coba Lagi"
+    },
+    "later": "Nanti",
+    "download": "Unduh",
+    "restart": "Mulai Ulang"
+  },
   "tour": {
     "next": "Berikutnya",
     "back": "Kembali",

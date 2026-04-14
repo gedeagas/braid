@@ -153,12 +153,12 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   })(),
   inAppNotifications: loadBool(SK.inAppNotifications, true),
   toastSize: (() => {
-    const v = loadStr(SK.toastSize, 'medium')
-    return (v === 'small' || v === 'medium' || v === 'large') ? v as ToastSize : 'medium'
+    const v = loadStr(SK.toastSize, 'large')
+    return (v === 'small' || v === 'medium' || v === 'large') ? v as ToastSize : 'large'
   })(),
   toastPosition: (() => {
-    const v = loadStr(SK.toastPosition, 'bottom-right')
-    return (v === 'bottom-right' || v === 'bottom-left' || v === 'top-center') ? v as ToastPosition : 'bottom-right'
+    const v = loadStr(SK.toastPosition, 'top-center')
+    return (v === 'bottom-right' || v === 'bottom-left' || v === 'top-center') ? v as ToastPosition : 'top-center'
   })(),
   toastDuration: (() => {
     const v = loadInt(SK.toastDuration, 10)

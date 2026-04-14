@@ -72,6 +72,29 @@
     "retry": "再試行",
     "configuring": "GitHub CLIを設定中…"
   },
+  "update": {
+    "available": {
+      "title": "アップデートがあります",
+      "body": "Braid v{{version}} がダウンロード可能です。",
+      "whatsNew": "変更内容:"
+    },
+    "downloading": {
+      "title": "アップデートをダウンロード中",
+      "body": "Braid v{{version}} をダウンロードしています..."
+    },
+    "ready": {
+      "title": "アップデート準備完了",
+      "body": "Braid v{{version}} のダウンロードが完了しました。再起動して適用してください。"
+    },
+    "error": {
+      "title": "アップデートに失敗しました",
+      "body": "アップデートの確認中にエラーが発生しました。",
+      "retry": "再試行"
+    },
+    "later": "後で",
+    "download": "ダウンロード",
+    "restart": "再起動"
+  },
   "tour": {
     "next": "次へ",
     "back": "戻る",

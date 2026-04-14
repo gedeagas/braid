@@ -46,6 +46,7 @@
 @import './mission-control.css';
 @import './toasts.css';
 @import './flash-toasts.css';
+@import './update-dialog.css';
 @import './shortcuts.css';
 @import './quick-open.css';
 @import './simulator.css';
