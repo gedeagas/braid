@@ -1,6 +1,6 @@
 {
   "name": "braid",
-  "version": "26.0.2",
+  "version": "26.0.3",
   "description": "Git worktree & Claude Code session manager",
   "license": "MIT",
   "repository": {
