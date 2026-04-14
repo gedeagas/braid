@@ -55,7 +55,8 @@ export type WorkerEvent =
     }
   | { type: 'slash_commands'; sessionId: string; commands: SlashCommand[] }
   | { type: 'done'; sessionId: string }
-  | { type: 'error'; sessionId: string; message: string; errorKind?: 'auth' | 'generic'; authType?: 'oauth' | 'api_key' | 'unknown' }
+  | { type: 'error'; sessionId: string; message: string; errorKind?: 'auth' | 'network' | 'generic'; authType?: 'oauth' | 'api_key' | 'unknown' }
+  | { type: 'retrying'; sessionId: string; attempt: number; maxAttempts: number; delayMs: number }
   | {
       type: 'waiting_input'
       sessionId: string

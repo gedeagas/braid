@@ -161,6 +161,10 @@
   pointer-events: none;
 }
 
+.chat-input-hint--offline {
+  color: var(--amber);
+}
+
 /* Bottom status bar */
 .chat-bottom-bar {
   display: flex;

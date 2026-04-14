@@ -61,6 +61,8 @@ function makeState(overrides?: Partial<SessionsState>): SessionsState {
     alwaysAllowTool: () => {},
     retryAfterAuth: () => {},
     dismissAuthError: () => {},
+    retryAfterNetworkError: () => {},
+    dismissNetworkError: () => {},
     answerElicitation: () => {},
     ...overrides
   }

@@ -306,5 +306,6 @@
   "quickOpen": "Buka Cepat",
   "quickOpenPlaceholder": "Cari file berdasarkan nama...",
   "quickOpenNoResults": "Tidak ada file yang cocok",
-  "quickOpenOpen": "Terbuka"
+  "quickOpenOpen": "Terbuka",
+  "offlineDisabled": "Tidak tersedia saat offline"
 }

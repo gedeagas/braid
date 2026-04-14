@@ -306,5 +306,6 @@
   "quickOpen": "クイックオープン",
   "quickOpenPlaceholder": "ファイル名で検索...",
   "quickOpenNoResults": "一致するファイルがありません",
-  "quickOpenOpen": "開いているファイル"
+  "quickOpenOpen": "開いているファイル",
+  "offlineDisabled": "オフライン中は利用できません"
 }

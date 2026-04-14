@@ -16,6 +16,7 @@ import {
   IconImage, IconClock, IconArrowUp,
 } from '@/components/shared/icons'
 import { useTranslation } from 'react-i18next'
+import { useOnlineStatus } from '@/lib/online'
 
 export type ChatHeaderVariant = 'default' | 'diff'
 
@@ -42,6 +43,7 @@ export function ChatHeader({
   onSend, onAddImages, variant = 'default',
 }: ChatHeaderProps) {
   const { t } = useTranslation('center')
+  const online = useOnlineStatus()
   const updateModel = useSessionsStore((s) => s.updateModel)
   const updateThinking = useSessionsStore((s) => s.updateThinking)
   const updatePlanMode = useSessionsStore((s) => s.updatePlanMode)
@@ -146,7 +148,7 @@ export function ChatHeader({
 
       {/* Send / Queue button */}
       <div className="chat-bottom-right">
-        <Tooltip content={t(isQueueMode ? 'sendAfterCurrent' : 'sendMessage')} shortcut="↵">
+        <Tooltip content={!online ? t('offlineSendDisabled') : t(isQueueMode ? 'sendAfterCurrent' : 'sendMessage')} shortcut="↵">
           <button
             className={`chat-send-btn${isQueueMode ? ' chat-send-btn--queue' : ''}`}
             onClick={onSend}

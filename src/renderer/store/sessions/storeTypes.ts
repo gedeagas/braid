@@ -68,6 +68,10 @@ export interface SessionsState {
   retryAfterAuth: (sessionId: string) => void
   /** Dismiss the auth error prompt without retrying. */
   dismissAuthError: (sessionId: string) => void
+  /** Retry the last user message after a network error. */
+  retryAfterNetworkError: (sessionId: string) => void
+  /** Dismiss the network error prompt without retrying. */
+  dismissNetworkError: (sessionId: string) => void
   /** Respond to an MCP elicitation (OAuth auth or form input). */
   answerElicitation: (sessionId: string, result: { action: 'accept' | 'decline' | 'cancel'; content?: Record<string, unknown> }) => void
 }

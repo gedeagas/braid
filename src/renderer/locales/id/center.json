@@ -294,5 +294,11 @@
   "toolSummary.todo": "{{count}} tugas",
 
   "turnFooterFiles_one": "1 file diubah",
-  "turnFooterFiles_other": "{{count}} file diubah"
+  "turnFooterFiles_other": "{{count}} file diubah",
+
+  "offlineHint": "Anda sedang offline",
+  "offlineSendDisabled": "Tidak dapat mengirim pesan saat offline",
+  "networkError": "Koneksi terputus",
+  "networkErrorMessage": "Periksa koneksi internet Anda dan coba lagi.",
+  "networkRetry": "Coba lagi"
 }

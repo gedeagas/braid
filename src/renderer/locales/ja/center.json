@@ -295,5 +295,11 @@
   "toolSummary.todo": "{{count}} ToDo",
 
   "turnFooterFiles_one": "1 ファイル変更",
-  "turnFooterFiles_other": "{{count}} ファイル変更"
+  "turnFooterFiles_other": "{{count}} ファイル変更",
+
+  "offlineHint": "オフラインです",
+  "offlineSendDisabled": "オフライン中はメッセージを送信できません",
+  "networkError": "接続が切断されました",
+  "networkErrorMessage": "インターネット接続を確認してから再試行してください。",
+  "networkRetry": "再試行"
 }

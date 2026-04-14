@@ -312,5 +312,11 @@
   "toolSummary.todo_other": "{{count}} todos",
 
   "turnFooterFiles_one": "1 file changed",
-  "turnFooterFiles_other": "{{count}} files changed"
+  "turnFooterFiles_other": "{{count}} files changed",
+
+  "offlineHint": "You're offline",
+  "offlineSendDisabled": "Can't send messages while offline",
+  "networkError": "Connection lost",
+  "networkErrorMessage": "Check your internet connection and try again.",
+  "networkRetry": "Retry"
 }
