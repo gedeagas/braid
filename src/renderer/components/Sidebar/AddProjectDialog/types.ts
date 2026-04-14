@@ -46,7 +46,7 @@ export type Action =
   | { type: 'doneCreating' }
 
 export const initialState: State = {
-  tab: 'quickstart',
+  tab: 'local',
   localPath: '',
   githubUrl: '',
   phase: { kind: 'idle' },

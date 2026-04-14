@@ -62,9 +62,9 @@ export function AddProjectDialog() {
   // ── Tab config ─────────────────────────────────────────────────────────────
 
   const tabs: { id: Tab; icon: React.ReactNode; label: string }[] = [
-    { id: 'quickstart', icon: <IconSparkle />, label: t('quickStartTab') },
     { id: 'local', icon: <IconGridFill />, label: t('localPathTab') },
     { id: 'github', icon: <IconGitHub />, label: t('githubUrlTab') },
+    { id: 'quickstart', icon: <IconSparkle />, label: t('quickStartTab') },
   ]
 
   // ── Render ─────────────────────────────────────────────────────────────────

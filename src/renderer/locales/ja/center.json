@@ -153,6 +153,8 @@
   "snippetAttached_other": "{{count}}件のスニペット添付（{{lines}}行）",
   "imageLimitReached": "画像は最大5枚までです — 追加するには1枚削除してください",
   "imageTooLarge": "画像が大きすぎます（最大2MB）",
+  "imageLoadFailed_one": "{{count}}枚の画像の読み込みに失敗しました",
+  "imageLoadFailed_other": "{{count}}枚の画像の読み込みに失敗しました",
   "draftInputTooLarge": "入力が長すぎます — 大きなテキストにはスニペットを使用してください",
   "linkWorktree": "ワークツリーをリンク",
   "unlinkWorktree": "リンク解除",

@@ -30,8 +30,8 @@ import { QueuedMessageBanner } from './QueuedMessageBanner'
 import { CONTEXT_WINDOW } from '@/lib/constants'
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
-const ACCEPTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
-const MAX_IMAGE_SIZE = 2 * 1024 * 1024
+export const ACCEPTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
+export const MAX_IMAGE_SIZE = 2 * 1024 * 1024
 const MAX_SNIPPET_SIZE = 100_000
 const MAX_SNIPPETS = 5
 const SNIPPET_LINE_THRESHOLD = 10
@@ -40,16 +40,6 @@ const MAX_DRAFT_INPUT = 50_000
 const CONTEXT_WARN_THRESHOLD = 0.75
 const CONTEXT_CRITICAL_THRESHOLD = 0.90
 export const MAX_IMAGES = 5
-
-/** Read a File as a base64 data URI */
-export function fileToDataUri(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result as string)
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
-}
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
