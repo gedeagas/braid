@@ -4,7 +4,7 @@ import type * as Preset from '@docusaurus/preset-classic'
 
 const config: Config = {
   title: 'Braid',
-  tagline: 'Manage worktrees. Chat with Claude. Ship from isolated branches.',
+  tagline: 'Manage worktrees. Run AI agents. Ship from isolated branches.',
   favicon: 'img/favicon.ico',
 
   url: 'https://gedeagas.github.io',
@@ -34,7 +34,19 @@ const config: Config = {
           sidebarPath: './sidebars.ts',
           editUrl: 'https://github.com/gedeagas/braid/tree/main/website/',
         },
-        blog: false,
+        blog: {
+          routeBasePath: 'changelog',
+          path: './changelog',
+          blogTitle: 'Changelog',
+          blogDescription: 'Braid release notes and changelog.',
+          blogSidebarTitle: 'Releases',
+          blogSidebarCount: 'ALL',
+          showReadingTime: false,
+          feedOptions: {
+            type: ['rss', 'atom'],
+            title: 'Braid Changelog',
+          },
+        },
         theme: {
           customCss: './src/css/custom.css',
         },
@@ -59,6 +71,11 @@ const config: Config = {
           label: 'Docs',
         },
         {
+          to: '/changelog',
+          label: 'Changelog',
+          position: 'left',
+        },
+        {
           href: 'https://github.com/gedeagas/braid',
           label: 'GitHub',
           position: 'right',
@@ -75,6 +92,16 @@ const config: Config = {
             { label: 'Getting Started', to: '/docs/getting-started/installation' },
             { label: 'Features', to: '/docs/features/projects-and-worktrees' },
             { label: 'Keyboard Shortcuts', to: '/docs/reference/keyboard-shortcuts' },
+            { label: 'Changelog', to: '/changelog' },
+          ],
+        },
+        {
+          title: 'Legal',
+          items: [
+            { label: 'Privacy Policy', to: '/privacy' },
+            { label: 'Terms of Service', to: '/terms' },
+            { label: 'プライバシーポリシー', to: '/privacy-ja' },
+            { label: '利用規約', to: '/terms-ja' },
           ],
         },
         {
@@ -90,7 +117,7 @@ const config: Config = {
     colorMode: {
       defaultMode: 'dark',
       disableSwitch: false,
-      respectPrefersColorScheme: true,
+      respectPrefersColorScheme: false,
     },
 
     prism: {
