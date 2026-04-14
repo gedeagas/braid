@@ -91,5 +91,19 @@
   "jiraInvalidInput": "Enter a Jira key (e.g. PROJ-123) or ticket URL",
   "attentionWaiting": "Waiting for input",
   "attentionError": "Error",
-  "attentionOverflow": "+{{count}} more"
+  "attentionOverflow": "+{{count}} more",
+  "quickStartTab": "Quick Start",
+  "quickStartNameLabel": "Name",
+  "quickStartNamePlaceholder": "my-project",
+  "quickStartLocationLabel": "Location",
+  "quickStartLocationPlaceholder": "~/projects",
+  "quickStartTemplateLabel": "Template",
+  "quickStartTemplateEmpty": "Empty",
+  "quickStartCreateButton": "Create",
+  "quickStartCreating": "Creating project...",
+  "quickStartNameEmpty": "Please enter a project name",
+  "quickStartNameInvalid": "Name must start with a letter or number and contain only letters, numbers, dots, hyphens, or underscores",
+  "quickStartLocationEmpty": "Please select a location",
+  "quickStartPathExists": "A folder with this name already exists at that location",
+  "quickStartCreateFailed": "Failed to create project"
 }

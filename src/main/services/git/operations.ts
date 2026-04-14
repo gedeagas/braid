@@ -1,6 +1,14 @@
-import { unlinkSync } from 'fs'
+import { unlinkSync, mkdirSync } from 'fs'
 import { join } from 'path'
+import simpleGit from 'simple-git'
 import { getValidGit } from './core'
+
+export async function initRepo(dirPath: string): Promise<void> {
+  mkdirSync(dirPath, { recursive: true })
+  const git = simpleGit(dirPath)
+  await git.init(['-b', 'main'])
+  await git.raw(['commit', '--allow-empty', '-m', 'Initial commit'])
+}
 
 export async function push(worktreePath: string): Promise<void> {
   const git = await getValidGit(worktreePath)

@@ -3,7 +3,6 @@ import { ProjectList } from './ProjectList'
 import { AddProjectDialog } from './AddProjectDialog'
 import { AddWorktreeDialog } from './AddWorktreeDialog'
 import { useUIStore } from '@/store/ui'
-import { Tooltip } from '@/components/shared/Tooltip'
 import { useProjectsStore } from '@/store/projects'
 import { useTranslation } from 'react-i18next'
 import { OverviewBanner } from '@/components/MissionControl/OverviewBanner'
@@ -26,14 +25,12 @@ export const SidebarView = memo(function SidebarView() {
       <div className="sidebar-header">
         <span className="sidebar-title">{t('projects')}</span>
         <div className="sidebar-header-actions">
-          <Tooltip content={t('addProject')} position="bottom">
-            <button
-              className="btn-icon"
-              onClick={() => setShowAddProject(true)}
-            >
-              +
-            </button>
-          </Tooltip>
+          <button
+            className="sidebar-add-btn"
+            onClick={() => setShowAddProject(true)}
+          >
+            + {t('addProject')}
+          </button>
         </div>
       </div>
       <div

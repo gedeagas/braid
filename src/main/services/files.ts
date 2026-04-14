@@ -240,6 +240,11 @@ class FilesService {
     return null
   }
 
+  /** Check whether a path exists on disk. */
+  pathExists(dirPath: string): boolean {
+    return existsSync(dirPath)
+  }
+
   /** Convert absolute file paths to paths relative to a base directory. */
   toRelativePaths(basePath: string, absolutePaths: string[]): string[] {
     return absolutePaths

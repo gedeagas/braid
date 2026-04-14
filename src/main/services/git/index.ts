@@ -3,14 +3,14 @@ export type { CloneErrorCode } from './worktrees'
 export { CloneError } from './worktrees'
 import { getBranches, getRemoteBranches, setUpstream, renameBranch, getTrackingBranch, isBranchProtected } from './branches'
 import { getStatus, getDiff, getFileDiff, getStagedDiff, getStagedFiles, getFileTree, getTrackedFiles, readFile, writeFile, readFileAsBase64, getFileSize, invalidateFileTree, invalidateTrackedFiles } from './status'
-import { push, pull, stageFiles, unstageFiles, discardChanges, commit } from './operations'
+import { initRepo, push, pull, stageFiles, unstageFiles, discardChanges, commit } from './operations'
 import { getRemoteUrl, getRemotes, getGitUserConfig, setGitUserConfig, clearGitUserConfig, isRepoRoot, findChildRepos } from './config'
 
 export type { WorktreeInfo, FileEntry, GitChangeInfo } from './types'
 export { getWorktrees, addWorktree, removeWorktree, cloneRepo, parseRepoName }
 export { getBranches, getRemoteBranches, setUpstream, renameBranch, getTrackingBranch, isBranchProtected }
 export { getStatus, getDiff, getFileDiff, getStagedDiff, getStagedFiles, getFileTree, getTrackedFiles, readFile, writeFile, readFileAsBase64, getFileSize, invalidateFileTree, invalidateTrackedFiles }
-export { push, pull, stageFiles, unstageFiles, discardChanges, commit }
+export { initRepo, push, pull, stageFiles, unstageFiles, discardChanges, commit }
 export { getRemoteUrl, getRemotes, getGitUserConfig, setGitUserConfig, clearGitUserConfig, isRepoRoot, findChildRepos }
 
 class GitService {
@@ -40,6 +40,7 @@ class GitService {
   invalidateFileTree = invalidateFileTree
   invalidateTrackedFiles = invalidateTrackedFiles
 
+  initRepo = initRepo
   push = push
   pull = pull
   stageFiles = stageFiles
