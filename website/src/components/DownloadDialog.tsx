@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useReducer, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 
 interface ReleaseAsset {
   name: string
@@ -19,6 +20,43 @@ interface DownloadOption {
 const RELEASES_API =
   'https://api.github.com/repos/gedeagas/braid/releases/latest'
 const RELEASES_PAGE = 'https://github.com/gedeagas/braid/releases/latest'
+
+type State =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'error' }
+  | {
+      status: 'loaded'
+      version: string
+      arm64: DownloadOption | null
+      x64: DownloadOption | null
+    }
+
+type Action =
+  | { type: 'fetch' }
+  | { type: 'error' }
+  | {
+      type: 'loaded'
+      version: string
+      arm64: DownloadOption | null
+      x64: DownloadOption | null
+    }
+
+function reducer(_state: State, action: Action): State {
+  switch (action.type) {
+    case 'fetch':
+      return { status: 'loading' }
+    case 'error':
+      return { status: 'error' }
+    case 'loaded':
+      return {
+        status: 'loaded',
+        version: action.version,
+        arm64: action.arm64,
+        x64: action.x64,
+      }
+  }
+}
 
 function parseDownloadOptions(data: ReleaseData): {
   version: string
@@ -102,18 +140,15 @@ interface Props {
 }
 
 export default function DownloadDialog({ open, onClose }: Props) {
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
-  const [version, setVersion] = useState('')
-  const [arm64, setArm64] = useState<DownloadOption | null>(null)
-  const [x64, setX64] = useState<DownloadOption | null>(null)
+  const [state, dispatch] = useReducer(reducer, { status: 'idle' })
+  const hasFetched = useRef(false)
 
   useEffect(() => {
-    if (!open || version) return
+    if (!open || hasFetched.current) return
+    hasFetched.current = true
 
     let cancelled = false
-    setLoading(true)
-    setError(false)
+    dispatch({ type: 'fetch' })
 
     fetch(RELEASES_API)
       .then((res) => {
@@ -123,21 +158,33 @@ export default function DownloadDialog({ open, onClose }: Props) {
       .then((data: ReleaseData) => {
         if (cancelled) return
         const parsed = parseDownloadOptions(data)
-        setVersion(parsed.version)
-        setArm64(parsed.arm64)
-        setX64(parsed.x64)
-        setLoading(false)
+        dispatch({
+          type: 'loaded',
+          version: parsed.version,
+          arm64: parsed.arm64,
+          x64: parsed.x64,
+        })
       })
       .catch(() => {
         if (cancelled) return
-        setError(true)
-        setLoading(false)
+        hasFetched.current = false // allow retry on next open
+        dispatch({ type: 'error' })
       })
 
     return () => {
       cancelled = true
     }
-  }, [open, version])
+  }, [open])
+
+  // Lock body scroll while open
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [open])
 
   const handleBackdropClick = useCallback(
     (e: React.MouseEvent) => {
@@ -157,10 +204,15 @@ export default function DownloadDialog({ open, onClose }: Props) {
 
   if (!open) return null
 
-  return (
+  const isLoading = state.status === 'loading' || state.status === 'idle'
+  const isError = state.status === 'error'
+  const isLoaded = state.status === 'loaded'
+
+  return createPortal(
     <div className="download-dialog-overlay" onClick={handleBackdropClick}>
       <div className="download-dialog" role="dialog" aria-modal="true">
         <button
+          type="button"
           className="download-dialog__close"
           onClick={onClose}
           aria-label="Close"
@@ -169,21 +221,21 @@ export default function DownloadDialog({ open, onClose }: Props) {
         </button>
 
         <h2 className="download-dialog__title">Download Braid</h2>
-        {version && (
-          <span className="download-dialog__version">v{version}</span>
+        {isLoaded && (
+          <span className="download-dialog__version">v{state.version}</span>
         )}
         <p className="download-dialog__desc">
           Choose the version for your Mac's processor.
         </p>
 
-        {loading && (
+        {isLoading && (
           <div className="download-dialog__loading">
             <Spinner />
             <span>Fetching latest release...</span>
           </div>
         )}
 
-        {error && (
+        {isError && (
           <div className="download-dialog__error">
             <p>Could not fetch release info.</p>
             <a
@@ -197,52 +249,54 @@ export default function DownloadDialog({ open, onClose }: Props) {
           </div>
         )}
 
-        {!loading && !error && (
-          <div className="download-dialog__options">
-            {arm64 && (
+        {isLoaded && (
+          <>
+            <div className="download-dialog__options">
+              {state.arm64 && (
+                <a
+                  href={state.arm64.url}
+                  className="download-dialog__option"
+                  onClick={onClose}
+                >
+                  <div className="download-dialog__option-icon">
+                    <ChipIcon />
+                  </div>
+                  <div className="download-dialog__option-text">
+                    <strong>{state.arm64.label}</strong>
+                    <span>{state.arm64.subtitle}</span>
+                  </div>
+                </a>
+              )}
+              {state.x64 && (
+                <a
+                  href={state.x64.url}
+                  className="download-dialog__option"
+                  onClick={onClose}
+                >
+                  <div className="download-dialog__option-icon">
+                    <ChipIcon />
+                  </div>
+                  <div className="download-dialog__option-text">
+                    <strong>{state.x64.label}</strong>
+                    <span>{state.x64.subtitle}</span>
+                  </div>
+                </a>
+              )}
+            </div>
+            <p className="download-dialog__hint">
+              Not sure?{' '}
               <a
-                href={arm64.url}
-                className="download-dialog__option"
-                onClick={onClose}
+                href="https://support.apple.com/en-us/116943"
+                target="_blank"
+                rel="noopener noreferrer"
               >
-                <div className="download-dialog__option-icon">
-                  <ChipIcon />
-                </div>
-                <div className="download-dialog__option-text">
-                  <strong>{arm64.label}</strong>
-                  <span>{arm64.subtitle}</span>
-                </div>
+                Check your Mac's chip
               </a>
-            )}
-            {x64 && (
-              <a
-                href={x64.url}
-                className="download-dialog__option"
-                onClick={onClose}
-              >
-                <div className="download-dialog__option-icon">
-                  <ChipIcon />
-                </div>
-                <div className="download-dialog__option-text">
-                  <strong>{x64.label}</strong>
-                  <span>{x64.subtitle}</span>
-                </div>
-              </a>
-            )}
-          </div>
+            </p>
+          </>
         )}
-
-        <p className="download-dialog__hint">
-          Not sure?{' '}
-          <a
-            href="https://support.apple.com/en-us/116943"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Check your Mac's chip
-          </a>
-        </p>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
