@@ -7,8 +7,8 @@ const config: Config = {
   tagline: 'Manage worktrees. Chat with Claude. Ship from isolated branches.',
   favicon: 'img/favicon.ico',
 
-  url: 'https://getbraid.dev',
-  baseUrl: '/',
+  url: 'https://gedeagas.github.io',
+  baseUrl: '/braid/',
 
   organizationName: 'gedeagas',
   projectName: 'Braid',
