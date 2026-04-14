@@ -31,6 +31,22 @@ function useMinuteTick(active: boolean): number {
   return tick
 }
 
+function sortSessionCards(cards: SessionCardData[]): void {
+  cards.sort((a, b) => {
+    if (a.column === 'running' || a.column === 'need_attention') {
+      return (b.runStartedAt ?? 0) - (a.runStartedAt ?? 0)
+    }
+    if (a.column === 'done') {
+      return (b.runCompletedAt ?? 0) - (a.runCompletedAt ?? 0)
+    }
+    return 0
+  })
+}
+
+function sortPrCards(cards: PrCardData[]): void {
+  cards.sort((a, b) => b.pr.number - a.pr.number)
+}
+
 function matchesQuery(query: string, ...fields: (string | null | undefined)[]): boolean {
   const q = query.toLowerCase()
   return fields.some((f) => f?.toLowerCase().includes(q))
@@ -70,13 +86,25 @@ function useSessionBoardData(active: boolean): Map<SessionColumnId, SessionCardD
             projectId: project.id,
             projectName: project.name,
             branch: wt.branch,
+            path: wt.path,
             status: session.status,
             activity: session.activity,
             runStartedAt: session.runStartedAt,
+            runCompletedAt: session.runCompletedAt,
+            model: session.model,
+            pendingQuestion: session.pendingQuestion,
+            pendingToolPermission: session.pendingToolPermission,
+            pendingAuthError: session.pendingAuthError,
+            pendingPlanApproval: session.pendingPlanApproval,
+            tokenUsage: session.tokenUsage,
             column: col,
           })
         }
       }
+    }
+
+    for (const [, cards] of columns) {
+      sortSessionCards(cards)
     }
 
     return columns
@@ -120,6 +148,8 @@ function usePrBoardData(): Map<PrColumnId, PrCardData[]> {
               state: prEntry.data.state,
               url: prEntry.data.url,
               isDraft: prEntry.data.isDraft,
+              reviewDecision: prEntry.data.reviewDecision,
+              mergeStateStatus: prEntry.data.mergeStateStatus,
             },
             checksStatus: checks,
             changeStats: stats,
@@ -127,6 +157,10 @@ function usePrBoardData(): Map<PrColumnId, PrCardData[]> {
           })
         }
       }
+    }
+
+    for (const [, cards] of columns) {
+      sortPrCards(cards)
     }
 
     return columns

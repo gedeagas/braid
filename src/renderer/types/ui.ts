@@ -1,4 +1,11 @@
-import type { SessionStatus } from './session'
+import type {
+  SessionStatus,
+  ModelId,
+  PendingQuestion,
+  PendingToolPermission,
+  PendingAuthError,
+  PendingPlanApproval
+} from './session'
 
 // ─── UI / Panel types ─────────────────────────────────────────────────────────
 
@@ -31,9 +38,17 @@ export interface SessionCardData {
   projectId: string
   projectName: string
   branch: string
+  path: string
   status: SessionStatus
   activity: string | null
   runStartedAt: number | null
+  runCompletedAt: number | null
+  model: ModelId
+  pendingQuestion: PendingQuestion | undefined
+  pendingToolPermission: PendingToolPermission | undefined
+  pendingAuthError: PendingAuthError | undefined
+  pendingPlanApproval: PendingPlanApproval | undefined
+  tokenUsage: { input: number; output: number } | null
   column: SessionColumnId
 }
 
@@ -45,7 +60,7 @@ export interface PrCardData {
   branch: string
   path: string
   isMain: boolean
-  pr: { number: number; title: string; state: string; url: string; isDraft: boolean }
+  pr: { number: number; title: string; state: string; url: string; isDraft: boolean; reviewDecision?: string; mergeStateStatus?: string }
   checksStatus: 'passing' | 'failing' | 'pending' | 'none'
   changeStats: { additions: number; deletions: number; total: number } | null
   column: PrColumnId
