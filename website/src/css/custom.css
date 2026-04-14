@@ -2606,3 +2606,283 @@ article ul li strong {
     display: none;
   }
 }
+
+/* --- Download Dialog ---------------------------------------- */
+
+.download-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: download-fade-in 0.15s ease-out;
+}
+
+@keyframes download-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes download-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.download-dialog {
+  position: relative;
+  width: 90vw;
+  max-width: 460px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(0, 0, 0, 0.05);
+  animation: download-slide-up 0.2s ease-out;
+  text-align: center;
+}
+
+[data-theme='dark'] .download-dialog {
+  background: #1e1e24;
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.download-dialog__close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 8px;
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.download-dialog__close:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #333;
+}
+
+[data-theme='dark'] .download-dialog__close {
+  color: #999;
+}
+
+[data-theme='dark'] .download-dialog__close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #eee;
+}
+
+.download-dialog__title {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+  color: #111;
+}
+
+[data-theme='dark'] .download-dialog__title {
+  color: #f0f0f0;
+}
+
+.download-dialog__version {
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ifm-color-primary);
+  background: rgba(53, 120, 229, 0.1);
+  padding: 0.15rem 0.6rem;
+  border-radius: 20px;
+  margin-bottom: 0.5rem;
+}
+
+[data-theme='dark'] .download-dialog__version {
+  background: rgba(121, 184, 255, 0.12);
+  color: #79b8ff;
+}
+
+.download-dialog__desc {
+  color: #666;
+  font-size: 0.9rem;
+  margin: 0.5rem 0 1.25rem;
+}
+
+[data-theme='dark'] .download-dialog__desc {
+  color: #aaa;
+}
+
+.download-dialog__options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.download-dialog__option {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    box-shadow 0.15s;
+  cursor: pointer;
+  text-align: left;
+}
+
+.download-dialog__option:hover {
+  border-color: var(--ifm-color-primary);
+  background: rgba(53, 120, 229, 0.04);
+  box-shadow: 0 0 0 3px rgba(53, 120, 229, 0.1);
+  text-decoration: none;
+  color: inherit;
+}
+
+[data-theme='dark'] .download-dialog__option {
+  border-color: #333;
+}
+
+[data-theme='dark'] .download-dialog__option:hover {
+  border-color: #79b8ff;
+  background: rgba(121, 184, 255, 0.06);
+  box-shadow: 0 0 0 3px rgba(121, 184, 255, 0.1);
+}
+
+.download-dialog__option-icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: rgba(53, 120, 229, 0.08);
+  color: var(--ifm-color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+[data-theme='dark'] .download-dialog__option-icon {
+  background: rgba(121, 184, 255, 0.1);
+  color: #79b8ff;
+}
+
+.download-dialog__option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.download-dialog__option-text strong {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111;
+}
+
+[data-theme='dark'] .download-dialog__option-text strong {
+  color: #f0f0f0;
+}
+
+.download-dialog__option-text span {
+  font-size: 0.8rem;
+  color: #888;
+}
+
+[data-theme='dark'] .download-dialog__option-text span {
+  color: #999;
+}
+
+.download-dialog__hint {
+  margin: 1.25rem 0 0;
+  font-size: 0.8rem;
+  color: #999;
+}
+
+.download-dialog__hint a {
+  color: var(--ifm-color-primary);
+  text-decoration: none;
+}
+
+.download-dialog__hint a:hover {
+  text-decoration: underline;
+}
+
+[data-theme='dark'] .download-dialog__hint {
+  color: #777;
+}
+
+[data-theme='dark'] .download-dialog__hint a {
+  color: #79b8ff;
+}
+
+.download-dialog__loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2rem 0;
+  color: #888;
+  font-size: 0.9rem;
+}
+
+.download-dialog__spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(53, 120, 229, 0.15);
+  border-top-color: var(--ifm-color-primary);
+  border-radius: 50%;
+  animation: download-spin 0.7s linear infinite;
+}
+
+@keyframes download-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.download-dialog__error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem 0;
+}
+
+.download-dialog__error p {
+  color: #888;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+@media (max-width: 480px) {
+  .download-dialog {
+    padding: 1.5rem;
+    max-width: calc(100vw - 2rem);
+  }
+
+  .download-dialog__option {
+    padding: 0.875rem 1rem;
+  }
+}
