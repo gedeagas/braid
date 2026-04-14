@@ -28,7 +28,8 @@
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "test": "vitest run",
     "test:watch": "vitest",
-    "release": "node scripts/release.js"
+    "release": "node scripts/release.js",
+    "changelog": "node scripts/changelog.js"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.85",

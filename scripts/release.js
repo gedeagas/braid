@@ -76,7 +76,22 @@ for (const f of artifacts) {
 const fileArgs = artifacts.map((f) => `"${f}"`).join(' ')
 const draftFlag = draft ? ' --draft' : ''
 
-const cmd = `gh release create "${TAG}" ${fileArgs} --title "${TAG}" --generate-notes${draftFlag}`
+// Generate changelog from merged PRs since last tag
+let notesFlag = ' --generate-notes'
+try {
+  const notes = execSync('node scripts/changelog.js', { cwd: ROOT, encoding: 'utf-8' }).trim()
+  if (notes) {
+    // Write to temp file to avoid shell escaping issues
+    const tmpNotes = path.join(DIST, '.release-notes.md')
+    fs.writeFileSync(tmpNotes, notes)
+    notesFlag = ` --notes-file "${tmpNotes}"`
+    console.log('\n[release] Using auto-generated changelog')
+  }
+} catch (err) {
+  console.log('[release] Changelog generation failed, falling back to --generate-notes')
+}
+
+const cmd = `gh release create "${TAG}" ${fileArgs} --title "${TAG}"${notesFlag}${draftFlag}`
 
 try {
   console.log(`\n[release] Running: gh release create ${TAG} ...`)
