@@ -75,19 +75,40 @@ for (const f of artifacts) {
 const fileArgs = artifacts.map((f) => `"${f}"`).join(' ')
 const draftFlag = draft ? ' --draft' : ''
 
-// Generate changelog from merged PRs since last tag
+// Extract release notes: prefer CHANGELOG.md section for this version, fall back to auto-generation
 let notesFlag = ' --generate-notes'
-try {
-  const notes = execSync('node scripts/changelog.js', { cwd: ROOT, encoding: 'utf-8' }).trim()
-  if (notes) {
-    // Write to temp file to avoid shell escaping issues
+const changelogPath = path.join(ROOT, 'CHANGELOG.md')
+
+if (fs.existsSync(changelogPath)) {
+  const changelog = fs.readFileSync(changelogPath, 'utf-8')
+  // Match the section for this version (from "## [VERSION]" to next "## [" or EOF)
+  const versionEscaped = VERSION.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const sectionRe = new RegExp(`^## \\[${versionEscaped}\\][^\\n]*\\n([\\s\\S]*?)(?=\\n---\\n|\\n## \\[|$)`, 'm')
+  const match = changelog.match(sectionRe)
+
+  if (match && match[1].trim()) {
     const tmpNotes = path.join(DIST, '.release-notes.md')
-    fs.writeFileSync(tmpNotes, notes)
+    fs.writeFileSync(tmpNotes, match[1].trim())
     notesFlag = ` --notes-file "${tmpNotes}"`
-    console.log('\n[release] Using auto-generated changelog')
+    console.log('\n[release] Using release notes from CHANGELOG.md')
+  } else {
+    console.log(`[release] No section for v${VERSION} in CHANGELOG.md, trying auto-generation`)
   }
-} catch (err) {
-  console.log('[release] Changelog generation failed, falling back to --generate-notes')
+}
+
+// Fall back to auto-generated changelog from merged PRs
+if (notesFlag === ' --generate-notes') {
+  try {
+    const notes = execSync('node scripts/changelog.js', { cwd: ROOT, encoding: 'utf-8' }).trim()
+    if (notes) {
+      const tmpNotes = path.join(DIST, '.release-notes.md')
+      fs.writeFileSync(tmpNotes, notes)
+      notesFlag = ` --notes-file "${tmpNotes}"`
+      console.log('\n[release] Using auto-generated changelog')
+    }
+  } catch (err) {
+    console.log('[release] Changelog generation failed, falling back to --generate-notes')
+  }
 }
 
 const cmd = `gh release create "${TAG}" ${fileArgs} --title "${TAG}"${notesFlag}${draftFlag}`
