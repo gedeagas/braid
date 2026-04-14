@@ -77,7 +77,7 @@ function HeroSection(): React.JSX.Element {
 
   return (
     <header className="hero-section">
-      <span className="hero-badge">v1.0.0 Now Available</span>
+      <span className="hero-badge">v26.1.0 Now Available</span>
       <h1 className="hero-title">
         AI Coding Agents, <br />
         <span className="hero-title-muted">Parallelized.</span>

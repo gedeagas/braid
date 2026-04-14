@@ -34,7 +34,19 @@ const config: Config = {
           sidebarPath: './sidebars.ts',
           editUrl: 'https://github.com/gedeagas/braid/tree/main/website/',
         },
-        blog: false,
+        blog: {
+          routeBasePath: 'changelog',
+          path: './changelog',
+          blogTitle: 'Changelog',
+          blogDescription: 'Braid release notes and changelog.',
+          blogSidebarTitle: 'Releases',
+          blogSidebarCount: 'ALL',
+          showReadingTime: false,
+          feedOptions: {
+            type: ['rss', 'atom'],
+            title: 'Braid Changelog',
+          },
+        },
         theme: {
           customCss: './src/css/custom.css',
         },
@@ -59,6 +71,11 @@ const config: Config = {
           label: 'Docs',
         },
         {
+          to: '/changelog',
+          label: 'Changelog',
+          position: 'left',
+        },
+        {
           href: 'https://github.com/gedeagas/braid',
           label: 'GitHub',
           position: 'right',
@@ -75,6 +92,7 @@ const config: Config = {
             { label: 'Getting Started', to: '/docs/getting-started/installation' },
             { label: 'Features', to: '/docs/features/projects-and-worktrees' },
             { label: 'Keyboard Shortcuts', to: '/docs/reference/keyboard-shortcuts' },
+            { label: 'Changelog', to: '/changelog' },
           ],
         },
         {
