@@ -6,6 +6,7 @@ import { useUIStore } from '@/store/ui'
 import { useProjectsStore } from '@/store/projects'
 import { useTranslation } from 'react-i18next'
 import { OverviewBanner } from '@/components/MissionControl/OverviewBanner'
+import { ContextMenu } from '@/components/shared/ContextMenu'
 
 export const SidebarView = memo(function SidebarView() {
   const showAddProject = useUIStore((s) => s.showAddProject)
@@ -17,6 +18,8 @@ export const SidebarView = memo(function SidebarView() {
   const addWorktreeProject = addWorktreeProjectId
     ? projects.find((p) => p.id === addWorktreeProjectId) ?? null
     : null
+
+  const [sidebarMenu, setSidebarMenu] = useState<{ x: number; y: number } | null>(null)
 
   return (
     <>
@@ -36,9 +39,22 @@ export const SidebarView = memo(function SidebarView() {
       <div
         className="sidebar-content"
         data-tour="sidebar"
+        onContextMenu={(e) => {
+          e.preventDefault()
+          setSidebarMenu({ x: e.clientX, y: e.clientY })
+        }}
       >
         <ProjectList onAddWorktree={(id) => setAddWorktreeProjectId(id)} />
       </div>
+
+      {sidebarMenu && (
+        <ContextMenu
+          x={sidebarMenu.x}
+          y={sidebarMenu.y}
+          items={[{ label: t('addProject'), onClick: () => setShowAddProject(true) }]}
+          onClose={() => setSidebarMenu(null)}
+        />
+      )}
 
       {showAddProject && <AddProjectDialog />}
       {addWorktreeProject && (
