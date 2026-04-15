@@ -306,5 +306,9 @@
   "quickOpen": "Quick Open",
   "quickOpenPlaceholder": "Search files by name...",
   "quickOpenNoResults": "No matching files",
-  "quickOpenOpen": "Open"
+  "quickOpenOpen": "Open",
+  "openIn": "Open",
+  "copyPath": "Copy path",
+  "revealInFinder": "Reveal in Finder",
+  "openInApp": "Open in {{app}}"
 }
