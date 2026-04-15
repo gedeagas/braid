@@ -1,5 +1,23 @@
 import { describe, it, expect } from 'vitest'
-import { validateBranchName, extractJiraKey, deriveBranchFromJira } from '../branchValidation'
+import { worktreeName, validateBranchName, extractJiraKey, deriveBranchFromJira } from '../branchValidation'
+
+describe('worktreeName', () => {
+  it('returns the last path segment', () => {
+    expect(worktreeName('/Users/agas/Braid/worktrees/proj/my-branch', 'fallback')).toBe('my-branch')
+  })
+
+  it('returns fallback for empty path', () => {
+    expect(worktreeName('', 'fallback')).toBe('fallback')
+  })
+
+  it('returns fallback for trailing slash (malformed path)', () => {
+    expect(worktreeName('/Users/agas/Braid/worktrees/proj/my-branch/', 'fallback')).toBe('fallback')
+  })
+
+  it('returns the name itself when path has no slashes', () => {
+    expect(worktreeName('my-branch', 'fallback')).toBe('my-branch')
+  })
+})
 
 describe('validateBranchName', () => {
   // ── valid names ────────────────────────────────────────────────────────────

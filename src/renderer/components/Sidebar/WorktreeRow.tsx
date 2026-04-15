@@ -9,6 +9,8 @@ import { Checkbox } from '@/components/ui'
 import { ContextMenu, type ContextMenuItem } from '@/components/shared/ContextMenu'
 import { useSessionsForWorktree } from '@/store/sessions'
 import { useTranslation } from 'react-i18next'
+import { IconGitBranch } from '@/components/shared/icons'
+import { worktreeName } from '@/lib/branchValidation'
 
 interface Props {
   worktree: Worktree
@@ -142,9 +144,15 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew }: Props) 
         >
           <StatusDot status={status} count={sessions.length} />
         </Tooltip>
-        <span className="worktree-branch-name">
-          {worktree.branch}
-        </span>
+        <div className="worktree-name-stack">
+          <span className="worktree-branch-name">
+            {worktreeName(worktree.path, worktree.branch)}
+          </span>
+          <span className="worktree-branch-secondary">
+            <IconGitBranch size={9} />
+            <span>{worktree.branch}</span>
+          </span>
+        </div>
         <div className="worktree-row-actions">
           <PrIcon worktreePath={worktree.path} />
           {worktree.isMain && (
