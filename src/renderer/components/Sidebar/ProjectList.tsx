@@ -1,4 +1,4 @@
-import { useMemo, useState, useReducer, useCallback } from 'react'
+import { useMemo, useState, useReducer, useCallback, useEffect } from 'react'
 import { useProjectsStore } from '@/store/projects'
 import { useUIStore } from '@/store/ui'
 import { Tooltip } from '@/components/shared/Tooltip'
@@ -20,13 +20,17 @@ function ProjectAvatar({ name, avatarUrl }: { name: string; avatarUrl?: string }
   const [failed, setFailed] = useState(false)
   const onError = useCallback(() => setFailed(true), [])
 
+  // Reset failed state when avatarUrl changes (e.g. backfill arrives)
+  useEffect(() => { setFailed(false) }, [avatarUrl])
+
   if (avatarUrl && !failed) {
     return (
       <img
         src={avatarUrl}
         width={18}
         height={18}
-        alt={name}
+        alt=""
+        aria-hidden="true"
         onError={onError}
         className="project-avatar"
       />
@@ -39,6 +43,7 @@ function ProjectAvatar({ name, avatarUrl }: { name: string; avatarUrl?: string }
   return (
     <div
       className="project-avatar project-avatar--letter"
+      aria-hidden="true"
       style={{ background: `hsl(${hue}, 55%, 40%)` }}
     >
       {letter}

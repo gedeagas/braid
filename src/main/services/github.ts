@@ -326,14 +326,21 @@ class GitHubService {
   private avatarCache = new ServiceCache<string>(Infinity)
 
   async getOwnerAvatarUrl(cwd: string): Promise<string> {
-    return this.avatarCache.get(cwd, async () => {
-      const nwo = await resolveNwo(cwd)
-      const raw = await this.gh(
-        ['api', `repos/${nwo}`, '--jq', '.owner.avatar_url'],
-        cwd
-      )
-      return raw || ''
-    })
+    const nwo = await resolveNwo(cwd)
+    try {
+      return await this.avatarCache.get(nwo, async () => {
+        const raw = await this.gh(
+          ['api', `repos/${nwo}`, '--jq', '.owner.avatar_url'],
+          cwd,
+          true
+        )
+        const url = raw.trim()
+        if (!url) throw new Error('Empty avatar URL')
+        return url
+      })
+    } catch {
+      return ''
+    }
   }
 
   async getGitSyncStatus(worktreePath: string, baseBranch: string, _forceRefresh?: boolean): Promise<GitSyncStatus> {

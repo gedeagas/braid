@@ -155,18 +155,30 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
 
       // Backfill GitHub org avatars for projects that don't have one yet.
       // Non-blocking — updates trickle in after the initial paint.
-      for (const p of projects) {
-        if (!p.avatarUrl) {
-          ipc.github.getOwnerAvatarUrl(p.path).then((url) => {
-            if (!url) return
-            const current = get().projects
-            const updated = current.map((proj) =>
-              proj.id === p.id ? { ...proj, avatarUrl: url } : proj
-            )
-            set({ projects: updated })
-            ipc.storage.save({ projects: updated.map(serializeProject) })
-          }).catch(() => {})
-        }
+      // Fetches run concurrently; results are batched into a single state + save.
+      const needsAvatar = projects.filter((p) => !p.avatarUrl)
+      if (needsAvatar.length > 0) {
+        Promise.allSettled(
+          needsAvatar.map(async (p) => {
+            const url = await ipc.github.getOwnerAvatarUrl(p.path)
+            return url ? { id: p.id, url } : null
+          })
+        ).then((results) => {
+          const filled = results
+            .filter((r): r is PromiseFulfilledResult<{ id: string; url: string } | null> => r.status === 'fulfilled')
+            .map((r) => r.value)
+            .filter((v): v is { id: string; url: string } => v !== null)
+          if (filled.length === 0) return
+
+          const lookup = new Map(filled.map((f) => [f.id, f.url]))
+          const current = get().projects
+          const updated = current.map((proj) => {
+            const url = lookup.get(proj.id)
+            return url ? { ...proj, avatarUrl: url } : proj
+          })
+          set({ projects: updated })
+          void ipc.storage.save({ projects: updated.map(serializeProject) }).catch(() => {})
+        })
       }
     } catch {
       set({ loading: false })
@@ -219,7 +231,7 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
         p.id === id ? { ...p, avatarUrl: url } : p
       )
       set({ projects: updated })
-      ipc.storage.save({ projects: updated.map(serializeProject) })
+      void ipc.storage.save({ projects: updated.map(serializeProject) }).catch(() => {})
     }).catch(() => {})
   },
 
