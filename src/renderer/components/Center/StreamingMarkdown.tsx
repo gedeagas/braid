@@ -38,7 +38,15 @@ interface StreamingMarkdownProps {
 
 // Stable plugin arrays created once at module level
 const defaultRemarkPlugins: PluggableList = [remarkGfm]
-const defaultRehypePluginsWithHighlight: PluggableList = [rehypeHighlight]
+// highlight.js doesn't register tsx/jsx as built-in languages.
+// Alias them to their base languages so code blocks render highlighted.
+const highlightOptions = {
+  aliases: {
+    typescript: ['tsx', 'mts', 'cts'],
+    javascript: ['jsx', 'mjs', 'cjs'],
+  },
+}
+const defaultRehypePluginsWithHighlight: PluggableList = [[rehypeHighlight, highlightOptions]]
 const defaultRehypePluginsNoHighlight: PluggableList = []
 
 /**
