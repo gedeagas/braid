@@ -28,6 +28,14 @@ if (fs.existsSync(PLIST_PATH)) {
       /<key>CFBundleName<\/key>\s*<string>[^<]*<\/string>/,
       '<key>CFBundleName</key>\n\t<string>Braid</string>'
     )
+  // Insert new keys into the top-level <dict>, not a nested one.
+  // The plist has nested dicts (e.g. ElectronAsarIntegrity), so we must
+  // target the final </dict> before </plist>, not the first </dict>.
+  function insertTopLevel(xml, entry) {
+    const marker = '</dict>\n</plist>'
+    return xml.replace(marker, `${entry}\n${marker}`)
+  }
+
   // Add camera/mic usage descriptions and continuity camera support for Google Meet etc.
   const plistEntries = [
     { key: 'NSCameraUsageDescription', value: 'Braid needs camera access for video calls in embedded web apps like Google Meet.' },
@@ -35,11 +43,16 @@ if (fs.existsSync(PLIST_PATH)) {
   ]
   for (const { key, value } of plistEntries) {
     if (!plist.includes(`<key>${key}</key>`)) {
-      plist = plist.replace('</dict>', `\t<key>${key}</key>\n\t<string>${value}</string>\n</dict>`)
+      plist = insertTopLevel(plist, `\t<key>${key}</key>\n\t<string>${value}</string>`)
     }
   }
   if (!plist.includes('<key>NSCameraUseContinuityCameraDeviceType</key>')) {
-    plist = plist.replace('</dict>', '\t<key>NSCameraUseContinuityCameraDeviceType</key>\n\t<true/>\n</dict>')
+    plist = insertTopLevel(plist, '\t<key>NSCameraUseContinuityCameraDeviceType</key>\n\t<true/>')
+  }
+
+  // Add CFBundleIconName for macOS 26+ Liquid Glass icon
+  if (!plist.includes('<key>CFBundleIconName</key>')) {
+    plist = insertTopLevel(plist, '\t<key>CFBundleIconName</key>\n\t<string>Braid</string>')
   }
 
   fs.writeFileSync(PLIST_PATH, plist)
@@ -75,4 +88,12 @@ if (fs.existsSync(ICON_SRC) && process.platform === 'darwin') {
   } catch (err) {
     console.warn('⚠ Could not convert icon to .icns:', err.message)
   }
+}
+
+// --- Copy Assets.car for macOS 26+ Liquid Glass icon in dev mode ---
+const ASSETS_CAR_SRC = path.join(__dirname, '../build/Assets.car')
+const ASSETS_CAR_DEST = path.join(ELECTRON_APP, 'Contents/Resources/Assets.car')
+if (fs.existsSync(ASSETS_CAR_SRC) && fs.existsSync(ELECTRON_APP)) {
+  fs.copyFileSync(ASSETS_CAR_SRC, ASSETS_CAR_DEST)
+  console.log('✓ Copied Assets.car for Liquid Glass icon (dev mode)')
 }

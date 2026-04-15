@@ -1,0 +1,29 @@
+{
+  "fill": {
+    "solid": "srgb:0.02353,0.09020,0.03529,1.00000"
+  },
+  "groups": [
+    {
+      "layers": [
+        {
+          "fill": "automatic",
+          "hidden": false,
+          "image-name": "foreground.png",
+          "name": "foreground"
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      },
+      "specular": true,
+      "translucency": {
+        "enabled": false,
+        "value": 0
+      }
+    }
+  ],
+  "supported-platforms": {
+    "squares": "shared"
+  }
+}
