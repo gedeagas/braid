@@ -7,6 +7,7 @@ import { StatusDot } from '@/components/ui/StatusDot'
 import { IconExternalLink } from '@/components/shared/icons'
 
 type AcliStatus = 'checking' | 'installed' | 'not_installed' | 'installing'
+type SaveState = 'idle' | 'saved'
 
 const ACLI_DOCS_URL = 'https://developer.atlassian.com/cloud/acli/guides/install-acli/'
 
@@ -30,6 +31,21 @@ export function SettingsJira() {
     setAcliStatus(ok ? 'installed' : 'not_installed')
   }, [])
 
+  // ── Base URL save with brief "Saved" flash ──────────────────────────
+  const [saveState, setSaveState] = useState<SaveState>('idle')
+  const dirty = jiraDraft.trim() !== jiraBaseUrl
+
+  const handleSave = useCallback(() => {
+    setJiraBaseUrl(jiraDraft.trim())
+    setSaveState('saved')
+    setTimeout(() => setSaveState('idle'), 1500)
+  }, [jiraDraft, setJiraBaseUrl])
+
+  const dotState =
+    acliStatus === 'installed' ? 'success' as const
+      : acliStatus === 'not_installed' ? 'failure' as const
+      : 'pending' as const
+
   return (
     <div className="settings-section">
       <span className="settings-hint">{t('jira.description')}</span>
@@ -39,9 +55,7 @@ export function SettingsJira() {
       <h4 className="settings-section-subtitle">{t('jira.statusHeader')}</h4>
       <div className="settings-field settings-field--row">
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)' }}>
-          <StatusDot
-            state={acliStatus === 'installed' ? 'success' : acliStatus === 'checking' || acliStatus === 'installing' ? 'pending' : 'failure'}
-          />
+          <StatusDot state={dotState} />
           <span className="settings-label">
             {acliStatus === 'checking' && t('jira.statusChecking')}
             {acliStatus === 'installed' && t('jira.statusInstalled')}
@@ -70,15 +84,21 @@ export function SettingsJira() {
 
       <div className="settings-field">
         <label className="settings-label">{t('jira.baseUrl')}</label>
-        <input
-          type="text"
-          className="settings-input"
-          value={jiraDraft}
-          onChange={(e) => setJiraDraft(e.target.value)}
-          onBlur={() => setJiraBaseUrl(jiraDraft)}
-          placeholder="https://yourcompany.atlassian.net"
-          spellCheck={false}
-        />
+        <div style={{ display: 'flex', gap: 'var(--space-8)' }}>
+          <input
+            type="text"
+            className="settings-input"
+            style={{ flex: 1 }}
+            value={jiraDraft}
+            onChange={(e) => setJiraDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && dirty) handleSave() }}
+            placeholder="https://yourcompany.atlassian.net"
+            spellCheck={false}
+          />
+          <Button size="sm" variant="primary" disabled={!dirty && saveState === 'idle'} onClick={handleSave}>
+            {saveState === 'saved' ? t('jira.saved') : t('jira.save')}
+          </Button>
+        </div>
         <span className="settings-hint">{t('jira.baseUrlHint')}</span>
       </div>
     </div>

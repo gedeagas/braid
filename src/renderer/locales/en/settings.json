@@ -322,7 +322,9 @@
     "installing": "Installing...",
     "docs": "Docs",
     "baseUrl": "Jira Base URL",
-    "baseUrlHint": "Your Atlassian site URL (e.g. https://yourcompany.atlassian.net). Auto-detected from jira-cli config if left blank."
+    "baseUrlHint": "Your Atlassian site URL (e.g. https://yourcompany.atlassian.net). Auto-detected from jira-cli config if left blank.",
+    "save": "Save",
+    "saved": "Saved"
   },
   "analytics": {
     "overview": "Overview",
