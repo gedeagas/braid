@@ -152,6 +152,22 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
           ipc.git.getRemoteBranches(p.path).catch(() => {})
         }
       }, 500)
+
+      // Backfill GitHub org avatars for projects that don't have one yet.
+      // Non-blocking — updates trickle in after the initial paint.
+      for (const p of projects) {
+        if (!p.avatarUrl) {
+          ipc.github.getOwnerAvatarUrl(p.path).then((url) => {
+            if (!url) return
+            const current = get().projects
+            const updated = current.map((proj) =>
+              proj.id === p.id ? { ...proj, avatarUrl: url } : proj
+            )
+            set({ projects: updated })
+            ipc.storage.save({ projects: updated.map(serializeProject) })
+          }).catch(() => {})
+        }
+      }
     } catch {
       set({ loading: false })
     }
@@ -194,6 +210,17 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     const projects = [...get().projects, project]
     set({ projects })
     await ipc.storage.save({ projects: projects.map(serializeProject) })
+
+    // Fetch GitHub org avatar in background
+    ipc.github.getOwnerAvatarUrl(path).then((url) => {
+      if (!url) return
+      const current = get().projects
+      const updated = current.map((p) =>
+        p.id === id ? { ...p, avatarUrl: url } : p
+      )
+      set({ projects: updated })
+      ipc.storage.save({ projects: updated.map(serializeProject) })
+    }).catch(() => {})
   },
 
   removeProject: async (id: string) => {

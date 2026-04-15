@@ -1,4 +1,4 @@
-import { useMemo, useState, useReducer } from 'react'
+import { useMemo, useState, useReducer, useCallback } from 'react'
 import { useProjectsStore } from '@/store/projects'
 import { useUIStore } from '@/store/ui'
 import { Tooltip } from '@/components/shared/Tooltip'
