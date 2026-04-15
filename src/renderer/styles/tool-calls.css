@@ -684,13 +684,15 @@
 
 .diff-preview-popover-scroll::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 .diff-preview-popover-scroll::-webkit-scrollbar-thumb {
   background: var(--text-muted);
   border-radius: var(--radius-pill);
 }
 .diff-preview-popover-scroll::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-pill);
 }
 
 .diff-preview-lines {
