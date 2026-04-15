@@ -1,5 +1,5 @@
 import { logger } from '../lib/logger'
-import { enrichedEnv as baseEnrichedEnv } from '../lib/enrichedEnv'
+import { enrichedEnv as baseEnrichedEnv, waitForEnrichedEnv } from '../lib/enrichedEnv'
 import { app } from 'electron'
 import { execFile, spawn, ChildProcess } from 'child_process'
 import { promisify } from 'util'
@@ -81,13 +81,12 @@ class SimulatorService implements ISimulatorService {
 
   private async resolveCli(): Promise<string | null> {
     if (this.cliPath !== null) return this.cliPath || null
-    // Use the user's login shell so PATH managers (Homebrew, nvm, etc.) are
-    // visible in production builds launched from Finder/Dock, where
-    // process.env.PATH is minimal. No need to pass an enriched env — the login
-    // shell sources the user's profile itself.
-    const userShell = process.env.SHELL || '/bin/zsh'
+    // Await the login-shell PATH probe so enrichedEnv() has the full PATH
+    // before we run `which`. This avoids spawning a new login shell per lookup
+    // and keeps PATH resolution consistent across all CLI invocations.
+    await waitForEnrichedEnv()
     try {
-      const { stdout } = await exec(userShell, ['-l', '-c', 'which mobilecli'])
+      const { stdout } = await exec('which', ['mobilecli'], { env: this.enrichedEnv(), timeout: 5000 })
       this.cliPath = stdout.trim()
       return this.cliPath
     } catch { /* not found */ }
@@ -103,9 +102,9 @@ class SimulatorService implements ISimulatorService {
 
   /** Detect which platform toolchains are available. */
   async checkPlatformTools(): Promise<{ xcode: boolean; androidSdk: boolean }> {
-    const userShell = process.env.SHELL || '/bin/zsh'
+    await waitForEnrichedEnv()
     const has = (bin: string) =>
-      exec(userShell, ['-l', '-c', `which ${bin}`]).then(() => true).catch(() => false)
+      exec('which', [bin], { env: this.enrichedEnv(), timeout: 5000 }).then(() => true).catch(() => false)
     const [xcode, androidSdk] = await Promise.all([
       has('xcrun'),     // Xcode CLT — ships simctl
       has('adb'),       // Android SDK — platform-tools
