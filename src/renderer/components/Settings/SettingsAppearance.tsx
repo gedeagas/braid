@@ -66,6 +66,8 @@ export function SettingsAppearance() {
   const setActivityIndicatorStyle = useUIStore((s) => s.setActivityIndicatorStyle)
   const streamingAnimation = useUIStore((s) => s.streamingAnimation)
   const setStreamingAnimation = useUIStore((s) => s.setStreamingAnimation)
+  const chatCompactMode = useUIStore((s) => s.chatCompactMode)
+  const setChatCompactMode = useUIStore((s) => s.setChatCompactMode)
 
   const handleSelect = (theme: ThemePalette) => {
     setTheme(theme.id)
@@ -134,6 +136,14 @@ export function SettingsAppearance() {
         horizontal
       >
         <Toggle checked={streamingAnimation} onChange={setStreamingAnimation} />
+      </FormField>
+
+      <FormField
+        label={t('appearance.chatCompactMode')}
+        hint={t('appearance.chatCompactModeHint')}
+        horizontal
+      >
+        <Toggle checked={chatCompactMode} onChange={setChatCompactMode} />
       </FormField>
 
       {groupBuiltinThemes().map(({ group, themes }) => (

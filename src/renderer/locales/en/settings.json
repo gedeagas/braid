@@ -60,7 +60,9 @@
     "indicatorDots": "Dots",
     "indicatorWaveform": "Waveform",
     "streamingAnimation": "Streaming Animation",
-    "streamingAnimationHint": "Animate words as they stream in"
+    "streamingAnimationHint": "Animate words as they stream in",
+    "chatCompactMode": "Chat Compact Mode",
+    "chatCompactModeHint": "Reduce spacing and font sizes for a denser, CLI-like chat display"
   },
   "ai": {
     "defaultModel": "Default Model",

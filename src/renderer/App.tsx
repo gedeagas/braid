@@ -120,6 +120,22 @@ export default function App() {
     return unsub
   }, [])
 
+  // Apply chat density mode on mount and subscribe to changes
+  useEffect(() => {
+    const applyDensity = (compact: boolean) => {
+      document.documentElement.setAttribute('data-density', compact ? 'compact' : 'default')
+    }
+    applyDensity(useUIStore.getState().chatCompactMode)
+    let prev = useUIStore.getState().chatCompactMode
+    const unsub = useUIStore.subscribe((state) => {
+      if (state.chatCompactMode !== prev) {
+        prev = state.chatCompactMode
+        applyDensity(state.chatCompactMode)
+      }
+    })
+    return unsub
+  }, [])
+
   // Apply UI zoom on mount
   useEffect(() => {
     try { appWindow.setZoomFactor(useUIStore.getState().uiZoom) } catch {}

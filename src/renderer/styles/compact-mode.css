@@ -1,0 +1,323 @@
+/* ── Chat Compact Mode ──────────────────────────────────────────────────
+ *
+ * When data-density="compact" is set on <html>, these overrides reduce
+ * spacing, padding, font sizes, and line heights in the chat area to
+ * create a denser, CLI-like display.
+ *
+ * Only chat-related selectors are targeted - sidebar, settings, and
+ * other UI areas are not affected.
+ */
+
+/* ── Chat container / wrapper ──────────────────────────────────────── */
+[data-density="compact"] .chat-container {
+  padding: var(--space-10) var(--space-16);
+  font-size: var(--text-md);
+  line-height: 1.4;
+}
+
+[data-density="compact"] .chat-virtuoso-wrapper {
+  font-size: var(--text-md);
+  line-height: 1.4;
+}
+
+/* ── Per-item horizontal padding ───────────────────────────────────── */
+[data-density="compact"] .chat-virtuoso-item,
+[data-density="compact"] .chat-plain-item {
+  padding: 0 var(--space-16);
+}
+
+/* ── Message gap ───────────────────────────────────────────────────── */
+[data-density="compact"] .chat-msg {
+  margin-bottom: var(--space-12);
+}
+
+[data-density="compact"] .chat-msg-assistant:has(.tcg) {
+  margin-bottom: var(--space-6);
+}
+
+/* ── User bubble ───────────────────────────────────────────────────── */
+[data-density="compact"] .chat-msg-user-bubble {
+  padding: var(--space-7) var(--space-12);
+  font-size: var(--text-md);
+  line-height: 1.4;
+}
+
+/* ── Assistant content ─────────────────────────────────────────────── */
+[data-density="compact"] .chat-msg-assistant-content {
+  font-size: var(--text-md);
+  line-height: 1.4;
+}
+
+[data-density="compact"] .chat-msg-assistant-content p {
+  margin: 0 0 var(--space-6) 0;
+}
+
+[data-density="compact"] .chat-msg-assistant-content ul,
+[data-density="compact"] .chat-msg-assistant-content ol {
+  margin: 0 0 var(--space-6) 0;
+  padding-left: var(--space-16);
+}
+
+[data-density="compact"] .chat-msg-assistant-content li {
+  margin-bottom: var(--space-2);
+}
+
+[data-density="compact"] .chat-msg-assistant-content code {
+  font-size: var(--text-base);
+  padding: var(--space-1) var(--space-4);
+}
+
+[data-density="compact"] .chat-msg-assistant-content pre {
+  padding: var(--space-8) var(--space-10);
+  margin: var(--space-6) 0;
+  font-size: var(--text-md);
+  line-height: 1.4;
+}
+
+[data-density="compact"] .chat-msg-assistant-content blockquote {
+  margin: var(--space-6) 0;
+  padding: var(--space-2) 0 var(--space-2) var(--space-10);
+}
+
+[data-density="compact"] .chat-msg-assistant-content h1,
+[data-density="compact"] .chat-msg-assistant-content h2,
+[data-density="compact"] .chat-msg-assistant-content h3 {
+  margin: var(--space-10) 0 var(--space-4) 0;
+}
+
+[data-density="compact"] .chat-msg-assistant-content h1 { font-size: var(--text-3xl); }
+[data-density="compact"] .chat-msg-assistant-content h2 { font-size: var(--text-2xl); }
+[data-density="compact"] .chat-msg-assistant-content h3 { font-size: var(--text-xl); }
+[data-density="compact"] .chat-msg-assistant-content h4 { font-size: var(--text-lg); }
+
+[data-density="compact"] .chat-msg-assistant-content hr {
+  margin: var(--space-10) 0;
+}
+
+[data-density="compact"] .chat-msg-assistant-content table {
+  font-size: var(--text-md);
+  margin: var(--space-8) 0;
+}
+
+[data-density="compact"] .chat-msg-assistant-content th,
+[data-density="compact"] .chat-msg-assistant-content td {
+  padding: var(--space-4) var(--space-8);
+}
+
+/* ── Tool call groups ──────────────────────────────────────────────── */
+[data-density="compact"] .tcg {
+  margin: var(--space-1) 0;
+}
+
+[data-density="compact"] .tcg-header {
+  padding: var(--space-3) 0;
+  gap: var(--space-6);
+  font-size: var(--text-md);
+}
+
+[data-density="compact"] .tcg-label {
+  font-size: var(--text-md);
+}
+
+[data-density="compact"] .tcg-body {
+  padding: var(--space-2) 0 var(--space-2) var(--space-6);
+}
+
+[data-density="compact"] .tcg-row {
+  margin-bottom: var(--space-1);
+}
+
+[data-density="compact"] .tcg-row-open {
+  margin-bottom: var(--space-2);
+}
+
+[data-density="compact"] .tcg-row-main {
+  padding: var(--space-3) var(--space-6);
+  font-size: var(--text-md);
+  gap: var(--space-4);
+}
+
+[data-density="compact"] .tcg-row-name {
+  font-size: var(--text-md);
+}
+
+[data-density="compact"] .tcg-row-detail {
+  padding: 0 var(--space-4) var(--space-4) var(--space-24);
+}
+
+[data-density="compact"] .tcg-row-code {
+  padding: var(--space-6) var(--space-8);
+  font-size: var(--text-base);
+  line-height: 1.4;
+}
+
+[data-density="compact"] .tcg-summary {
+  font-size: var(--text-base);
+}
+
+[data-density="compact"] .tcg-diff {
+  font-size: var(--text-base);
+}
+
+[data-density="compact"] .tcg-file-badge {
+  padding: var(--space-1) var(--space-6);
+  font-size: var(--text-base);
+}
+
+/* ── Interleaved text inside tool groups ───────────────────────────── */
+[data-density="compact"] .tcg-text {
+  padding: var(--space-3) 0 var(--space-3) var(--space-16);
+  font-size: var(--text-md);
+  line-height: 1.4;
+}
+
+[data-density="compact"] .tcg-text p {
+  margin: 0 0 var(--space-3) 0;
+}
+
+[data-density="compact"] .tcg-text code {
+  font-size: var(--text-sm);
+}
+
+[data-density="compact"] .tcg-text pre {
+  padding: var(--space-6) var(--space-8);
+  margin: var(--space-6) 0;
+  font-size: var(--text-base);
+  line-height: 1.4;
+}
+
+[data-density="compact"] .tcg-text th,
+[data-density="compact"] .tcg-text td {
+  padding: var(--space-4) var(--space-8);
+}
+
+[data-density="compact"] .tcg-error {
+  padding: var(--space-2) 0 var(--space-2) var(--space-16);
+  font-size: var(--text-base);
+}
+
+/* ── Todo list ─────────────────────────────────────────────────────── */
+[data-density="compact"] .tcg-todo-list {
+  padding: var(--space-4) var(--space-6);
+}
+
+[data-density="compact"] .tcg-todo-item {
+  padding: var(--space-2) var(--space-1);
+  font-size: var(--text-base);
+  line-height: 1.35;
+}
+
+/* ── Inline diff ───────────────────────────────────────────────────── */
+[data-density="compact"] .tcg-inline-diff {
+  font-size: var(--text-base);
+  line-height: 1.4;
+}
+
+/* ── Grep results ──────────────────────────────────────────────────── */
+[data-density="compact"] .tcg-grep-results {
+  font-size: var(--text-base);
+  padding: var(--space-4) 0;
+}
+
+[data-density="compact"] .tcg-grep-line {
+  padding: var(--space-1) var(--space-6);
+}
+
+/* ── Glob results ──────────────────────────────────────────────────── */
+[data-density="compact"] .tcg-glob-results {
+  gap: var(--space-2);
+}
+
+/* ── Input area ────────────────────────────────────────────────────── */
+[data-density="compact"] .chat-input-float {
+  margin: 0 var(--space-8) var(--space-8);
+}
+
+[data-density="compact"] .chat-input-container {
+  padding: var(--space-8) var(--space-12) var(--space-6);
+}
+
+[data-density="compact"] .chat-input {
+  font-size: var(--text-md);
+  line-height: 1.4;
+  min-height: var(--space-20);
+}
+
+[data-density="compact"] .chat-input-backdrop {
+  font-size: var(--text-md);
+  line-height: 1.4;
+}
+
+[data-density="compact"] .chat-bottom-bar {
+  padding: var(--space-4) var(--space-10) var(--space-8);
+}
+
+/* ── System messages ───────────────────────────────────────────────── */
+[data-density="compact"] .chat-msg-system-content {
+  font-size: var(--text-md);
+  padding: var(--space-6) var(--space-10);
+}
+
+/* ── Compact boundary divider ──────────────────────────────────────── */
+[data-density="compact"] .chat-msg-compact-boundary {
+  padding: var(--space-4) var(--space-16);
+  margin: var(--space-2) 0;
+}
+
+/* ── Snippet and terminal cards ────────────────────────────────────── */
+[data-density="compact"] .chat-msg-snippet-card-content,
+[data-density="compact"] .chat-msg-terminal-card-content {
+  padding: var(--space-4) var(--space-6);
+}
+
+[data-density="compact"] .chat-msg-snippet-card-header,
+[data-density="compact"] .chat-msg-terminal-card-header {
+  padding: var(--space-3) var(--space-6);
+  min-height: var(--space-24);
+}
+
+/* ── Turn footer and actions ───────────────────────────────────────── */
+[data-density="compact"] .turn-footer {
+  padding: var(--space-3) 0;
+  margin-top: var(--space-2);
+  gap: var(--space-4);
+}
+
+[data-density="compact"] .turn-actions {
+  padding-top: var(--space-2);
+  gap: var(--space-4);
+}
+
+/* ── Empty state ───────────────────────────────────────────────────── */
+[data-density="compact"] .chat-empty-hint {
+  gap: var(--space-8);
+}
+
+/* ── Prompt panels (ask-user, plan, tool-permission) ───────────────── */
+[data-density="compact"] .ask-user-prompt {
+  padding: var(--space-8) var(--space-12) var(--space-6);
+  gap: var(--space-8);
+}
+
+[data-density="compact"] .ask-user-header {
+  gap: var(--space-5);
+}
+
+[data-density="compact"] .plan-prompt {
+  padding: var(--space-8) var(--space-12) var(--space-6);
+  gap: var(--space-6);
+}
+
+[data-density="compact"] .plan-prompt-actions {
+  gap: var(--space-6);
+}
+
+[data-density="compact"] .tool-permission-prompt {
+  padding: var(--space-8) var(--space-10) var(--space-8);
+  gap: var(--space-6);
+}
+
+/* ── Input footer (file mentions, snippets) ────────────────────────── */
+[data-density="compact"] .chat-input-footer {
+  padding: var(--space-3) var(--space-10) var(--space-5);
+}

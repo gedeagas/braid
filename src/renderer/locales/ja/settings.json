@@ -60,7 +60,9 @@
     "indicatorDots": "ドット",
     "indicatorWaveform": "ウェーブフォーム",
     "streamingAnimation": "ストリーミングアニメーション",
-    "streamingAnimationHint": "ストリーミング時にワードごとにアニメーション表示する"
+    "streamingAnimationHint": "ストリーミング時にワードごとにアニメーション表示する",
+    "chatCompactMode": "チャットコンパクトモード",
+    "chatCompactModeHint": "間隔とフォントサイズを縮小し、CLIのようなチャット表示にする"
   },
   "ai": {
     "defaultModel": "デフォルトモデル",
