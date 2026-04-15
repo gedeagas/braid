@@ -11,8 +11,10 @@ import { SK } from '@/lib/storageKeys'
 import { useUIStore } from '@/store/ui'
 import { DOM_EVENT_FILES_CHANGED } from '@/lib/appBrand'
 
-// Module-level cache - installed apps don't change during a session
-let cachedApps: Array<{ id: string; name: string; icon: string | null }> | null = null
+type InstalledApp = { id: string; name: string; icon: string | null }
+
+// Module-level cache shared across FileTree instances - avoids redundant IPC
+let appsCached = false
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
