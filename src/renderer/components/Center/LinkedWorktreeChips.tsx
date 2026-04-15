@@ -121,7 +121,7 @@ export function LinkedWorktreeChips({ sessionId, worktreeId }: Props) {
         <div key={lw.worktreeId} className="linked-worktree-chip">
           <IconLink size={11} />
           <span className="linked-worktree-chip-label">
-            {lw.projectName}/{lw.branch}
+            {lw.projectName}/{lw.path.split('/').pop() ?? lw.branch}
           </span>
           <button
             className="linked-worktree-chip-remove"
@@ -201,7 +201,7 @@ export function LinkedWorktreeChips({ sessionId, worktreeId }: Props) {
                           }}
                         >
                           <div className="lwt-card-header">
-                            <div className="lwt-card-branch">{wt.branch}</div>
+                            <div className="lwt-card-branch">{wt.path.split('/').pop() ?? wt.branch}</div>
                             {isLinked && (
                               <span className="lwt-card-badge">
                                 <IconCheckmark size={10} />
@@ -265,7 +265,8 @@ function buildAvailableWorktrees(
     const wts: WorktreeOption[] = []
     for (const wt of project.worktrees) {
       if (wt.id === currentWorktreeId) continue
-      if (lowerFilter && !wt.branch.toLowerCase().includes(lowerFilter) && !project.name.toLowerCase().includes(lowerFilter)) continue
+      const wtName = wt.path.split('/').pop() ?? ''
+      if (lowerFilter && !wt.branch.toLowerCase().includes(lowerFilter) && !project.name.toLowerCase().includes(lowerFilter) && !wtName.toLowerCase().includes(lowerFilter)) continue
       wts.push({ worktreeId: wt.id, branch: wt.branch, path: wt.path, upstream: wt.upstream })
     }
     if (wts.length > 0) {
