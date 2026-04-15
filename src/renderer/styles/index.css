@@ -8,6 +8,7 @@
 @import './chat-messages.css';
 @import './tool-calls.css';
 @import './chat-input.css';
+@import './compact-mode.css';
 @import './chat-images.css';
 @import './chat-queue.css';
 @import './prompts.css';

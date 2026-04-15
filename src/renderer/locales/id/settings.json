@@ -60,7 +60,9 @@
     "indicatorDots": "Titik",
     "indicatorWaveform": "Gelombang",
     "streamingAnimation": "Animasi Streaming",
-    "streamingAnimationHint": "Animasikan kata saat streaming masuk"
+    "streamingAnimationHint": "Animasikan kata saat streaming masuk",
+    "chatCompactMode": "Mode Kompak Chat",
+    "chatCompactModeHint": "Kurangi jarak dan ukuran font untuk tampilan chat yang lebih padat seperti CLI"
   },
   "ai": {
     "defaultModel": "Model Default",
