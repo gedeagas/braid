@@ -5,6 +5,7 @@ import { join, basename } from 'path'
 import { buildEnrichedPath, findBinary, pathToFileUri, fileUriToPath, writeMessage, parseSeverity } from './helpers'
 import { resolveConfigs, detectServers, detectServersForFile } from './detect'
 import { installServer } from './download'
+import { waitForEnrichedEnv } from '../../lib/enrichedEnv'
 import * as ops from './operations'
 import type {
   LspServerStatus, LspServerConfig, LspDetectedServer,
@@ -15,6 +16,16 @@ import type {
 export class LspServerPool extends EventEmitter {
   private servers = new Map<string, ServerInstance>()
   private enrichedPath = buildEnrichedPath()
+
+  constructor() {
+    super()
+    // buildEnrichedPath() reads enrichedEnv() which may return a fallback PATH
+    // before the login-shell probe settles. Refresh once the probe is done so
+    // LSP detection/spawning sees nvm, pyenv, rbenv, etc.
+    waitForEnrichedEnv().then(() => {
+      this.enrichedPath = buildEnrichedPath()
+    })
+  }
 
   private serverKey(projectRoot: string, configId: string): string {
     return `${projectRoot}::${configId}`

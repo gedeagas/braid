@@ -2,28 +2,21 @@ import type { ChildProcess } from 'child_process'
 import { existsSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
+import { enrichedEnv } from '../../lib/enrichedEnv'
 
 // ─── PATH enrichment ──────────────────────────────────────────────────────────
 
+/**
+ * Build a PATH suitable for LSP server detection and spawning.
+ *
+ * Uses the login-shell-probed PATH from enrichedEnv() (which includes nvm,
+ * pyenv, rbenv, sdkman, etc.) and prepends the Braid-managed lsp-servers
+ * directory for downloaded binaries.
+ */
 export function buildEnrichedPath(): string {
-  const home = homedir()
-  const extras = [
-    join(home, 'Braid', 'lsp-servers'), // downloaded binaries
-    '/opt/homebrew/bin',
-    '/opt/homebrew/sbin',
-    '/usr/local/bin',
-    `${home}/.cargo/bin`,
-    `${home}/go/bin`,
-    `${home}/.local/bin`,
-    `${home}/.npm/bin`,
-    `${home}/.yarn/bin`,
-    '/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin',
-    '/usr/bin',
-    '/bin',
-  ]
-  const systemPath = process.env.PATH ?? ''
-  const combined = [...extras, ...systemPath.split(':').filter(Boolean)]
-  // deduplicate while preserving order
+  const lspBinDir = join(homedir(), 'Braid', 'lsp-servers')
+  const basePath = enrichedEnv().PATH ?? process.env.PATH ?? ''
+  const combined = [lspBinDir, ...basePath.split(':').filter(Boolean)]
   return [...new Set(combined)].join(':')
 }
 

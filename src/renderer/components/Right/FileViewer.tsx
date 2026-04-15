@@ -26,6 +26,7 @@ interface Props {
   onDirtyChange?: (filePath: string, isDirty: boolean) => void
 }
 
+// LSP-protocol language IDs (used for textDocument/didOpen).
 const EXT_TO_LANG: Record<string, string> = {
   ts: 'typescript', tsx: 'typescriptreact',
   js: 'javascript', jsx: 'javascriptreact',
@@ -38,11 +39,24 @@ const EXT_TO_LANG: Record<string, string> = {
   proto: 'protobuf', dockerfile: 'dockerfile',
 }
 
+// Monaco registers tsx/jsx under "typescript"/"javascript" - it does NOT
+// recognize VS Code-style "typescriptreact"/"javascriptreact" IDs.
+const LSP_TO_MONACO: Record<string, string> = {
+  typescriptreact: 'typescript',
+  javascriptreact: 'javascript',
+}
+
+/** LSP-protocol language ID for a file path. */
 function getLanguage(path: string): string {
   const ext = path.split('.').pop()?.toLowerCase() ?? ''
   const name = path.split('/').pop()?.toLowerCase() ?? ''
   if (name === 'dockerfile') return 'dockerfile'
   return EXT_TO_LANG[ext] ?? 'plaintext'
+}
+
+/** Map an LSP language ID to a Monaco-recognized language ID. */
+function toMonacoLanguage(lang: string): string {
+  return LSP_TO_MONACO[lang] ?? lang
 }
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
@@ -344,7 +358,7 @@ export function FileViewer({ filePath, projectRoot = null, onDirtyChange }: Prop
         ) : (
           <Editor
             height="100%"
-            language={languageId}
+            language={toMonacoLanguage(languageId)}
             defaultValue={state.savedContent}
             theme={MONACO_THEME_NAME}
             onMount={handleEditorMount}
