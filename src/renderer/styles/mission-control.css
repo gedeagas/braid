@@ -11,9 +11,9 @@
 
 .mission-control-header {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  padding: 0 var(--space-16) var(--space-8);
+  padding: 0 var(--space-16) 0 var(--space-40);
   height: 52px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
