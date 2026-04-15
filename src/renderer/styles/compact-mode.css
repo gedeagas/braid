@@ -52,6 +52,10 @@
   margin: 0 0 var(--space-6) 0;
 }
 
+[data-density="compact"] .chat-msg-assistant-content p:last-child {
+  margin-bottom: 0;
+}
+
 [data-density="compact"] .chat-msg-assistant-content ul,
 [data-density="compact"] .chat-msg-assistant-content ol {
   margin: 0 0 var(--space-6) 0;
@@ -173,6 +177,10 @@
 
 [data-density="compact"] .tcg-text p {
   margin: 0 0 var(--space-3) 0;
+}
+
+[data-density="compact"] .tcg-text p:last-child {
+  margin-bottom: 0;
 }
 
 [data-density="compact"] .tcg-text code {
