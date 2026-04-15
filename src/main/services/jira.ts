@@ -24,7 +24,7 @@ export interface JiraResult {
 }
 
 class JiraService {
-  // Cached per app session — acli installation doesn't change at runtime
+  // Cached availability flag, reset by recheckAvailability() after install
   private _available: boolean | null = null
 
   // Base URL detection cache: undefined = not yet attempted

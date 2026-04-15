@@ -44,15 +44,22 @@ export function SettingsJira() {
   })
 
   useEffect(() => {
-    jira.isAvailable().then((ok: boolean) => dispatch({ type: 'setAcli', status: ok ? 'installed' : 'not_installed' }))
+    jira
+      .isAvailable()
+      .then((ok: boolean) => dispatch({ type: 'setAcli', status: ok ? 'installed' : 'not_installed' }))
+      .catch(() => dispatch({ type: 'setAcli', status: 'not_installed' }))
   }, [])
 
   const handleInstall = useCallback(async () => {
     dispatch({ type: 'setAcli', status: 'installing' })
     try { await shell.installTool('acli') } catch { /* still recheck below */ }
     dispatch({ type: 'setAcli', status: 'checking' })
-    const ok = await jira.recheckAvailability()
-    dispatch({ type: 'setAcli', status: ok ? 'installed' : 'not_installed' })
+    try {
+      const ok = await jira.recheckAvailability()
+      dispatch({ type: 'setAcli', status: ok ? 'installed' : 'not_installed' })
+    } catch {
+      dispatch({ type: 'setAcli', status: 'not_installed' })
+    }
   }, [])
 
   // ── Base URL save with brief "Saved" flash ──────────────────────────
@@ -62,7 +69,9 @@ export function SettingsJira() {
   const dirty = state.draft.trim() !== jiraBaseUrl
 
   const handleSave = useCallback(() => {
-    setJiraBaseUrl(state.draft.trim())
+    const trimmed = state.draft.trim()
+    setJiraBaseUrl(trimmed)
+    dispatch({ type: 'setDraft', value: trimmed })
     dispatch({ type: 'saved' })
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => dispatch({ type: 'resetSave' }), 1500)
