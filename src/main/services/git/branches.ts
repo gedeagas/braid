@@ -2,6 +2,7 @@ import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { getValidGit } from './core'
 import { ServiceCache } from '../../lib/serviceCache'
+import { enrichedEnv } from '../../lib/enrichedEnv'
 import { resolveNwo } from '../github'
 
 const execFileAsync = promisify(execFile)
@@ -30,10 +31,10 @@ async function _fetchRemoteBranches(worktreePath: string): Promise<{ branches: s
 
     // Parallelize: default branch + branch list (independent of each other)
     const [defaultBranch, branches] = await Promise.all([
-      execFileAsync('gh', ['repo', 'view', '--json', 'defaultBranchRef', '-q', '.defaultBranchRef.name'], { cwd: worktreePath, timeout: 15_000 })
+      execFileAsync('gh', ['repo', 'view', '--json', 'defaultBranchRef', '-q', '.defaultBranchRef.name'], { cwd: worktreePath, timeout: 15_000, env: enrichedEnv() })
         .then(({ stdout }) => stdout.trim() || undefined)
         .catch(() => undefined),
-      execFileAsync('gh', ['api', `repos/${repo}/branches`, '--paginate', '-q', '.[].name'], { cwd: worktreePath, timeout: 30_000 })
+      execFileAsync('gh', ['api', `repos/${repo}/branches`, '--paginate', '-q', '.[].name'], { cwd: worktreePath, timeout: 30_000, env: enrichedEnv() })
         .then(({ stdout }) => stdout.split('\n').map((b) => b.trim()).filter(Boolean).map((b) => `origin/${b}`)),
     ])
 
@@ -110,7 +111,7 @@ async function _checkProtected(repo: string, branch: string, cwd: string): Promi
     const { stdout } = await execFileAsync(
       'gh',
       ['api', `repos/${repo}/branches/${encodeURIComponent(branch)}`, '-q', '.protected'],
-      { cwd, timeout: 15_000 }
+      { cwd, timeout: 15_000, env: enrichedEnv() }
     )
     return stdout.trim() === 'true'
   } catch {
