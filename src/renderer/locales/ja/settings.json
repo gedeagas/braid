@@ -322,7 +322,9 @@
     "installing": "インストール中...",
     "docs": "ドキュメント",
     "baseUrl": "Jira ベースURL",
-    "baseUrlHint": "AtlassianサイトのURL（例: https://yourcompany.atlassian.net）。空白の場合はjira-cli設定から自動検出されます。"
+    "baseUrlHint": "AtlassianサイトのURL（例: https://yourcompany.atlassian.net）。空白の場合はjira-cli設定から自動検出されます。",
+    "save": "保存",
+    "saved": "保存済み"
   },
   "analytics": {
     "overview": "概要",

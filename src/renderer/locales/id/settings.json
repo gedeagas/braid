@@ -322,7 +322,9 @@
     "installing": "Menginstal...",
     "docs": "Dokumentasi",
     "baseUrl": "URL Dasar Jira",
-    "baseUrlHint": "URL situs Atlassian Anda (mis. https://perusahaan.atlassian.net). Terdeteksi otomatis dari konfigurasi jira-cli jika dikosongkan."
+    "baseUrlHint": "URL situs Atlassian Anda (mis. https://perusahaan.atlassian.net). Terdeteksi otomatis dari konfigurasi jira-cli jika dikosongkan.",
+    "save": "Simpan",
+    "saved": "Tersimpan"
   },
   "analytics": {
     "overview": "Ikhtisar",
