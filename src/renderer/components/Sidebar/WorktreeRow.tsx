@@ -73,6 +73,14 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew }: Props) 
   else if (sessions.some((s) => s.status === 'error')) status = 'error'
   else if (sessions.some((s) => s.status === 'idle')) status = 'idle'
 
+  const requestDeleteWorktree = () => {
+    if (skipDeleteConfirm) {
+      removeWorktree(worktree.projectId, worktree.id)
+    } else {
+      rowDispatch({ type: 'SHOW_DELETE_CONFIRM' })
+    }
+  }
+
   const worktreeMenuItems: ContextMenuItem[] = [
     {
       label: isPinned ? t('contextMenuUnpin') : t('contextMenuPin'),
@@ -87,13 +95,7 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew }: Props) 
       label: t('contextMenuDeleteWorktree'),
       danger: true,
       disabled: worktree.isMain,
-      onClick: () => {
-        if (skipDeleteConfirm) {
-          removeWorktree(worktree.projectId, worktree.id)
-        } else {
-          rowDispatch({ type: 'SHOW_DELETE_CONFIRM' })
-        }
-      }
+      onClick: requestDeleteWorktree
     }
   ]
 
@@ -120,6 +122,9 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew }: Props) 
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
             selectWorktree(worktree.projectId, worktree.id)
+          } else if ((e.key === 'Delete' || (e.key === 'Backspace' && e.metaKey)) && !worktree.isMain && e.currentTarget === e.target) {
+            e.preventDefault()
+            requestDeleteWorktree()
           }
         }}
         onContextMenu={(e) => {
