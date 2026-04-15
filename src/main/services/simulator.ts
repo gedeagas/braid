@@ -1,4 +1,5 @@
 import { logger } from '../lib/logger'
+import { enrichedEnv as baseEnrichedEnv } from '../lib/enrichedEnv'
 import { app } from 'electron'
 import { execFile, spawn, ChildProcess } from 'child_process'
 import { promisify } from 'util'
@@ -68,12 +69,14 @@ class SimulatorService implements ISimulatorService {
   }
 
   private enrichedEnv(): NodeJS.ProcessEnv {
+    const base = baseEnrichedEnv()
     const androidHome = process.env.ANDROID_HOME ?? process.env.ANDROID_SDK_ROOT ?? ''
     const androidPaths = androidHome
       ? [`${androidHome}/platform-tools`, `${androidHome}/emulator`, `${androidHome}/tools/bin`]
       : []
-    const envPath = ['/opt/homebrew/bin', '/usr/local/bin', ...androidPaths, process.env.PATH ?? ''].join(':')
-    return { ...process.env, PATH: envPath }
+    // Prepend Android SDK paths to the login-shell-resolved PATH
+    const envPath = [...androidPaths, base.PATH ?? ''].join(':')
+    return { ...base, PATH: envPath }
   }
 
   private async resolveCli(): Promise<string | null> {

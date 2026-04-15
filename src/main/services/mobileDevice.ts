@@ -13,6 +13,7 @@ import { execFile } from 'child_process'
 import { writeFile, readFile, unlink } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
+import { enrichedEnv } from '../lib/enrichedEnv'
 
 // ─── JSON-RPC client ──────────────────────────────────────────────────────
 
@@ -173,8 +174,8 @@ export interface UIElement {
   focused?: boolean
 }
 
-/** Enriched PATH so we can find mobilecli in homebrew locations. */
-const CLI_ENV = { ...process.env, PATH: ['/opt/homebrew/bin', '/usr/local/bin', process.env.PATH ?? ''].join(':') }
+/** Enriched environment using the user's login shell PATH. */
+const CLI_ENV = enrichedEnv()
 
 /**
  * Get UI elements from the device accessibility tree.
