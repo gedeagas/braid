@@ -29,7 +29,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "release": "node scripts/release.js",
-    "changelog": "node scripts/changelog.js"
+    "changelog": "node scripts/changelog.js",
+    "generate-icon": "node scripts/generate-icon.js"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.85",

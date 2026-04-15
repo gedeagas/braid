@@ -450,6 +450,7 @@ async function packageArch(arch) {
 
     // Info.plist extensions
     extendInfo: {
+      CFBundleIconName: APP_NAME, // macOS 26+ Liquid Glass icon (from Assets.car)
       NSCameraUsageDescription:
         'Braid needs camera access for video calls in embedded web apps like Google Meet.',
       NSMicrophoneUsageDescription:
@@ -481,6 +482,13 @@ async function packageArch(arch) {
   const resourcesDir = path.join(appPath, 'Contents/Resources')
   fs.writeFileSync(path.join(resourcesDir, 'app-update.yml'), appUpdateYml)
   log('Injected app-update.yml into Resources/')
+
+  // Copy Assets.car for macOS 26+ Liquid Glass icon (compiled by generate-icon.js)
+  const assetsCar = path.join(BUILD_DIR, 'Assets.car')
+  if (fs.existsSync(assetsCar)) {
+    fs.copyFileSync(assetsCar, path.join(resourcesDir, 'Assets.car'))
+    log('Copied Assets.car into Resources/ (Liquid Glass icon)')
+  }
 
   // Fix native binary permissions (ASAR unpack strips +x from Mach-O helpers)
   fixNativePermissions(appPath)
