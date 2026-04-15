@@ -260,7 +260,7 @@ export function FileViewer({ filePath, projectRoot = null, onDirtyChange }: Prop
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div className="file-viewer-toolbar">
           <span className="file-viewer-path">{fileName}</span>
-          <OpenInDropdown path={filePath} />
+          <OpenInDropdown path={filePath} label={t('openIn')} />
         </div>
         <div style={{ flex: 1, overflow: 'auto' }}>
           {isImageFile(filePath) ? (
@@ -325,7 +325,7 @@ export function FileViewer({ filePath, projectRoot = null, onDirtyChange }: Prop
               {state.showPreview ? t('filePreviewHide') : t('filePreviewShow')}
             </button>
           )}
-          <OpenInDropdown path={filePath} />
+          <OpenInDropdown path={filePath} label={t('openIn')} />
           <Tooltip content={t('fileSaveTooltip')} shortcut={t('fileSaveShortcut')}>
             <button
               className={`file-viewer-save-btn ${state.isDirty ? 'active' : ''}`}

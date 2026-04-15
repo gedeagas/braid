@@ -307,6 +307,7 @@
   "quickOpenPlaceholder": "Cari file berdasarkan nama...",
   "quickOpenNoResults": "Tidak ada file yang cocok",
   "quickOpenOpen": "Terbuka",
+  "openIn": "Buka",
   "copyPath": "Salin jalur",
   "revealInFinder": "Tampilkan di Finder",
   "openInApp": "Buka di {{app}}"
