@@ -7,6 +7,7 @@ import type { QueuedMessage } from '../store'
 import { updateSession } from '../stateUtils'
 import { persistSession } from '../persistence'
 import { stopPeriodicFlush, flushStreamingBuffer } from '../streaming'
+import { pendingTurnUsage } from './handleStreaming'
 import { sessionWorktreePaths } from '../storage'
 import { DOM_EVENT_FILES_CHANGED } from '@/lib/appBrand'
 import * as ipc from '@/lib/ipc'
@@ -38,18 +39,24 @@ export async function handleDone(
 
   stopPeriodicFlush(sessionId)
   flushStreamingBuffer(sessionId)
+  pendingTurnUsage.delete(sessionId)
 
   if (!updateSession(store, sessionId, (current) => {
     const keepWaiting = current.status === 'waiting_input'
-    const elapsed = current.runStartedAt ? Date.now() - current.runStartedAt : 0
+    const now = Date.now()
+    const elapsed = current.runStartedAt ? now - current.runStartedAt : 0
     return {
-      messages: current.messages.map((m) => (m.isPartial ? { ...m, isPartial: false } : m)),
+      messages: current.messages.map((m) =>
+        m.isPartial
+          ? { ...m, isPartial: false, turnDurationMs: elapsed > 0 ? elapsed : m.turnDurationMs }
+          : m
+      ),
       status: keepWaiting ? ('waiting_input' as const) : ('idle' as const),
       activity: keepWaiting ? current.activity : null,
       runStartedAt: null,
       // Only mark the run as completed if we're actually done — a session
       // still waiting for user input hasn't finished its run yet.
-      runCompletedAt: keepWaiting ? current.runCompletedAt : Date.now(),
+      runCompletedAt: keepWaiting ? current.runCompletedAt : now,
       totalRunDurationMs: (current.totalRunDurationMs ?? 0) + elapsed
     }
   })) return

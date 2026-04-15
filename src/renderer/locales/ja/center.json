@@ -297,5 +297,12 @@
   "toolSummary.todo": "{{count}} ToDo",
 
   "turnFooterFiles_one": "1 ファイル変更",
-  "turnFooterFiles_other": "{{count}} ファイル変更"
+  "turnFooterFiles_other": "{{count}} ファイル変更",
+
+  "turnStats.model": "モデル",
+  "turnStats.duration": "所要時間",
+  "turnStats.input": "入力",
+  "turnStats.output": "出力",
+  "turnStats.cacheRead": "キャッシュ読取",
+  "turnStats.cacheWrite": "キャッシュ書込"
 }

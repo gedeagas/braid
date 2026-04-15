@@ -1,6 +1,7 @@
-import { memo, useState, useCallback, useRef, useEffect } from 'react'
+import { memo, useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import type { ContentBlock, Message } from '@/types'
+import type { ContentBlock, Message, TurnUsage } from '@/types'
 import { useUIStore } from '@/store/ui'
 import { ToolCallGroup } from './ToolCallGroup'
 import { StreamingMarkdown } from './StreamingMarkdown'
@@ -10,6 +11,7 @@ import { IconPrBranch, IconChevronRight, IconChevronDown, IconCodeBrackets, Icon
 import { TurnFooter } from './TurnFooter'
 import { parseDiffComments, parseSnippets, parseTerminalBlocks, stripAttachmentBlocks } from './diffCommentUtils'
 import type { ParsedDiffComment, ParsedSnippet, ParsedTerminalBlock } from './diffCommentUtils'
+import { formatTokens } from '@/lib/constants'
 
 /** Renders text with @mentions highlighted as accent-coloured spans */
 function renderWithMentions(text: string): React.ReactNode {
@@ -17,8 +19,7 @@ function renderWithMentions(text: string): React.ReactNode {
   return parts.length > 0 ? parts : text
 }
 
-function AssistantCopyButton({ text }: { text: string }) {
-  const { t } = useTranslation('common')
+function useCopyToClipboard(text: string) {
   const [copied, setCopied] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
@@ -32,6 +33,13 @@ function AssistantCopyButton({ text }: { text: string }) {
     timerRef.current = setTimeout(() => setCopied(false), 2000)
   }, [text])
 
+  return { copied, handleCopy }
+}
+
+function AssistantCopyButton({ text }: { text: string }) {
+  const { t } = useTranslation('common')
+  const { copied, handleCopy } = useCopyToClipboard(text)
+
   return (
     <button
       className={`chat-msg-copy-btn${copied ? ' chat-msg-copy-btn--copied' : ''}`}
@@ -41,6 +49,130 @@ function AssistantCopyButton({ text }: { text: string }) {
       {copied ? <IconCheckmark size={14} /> : <IconCopy size={14} />}
     </button>
   )
+}
+
+interface TurnActionsProps {
+  text: string
+  durationMs?: number
+  turnUsage?: TurnUsage
+}
+
+function TurnActions({ text, durationMs, turnUsage }: TurnActionsProps) {
+  const { t } = useTranslation('common')
+  const { copied, handleCopy } = useCopyToClipboard(text)
+
+  return (
+    <div className="turn-actions">
+      {durationMs != null && durationMs > 0 && (
+        <TurnDuration durationMs={durationMs} turnUsage={turnUsage} />
+      )}
+      <button
+        className={`turn-actions-btn${copied ? ' turn-actions-btn--copied' : ''}`}
+        onClick={handleCopy}
+        title={copied ? t('copied') : t('copy')}
+      >
+        {copied ? <IconCheckmark size={14} /> : <IconCopy size={14} />}
+      </button>
+    </div>
+  )
+}
+
+const MODEL_LABELS: Record<string, string> = {
+  'claude-sonnet-4-6': 'Sonnet 4.6',
+  'claude-opus-4-6': 'Opus 4.6',
+  'claude-haiku-4-5': 'Haiku 4.5'
+}
+
+function formatModelName(raw?: string): string | null {
+  if (!raw) return null
+  if (MODEL_LABELS[raw]) return MODEL_LABELS[raw]
+  for (const [prefix, label] of Object.entries(MODEL_LABELS)) {
+    if (raw.startsWith(prefix)) return label
+  }
+  return raw
+}
+
+/** Duration text with a portal-based hover tooltip that escapes overflow:hidden ancestors. */
+function TurnDuration({ durationMs, turnUsage }: { durationMs: number; turnUsage?: TurnUsage }) {
+  const { t } = useTranslation('center')
+  const [hovered, setHovered] = useState(false)
+  const anchorRef = useRef<HTMLSpanElement>(null)
+  const tooltipRef = useRef<HTMLDivElement>(null)
+  const [coords, setCoords] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
+
+  useLayoutEffect(() => {
+    if (!hovered || !anchorRef.current || !tooltipRef.current) return
+    const r = anchorRef.current.getBoundingClientRect()
+    const tt = tooltipRef.current.getBoundingClientRect()
+    // Position above the anchor, left-aligned
+    let top = r.top - tt.height - 6
+    // If it would overflow the top of the viewport, flip below
+    if (top < 4) top = r.bottom + 6
+    // Clamp left to keep tooltip within viewport
+    const left = Math.max(4, Math.min(r.left, window.innerWidth - tt.width - 4))
+    setCoords({ top, left })
+  }, [hovered])
+
+  const modelName = turnUsage ? formatModelName(turnUsage.model) : null
+
+  return (
+    <span
+      ref={anchorRef}
+      className="turn-actions-duration"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {formatDuration(durationMs)}
+      {hovered && turnUsage && createPortal(
+        <div
+          ref={tooltipRef}
+          className="turn-usage-tooltip"
+          style={{ top: coords.top, left: coords.left }}
+        >
+          {modelName && (
+            <div className="turn-usage-tooltip-row">
+              <span className="turn-usage-tooltip-label">{t('turnStats.model')}</span>
+              <span className="turn-usage-tooltip-value">{modelName}</span>
+            </div>
+          )}
+          <div className="turn-usage-tooltip-row">
+            <span className="turn-usage-tooltip-label">{t('turnStats.duration')}</span>
+            <span className="turn-usage-tooltip-value">{formatDuration(durationMs)}</span>
+          </div>
+          <div className="turn-usage-tooltip-row">
+            <span className="turn-usage-tooltip-label">{t('turnStats.input')}</span>
+            <span className="turn-usage-tooltip-value">{formatTokens(turnUsage.inputTokens)}</span>
+          </div>
+          <div className="turn-usage-tooltip-row">
+            <span className="turn-usage-tooltip-label">{t('turnStats.output')}</span>
+            <span className="turn-usage-tooltip-value">{formatTokens(turnUsage.outputTokens)}</span>
+          </div>
+          {turnUsage.cacheReadTokens > 0 && (
+            <div className="turn-usage-tooltip-row">
+              <span className="turn-usage-tooltip-label">{t('turnStats.cacheRead')}</span>
+              <span className="turn-usage-tooltip-value">{formatTokens(turnUsage.cacheReadTokens)}</span>
+            </div>
+          )}
+          {turnUsage.cacheWriteTokens > 0 && (
+            <div className="turn-usage-tooltip-row">
+              <span className="turn-usage-tooltip-label">{t('turnStats.cacheWrite')}</span>
+              <span className="turn-usage-tooltip-value">{formatTokens(turnUsage.cacheWriteTokens)}</span>
+            </div>
+          )}
+        </div>,
+        document.body
+      )}
+    </span>
+  )
+}
+
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`
+  if (ms < 10000) return `${(ms / 1000).toFixed(1)}s`
+  if (ms < 60000) return `${Math.round(ms / 1000)}s`
+  const mins = Math.floor(ms / 60000)
+  const secs = Math.round((ms % 60000) / 1000)
+  return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`
 }
 
 interface Props {
@@ -122,10 +254,8 @@ export const ChatMessage = memo(function ChatMessage({ message }: Props) {
     const lastToolIdx = findLastToolIndex(blocks)
     const groupBlocks = blocks.slice(0, lastToolIdx + 1)
     const trailingBlocks = blocks.slice(lastToolIdx + 1)
-    const trailingText = trailingBlocks
-      .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
-      .map((b) => b.text)
-      .join('')
+    const trailingText = joinTextBlocks(trailingBlocks)
+    const allText = joinTextBlocks(blocks)
 
     return (
       <div className="chat-msg chat-msg-assistant">
@@ -137,6 +267,9 @@ export const ChatMessage = memo(function ChatMessage({ message }: Props) {
           </div>
         )}
         {!message.isPartial && <TurnFooter blocks={groupBlocks} />}
+        {!message.isPartial && allText && (
+          <TurnActions text={allText} durationMs={message.turnDurationMs} turnUsage={message.turnUsage} />
+        )}
       </div>
     )
   }
@@ -149,6 +282,9 @@ export const ChatMessage = memo(function ChatMessage({ message }: Props) {
           <StreamingMarkdown content={message.content} isStreaming={message.isPartial} enableAnimation={streamingAnimation} />
           {!message.isPartial && <AssistantCopyButton text={message.content} />}
         </div>
+      )}
+      {!message.isPartial && message.content && (
+        <TurnActions text={message.content} durationMs={message.turnDurationMs} turnUsage={message.turnUsage} />
       )}
     </div>
   )
@@ -308,4 +444,11 @@ function findLastToolIndex(blocks: ContentBlock[]): number {
     if (blocks[i].type === 'tool_use') return i
   }
   return -1
+}
+
+function joinTextBlocks(blocks: ContentBlock[]): string {
+  return blocks
+    .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
+    .map((b) => b.text)
+    .join('')
 }
