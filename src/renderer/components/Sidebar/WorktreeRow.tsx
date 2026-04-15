@@ -10,6 +10,7 @@ import { ContextMenu, type ContextMenuItem } from '@/components/shared/ContextMe
 import { useSessionsForWorktree } from '@/store/sessions'
 import { useTranslation } from 'react-i18next'
 import { IconGitBranch } from '@/components/shared/icons'
+import { worktreeName } from '@/lib/branchValidation'
 
 interface Props {
   worktree: Worktree
@@ -145,7 +146,7 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew }: Props) 
         </Tooltip>
         <div className="worktree-name-stack">
           <span className="worktree-branch-name">
-            {worktree.path.split('/').pop() ?? worktree.branch}
+            {worktreeName(worktree.path, worktree.branch)}
           </span>
           <span className="worktree-branch-secondary">
             <IconGitBranch size={9} />

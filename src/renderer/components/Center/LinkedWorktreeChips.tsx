@@ -6,9 +6,10 @@ import { useReducer, useCallback, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSessionsStore, useLinkedWorktrees } from '@/store/sessions'
 import { useProjectsStore } from '@/store/projects'
-import { IconLink, IconPlus, IconClose, IconCheckmark } from '@/components/shared/icons'
+import { IconLink, IconPlus, IconClose, IconCheckmark, IconGitBranch } from '@/components/shared/icons'
 import type { LinkedWorktree, Project } from '@/types'
 import { SK } from '@/lib/storageKeys'
+import { worktreeName } from '@/lib/branchValidation'
 
 interface Props {
   sessionId: string
@@ -121,7 +122,7 @@ export function LinkedWorktreeChips({ sessionId, worktreeId }: Props) {
         <div key={lw.worktreeId} className="linked-worktree-chip">
           <IconLink size={11} />
           <span className="linked-worktree-chip-label">
-            {lw.projectName}/{lw.path.split('/').pop() ?? lw.branch}
+            {lw.projectName}/{worktreeName(lw.path, lw.branch)}
           </span>
           <button
             className="linked-worktree-chip-remove"
@@ -201,7 +202,7 @@ export function LinkedWorktreeChips({ sessionId, worktreeId }: Props) {
                           }}
                         >
                           <div className="lwt-card-header">
-                            <div className="lwt-card-branch">{wt.path.split('/').pop() ?? wt.branch}</div>
+                            <div className="lwt-card-branch">{worktreeName(wt.path, wt.branch)}</div>
                             {isLinked && (
                               <span className="lwt-card-badge">
                                 <IconCheckmark size={10} />
@@ -210,6 +211,10 @@ export function LinkedWorktreeChips({ sessionId, worktreeId }: Props) {
                             )}
                           </div>
                           <div className="lwt-card-details">
+                            <span className="lwt-card-branch-row">
+                              <IconGitBranch size={9} />
+                              <span>{wt.branch}</span>
+                            </span>
                             {wt.upstream && (
                               <span className="lwt-card-upstream">&uarr; {wt.upstream}</span>
                             )}
@@ -265,7 +270,7 @@ function buildAvailableWorktrees(
     const wts: WorktreeOption[] = []
     for (const wt of project.worktrees) {
       if (wt.id === currentWorktreeId) continue
-      const wtName = wt.path.split('/').pop() ?? ''
+      const wtName = worktreeName(wt.path, wt.branch)
       if (lowerFilter && !wt.branch.toLowerCase().includes(lowerFilter) && !project.name.toLowerCase().includes(lowerFilter) && !wtName.toLowerCase().includes(lowerFilter)) continue
       wts.push({ worktreeId: wt.id, branch: wt.branch, path: wt.path, upstream: wt.upstream })
     }

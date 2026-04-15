@@ -1,4 +1,12 @@
 /**
+ * Returns the display name for a worktree — the last segment of its path.
+ * Falls back to the branch name if the path is empty or malformed.
+ */
+export function worktreeName(path: string, fallback: string): string {
+  return path.split('/').pop() || fallback
+}
+
+/**
  * Validates a git branch name according to git-check-ref-format rules.
  * Returns an error message string if invalid, or null if valid.
  */
