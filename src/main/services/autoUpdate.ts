@@ -20,6 +20,7 @@ const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000 // 4 hours
 let checkTimer: ReturnType<typeof setTimeout> | null = null
 let checkInterval: ReturnType<typeof setInterval> | null = null
 let isDownloading = false
+let isInstallingUpdate = false
 let activeWindow: BrowserWindow | null = null
 
 /** Safe IPC send - guards against destroyed window. */
@@ -76,6 +77,9 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
 
   autoUpdater.on('error', (err: Error) => {
     isDownloading = false
+    // Suppress errors that fire during quit-and-install — the app is
+    // relaunching and the error is an artifact of the process teardown.
+    if (isInstallingUpdate) return
     logger.error('Auto-updater error', err)
     sendToRenderer(mainWindow, 'updater:error', {
       message: err.message,
@@ -148,6 +152,7 @@ export function downloadUpdate(): void {
 
 /** Quit and install the downloaded update. Called via IPC from renderer. */
 export function installUpdate(): void {
+  isInstallingUpdate = true
   // isSilent=false (show installer), isForceRunAfter=true (relaunch after)
   autoUpdater.quitAndInstall(false, true)
 }
