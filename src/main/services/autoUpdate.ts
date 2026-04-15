@@ -153,6 +153,14 @@ export function downloadUpdate(): void {
 /** Quit and install the downloaded update. Called via IPC from renderer. */
 export function installUpdate(): void {
   isInstallingUpdate = true
-  // isSilent=false (show installer), isForceRunAfter=true (relaunch after)
-  autoUpdater.quitAndInstall(false, true)
+  try {
+    // isSilent=false (show installer), isForceRunAfter=true (relaunch after)
+    autoUpdater.quitAndInstall(false, true)
+  } catch (err) {
+    isInstallingUpdate = false
+    throw err
+  }
+  // Safety net: if the process hasn't exited within 5s (e.g. dev mode or a
+  // failed quit), clear the flag so real errors aren't silently swallowed.
+  setTimeout(() => { isInstallingUpdate = false }, 5_000)
 }
