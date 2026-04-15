@@ -9,23 +9,16 @@
   min-width: 0;
 }
 
-/* Spacer to clear macOS traffic lights when sidebar panel is closed */
-.mission-control::before {
-  content: '';
-  height: 48px;
-  flex-shrink: 0;
-  -webkit-app-region: drag;
-}
-
 .mission-control-header {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  padding: 0 var(--space-16);
-  height: 40px;
+  padding: 0 var(--space-16) var(--space-8);
+  height: 52px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   position: relative;
+  background: var(--bg-secondary);
 }
 
 .mission-control-header .drag-region {
