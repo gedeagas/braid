@@ -120,6 +120,13 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew }: Props) 
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
             selectWorktree(worktree.projectId, worktree.id)
+          } else if (e.key === 'Delete' && !worktree.isMain) {
+            e.preventDefault()
+            if (skipDeleteConfirm) {
+              removeWorktree(worktree.projectId, worktree.id)
+            } else {
+              rowDispatch({ type: 'SHOW_DELETE_CONFIRM' })
+            }
           }
         }}
         onContextMenu={(e) => {
