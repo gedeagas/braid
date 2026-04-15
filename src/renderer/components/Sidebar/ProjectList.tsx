@@ -14,6 +14,38 @@ interface Props {
   onAddWorktree: (projectId: string) => void
 }
 
+// ─── ProjectAvatar ────────────────────────────────────────────────────────────
+
+function ProjectAvatar({ name, avatarUrl }: { name: string; avatarUrl?: string }) {
+  const [failed, setFailed] = useState(false)
+  const onError = useCallback(() => setFailed(true), [])
+
+  if (avatarUrl && !failed) {
+    return (
+      <img
+        src={avatarUrl}
+        width={18}
+        height={18}
+        alt={name}
+        onError={onError}
+        className="project-avatar"
+      />
+    )
+  }
+
+  // Letter avatar fallback - deterministic color from name
+  const letter = name.charAt(0).toUpperCase() || '?'
+  const hue = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % 360
+  return (
+    <div
+      className="project-avatar project-avatar--letter"
+      style={{ background: `hsl(${hue}, 55%, 40%)` }}
+    >
+      {letter}
+    </div>
+  )
+}
+
 // ─── ProjectGroupRow state ────────────────────────────────────────────────────
 
 type GroupRowState = { menu: { x: number; y: number } | null; wtDraggingId: string | null; wtDragOverId: string | null }
@@ -160,6 +192,7 @@ function ProjectGroupRow({
         }}
       >
         <span className={`project-chevron ${isExpanded ? 'expanded' : ''}`}>&#9654;</span>
+        <ProjectAvatar name={project.name} avatarUrl={project.avatarUrl} />
         <span className="project-name">{project.name}</span>
 
         {!isExpanded && notifyStatus && (
