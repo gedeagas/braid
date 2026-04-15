@@ -30,7 +30,8 @@ function serializeProject(p: Project) {
     name: p.name,
     path: p.path,
     createdAt: p.createdAt,
-    settings: p.settings
+    settings: p.settings,
+    avatarUrl: p.avatarUrl
   }
 }
 

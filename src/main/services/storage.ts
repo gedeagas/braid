@@ -33,6 +33,7 @@ export interface StorageData {
     path: string
     createdAt: number
     settings?: StorageProjectSettings
+    avatarUrl?: string
   }>
 }
 

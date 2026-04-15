@@ -323,6 +323,19 @@ class GitHubService {
     this.prCache.invalidate(worktreePath)
   }
 
+  private avatarCache = new ServiceCache<string>(Infinity)
+
+  async getOwnerAvatarUrl(cwd: string): Promise<string> {
+    return this.avatarCache.get(cwd, async () => {
+      const nwo = await resolveNwo(cwd)
+      const raw = await this.gh(
+        ['api', `repos/${nwo}`, '--jq', '.owner.avatar_url'],
+        cwd
+      )
+      return raw || ''
+    })
+  }
+
   async getGitSyncStatus(worktreePath: string, baseBranch: string, _forceRefresh?: boolean): Promise<GitSyncStatus> {
     const result: GitSyncStatus = {
       uncommittedChanges: 0,
