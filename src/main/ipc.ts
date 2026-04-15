@@ -206,6 +206,7 @@ export function registerIpcHandlers(): void {
 
   // Jira (optional — only available if acli is installed)
   ipcMain.handle('jira:isAvailable', () => jiraService.isAvailable())
+  ipcMain.handle('jira:recheckAvailability', () => jiraService.recheckAvailability())
   ipcMain.handle('jira:getIssuesForBranch', (_e, worktreePath: string, overrideBaseUrl?: string) =>
     jiraService.getIssuesForBranch(worktreePath, overrideBaseUrl)
   )

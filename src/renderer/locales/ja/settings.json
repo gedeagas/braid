@@ -15,6 +15,7 @@
     "claudeMcp": "MCPサーバー",
     "claudeSkills": "スキル",
     "apps": "アプリ",
+    "jira": "Jira",
     "analytics": "アナリティクス",
     "about": "このアプリについて"
   },
@@ -310,9 +311,22 @@
     "hide": "非表示",
     "invalidUrl": "URLは http:// または https:// で始まる必要があります",
     "nameRequired": "名前は必須です",
-    "workspaceRequired": "ワークスペース名は必須です",
-    "jiraBaseUrl": "Jira ベースURL",
-    "jiraBaseUrlHint": "AtlassianサイトのURL（例: https://yourcompany.atlassian.net）。空白の場合はjira-cli設定から自動検出されます。"
+    "workspaceRequired": "ワークスペース名は必須です"
+  },
+  "jira": {
+    "description": "Atlassian CLI (acli) を使用して Jira に接続します。ブランチ名から関連チケットを表示し、ワークツリー作成時にチケット検索を有効にします。",
+    "statusHeader": "Atlassian CLI",
+    "statusChecking": "確認中...",
+    "statusInstalled": "インストール済み",
+    "statusNotInstalled": "未インストール",
+    "statusInstalling": "インストール中...",
+    "install": "インストール",
+    "installing": "インストール中...",
+    "docs": "ドキュメント",
+    "baseUrl": "Jira ベースURL",
+    "baseUrlHint": "AtlassianサイトのURL（例: https://yourcompany.atlassian.net）。空白の場合はjira-cli設定から自動検出されます。",
+    "save": "保存",
+    "saved": "保存済み"
   },
   "analytics": {
     "overview": "概要",

@@ -15,6 +15,7 @@
     "claudeMcp": "Server MCP",
     "claudeSkills": "Keahlian",
     "apps": "Aplikasi",
+    "jira": "Jira",
     "analytics": "Analitik",
     "about": "Tentang"
   },
@@ -310,9 +311,22 @@
     "hide": "Sembunyikan",
     "invalidUrl": "URL harus diawali dengan http:// atau https://",
     "nameRequired": "Nama diperlukan",
-    "workspaceRequired": "Nama workspace diperlukan",
-    "jiraBaseUrl": "URL Dasar Jira",
-    "jiraBaseUrlHint": "URL situs Atlassian Anda (mis. https://perusahaan.atlassian.net). Terdeteksi otomatis dari konfigurasi jira-cli jika dikosongkan."
+    "workspaceRequired": "Nama workspace diperlukan"
+  },
+  "jira": {
+    "description": "Hubungkan ke Jira melalui Atlassian CLI (acli). Menampilkan tiket terkait dari nama branch dan memungkinkan pencarian tiket saat membuat worktree.",
+    "statusHeader": "Atlassian CLI",
+    "statusChecking": "Memeriksa...",
+    "statusInstalled": "Terinstal",
+    "statusNotInstalled": "Belum terinstal",
+    "statusInstalling": "Menginstal...",
+    "install": "Instal",
+    "installing": "Menginstal...",
+    "docs": "Dokumentasi",
+    "baseUrl": "URL Dasar Jira",
+    "baseUrlHint": "URL situs Atlassian Anda (mis. https://perusahaan.atlassian.net). Terdeteksi otomatis dari konfigurasi jira-cli jika dikosongkan.",
+    "save": "Simpan",
+    "saved": "Tersimpan"
   },
   "analytics": {
     "overview": "Ikhtisar",
