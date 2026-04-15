@@ -108,7 +108,9 @@ function TurnDuration({ durationMs, turnUsage }: { durationMs: number; turnUsage
     let top = r.top - tt.height - 6
     // If it would overflow the top of the viewport, flip below
     if (top < 4) top = r.bottom + 6
-    setCoords({ top, left: r.left })
+    // Clamp left to keep tooltip within viewport
+    const left = Math.max(4, Math.min(r.left, window.innerWidth - tt.width - 4))
+    setCoords({ top, left })
   }, [hovered])
 
   const modelName = turnUsage ? formatModelName(turnUsage.model) : null

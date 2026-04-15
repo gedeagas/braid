@@ -48,7 +48,7 @@ export async function handleDone(
     return {
       messages: current.messages.map((m) =>
         m.isPartial
-          ? { ...m, isPartial: false, turnDurationMs: elapsed > 0 ? elapsed : undefined }
+          ? { ...m, isPartial: false, turnDurationMs: elapsed > 0 ? elapsed : m.turnDurationMs }
           : m
       ),
       status: keepWaiting ? ('waiting_input' as const) : ('idle' as const),
