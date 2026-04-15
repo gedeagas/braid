@@ -126,7 +126,7 @@ function formatChangelog(categories) {
   for (const [heading, { items }] of sorted) {
     lines.push(`### ${heading}`, '')
     for (const item of items) {
-      lines.push(`- ${item.description}`)
+      lines.push(`- ${item.description} (#${item.number})`)
     }
     lines.push('')
   }

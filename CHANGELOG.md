@@ -5,6 +5,17 @@ All notable changes to Braid are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [26.1.1] - 2026-04-15
+
+### Added
+
+- add turn stats tooltip and diff preview popover on file badges (#16)
+- add client-side image compression for LLM context conservation (#15)
+- enhance cards with status details, hover info, and sorting (#14)
+- add badge support and simplify AddProjectDialog (#8)
+
+---
+
 ## [26.1.0] - 2026-04-15
 
 First production release of Braid - an Electron desktop app for managing Git worktrees and Claude AI sessions.
