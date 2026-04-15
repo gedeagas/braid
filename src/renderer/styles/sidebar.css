@@ -253,7 +253,7 @@
   align-items: center;
   justify-content: center;
   color: #fff;
-  font-size: 11px;
+  font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
   user-select: none;
   line-height: 1;
