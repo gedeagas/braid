@@ -114,7 +114,7 @@ const CHECK_META: Record<CheckKey, CheckMeta> = {
   acli: {
     label: 'Atlassian CLI',
     required: false,
-    installUrl: 'https://www.npmjs.com/package/@atlassian/acli',
+    installUrl: 'https://developer.atlassian.com/cloud/acli/guides/install-acli/',
     autoInstall: { progressKey: 'onboarding.doctor.progressAcli' },
   },
 }
