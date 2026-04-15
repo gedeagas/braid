@@ -10,13 +10,14 @@ import { useOnlineStatus } from '@/lib/online'
 import { useTranslation } from 'react-i18next'
 
 type Phase = 'hidden' | 'offline' | 'reconnected' | 'dismissing'
-type Action = { type: 'went_offline' } | { type: 'went_online' } | { type: 'dismiss' }
+type Action = { type: 'went_offline' } | { type: 'went_online' } | { type: 'dismiss' } | { type: 'hide' }
 
 function reducer(state: Phase, action: Action): Phase {
   switch (action.type) {
     case 'went_offline': return 'offline'
     case 'went_online': return state === 'offline' ? 'reconnected' : state
     case 'dismiss': return 'dismissing'
+    case 'hide': return 'hidden'
     default: return state
   }
 }
@@ -42,10 +43,10 @@ export function OfflineBanner() {
     return () => clearTimeout(timer)
   }, [phase])
 
-  // Clean up dismissing state after animation completes
+  // Transition to hidden after dismiss animation completes
   useEffect(() => {
     if (phase !== 'dismissing') return
-    const timer = setTimeout(() => dispatch({ type: 'dismiss' }), 300)
+    const timer = setTimeout(() => dispatch({ type: 'hide' }), 300)
     return () => clearTimeout(timer)
   }, [phase])
 

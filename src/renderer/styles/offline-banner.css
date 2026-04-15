@@ -4,7 +4,7 @@
 
 .offline-banner {
   position: fixed;
-  top: 0;
+  top: 52px; /* below the drag-region titlebar */
   left: 0;
   right: 0;
   z-index: var(--z-sticky);

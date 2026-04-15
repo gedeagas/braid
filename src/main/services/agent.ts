@@ -147,6 +147,9 @@ class AgentCoordinator {
         this.sendEvent(event.sessionId, { type: 'error', message: event.message, errorKind: event.errorKind, authType: event.authType })
         this.maybeNotify(event.sessionId, 'error', event.message)
         break
+      case 'retrying':
+        this.sendEvent(event.sessionId, { type: 'retrying', attempt: event.attempt, maxAttempts: event.maxAttempts, delayMs: event.delayMs })
+        break
       case 'waiting_input':
         if (event.reason === 'tool_permission') {
           this.sendEvent(event.sessionId, {

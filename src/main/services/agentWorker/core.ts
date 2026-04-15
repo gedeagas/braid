@@ -30,8 +30,9 @@ const RETRY_BASE_MS = 2000
 function abortableSleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal.aborted) { reject(new Error('Aborted')); return }
-    const timer = setTimeout(resolve, ms)
-    signal.addEventListener('abort', () => { clearTimeout(timer); reject(new Error('Aborted')) }, { once: true })
+    const onAbort = () => { clearTimeout(timer); reject(new Error('Aborted')) }
+    const timer = setTimeout(() => { signal.removeEventListener('abort', onAbort); resolve() }, ms)
+    signal.addEventListener('abort', onAbort, { once: true })
   })
 }
 
@@ -271,6 +272,12 @@ export class AgentWorker {
           await this.startSession(sessionId, worktreeId, projectName, worktreePath, prompt, model, thinking, planMode, sessionName, settings, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework)
           return
         }
+        // User aborted during backoff sleep - treat as clean stop, not error
+        if (abortController.signal.aborted) {
+          this.log(sessionId, 'Session stopped by user during network retry')
+          this.emit({ type: 'done', sessionId })
+          return
+        }
       }
 
       this.emit({
@@ -445,6 +452,12 @@ export class AgentWorker {
         const retried = await this.retryOnNetwork(sessionId, errMsg, abortController.signal)
         if (retried) {
           await this.sendMessage(sessionId, message, sdkSessionId, cwd, model, planMode, sessionName, settings, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework)
+          return
+        }
+        // User aborted during backoff sleep - treat as clean stop, not error
+        if (abortController.signal.aborted) {
+          this.log(sessionId, 'Resume stopped by user during network retry')
+          this.emit({ type: 'done', sessionId })
           return
         }
       }
