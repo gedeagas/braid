@@ -284,6 +284,7 @@ export const notes = {
 
 export const jira = {
   isAvailable: () => api().jira.isAvailable(),
+  recheckAvailability: () => api().jira.recheckAvailability() as Promise<boolean>,
   getIssuesForBranch: (worktreePath: string, overrideBaseUrl?: string) =>
     api().jira.getIssuesForBranch(worktreePath, overrideBaseUrl) as Promise<import('@/types').JiraResult>,
   getIssueByKey: (key: string, overrideBaseUrl?: string) =>

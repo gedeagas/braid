@@ -47,6 +47,11 @@ class JiraService {
     return this._available
   }
 
+  async recheckAvailability(): Promise<boolean> {
+    this._available = null
+    return this.isAvailable()
+  }
+
   /**
    * Detect the Jira base URL from the jira-cli config file.
    * jira-cli (ankitpokhrel/jira-cli) stores `server: https://yoursite.atlassian.net`

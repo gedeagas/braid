@@ -15,6 +15,7 @@
     "claudeMcp": "MCP Servers",
     "claudeSkills": "Skills",
     "apps": "Apps",
+    "jira": "Jira",
     "analytics": "Analytics",
     "about": "About"
   },
@@ -308,9 +309,20 @@
     "hide": "Hide",
     "invalidUrl": "URL must start with http:// or https://",
     "nameRequired": "Name is required",
-    "workspaceRequired": "Workspace name is required",
-    "jiraBaseUrl": "Jira Base URL",
-    "jiraBaseUrlHint": "Your Atlassian site URL (e.g. https://yourcompany.atlassian.net). Auto-detected from jira-cli config if left blank."
+    "workspaceRequired": "Workspace name is required"
+  },
+  "jira": {
+    "description": "Connect to Jira via the Atlassian CLI (acli). Shows linked issues from branch names and enables ticket lookup when creating worktrees.",
+    "statusHeader": "Atlassian CLI",
+    "statusChecking": "Checking...",
+    "statusInstalled": "Installed",
+    "statusNotInstalled": "Not installed",
+    "statusInstalling": "Installing...",
+    "install": "Install",
+    "installing": "Installing...",
+    "docs": "Docs",
+    "baseUrl": "Jira Base URL",
+    "baseUrlHint": "Your Atlassian site URL (e.g. https://yourcompany.atlassian.net). Auto-detected from jira-cli config if left blank."
   },
   "analytics": {
     "overview": "Overview",

@@ -204,6 +204,7 @@ const api = {
   // Jira (optional — only available when acli is installed)
   jira: {
     isAvailable: () => ipcRenderer.invoke('jira:isAvailable') as Promise<boolean>,
+    recheckAvailability: () => ipcRenderer.invoke('jira:recheckAvailability') as Promise<boolean>,
     getIssuesForBranch: (worktreePath: string, overrideBaseUrl?: string) =>
       ipcRenderer.invoke('jira:getIssuesForBranch', worktreePath, overrideBaseUrl),
     getIssueByKey: (key: string, overrideBaseUrl?: string) =>
