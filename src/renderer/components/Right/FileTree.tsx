@@ -182,12 +182,14 @@ export function FileTree({ worktreePath, onFileSelect }: Props) {
     [worktreePath]
   )
 
-  // Warm the installed-apps cache on mount
+  // Lazily fetch installed apps on first context menu open
   useEffect(() => {
-    if (!cachedApps) {
-      ipc.shell.getInstalledApps().then((apps: typeof cachedApps) => { cachedApps = apps })
-    }
-  }, [])
+    if (!menu || appsCached) return
+    appsCached = true
+    ipc.shell.getInstalledApps().then((result: InstalledApp[]) => {
+      ftDispatch({ type: 'SET_APPS', apps: result })
+    })
+  }, [menu])
 
   const handleContextMenu = useCallback((e: React.MouseEvent, fullPath: string, isDirectory: boolean) => {
     ftDispatch({ type: 'OPEN_MENU', x: e.clientX, y: e.clientY, path: fullPath, isDirectory })
@@ -197,7 +199,7 @@ export function FileTree({ worktreePath, onFileSelect }: Props) {
     if (!menu) return []
     const items: ContextMenuItem[] = []
     const lastAppId = loadStr(SK.lastOpenInApp, '')
-    const lastApp = cachedApps?.find((a) => a.id === lastAppId)
+    const lastApp = apps.find((a) => a.id === lastAppId)
     if (lastApp) {
       items.push({ label: t('openInApp', { app: lastApp.name }), onClick: () => ipc.shell.openInApp(lastApp.id, menu.path) })
     }
@@ -205,7 +207,7 @@ export function FileTree({ worktreePath, onFileSelect }: Props) {
     items.push({ label: '---', onClick: () => {} })
     items.push({ label: t('copyPath'), onClick: () => navigator.clipboard.writeText(menu.path) })
     return items
-  }, [menu, t])
+  }, [menu, apps, t])
 
   return (
     <div className="file-tree">
