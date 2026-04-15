@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useReducer, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/store/ui'
 import { jira, shell } from '@/lib/ipc'
@@ -11,39 +11,66 @@ type SaveState = 'idle' | 'saved'
 
 const ACLI_DOCS_URL = 'https://developer.atlassian.com/cloud/acli/guides/install-acli/'
 
+interface State {
+  acliStatus: AcliStatus
+  draft: string
+  saveState: SaveState
+}
+
+type Action =
+  | { type: 'setAcli'; status: AcliStatus }
+  | { type: 'setDraft'; value: string }
+  | { type: 'saved' }
+  | { type: 'resetSave' }
+
+function reducer(state: State, action: Action): State {
+  switch (action.type) {
+    case 'setAcli': return { ...state, acliStatus: action.status }
+    case 'setDraft': return { ...state, draft: action.value, saveState: 'idle' }
+    case 'saved': return { ...state, saveState: 'saved' }
+    case 'resetSave': return { ...state, saveState: 'idle' }
+  }
+}
+
 export function SettingsJira() {
   const { t } = useTranslation('settings')
   const jiraBaseUrl = useUIStore((s) => s.jiraBaseUrl)
   const setJiraBaseUrl = useUIStore((s) => s.setJiraBaseUrl)
 
-  const [acliStatus, setAcliStatus] = useState<AcliStatus>('checking')
-  const [jiraDraft, setJiraDraft] = useState(jiraBaseUrl)
+  const [state, dispatch] = useReducer(reducer, {
+    acliStatus: 'checking',
+    draft: jiraBaseUrl,
+    saveState: 'idle',
+  })
 
   useEffect(() => {
-    jira.isAvailable().then((ok: boolean) => setAcliStatus(ok ? 'installed' : 'not_installed'))
+    jira.isAvailable().then((ok: boolean) => dispatch({ type: 'setAcli', status: ok ? 'installed' : 'not_installed' }))
   }, [])
 
   const handleInstall = useCallback(async () => {
-    setAcliStatus('installing')
+    dispatch({ type: 'setAcli', status: 'installing' })
     try { await shell.installTool('acli') } catch { /* still recheck below */ }
-    setAcliStatus('checking')
+    dispatch({ type: 'setAcli', status: 'checking' })
     const ok = await jira.recheckAvailability()
-    setAcliStatus(ok ? 'installed' : 'not_installed')
+    dispatch({ type: 'setAcli', status: ok ? 'installed' : 'not_installed' })
   }, [])
 
   // ── Base URL save with brief "Saved" flash ──────────────────────────
-  const [saveState, setSaveState] = useState<SaveState>('idle')
-  const dirty = jiraDraft.trim() !== jiraBaseUrl
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }, [])
+
+  const dirty = state.draft.trim() !== jiraBaseUrl
 
   const handleSave = useCallback(() => {
-    setJiraBaseUrl(jiraDraft.trim())
-    setSaveState('saved')
-    setTimeout(() => setSaveState('idle'), 1500)
-  }, [jiraDraft, setJiraBaseUrl])
+    setJiraBaseUrl(state.draft.trim())
+    dispatch({ type: 'saved' })
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => dispatch({ type: 'resetSave' }), 1500)
+  }, [state.draft, setJiraBaseUrl])
 
   const dotState =
-    acliStatus === 'installed' ? 'success' as const
-      : acliStatus === 'not_installed' ? 'failure' as const
+    state.acliStatus === 'installed' ? 'success' as const
+      : state.acliStatus === 'not_installed' ? 'failure' as const
       : 'pending' as const
 
   return (
@@ -57,13 +84,13 @@ export function SettingsJira() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)' }}>
           <StatusDot state={dotState} />
           <span className="settings-label">
-            {acliStatus === 'checking' && t('jira.statusChecking')}
-            {acliStatus === 'installed' && t('jira.statusInstalled')}
-            {acliStatus === 'not_installed' && t('jira.statusNotInstalled')}
-            {acliStatus === 'installing' && t('jira.statusInstalling')}
+            {state.acliStatus === 'checking' && t('jira.statusChecking')}
+            {state.acliStatus === 'installed' && t('jira.statusInstalled')}
+            {state.acliStatus === 'not_installed' && t('jira.statusNotInstalled')}
+            {state.acliStatus === 'installing' && t('jira.statusInstalling')}
           </span>
         </div>
-        {acliStatus === 'not_installed' && (
+        {state.acliStatus === 'not_installed' && (
           <div style={{ display: 'flex', gap: 'var(--space-8)' }}>
             <Button size="sm" variant="primary" onClick={handleInstall}>
               {t('jira.install')}
@@ -73,7 +100,7 @@ export function SettingsJira() {
             </Button>
           </div>
         )}
-        {acliStatus === 'installing' && (
+        {state.acliStatus === 'installing' && (
           <Button size="sm" variant="primary" disabled loading>
             {t('jira.installing')}
           </Button>
@@ -89,14 +116,14 @@ export function SettingsJira() {
             type="text"
             className="settings-input"
             style={{ flex: 1 }}
-            value={jiraDraft}
-            onChange={(e) => setJiraDraft(e.target.value)}
+            value={state.draft}
+            onChange={(e) => dispatch({ type: 'setDraft', value: e.target.value })}
             onKeyDown={(e) => { if (e.key === 'Enter' && dirty) handleSave() }}
             placeholder="https://yourcompany.atlassian.net"
             spellCheck={false}
           />
-          <Button size="sm" variant="primary" disabled={!dirty && saveState === 'idle'} onClick={handleSave}>
-            {saveState === 'saved' ? t('jira.saved') : t('jira.save')}
+          <Button size="sm" variant="primary" disabled={!dirty && state.saveState === 'idle'} onClick={handleSave}>
+            {state.saveState === 'saved' ? t('jira.saved') : t('jira.save')}
           </Button>
         </div>
         <span className="settings-hint">{t('jira.baseUrlHint')}</span>
