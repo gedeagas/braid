@@ -4,6 +4,13 @@ import { Button } from '@/components/ui'
 import { useAutoUpdate } from '@/hooks/useAutoUpdate'
 import pkg from '../../../../package.json'
 
+const CONTRIBUTORS = [
+  { name: 'Adam Akbar', github: 'asaadam' },
+  { name: 'Agastya Darma', github: 'gedeagas' },
+  { name: 'Eko Prasetyo L. N. H.', github: 'eplnh' },
+  { name: 'Hanif NR', github: 'hanifnr' },
+]
+
 export function SettingsAbout() {
   const { t } = useTranslation(['settings', 'common'])
   const { state, checkForUpdates } = useAutoUpdate()
@@ -62,6 +69,27 @@ export function SettingsAbout() {
             </li>
           ))}
         </ul>
+      </div>
+
+      {/* Contributors */}
+      <div className="settings-card">
+        <p className="settings-card-title">{t('about.contributorsTitle', { ns: 'settings' })}</p>
+        <p className="settings-about-body">{t('about.contributorsThanks', { ns: 'settings' })}</p>
+        <div className="settings-about-contributors">
+          {CONTRIBUTORS.map((c) => (
+            <div key={c.github} className="settings-about-contributor">
+              <img
+                className="settings-about-contributor-avatar"
+                src={`https://github.com/${c.github}.png?size=64`}
+                alt={c.name}
+              />
+              <div className="settings-about-contributor-info">
+                <span className="settings-about-contributor-name">{c.name}</span>
+                <span className="settings-about-contributor-handle">@{c.github}</span>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Creator footer */}
