@@ -241,6 +241,24 @@
 .badge--danger { background: var(--red-tint-15); color: var(--red); }
 .badge--muted { background: var(--overlay-6); color: var(--text-muted); }
 
+.project-avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.project-avatar--letter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  user-select: none;
+  line-height: 1;
+}
+
 .project-name {
   flex: 1;
   min-width: 0;

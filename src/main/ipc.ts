@@ -171,6 +171,8 @@ export function registerIpcHandlers(): void {
     githubService.getChecks(worktreePath, forceRefresh))
   ipcMain.handle('github:getDeployments', (_e, worktreePath: string, forceRefresh?: boolean) =>
     githubService.getDeployments(worktreePath, forceRefresh))
+  ipcMain.handle('github:getOwnerAvatarUrl', (_e, cwd: string) =>
+    githubService.getOwnerAvatarUrl(cwd))
   ipcMain.handle('github:getGitSyncStatus', (_e, worktreePath: string, baseBranch: string, forceRefresh?: boolean) =>
     githubService.getGitSyncStatus(worktreePath, baseBranch, forceRefresh)
   )

@@ -177,6 +177,8 @@ const api = {
       ipcRenderer.invoke('github:getChecks', worktreePath, forceRefresh),
     getDeployments: (worktreePath: string, forceRefresh?: boolean) =>
       ipcRenderer.invoke('github:getDeployments', worktreePath, forceRefresh),
+    getOwnerAvatarUrl: (cwd: string) =>
+      ipcRenderer.invoke('github:getOwnerAvatarUrl', cwd) as Promise<string>,
     getGitSyncStatus: (worktreePath: string, baseBranch: string, forceRefresh?: boolean) =>
       ipcRenderer.invoke('github:getGitSyncStatus', worktreePath, baseBranch, forceRefresh),
     getCheckRunLog: (worktreePath: string, checkUrl: string) =>
