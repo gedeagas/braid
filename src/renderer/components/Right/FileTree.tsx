@@ -1,12 +1,18 @@
-import { useState, useEffect, useCallback, useReducer, useRef, type Reducer } from 'react'
+import { useState, useEffect, useCallback, useMemo, useReducer, useRef, type Reducer } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FileIcon, DefaultFolderOpenedIcon } from '@react-symbols/icons/utils'
 import { Folder } from '@react-symbols/icons/folders'
 import type { FileEntry } from '@/types'
 import * as ipc from '@/lib/ipc'
 import { IconRefresh, IconTreeChevron, IconSearch } from '@/components/shared/icons'
+import { ContextMenu, type ContextMenuItem } from '@/components/shared/ContextMenu'
+import { loadStr } from '@/store/ui/helpers'
+import { SK } from '@/lib/storageKeys'
 import { useUIStore } from '@/store/ui'
 import { DOM_EVENT_FILES_CHANGED } from '@/lib/appBrand'
+
+// Module-level cache - installed apps don't change during a session
+let cachedApps: Array<{ id: string; name: string; icon: string | null }> | null = null
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -21,11 +27,12 @@ interface TreeNodeProps {
   selectedPath: string | null
   onFileSelect: (filePath: string) => void
   onExpand: (dirPath: string) => Promise<FileEntry[]>
+  onContextMenu: (e: React.MouseEvent, fullPath: string, isDirectory: boolean) => void
 }
 
 // ─── TreeNode ────────────────────────────────────────────────────────────────
 
-function TreeNode({ entry, worktreePath, selectedPath, onFileSelect, onExpand }: TreeNodeProps) {
+function TreeNode({ entry, worktreePath, selectedPath, onFileSelect, onExpand, onContextMenu }: TreeNodeProps) {
   const [expanded, setExpanded] = useState(false)
   const [children, setChildren] = useState<FileEntry[]>([])
 
@@ -49,6 +56,7 @@ function TreeNode({ entry, worktreePath, selectedPath, onFileSelect, onExpand }:
       <div
         className={`file-entry ${isSelected ? 'selected' : ''}`}
         onClick={handleClick}
+        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, fullPath, entry.isDirectory) }}
       >
         {entry.isDirectory && (
           <span className="file-chevron">
@@ -76,6 +84,7 @@ function TreeNode({ entry, worktreePath, selectedPath, onFileSelect, onExpand }:
               selectedPath={selectedPath}
               onFileSelect={onFileSelect}
               onExpand={onExpand}
+              onContextMenu={onContextMenu}
             />
           ))}
         </div>
@@ -86,13 +95,21 @@ function TreeNode({ entry, worktreePath, selectedPath, onFileSelect, onExpand }:
 
 // ─── FileTree ────────────────────────────────────────────────────────────────
 
-type FileTreeState = { entries: FileEntry[]; selectedPath: string | null; refreshing: boolean; generation: number }
+type FileTreeState = {
+  entries: FileEntry[]
+  selectedPath: string | null
+  refreshing: boolean
+  generation: number
+  menu: { x: number; y: number; path: string; isDirectory: boolean } | null
+}
 type FileTreeAction =
   | { type: 'LOAD_START' }
   | { type: 'LOAD_DONE'; entries: FileEntry[] }
   | { type: 'LOAD_ERROR' }
   | { type: 'SELECT'; path: string }
   | { type: 'BUMP_GENERATION' }
+  | { type: 'OPEN_MENU'; x: number; y: number; path: string; isDirectory: boolean }
+  | { type: 'CLOSE_MENU' }
 
 const fileTreeReducer: Reducer<FileTreeState, FileTreeAction> = (state, action) => {
   switch (action.type) {
@@ -101,13 +118,15 @@ const fileTreeReducer: Reducer<FileTreeState, FileTreeAction> = (state, action) 
     case 'LOAD_ERROR': return { ...state, refreshing: false }
     case 'SELECT': return { ...state, selectedPath: action.path }
     case 'BUMP_GENERATION': return { ...state, generation: state.generation + 1 }
+    case 'OPEN_MENU': return { ...state, menu: { x: action.x, y: action.y, path: action.path, isDirectory: action.isDirectory } }
+    case 'CLOSE_MENU': return { ...state, menu: null }
   }
 }
 
 export function FileTree({ worktreePath, onFileSelect }: Props) {
   const { t } = useTranslation('right')
-  const [ftState, ftDispatch] = useReducer(fileTreeReducer, { entries: [], selectedPath: null, refreshing: false, generation: 0 })
-  const { entries, selectedPath, refreshing, generation } = ftState
+  const [ftState, ftDispatch] = useReducer(fileTreeReducer, { entries: [], selectedPath: null, refreshing: false, generation: 0, menu: null })
+  const { entries, selectedPath, refreshing, generation, menu } = ftState
   const inflightRef = useRef(false)
 
   const loadRoot = useCallback(() => {
@@ -158,6 +177,31 @@ export function FileTree({ worktreePath, onFileSelect }: Props) {
     [worktreePath]
   )
 
+  // Warm the installed-apps cache on mount
+  useEffect(() => {
+    if (!cachedApps) {
+      ipc.shell.getInstalledApps().then((apps: typeof cachedApps) => { cachedApps = apps })
+    }
+  }, [])
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, fullPath: string, isDirectory: boolean) => {
+    ftDispatch({ type: 'OPEN_MENU', x: e.clientX, y: e.clientY, path: fullPath, isDirectory })
+  }, [])
+
+  const menuItems = useMemo((): ContextMenuItem[] => {
+    if (!menu) return []
+    const items: ContextMenuItem[] = []
+    const lastAppId = loadStr(SK.lastOpenInApp, '')
+    const lastApp = cachedApps?.find((a) => a.id === lastAppId)
+    if (lastApp) {
+      items.push({ label: t('openInApp', { app: lastApp.name }), onClick: () => ipc.shell.openInApp(lastApp.id, menu.path) })
+    }
+    items.push({ label: t('revealInFinder'), onClick: () => ipc.shell.openInApp('finder', menu.path) })
+    items.push({ label: '---', onClick: () => {} })
+    items.push({ label: t('copyPath'), onClick: () => navigator.clipboard.writeText(menu.path) })
+    return items
+  }, [menu, t])
+
   return (
     <div className="file-tree">
       <div className="panel-toolbar">
@@ -201,9 +245,18 @@ export function FileTree({ worktreePath, onFileSelect }: Props) {
               selectedPath={selectedPath}
               onFileSelect={handleFileSelect}
               onExpand={handleExpand}
+              onContextMenu={handleContextMenu}
             />
           ))}
         </div>
+      )}
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={menuItems}
+          onClose={() => ftDispatch({ type: 'CLOSE_MENU' })}
+        />
       )}
     </div>
   )

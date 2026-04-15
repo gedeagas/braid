@@ -306,5 +306,8 @@
   "quickOpen": "クイックオープン",
   "quickOpenPlaceholder": "ファイル名で検索...",
   "quickOpenNoResults": "一致するファイルがありません",
-  "quickOpenOpen": "開いているファイル"
+  "quickOpenOpen": "開いているファイル",
+  "copyPath": "パスをコピー",
+  "revealInFinder": "Finderで表示",
+  "openInApp": "{{app}}で開く"
 }

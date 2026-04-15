@@ -5,6 +5,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { StreamingMarkdown } from '@/components/Center/StreamingMarkdown'
 import { IconEye } from '@/components/shared/icons'
+import { OpenInDropdown } from '@/components/shared/OpenInDropdown'
 import * as ipc from '@/lib/ipc'
 import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/store/ui'
@@ -259,6 +260,7 @@ export function FileViewer({ filePath, projectRoot = null, onDirtyChange }: Prop
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div className="file-viewer-toolbar">
           <span className="file-viewer-path">{fileName}</span>
+          <OpenInDropdown path={filePath} />
         </div>
         <div style={{ flex: 1, overflow: 'auto' }}>
           {isImageFile(filePath) ? (
@@ -323,6 +325,7 @@ export function FileViewer({ filePath, projectRoot = null, onDirtyChange }: Prop
               {state.showPreview ? t('filePreviewHide') : t('filePreviewShow')}
             </button>
           )}
+          <OpenInDropdown path={filePath} />
           <Tooltip content={t('fileSaveTooltip')} shortcut={t('fileSaveShortcut')}>
             <button
               className={`file-viewer-save-btn ${state.isDirty ? 'active' : ''}`}
