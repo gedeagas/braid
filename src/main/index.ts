@@ -26,6 +26,7 @@ import { createAppMenu } from './menu'
 import { windowCaptureService } from './services/windowCapture'
 import { lspService } from './services/lsp'
 import { initAutoUpdater, stopAutoUpdater } from './services/autoUpdate'
+import { waitForEnrichedEnv } from './lib/enrichedEnv'
 
 // Prevent EPIPE errors from crashing the process when stdout/stderr pipes break
 // (common in Electron when the renderer detaches or during hot-reload).
@@ -147,6 +148,9 @@ app.on('session-created', (sess) => {
 })
 
 app.whenReady().then(async () => {
+  // Resolve login-shell PATH early so all CLI lookups see the user's full PATH.
+  await waitForEnrichedEnv()
+
   // Wait for Widevine CDM to be ready before opening windows.
   await components.whenReady()
   console.log('[ECS] Widevine status:', JSON.stringify(components.status()))

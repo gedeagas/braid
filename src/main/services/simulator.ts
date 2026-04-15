@@ -83,10 +83,11 @@ class SimulatorService implements ISimulatorService {
     if (this.cliPath !== null) return this.cliPath || null
     // Use the user's login shell so PATH managers (Homebrew, nvm, etc.) are
     // visible in production builds launched from Finder/Dock, where
-    // process.env.PATH is minimal.
+    // process.env.PATH is minimal. No need to pass an enriched env — the login
+    // shell sources the user's profile itself.
     const userShell = process.env.SHELL || '/bin/zsh'
     try {
-      const { stdout } = await exec(userShell, ['-l', '-c', 'which mobilecli'], { env: this.enrichedEnv() })
+      const { stdout } = await exec(userShell, ['-l', '-c', 'which mobilecli'])
       this.cliPath = stdout.trim()
       return this.cliPath
     } catch { /* not found */ }
@@ -103,9 +104,8 @@ class SimulatorService implements ISimulatorService {
   /** Detect which platform toolchains are available. */
   async checkPlatformTools(): Promise<{ xcode: boolean; androidSdk: boolean }> {
     const userShell = process.env.SHELL || '/bin/zsh'
-    const env = this.enrichedEnv()
     const has = (bin: string) =>
-      exec(userShell, ['-l', '-c', `which ${bin}`], { env }).then(() => true).catch(() => false)
+      exec(userShell, ['-l', '-c', `which ${bin}`]).then(() => true).catch(() => false)
     const [xcode, androidSdk] = await Promise.all([
       has('xcrun'),     // Xcode CLT — ships simctl
       has('adb'),       // Android SDK — platform-tools

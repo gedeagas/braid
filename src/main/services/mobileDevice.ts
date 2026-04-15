@@ -174,8 +174,8 @@ export interface UIElement {
   focused?: boolean
 }
 
-/** Enriched environment using the user's login shell PATH. */
-const CLI_ENV = enrichedEnv()
+/** Enriched environment using the user's login shell PATH (evaluated lazily at use-time). */
+const getCliEnv = () => enrichedEnv()
 
 /**
  * Get UI elements from the device accessibility tree.
@@ -195,7 +195,7 @@ export async function getElements(deviceId: string): Promise<UIElement[]> {
   // Fall back to CLI: `mobilecli --device <id> dump ui`
   const stdout = await new Promise<string>((resolve, reject) => {
     execFile('mobilecli', ['--device', deviceId, 'dump', 'ui'], {
-      encoding: 'utf-8', timeout: 15_000, env: CLI_ENV,
+      encoding: 'utf-8', timeout: 15_000, env: getCliEnv(),
     }, (err, out) => (err ? reject(err) : resolve(out)))
   })
   const parsed = JSON.parse(stdout)
@@ -234,7 +234,7 @@ async function iosKeystroke(key: string, modifiers: string[] = []): Promise<void
       '-e', 'delay 0.1',
       '-e', 'tell application "System Events" to set visible of process "Simulator" to false',
       '-e', 'activate application prevApp',
-    ], { env: CLI_ENV }, (err) => err ? reject(err) : resolve())
+    ], { env: getCliEnv() }, (err) => err ? reject(err) : resolve())
   })
 }
 
@@ -254,7 +254,7 @@ async function rnDevMenu(deviceId: string, platform: string): Promise<void> {
   } else {
     // Android: KEYCODE_MENU (82) opens RN dev menu
     await new Promise<void>((resolve, reject) => {
-      execFile('adb', ['-s', deviceId, 'shell', 'input', 'keyevent', '82'], { env: CLI_ENV }, (err) =>
+      execFile('adb', ['-s', deviceId, 'shell', 'input', 'keyevent', '82'], { env: getCliEnv() }, (err) =>
         err ? reject(err) : resolve())
     })
   }
@@ -263,13 +263,13 @@ async function rnDevMenu(deviceId: string, platform: string): Promise<void> {
 /** Send a signal to the running Flutter process. */
 async function flutterSignal(sig: string): Promise<void> {
   const stdout = await new Promise<string>((resolve, reject) => {
-    execFile('pgrep', ['-f', 'flutter_tools.*run'], { env: CLI_ENV }, (err, out) =>
+    execFile('pgrep', ['-f', 'flutter_tools.*run'], { env: getCliEnv() }, (err, out) =>
       err ? reject(new Error('No running Flutter process found')) : resolve(out))
   })
   const pid = stdout.trim().split('\n')[0]
   if (!pid) throw new Error('No running Flutter process found')
   await new Promise<void>((resolve, reject) => {
-    execFile('kill', [`-${sig}`, pid], { env: CLI_ENV }, (err) =>
+    execFile('kill', [`-${sig}`, pid], { env: getCliEnv() }, (err) =>
       err ? reject(err) : resolve())
   })
 }
