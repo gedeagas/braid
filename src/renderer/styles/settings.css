@@ -32,8 +32,9 @@
 
 .settings-title {
   position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
+  text-align: center;
   font-size: var(--text-xl);
   font-weight: var(--weight-semibold);
   color: var(--text-primary);
