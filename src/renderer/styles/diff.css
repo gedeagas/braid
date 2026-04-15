@@ -45,6 +45,7 @@
 .diff-line {
   display: flex;
   min-height: 20px;
+  min-width: fit-content;
 }
 
 .diff-line-add {
@@ -79,7 +80,6 @@
 .diff-line-content {
   flex: 1;
   white-space: pre;
-  overflow-x: auto;
   padding-right: var(--space-12);
   tab-size: 4;
 }

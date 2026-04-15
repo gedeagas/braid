@@ -312,5 +312,12 @@
   "toolSummary.todo_other": "{{count}} todos",
 
   "turnFooterFiles_one": "1 file changed",
-  "turnFooterFiles_other": "{{count}} files changed"
+  "turnFooterFiles_other": "{{count}} files changed",
+
+  "turnStats.model": "Model",
+  "turnStats.duration": "Duration",
+  "turnStats.input": "Input",
+  "turnStats.output": "Output",
+  "turnStats.cacheRead": "Cache read",
+  "turnStats.cacheWrite": "Cache write"
 }

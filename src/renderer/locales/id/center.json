@@ -294,5 +294,12 @@
   "toolSummary.todo": "{{count}} tugas",
 
   "turnFooterFiles_one": "1 file diubah",
-  "turnFooterFiles_other": "{{count}} file diubah"
+  "turnFooterFiles_other": "{{count}} file diubah",
+
+  "turnStats.model": "Model",
+  "turnStats.duration": "Durasi",
+  "turnStats.input": "Input",
+  "turnStats.output": "Output",
+  "turnStats.cacheRead": "Cache baca",
+  "turnStats.cacheWrite": "Cache tulis"
 }

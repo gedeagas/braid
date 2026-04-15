@@ -2,7 +2,7 @@
 // Streaming handlers — streamEvent, toolProgress, result
 // ---------------------------------------------------------------------------
 
-import type { ContentBlock, ToolCall } from '@/types'
+import type { ContentBlock, ToolCall, TurnUsage } from '@/types'
 import type { HandlerContext } from './types'
 import { accumulateTokens } from './tokenUtils'
 import { updateSession, msgId } from '../stateUtils'
@@ -19,6 +19,26 @@ import i18n from '@/lib/i18n'
  * double-counting in handleResult. Exported for test beforeEach cleanup.
  */
 export const sessionsWithStreamingTokens = new Set<string>()
+
+/**
+ * Stash per-turn usage from message_start until the partial assistant message
+ * shell is created (in content_block_start or content_block_delta).
+ * message_start always fires before any content blocks, so the message doesn't
+ * exist yet when usage arrives. Exported for test cleanup.
+ */
+export const pendingTurnUsage = new Map<string, TurnUsage>()
+
+/** Accumulate turn usage across multi-step tool use. Keeps the latest model. */
+function mergeTurnUsage(existing: TurnUsage | undefined, incoming: TurnUsage): TurnUsage {
+  if (!existing) return incoming
+  return {
+    model: incoming.model ?? existing.model,
+    inputTokens: existing.inputTokens + incoming.inputTokens,
+    outputTokens: existing.outputTokens + incoming.outputTokens,
+    cacheReadTokens: existing.cacheReadTokens + incoming.cacheReadTokens,
+    cacheWriteTokens: existing.cacheWriteTokens + incoming.cacheWriteTokens
+  }
+}
 
 // ---------------------------------------------------------------------------
 // handleStreamEvent
@@ -69,6 +89,17 @@ export function handleStreamEvent(ctx: HandlerContext, ev: Record<string, unknow
         const postTokens = totalContext
         const preTokens = preCompactTokens.get(sessionId)
 
+        // Stash per-turn usage - will be attached to the assistant message
+        // when its shell is created in content_block_start / content_block_delta.
+        const model = message?.model as string | undefined
+        pendingTurnUsage.set(sessionId, {
+          model,
+          inputTokens: usage.input_tokens ?? 0,
+          outputTokens: usage.output_tokens ?? 0,
+          cacheReadTokens: usage.cache_read_input_tokens ?? 0,
+          cacheWriteTokens: usage.cache_creation_input_tokens ?? 0
+        })
+
         updateSession(store, sessionId, (current) => {
           const base = {
             tokenUsage: accumulateTokens(current.tokenUsage, usage),
@@ -110,9 +141,27 @@ export function handleStreamEvent(ctx: HandlerContext, ev: Record<string, unknow
       const usage = streamEvent.usage as { output_tokens?: number } | undefined
       if (usage) {
         sessionsWithStreamingTokens.add(sessionId)
-        updateSession(store, sessionId, (current) => ({
-          tokenUsage: accumulateTokens(current.tokenUsage, usage)
-        }))
+        updateSession(store, sessionId, (current) => {
+          const base = { tokenUsage: accumulateTokens(current.tokenUsage, usage) }
+          // Accumulate output tokens on the last partial assistant message's turnUsage
+          if (usage.output_tokens) {
+            const messages = [...current.messages]
+            for (let idx = messages.length - 1; idx >= 0; idx--) {
+              const m = messages[idx]
+              if (m.role === 'assistant' && m.isPartial && m.turnUsage) {
+                messages[idx] = {
+                  ...m,
+                  turnUsage: {
+                    ...m.turnUsage,
+                    outputTokens: m.turnUsage.outputTokens + usage.output_tokens
+                  }
+                }
+                return { ...base, messages }
+              }
+            }
+          }
+          return base
+        })
       }
       return
     }
@@ -147,23 +196,31 @@ export function handleContentBlockStart(
     updateSession(store, sessionId, (current) => {
       const messages = [...current.messages]
       const lastMsg = messages[messages.length - 1]
+      const stashedUsage = pendingTurnUsage.get(sessionId)
 
       if (lastMsg?.role === 'assistant' && lastMsg.isPartial) {
         const existingBlocks = lastMsg.blocks ?? []
         if (!existingBlocks.some((bl) => bl.type === 'tool_use' && bl.toolCall.id === toolId)) {
+          // Accumulate turnUsage across multi-step tool use (each API call fires message_start)
+          const mergedUsage = stashedUsage
+            ? mergeTurnUsage(lastMsg.turnUsage, stashedUsage)
+            : lastMsg.turnUsage
           messages[messages.length - 1] = {
             ...lastMsg,
             blocks: [...existingBlocks, placeholderBlock],
-            toolCalls: [...(lastMsg.toolCalls ?? []), placeholderToolCall]
+            toolCalls: [...(lastMsg.toolCalls ?? []), placeholderToolCall],
+            turnUsage: mergedUsage
           }
         }
       } else {
         messages.push({
           id: msgId(), role: 'assistant', content: '',
           blocks: [placeholderBlock], toolCalls: [placeholderToolCall],
-          isPartial: true, timestamp: Date.now()
+          isPartial: true, timestamp: Date.now(),
+          turnUsage: stashedUsage
         })
       }
+      if (stashedUsage) pendingTurnUsage.delete(sessionId)
       return { activity: toolActivity(toolName, 'calling'), messages }
     })
     return
@@ -194,11 +251,14 @@ export function handleContentBlockDelta(
   if (!updateSession(store, sessionId, (current) => {
     const lastMsg = current.messages[current.messages.length - 1]
     if (lastMsg?.role === 'assistant' && lastMsg.isPartial) return {}
+    const stashedUsage = pendingTurnUsage.get(sessionId)
+    if (stashedUsage) pendingTurnUsage.delete(sessionId)
     return {
       activity: 'Writing...',
       messages: [...current.messages, {
         id: msgId(), role: 'assistant' as const, content: '',
-        isPartial: true, timestamp: Date.now()
+        isPartial: true, timestamp: Date.now(),
+        turnUsage: stashedUsage
       }]
     }
   })) return
@@ -262,6 +322,7 @@ export function handleResult(ctx: HandlerContext, ev: Record<string, unknown>): 
   if (resultText && ev.subtype === 'success') {
     if (!updateSession(store, sessionId, (current) => {
       const elapsed = current.runStartedAt ? Date.now() - current.runStartedAt : 0
+      const turnDurationMs = elapsed > 0 ? elapsed : undefined
       const lastMsg = current.messages[current.messages.length - 1]
       const base = {
         status: 'idle' as const,
@@ -271,13 +332,28 @@ export function handleResult(ctx: HandlerContext, ev: Record<string, unknown>): 
         // preserves null rather than upgrading it to {0,0} with no data
         tokenUsage: usage != null ? accumulateTokens(current.tokenUsage, usage) : current.tokenUsage
       }
-      // De-duplicate: skip append if result already equals last message
-      if (lastMsg && lastMsg.content === resultText) return base
+      // De-duplicate: skip append if result already equals last message.
+      // Stamp turnDurationMs on the existing partial message (turnUsage was set during streaming).
+      if (lastMsg && lastMsg.content === resultText) {
+        if (turnDurationMs != null) {
+          const messages = [...current.messages]
+          messages[messages.length - 1] = { ...lastMsg, turnDurationMs }
+          return { ...base, messages }
+        }
+        return base
+      }
+      // Inherit turnUsage from the last partial assistant message, or from pending stash
+      const stashedUsage = pendingTurnUsage.get(sessionId)
+      if (stashedUsage) pendingTurnUsage.delete(sessionId)
+      const partialMsg = (lastMsg?.role === 'assistant' && lastMsg.isPartial) ? lastMsg : undefined
+      const turnUsage = partialMsg?.turnUsage ?? stashedUsage
       return {
         ...base,
         messages: [...current.messages, {
           id: msgId('result'), role: 'assistant' as const,
-          content: resultText, timestamp: Date.now()
+          content: resultText, timestamp: Date.now(),
+          turnDurationMs,
+          turnUsage
         }]
       }
     })) return
