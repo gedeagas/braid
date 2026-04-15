@@ -103,6 +103,7 @@ type FileTreeState = {
   refreshing: boolean
   generation: number
   menu: { x: number; y: number; path: string; isDirectory: boolean } | null
+  apps: InstalledApp[]
 }
 type FileTreeAction =
   | { type: 'LOAD_START' }
@@ -112,6 +113,7 @@ type FileTreeAction =
   | { type: 'BUMP_GENERATION' }
   | { type: 'OPEN_MENU'; x: number; y: number; path: string; isDirectory: boolean }
   | { type: 'CLOSE_MENU' }
+  | { type: 'SET_APPS'; apps: InstalledApp[] }
 
 const fileTreeReducer: Reducer<FileTreeState, FileTreeAction> = (state, action) => {
   switch (action.type) {
@@ -122,13 +124,14 @@ const fileTreeReducer: Reducer<FileTreeState, FileTreeAction> = (state, action) 
     case 'BUMP_GENERATION': return { ...state, generation: state.generation + 1 }
     case 'OPEN_MENU': return { ...state, menu: { x: action.x, y: action.y, path: action.path, isDirectory: action.isDirectory } }
     case 'CLOSE_MENU': return { ...state, menu: null }
+    case 'SET_APPS': return { ...state, apps: action.apps }
   }
 }
 
 export function FileTree({ worktreePath, onFileSelect }: Props) {
   const { t } = useTranslation('right')
-  const [ftState, ftDispatch] = useReducer(fileTreeReducer, { entries: [], selectedPath: null, refreshing: false, generation: 0, menu: null })
-  const { entries, selectedPath, refreshing, generation, menu } = ftState
+  const [ftState, ftDispatch] = useReducer(fileTreeReducer, { entries: [], selectedPath: null, refreshing: false, generation: 0, menu: null, apps: [] })
+  const { entries, selectedPath, refreshing, generation, menu, apps } = ftState
   const inflightRef = useRef(false)
 
   const loadRoot = useCallback(() => {
