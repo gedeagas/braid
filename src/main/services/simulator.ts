@@ -1,4 +1,5 @@
 import { logger } from '../lib/logger'
+import { enrichedEnv as baseEnrichedEnv, waitForEnrichedEnv } from '../lib/enrichedEnv'
 import { app } from 'electron'
 import { execFile, spawn, ChildProcess } from 'child_process'
 import { promisify } from 'util'
@@ -68,18 +69,24 @@ class SimulatorService implements ISimulatorService {
   }
 
   private enrichedEnv(): NodeJS.ProcessEnv {
+    const base = baseEnrichedEnv()
     const androidHome = process.env.ANDROID_HOME ?? process.env.ANDROID_SDK_ROOT ?? ''
     const androidPaths = androidHome
       ? [`${androidHome}/platform-tools`, `${androidHome}/emulator`, `${androidHome}/tools/bin`]
       : []
-    const envPath = ['/opt/homebrew/bin', '/usr/local/bin', ...androidPaths, process.env.PATH ?? ''].join(':')
-    return { ...process.env, PATH: envPath }
+    // Prepend Android SDK paths to the login-shell-resolved PATH
+    const envPath = [...androidPaths, base.PATH ?? ''].join(':')
+    return { ...base, PATH: envPath }
   }
 
   private async resolveCli(): Promise<string | null> {
     if (this.cliPath !== null) return this.cliPath || null
+    // Await the login-shell PATH probe so enrichedEnv() has the full PATH
+    // before we run `which`. This avoids spawning a new login shell per lookup
+    // and keeps PATH resolution consistent across all CLI invocations.
+    await waitForEnrichedEnv()
     try {
-      const { stdout } = await exec('which', ['mobilecli'], { env: this.enrichedEnv() })
+      const { stdout } = await exec('which', ['mobilecli'], { env: this.enrichedEnv(), timeout: 5000 })
       this.cliPath = stdout.trim()
       return this.cliPath
     } catch { /* not found */ }
@@ -95,9 +102,9 @@ class SimulatorService implements ISimulatorService {
 
   /** Detect which platform toolchains are available. */
   async checkPlatformTools(): Promise<{ xcode: boolean; androidSdk: boolean }> {
-    const env = this.enrichedEnv()
+    await waitForEnrichedEnv()
     const has = (bin: string) =>
-      exec('which', [bin], { env }).then(() => true).catch(() => false)
+      exec('which', [bin], { env: this.enrichedEnv(), timeout: 5000 }).then(() => true).catch(() => false)
     const [xcode, androidSdk] = await Promise.all([
       has('xcrun'),     // Xcode CLT — ships simctl
       has('adb'),       // Android SDK — platform-tools

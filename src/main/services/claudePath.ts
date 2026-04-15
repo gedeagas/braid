@@ -13,6 +13,7 @@
 import os from 'os'
 import path from 'path'
 import { existsSync, readdirSync } from 'fs'
+import { enrichedEnv } from '../lib/enrichedEnv'
 
 /** Discover `claude` binary under any NVM-managed Node version. */
 function findNvmClaude(home: string): string | undefined {
@@ -47,14 +48,9 @@ export function resolveCliPath(): string | undefined {
   const nvmClaude = findNvmClaude(home)
   if (nvmClaude) return nvmClaude
   try {
-    const enrichedPath = [
-      path.join(home, '.local/bin'),
-      '/opt/homebrew/bin', '/usr/local/bin',
-      process.env.PATH ?? '',
-    ].join(':')
     const result = execFileSync('which', ['claude'], {
       encoding: 'utf8', timeout: 3000,
-      env: { ...process.env, PATH: enrichedPath },
+      env: enrichedEnv(),
     }).trim()
     if (result && existsSync(result)) return result
   } catch { /* claude not on PATH */ }
