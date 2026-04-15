@@ -20,12 +20,18 @@ let _loginPath = FALLBACK_PATH
 function probe(): Promise<void> {
   const userShell = process.env.SHELL || '/bin/zsh'
   return new Promise<void>((resolve) => {
-    execFile(userShell, ['-l', '-c', 'echo $PATH'], {
+    // Use -li (login + interactive) so .zshrc/.bashrc are sourced.
+    // Tools like nvm, rbenv, pyenv, sdkman load in interactive shell configs,
+    // not in login-only profiles. Without -i, their PATHs are missing.
+    execFile(userShell, ['-lic', 'echo $PATH'], {
       encoding: 'utf8',
       timeout: 5000,
       env: process.env,
     }, (_err, stdout) => {
-      const out = stdout?.trim()
+      // Take the last non-empty line: interactive shells may print MOTD,
+      // neofetch, or other startup output before our echo.
+      const lines = (stdout ?? '').split('\n').filter((l) => l.trim())
+      const out = lines[lines.length - 1]?.trim()
       if (out) _loginPath = out
       resolve()
     })

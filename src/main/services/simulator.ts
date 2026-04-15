@@ -3,6 +3,8 @@ import { enrichedEnv as baseEnrichedEnv, waitForEnrichedEnv } from '../lib/enric
 import { app } from 'electron'
 import { execFile, spawn, ChildProcess } from 'child_process'
 import { promisify } from 'util'
+import { existsSync } from 'fs'
+import path from 'path'
 import http from 'http'
 
 const exec = promisify(execFile)
@@ -79,18 +81,56 @@ class SimulatorService implements ISimulatorService {
     return { ...base, PATH: envPath }
   }
 
+  /**
+   * Resolve the mobilecli binary path.
+   *
+   * Priority:
+   *   1. Bundled binary from @mobilenext/mobilecli (works in dev and packaged builds)
+   *   2. System-installed binary via PATH (e.g. `brew install mobilecli`)
+   */
   private async resolveCli(): Promise<string | null> {
     if (this.cliPath !== null) return this.cliPath || null
-    // Await the login-shell PATH probe so enrichedEnv() has the full PATH
-    // before we run `which`. This avoids spawning a new login shell per lookup
-    // and keeps PATH resolution consistent across all CLI invocations.
+
+    // 1. Try the bundled binary shipped with the app
+    const bundled = this.resolveBundledCli()
+    if (bundled) {
+      this.cliPath = bundled
+      logger.debug(`[Simulator] Using bundled mobilecli: ${bundled}`)
+      return this.cliPath
+    }
+
+    // 2. Fall back to system PATH (e.g. Homebrew install)
     await waitForEnrichedEnv()
     try {
       const { stdout } = await exec('which', ['mobilecli'], { env: this.enrichedEnv(), timeout: 5000 })
       this.cliPath = stdout.trim()
+      logger.debug(`[Simulator] Using system mobilecli: ${this.cliPath}`)
       return this.cliPath
     } catch { /* not found */ }
+
     this.cliPath = ''
+    return null
+  }
+
+  /**
+   * Find the platform-specific mobilecli binary bundled in node_modules.
+   * In packaged builds, the binary is ASAR-unpacked so it can be executed directly.
+   */
+  private resolveBundledCli(): string | null {
+    const binaryName = `mobilecli-darwin-${process.arch === 'arm64' ? 'arm64' : 'amd64'}`
+    const appPath = app.getAppPath()
+
+    // Packaged build: binary is in the ASAR-unpacked directory
+    const unpackedPath = path.join(
+      appPath.replace('app.asar', 'app.asar.unpacked'),
+      'node_modules', '@mobilenext', 'mobilecli', 'bin', binaryName,
+    )
+    if (existsSync(unpackedPath)) return unpackedPath
+
+    // Dev mode: binary is in the project's node_modules
+    const devPath = path.join(appPath, 'node_modules', '@mobilenext', 'mobilecli', 'bin', binaryName)
+    if (existsSync(devPath)) return devPath
+
     return null
   }
 

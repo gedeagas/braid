@@ -157,7 +157,7 @@ const IGNORE_PATTERNS = [
   /\/node_modules\/monaco-editor\/dev(\/|$)/,
   /\/node_modules\/monaco-editor\/esm(\/|$)/,
   /\/node_modules\/monaco-editor\/min-maps(\/|$)/,
-  // @mobilenext/mobilecli: 53MB of platform binaries
+  // @mobilenext/mobilecli: 53MB of platform binaries (user installs via brew)
   /\/node_modules\/@mobilenext\/mobilecli\/bin(\/|$)/,
   // node-pty: strip non-macOS prebuilds (~58MB win32)
   /\/node_modules\/node-pty\/prebuilds\/win32-/,
@@ -197,8 +197,16 @@ const IGNORE_PATTERNS = [
   /^\/vitest\.config\./,
 ]
 
-function shouldIgnore(filePath) {
-  return IGNORE_PATTERNS.some((re) => re.test(filePath))
+function createIgnore(arch) {
+  // Keep only the darwin binary matching the target arch (~13MB instead of ~53MB)
+  const keepBinary = `mobilecli-darwin-${arch === 'arm64' ? 'arm64' : 'amd64'}`
+  return function shouldIgnore(filePath) {
+    // Strip non-matching darwin binary (the non-darwin ones are already caught by IGNORE_PATTERNS)
+    if (/\/node_modules\/@mobilenext\/mobilecli\/bin\/mobilecli-darwin-/.test(filePath)) {
+      return !filePath.endsWith(keepBinary)
+    }
+    return IGNORE_PATTERNS.some((re) => re.test(filePath))
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -432,13 +440,13 @@ async function packageArch(arch) {
     overwrite: true,
     prune: true,
 
-    // ASAR with selective unpacking for native modules and Claude SDK
+    // ASAR with selective unpacking for native modules, Claude SDK, and mobilecli
     asar: {
       unpack:
-        '{**/*.node,**/node_modules/node-pty/**,**/node_modules/@anthropic-ai/claude-agent-sdk/**}',
+        '{**/*.node,**/node_modules/node-pty/**,**/node_modules/@anthropic-ai/claude-agent-sdk/**,**/node_modules/@mobilenext/mobilecli/bin/*}',
     },
 
-    ignore: shouldIgnore,
+    ignore: createIgnore(arch),
 
     // Info.plist extensions
     extendInfo: {
