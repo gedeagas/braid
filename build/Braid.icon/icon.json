@@ -1,6 +1,6 @@
 {
   "fill": {
-    "solid": "srgb:0.02353,0.09020,0.03529,1.00000"
+    "solid": "srgb:0.02353,0.02745,0.03529,1.00000"
   },
   "groups": [
     {
@@ -8,7 +8,7 @@
         {
           "fill": "automatic",
           "hidden": false,
-          "image-name": "foreground.png",
+          "image-name": "foreground.svg",
           "name": "foreground"
         }
       ],

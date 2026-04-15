@@ -1,10 +1,14 @@
 #!/usr/bin/env node
 
 /**
- * Generates a macOS Tahoe Liquid Glass icon from build/icon.png.
+ * Generates a macOS Tahoe Liquid Glass icon from build/icon.svg.
  *
  * Creates a `.icon` package (the new layered icon format introduced in macOS 26)
  * and compiles it to an `Assets.car` asset catalog using Xcode's `actool`.
+ *
+ * The source SVG has its artwork inset with a squircle clip-path (for .icns
+ * rendering). This script strips the transform and clip so the artwork fills
+ * the full 1024x1024 canvas edge-to-edge - macOS applies its own squircle mask.
  *
  * The resulting Assets.car is placed in build/ and later copied into the app
  * bundle by package.js. On macOS 26+, the OS reads CFBundleIconName from
@@ -13,7 +17,7 @@
  *
  * Requirements:
  *   - macOS with Xcode 26+ installed (for actool)
- *   - build/icon.png (1024x1024 source icon)
+ *   - build/icon.svg (1024x1024 source icon)
  *
  * Usage:
  *   node scripts/generate-icon.js
@@ -29,7 +33,7 @@ const { execSync } = require('child_process')
 
 const ROOT = path.resolve(__dirname, '..')
 const BUILD_DIR = path.join(ROOT, 'build')
-const ICON_PNG = path.join(BUILD_DIR, 'icon.png')
+const ICON_SVG = path.join(BUILD_DIR, 'icon.svg')
 const ICON_NAME = 'Braid'
 const ICON_PACKAGE = path.join(BUILD_DIR, `${ICON_NAME}.icon`)
 const ASSETS_DIR = path.join(ICON_PACKAGE, 'Assets')
@@ -43,8 +47,8 @@ if (process.platform !== 'darwin') {
   process.exit(0)
 }
 
-if (!fs.existsSync(ICON_PNG)) {
-  console.error(`[generate-icon] Source icon not found: ${ICON_PNG}`)
+if (!fs.existsSync(ICON_SVG)) {
+  console.error(`[generate-icon] Source icon not found: ${ICON_SVG}`)
   process.exit(1)
 }
 
@@ -68,8 +72,18 @@ if (fs.existsSync(ICON_PACKAGE)) {
 
 fs.mkdirSync(ASSETS_DIR, { recursive: true })
 
-// Copy source PNG as the foreground layer
-fs.copyFileSync(ICON_PNG, path.join(ASSETS_DIR, 'foreground.png'))
+// Create an edge-to-edge SVG by stripping the squircle clip-path and
+// inset transform from icon.svg. macOS applies its own squircle mask,
+// so the artwork must fill the full 1024x1024 canvas.
+let svg = fs.readFileSync(ICON_SVG, 'utf8')
+svg = svg
+  // Remove clip-path="url(#sq)" from the <g> element
+  .replace(/\s*clip-path="url\(#sq\)"/g, '')
+  // Remove transform="translate(92, 92) scale(0.82)" so content fills edge-to-edge
+  .replace(/\s*transform="translate\([^"]*\)"/g, '')
+
+fs.writeFileSync(path.join(ASSETS_DIR, 'foreground.svg'), svg)
+console.log('[generate-icon] Created edge-to-edge SVG (stripped clip-path + transform)')
 
 // Write icon.json with proper Liquid Glass structure.
 //
@@ -86,8 +100,8 @@ fs.copyFileSync(ICON_PNG, path.join(ASSETS_DIR, 'foreground.png'))
 // artwork, dark mode variants, tinted appearance, etc.).
 const iconJson = {
   fill: {
-    // Braid's dark navy background color from the SVG icon
-    solid: 'srgb:0.02353,0.09020,0.03529,1.00000',
+    // Braid's dark navy background - #060709 from the SVG radial gradient
+    solid: 'srgb:0.02353,0.02745,0.03529,1.00000',
   },
   groups: [
     {
@@ -96,7 +110,7 @@ const iconJson = {
         {
           fill: 'automatic',
           hidden: false,
-          'image-name': 'foreground.png',
+          'image-name': 'foreground.svg',
           name: 'foreground',
         },
       ],
@@ -118,7 +132,7 @@ const iconJson = {
 
 fs.writeFileSync(path.join(ICON_PACKAGE, 'icon.json'), JSON.stringify(iconJson, null, 2) + '\n')
 
-console.log(`[generate-icon] Created ${ICON_NAME}.icon (fill + foreground group with specular)`)
+console.log(`[generate-icon] Created ${ICON_NAME}.icon (fill + edge-to-edge foreground)`)
 
 // ---------------------------------------------------------------------------
 // 2. Compile to Assets.car via actool
