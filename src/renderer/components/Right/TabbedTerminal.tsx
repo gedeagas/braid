@@ -350,6 +350,11 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
                   containerRefs.current.set(tab.id, el)
                   const pending = pendingAttach.current.get(tab.id)
                   if (pending) { pendingAttach.current.delete(tab.id); attachTerm(pending, el); setupResizeObserver(pending, el); spawnTab(pending) }
+                  else if (tab.term.element && !el.contains(tab.term.element)) {
+                    // Container was recreated (e.g. after collapse/uncollapse) — re-attach and re-observe
+                    attachTerm(tab, el)
+                    setupResizeObserver(tab, el)
+                  }
                 }
               }}
               className="terminal-container"
