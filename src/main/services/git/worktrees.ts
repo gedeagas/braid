@@ -1,5 +1,5 @@
 import { logger } from '../../lib/logger'
-import simpleGit from 'simple-git'
+import { getGit } from './core'
 import { mkdirSync, existsSync, rmSync } from 'fs'
 import { join, dirname } from 'path'
 import { homedir } from 'os'
@@ -162,7 +162,7 @@ export async function cloneRepo(url: string, storagePath?: string): Promise<stri
     finalPath = `${targetPath}-${i}`
   }
 
-  const git = simpleGit()
+  const git = getGit(process.cwd())
   try {
     await git.clone(url, finalPath)
   } catch (err) {

@@ -8,10 +8,15 @@ const mockAdd = vi.fn()
 const mockReset = vi.fn()
 const mockCheckout = vi.fn()
 const mockCommit = vi.fn()
-const mockGit = { raw: mockRaw, push: mockPush, pull: mockPull, add: mockAdd, reset: mockReset, checkout: mockCheckout, commit: mockCommit }
+const mockEnv = vi.fn()
+const mockGit = { raw: mockRaw, push: mockPush, pull: mockPull, add: mockAdd, reset: mockReset, checkout: mockCheckout, commit: mockCommit, env: mockEnv }
 
 vi.mock('simple-git', () => ({
   default: vi.fn(() => mockGit),
+}))
+
+vi.mock('../../../lib/enrichedEnv', () => ({
+  enrichedEnv: () => ({ ...process.env }),
 }))
 
 // --- Mock fs ---
