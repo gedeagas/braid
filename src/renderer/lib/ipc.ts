@@ -78,8 +78,8 @@ export const git = {
 }
 
 export const agent = {
-  startSession: (sessionId: string, worktreeId: string, worktreePath: string, prompt: string, model: string, thinking: boolean, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string) =>
-    api().agent.startSession(sessionId, worktreeId, worktreePath, prompt, model, thinking, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework),
+  startSession: (sessionId: string, worktreeId: string, worktreePath: string, prompt: string, model: string, thinking: boolean, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string, backend?: import('@/types').AgentBackend) =>
+    api().agent.startSession(sessionId, worktreeId, worktreePath, prompt, model, thinking, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework, backend),
   sendMessage: (sessionId: string, message: string, sdkSessionId: string, cwd: string, model: string, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string) =>
     api().agent.sendMessage(sessionId, message, sdkSessionId, cwd, model, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework),
   updateSessionName: (sessionId: string, name: string) => api().agent.updateSessionName(sessionId, name),
@@ -96,6 +96,10 @@ export const agent = {
   generateCommitMessage: (worktreePath: string) => api().agent.generateCommitMessage(worktreePath) as Promise<string>,
   generateSessionTitle: (userMessage: string, assistantSummary: string, currentTitle?: string) =>
     api().agent.generateSessionTitle(userMessage, assistantSummary, currentTitle) as Promise<string>,
+  getAcpAgents: () =>
+    api().agent.getAcpAgents() as Promise<Array<{ id: string; name: string; command: string; args: string[]; env?: Record<string, string> }>>,
+  saveAcpAgents: (agents: Array<{ id: string; name: string; command: string; args: string[]; env?: Record<string, string> }>) =>
+    api().agent.saveAcpAgents(agents),
   onEvent: (callback: (data: { sessionId: string; event: unknown }) => void) =>
     api().agent.onEvent(callback)
 }

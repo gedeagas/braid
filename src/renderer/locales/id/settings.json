@@ -15,6 +15,7 @@
     "claudeMcp": "Server MCP",
     "claudeSkills": "Keahlian",
     "apps": "Aplikasi",
+    "agents": "Agen ACP",
     "jira": "Jira",
     "analytics": "Analitik",
     "about": "Tentang"
@@ -35,6 +36,8 @@
     "experimentalHeader": "Eksperimental",
     "experimentalHint": "Fitur yang masih dalam pengembangan. Mungkin tidak stabil.",
     "experimentalCapture": "Tab Tangkap Jendela",
+    "experimentalAcp": "Agent Client Protocol (ACP)",
+    "experimentalAcpHint": "Aktifkan dukungan ACP untuk menggunakan agen non-Claude seperti Gemini CLI, Codex, dan lainnya.",
     "bottomTerminal": "Strip terminal bawah",
     "bottomTerminalHint": "Memindahkan terminal ke bawah semua panel sehingga mencakup lebar jendela penuh.",
     "noVirtualization": "Daftar chat tanpa virtualisasi",
@@ -399,5 +402,18 @@
     "allowedToolsPlaceholder": "Bash(git:*), Read",
     "instructions": "Instruksi",
     "additionalFiles": "File Tambahan"
+  },
+  "agents": {
+    "title": "Agen ACP",
+    "description": "Daftarkan agen yang kompatibel dengan ACP (mis. Gemini CLI, Codex) untuk digunakan bersama Claude. Setiap agen berjalan sebagai subproses yang berkomunikasi melalui JSON-RPC.",
+    "untitled": "Agen Tanpa Nama",
+    "name": "Nama",
+    "command": "Perintah",
+    "args": "Argumen",
+    "edit": "Edit",
+    "collapse": "Tutup",
+    "remove": "Hapus",
+    "addAgent": "Tambah Agen",
+    "save": "Simpan Perubahan"
   }
 }

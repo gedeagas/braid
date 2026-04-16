@@ -24,6 +24,7 @@ export interface PersistedSession {
     branch: string
     path: string
   }>
+  backend?: { type: 'claude-sdk' } | { type: 'acp'; agentId: string }
 }
 
 class SessionStorageService {

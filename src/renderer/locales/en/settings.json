@@ -15,6 +15,7 @@
     "claudeMcp": "MCP Servers",
     "claudeSkills": "Skills",
     "apps": "Apps",
+    "agents": "ACP Agents",
     "jira": "Jira",
     "analytics": "Analytics",
     "about": "About"
@@ -35,6 +36,8 @@
     "experimentalHeader": "Experimental",
     "experimentalHint": "Features that are still in development. May be unstable.",
     "experimentalCapture": "Window Capture tab",
+    "experimentalAcp": "Agent Client Protocol (ACP)",
+    "experimentalAcpHint": "Enable ACP support to use non-Claude agents like Gemini CLI, Codex, and others.",
     "bottomTerminal": "Bottom terminal strip",
     "bottomTerminalHint": "Moves the terminal below all panels so it spans the full window width.",
     "noVirtualization": "No-virtualization chat list",
@@ -399,5 +402,18 @@
     "allowedToolsPlaceholder": "Bash(git:*), Read",
     "instructions": "Instructions",
     "additionalFiles": "Additional Files"
+  },
+  "agents": {
+    "title": "ACP Agents",
+    "description": "Register ACP-compatible agents (e.g. Gemini CLI, Codex) to use alongside Claude. Each agent runs as a subprocess communicating over JSON-RPC.",
+    "untitled": "Untitled Agent",
+    "name": "Name",
+    "command": "Command",
+    "args": "Arguments",
+    "edit": "Edit",
+    "collapse": "Collapse",
+    "remove": "Remove",
+    "addAgent": "Add Agent",
+    "save": "Save Changes"
   }
 }

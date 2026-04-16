@@ -75,8 +75,8 @@ const api = {
 
   // Agent
   agent: {
-    startSession: (sessionId: string, worktreeId: string, worktreePath: string, prompt: string, model: string, thinking: boolean, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string) =>
-      ipcRenderer.invoke('agent:startSession', sessionId, worktreeId, worktreePath, prompt, model, thinking, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework),
+    startSession: (sessionId: string, worktreeId: string, worktreePath: string, prompt: string, model: string, thinking: boolean, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string, backend?: { type: string; agentId?: string; agentName?: string }) =>
+      ipcRenderer.invoke('agent:startSession', sessionId, worktreeId, worktreePath, prompt, model, thinking, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework, backend),
     sendMessage: (sessionId: string, message: string, sdkSessionId: string, cwd: string, model: string, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string) =>
       ipcRenderer.invoke('agent:sendMessage', sessionId, message, sdkSessionId, cwd, model, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework),
     updateSessionName: (sessionId: string, name: string) =>
@@ -95,6 +95,8 @@ const api = {
     generateCommitMessage: (worktreePath: string) => ipcRenderer.invoke('agent:generateCommitMessage', worktreePath),
     generateSessionTitle: (userMessage: string, assistantSummary: string, currentTitle?: string) =>
       ipcRenderer.invoke('agent:generateSessionTitle', userMessage, assistantSummary, currentTitle),
+    getAcpAgents: () => ipcRenderer.invoke('agent:getAcpAgents'),
+    saveAcpAgents: (agents: unknown[]) => ipcRenderer.invoke('agent:saveAcpAgents', agents),
     onEvent: (callback: (data: { sessionId: string; event: unknown }) => void) => {
       const handler = (_event: Electron.IpcRendererEvent, data: { sessionId: string; event: unknown }) => callback(data)
       ipcRenderer.on('agent:event', handler)

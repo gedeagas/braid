@@ -3,13 +3,13 @@ import path from 'path'
 import crypto from 'crypto'
 import { execFile } from 'child_process'
 import { mainSettings } from '../ipc'
-import type { WorkerEvent, AgentSettings, SlashCommand } from './agentTypes'
+import type { WorkerEvent, AgentSettings, AgentBackend, SlashCommand } from './agentTypes'
 import type { WorkerCommand, WorkerResult } from './agentProcessTypes'
 import { ptyService } from './pty'
 import { enrichedEnv } from '../lib/enrichedEnv'
 
 /** Metadata cached in the coordinator (no cross-process call needed). */
-interface SessionMeta { sessionName: string; cwd: string; branch: string; projectName: string }
+interface SessionMeta { sessionName: string; cwd: string; branch: string; projectName: string; backend: AgentBackend }
 
 /** Resolve the current git branch for a worktree path. */
 function resolveGitBranch(cwd: string): Promise<string> {
@@ -21,6 +21,7 @@ function resolveGitBranch(cwd: string): Promise<string> {
 }
 
 const ENTRY_PATH = path.join(__dirname, 'agentProcess.js')
+const ACP_ENTRY_PATH = path.join(__dirname, 'acpProcess.js')
 const EPHEMERAL_TIMEOUT_MS = 60_000
 
 
@@ -48,9 +49,13 @@ class AgentCoordinator {
 
   // ── Process management ──────────────────────────────────────────────
 
-  private spawnSessionProcess(sessionId: string): Electron.UtilityProcess {
-    const child = utilityProcess.fork(ENTRY_PATH, [], {
-      serviceName: `claude-${sessionId.slice(-6)}`,
+  private spawnSessionProcess(sessionId: string, backend?: AgentBackend): Electron.UtilityProcess {
+    const entryPath = backend?.type === 'acp' ? ACP_ENTRY_PATH : ENTRY_PATH
+    const serviceName = backend?.type === 'acp'
+      ? `acp-${sessionId.slice(-6)}`
+      : `claude-${sessionId.slice(-6)}`
+    const child = utilityProcess.fork(entryPath, [], {
+      serviceName,
       env: enrichedEnv(),
     })
 
@@ -71,10 +76,10 @@ class AgentCoordinator {
     return child
   }
 
-  private postCommand(sessionId: string, cmd: WorkerCommand): Electron.UtilityProcess {
+  private postCommand(sessionId: string, cmd: WorkerCommand, backend?: AgentBackend): Electron.UtilityProcess {
     let child = this.sessionProcesses.get(sessionId)
     if (!child || child.pid === undefined) {
-      child = this.spawnSessionProcess(sessionId)
+      child = this.spawnSessionProcess(sessionId, backend)
     }
     child.postMessage(cmd)
     return child
@@ -284,17 +289,19 @@ class AgentCoordinator {
     additionalDirectories?: string[],
     linkedWorktreeContext?: string,
     connectedDeviceId?: string,
-    mobileFramework?: string
+    mobileFramework?: string,
+    backend?: AgentBackend
   ): Promise<void> {
     const branch = await resolveGitBranch(worktreePath)
     const projectName = path.basename(path.dirname(worktreePath))
-    this.sessionMeta.set(sessionId, { sessionName, cwd: worktreePath, branch, projectName })
+    this.sessionMeta.set(sessionId, { sessionName, cwd: worktreePath, branch, projectName, backend: backend ?? { type: 'claude-sdk' } })
     this.postCommand(sessionId, {
       type: 'startSession', sessionId, worktreeId, projectName,
       worktreePath, prompt, model, thinking,
       planMode, sessionName, settings: this.getAgentSettings(), images,
-      additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework
-    })
+      additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework,
+      backend
+    }, backend)
   }
 
   async sendMessage(
@@ -322,13 +329,14 @@ class AgentCoordinator {
     } else {
       const branch = await resolveGitBranch(cwd)
       const projectName = path.basename(path.dirname(cwd))
-      this.sessionMeta.set(sessionId, { sessionName, cwd, branch, projectName })
+      this.sessionMeta.set(sessionId, { sessionName, cwd, branch, projectName, backend: { type: 'claude-sdk' } })
     }
+    const storedBackend = this.sessionMeta.get(sessionId)?.backend
     this.postCommand(sessionId, {
       type: 'sendMessage', sessionId, message, sdkSessionId, cwd, model,
       planMode, sessionName, settings: this.getAgentSettings(), images,
       additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework
-    })
+    }, storedBackend)
   }
 
   async stopSession(sessionId: string): Promise<void> {

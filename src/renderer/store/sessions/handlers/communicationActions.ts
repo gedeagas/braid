@@ -27,6 +27,8 @@ export const createCommunicationActions: StateCreator<
   fetchSlashCommands: async (sessionId) => {
     const session = get().sessions[sessionId]
     if (!session) return
+    // ACP agents don't support slash commands
+    if (session.backend?.type === 'acp') return
     if (session.slashCommands && session.slashCommands.length > 0) return
 
     const worktreePath = sessionWorktreePaths.get(sessionId) ?? ''
@@ -90,7 +92,9 @@ export const createCommunicationActions: StateCreator<
     persistSession(sessionId)
 
     // Eagerly generate title on first message so it's ready before 'done' fires
-    if (!session.customName && session.name === 'New Chat' && hasText) {
+    // Skip for ACP sessions - title generation always uses Claude SDK
+    const isAcp = session.backend?.type === 'acp'
+    if (!isAcp && !session.customName && session.name === 'New Chat' && hasText) {
       const promise = ipc.agent.generateSessionTitle(text.slice(0, 2000), '').catch(() => '')
       pendingTitleGenerations.set(sessionId, promise)
     }
@@ -119,7 +123,8 @@ export const createCommunicationActions: StateCreator<
       await ipc.agent.startSession(
         sessionId, freshSession.worktreeId, worktreePath, text, freshSession.model,
         freshSession.thinkingEnabled, freshSession.planModeEnabled, freshSession.name,
-        images, additionalDirs, linkedContext, freshSession.connectedDeviceId, mobileFramework
+        images, additionalDirs, linkedContext, freshSession.connectedDeviceId, mobileFramework,
+        freshSession.backend
       )
     }
   }

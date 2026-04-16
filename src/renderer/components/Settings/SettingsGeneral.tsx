@@ -22,6 +22,8 @@ export function SettingsGeneral() {
   const setSkipDeleteWorktreeConfirm = useUIStore((s) => s.setSkipDeleteWorktreeConfirm)
   const experimentalCapture = useUIStore((s) => s.experimentalCapture)
   const setExperimentalCapture = useUIStore((s) => s.setExperimentalCapture)
+  const experimentalAcp = useUIStore((s) => s.experimentalAcp)
+  const setExperimentalAcp = useUIStore((s) => s.setExperimentalAcp)
   const bottomTerminalEnabled = useUIStore((s) => s.bottomTerminalEnabled)
   const setBottomTerminalEnabled = useUIStore((s) => s.setBottomTerminalEnabled)
   const experimentalNoVirtualization = useUIStore((s) => s.experimentalNoVirtualization)
@@ -79,6 +81,10 @@ export function SettingsGeneral() {
 
         <FormField label={t('general.experimentalCapture')} horizontal>
           <Toggle checked={experimentalCapture} onChange={setExperimentalCapture} />
+        </FormField>
+
+        <FormField label={t('general.experimentalAcp')} hint={t('general.experimentalAcpHint')} horizontal>
+          <Toggle checked={experimentalAcp} onChange={setExperimentalAcp} />
         </FormField>
 
         <FormField label={t('general.bottomTerminal')} hint={t('general.bottomTerminalHint')} horizontal>

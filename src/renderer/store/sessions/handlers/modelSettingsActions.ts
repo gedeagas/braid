@@ -16,6 +16,7 @@ export const createModelSettingsActions: StateCreator<
   [],
   Pick<SessionsState,
     | 'updateModel'
+    | 'updateBackend'
     | 'updateThinking'
     | 'updatePlanMode'
     | 'renameSession'
@@ -31,6 +32,17 @@ export const createModelSettingsActions: StateCreator<
       }))
       persistSession(sessionId)
       console.log(`[Braid] model changed → ${model} | thinking: ${session.thinkingEnabled} | planMode: ${session.planModeEnabled}`)
+    }
+  },
+
+  updateBackend: (sessionId, backend) => {
+    const session = get().sessions[sessionId]
+    if (session) {
+      set((s) => ({
+        sessions: { ...s.sessions, [sessionId]: { ...session, backend } }
+      }))
+      persistSession(sessionId)
+      console.log(`[Braid] backend changed → ${backend?.type ?? 'claude-sdk'}`)
     }
   },
 

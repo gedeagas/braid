@@ -1,0 +1,1 @@
+export { AcpWorker } from './core'

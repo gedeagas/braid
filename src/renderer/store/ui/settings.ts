@@ -73,6 +73,7 @@ export interface SettingsSlice {
 
   // Experimental
   experimentalCapture: boolean
+  experimentalAcp: boolean
   bottomTerminalEnabled: boolean
   experimentalNoVirtualization: boolean
 
@@ -117,6 +118,7 @@ export interface SettingsSlice {
   setTabDisplayMode: (mode: TabDisplayMode) => void
   setChatCompactMode: (v: boolean) => void
   setExperimentalCapture: (v: boolean) => void
+  setExperimentalAcp: (v: boolean) => void
   setBottomTerminalEnabled: (v: boolean) => void
   setExperimentalNoVirtualization: (v: boolean) => void
 }
@@ -177,6 +179,7 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   chatCompactMode: loadBool(SK.chatCompactMode, false),
 
   experimentalCapture: loadBool(SK.experimentalCapture, false),
+  experimentalAcp: loadBool(SK.experimentalAcp, false),
   bottomTerminalEnabled: loadBool(SK.bottomTerminalEnabled, false),
   experimentalNoVirtualization: loadBool(SK.noVirtualization, true),
 
@@ -265,6 +268,7 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   setTabDisplayMode: (mode) => { localStorage.setItem(SK.tabDisplayMode, mode); set({ tabDisplayMode: mode }) },
   setChatCompactMode: (v) => { localStorage.setItem(SK.chatCompactMode, String(v)); set({ chatCompactMode: v }) },
   setExperimentalCapture: (v) => { localStorage.setItem(SK.experimentalCapture, String(v)); set({ experimentalCapture: v }) },
+  setExperimentalAcp: (v) => { localStorage.setItem(SK.experimentalAcp, String(v)); set({ experimentalAcp: v }) },
   setBottomTerminalEnabled: (v) => { localStorage.setItem(SK.bottomTerminalEnabled, String(v)); set({ bottomTerminalEnabled: v }) },
   setExperimentalNoVirtualization: (v) => { localStorage.setItem(SK.noVirtualization, String(v)); set({ experimentalNoVirtualization: v }) },
   setOnboardingComplete: (v) => { localStorage.setItem(SK.onboardingComplete, String(v)); set({ onboardingComplete: v }) },

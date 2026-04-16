@@ -15,6 +15,7 @@
     "claudeMcp": "MCPサーバー",
     "claudeSkills": "スキル",
     "apps": "アプリ",
+    "agents": "ACPエージェント",
     "jira": "Jira",
     "analytics": "アナリティクス",
     "about": "このアプリについて"
@@ -35,6 +36,8 @@
     "experimentalHeader": "実験的機能",
     "experimentalHint": "開発中の機能です。不安定な場合があります。",
     "experimentalCapture": "ウィンドウキャプチャタブ",
+    "experimentalAcp": "Agent Client Protocol (ACP)",
+    "experimentalAcpHint": "ACP対応を有効にして、Gemini CLIやCodexなどClaude以外のエージェントを使用できます。",
     "bottomTerminal": "ボトムターミナルストリップ",
     "bottomTerminalHint": "ターミナルをすべてのパネルの下に移動し、ウィンドウ全幅に表示します。",
     "noVirtualization": "仮想化なしチャットリスト",
@@ -399,5 +402,18 @@
     "allowedToolsPlaceholder": "Bash(git:*), Read",
     "instructions": "指示",
     "additionalFiles": "追加ファイル"
+  },
+  "agents": {
+    "title": "ACPエージェント",
+    "description": "ACP対応エージェント（Gemini CLI、Codexなど）をClaudeと並行して使用できます。各エージェントはJSON-RPCで通信するサブプロセスとして実行されます。",
+    "untitled": "無題のエージェント",
+    "name": "名前",
+    "command": "コマンド",
+    "args": "引数",
+    "edit": "編集",
+    "collapse": "折りたたむ",
+    "remove": "削除",
+    "addAgent": "エージェントを追加",
+    "save": "変更を保存"
   }
 }

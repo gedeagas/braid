@@ -263,6 +263,20 @@
   color: var(--accent);
 }
 
+.model-menu-separator {
+  padding: var(--space-4) var(--space-12);
+  border-top: 1px solid var(--border);
+  margin-top: var(--space-4);
+}
+
+.model-menu-separator-text {
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .chat-send-btn {
   width: 32px;
   height: 32px;

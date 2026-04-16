@@ -6,7 +6,7 @@
  * between main process and UtilityProcess.
  */
 
-import type { AgentSettings, SlashCommand } from './agentTypes'
+import type { AgentBackend, AgentSettings, SlashCommand } from './agentTypes'
 
 /** Commands sent from coordinator (main) → UtilityProcess child. */
 export type WorkerCommand =
@@ -16,6 +16,7 @@ export type WorkerCommand =
       model: string; thinking: boolean; planMode: boolean; sessionName: string
       settings: AgentSettings; images?: string[]; additionalDirectories?: string[]
       linkedWorktreeContext?: string; connectedDeviceId?: string; mobileFramework?: string
+      backend?: AgentBackend
     }
   | {
       type: 'sendMessage'; sessionId: string; message: string; sdkSessionId: string

@@ -2,7 +2,7 @@
 // Store type definitions — shared between store.ts and action slice factories
 // ---------------------------------------------------------------------------
 
-import type { AgentSession, DiffComment, LinkedWorktree, ModelId, SnippetAttachment } from '@/types'
+import type { AgentBackend, AgentSession, DiffComment, LinkedWorktree, ModelId, SnippetAttachment } from '@/types'
 
 export interface QueuedMessage {
   text: string
@@ -36,6 +36,7 @@ export interface SessionsState {
   /** Cascade-close every session belonging to a worktree (memory + disk) */
   closeSessionsByWorktree: (worktreeId: string) => void
   updateModel: (sessionId: string, model: ModelId) => void
+  updateBackend: (sessionId: string, backend: AgentBackend | undefined) => void
   updateThinking: (sessionId: string, enabled: boolean) => void
   updatePlanMode: (sessionId: string, enabled: boolean) => void
   renameSession: (sessionId: string, name: string) => void

@@ -1,3 +1,21 @@
+// ── Agent backend discriminant ──────────────────────────────────────────────
+
+/** Identifies which agent backend a session uses. */
+export type AgentBackend =
+  | { type: 'claude-sdk' }
+  | { type: 'acp'; agentId: string }
+
+/** Registered ACP agent configuration (persisted in ~/Braid/acp-agents.json). */
+export interface AcpAgentConfig {
+  id: string
+  name: string
+  command: string
+  args: string[]
+  env?: Record<string, string>
+}
+
+// ── Session state ───────────────────────────────────────────────────────────
+
 /** Session state tracked per active Claude session. */
 export interface SessionState {
   sdkSessionId?: string

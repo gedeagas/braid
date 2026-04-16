@@ -34,6 +34,7 @@ function makeState(overrides?: Partial<SessionsState>): SessionsState {
     closeSession: () => {},
     closeSessionsByWorktree: () => {},
     updateModel: () => {},
+    updateBackend: () => {},
     updateThinking: () => {},
     updatePlanMode: () => {},
     renameSession: () => {},

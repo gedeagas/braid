@@ -7,7 +7,7 @@
  */
 import { useCallback } from 'react'
 import { useSessionsStore } from '@/store/sessions'
-import type { ModelId, AgentSession } from '@/types'
+import type { AgentBackend, ModelId, AgentSession } from '@/types'
 import type { ChatViewAction } from './ChatView'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { ModelSelector } from './ModelSelector'
@@ -43,6 +43,7 @@ export function ChatHeader({
 }: ChatHeaderProps) {
   const { t } = useTranslation('center')
   const updateModel = useSessionsStore((s) => s.updateModel)
+  const updateBackend = useSessionsStore((s) => s.updateBackend)
   const updateThinking = useSessionsStore((s) => s.updateThinking)
   const updatePlanMode = useSessionsStore((s) => s.updatePlanMode)
   const stopSession = useSessionsStore((s) => s.stopSession)
@@ -52,6 +53,12 @@ export function ChatHeader({
   const handleModelSelect = useCallback((modelId: ModelId) => {
     updateModel(activeSession.id, modelId)
   }, [activeSession.id, updateModel])
+
+  const handleBackendSelect = useCallback((backend: AgentBackend | undefined) => {
+    updateBackend(activeSession.id, backend)
+  }, [activeSession.id, updateBackend])
+
+  const isAcp = activeSession.backend?.type === 'acp'
 
   const handleStop = useCallback(() => {
     if (queuedMessage !== null) {
@@ -85,7 +92,12 @@ export function ChatHeader({
     <div className="chat-bottom-bar">
       <div className="chat-bottom-left">
         {/* Model selector */}
-        <ModelSelector currentModelId={activeSession.model} onSelect={handleModelSelect} />
+        <ModelSelector
+          currentModelId={activeSession.model}
+          backend={activeSession.backend}
+          onSelect={handleModelSelect}
+          onSelectBackend={handleBackendSelect}
+        />
 
         {variant === 'default' && (
           <>
@@ -99,27 +111,31 @@ export function ChatHeader({
               </Tooltip>
             )}
 
-            {/* Thinking toggle */}
-            <Tooltip content={t('thinkingTooltip')}>
-              <button
-                className={`chat-bottom-chip ${activeSession.thinkingEnabled ? 'chip-active' : ''}`}
-                onClick={toggleThinking}
-              >
-                <span className="chip-icon"><IconLightbulb /></span>
-                <span>{t('thinking')}</span>
-              </button>
-            </Tooltip>
+            {/* Thinking toggle - hidden for ACP agents */}
+            {!isAcp && (
+              <Tooltip content={t('thinkingTooltip')}>
+                <button
+                  className={`chat-bottom-chip ${activeSession.thinkingEnabled ? 'chip-active' : ''}`}
+                  onClick={toggleThinking}
+                >
+                  <span className="chip-icon"><IconLightbulb /></span>
+                  <span>{t('thinking')}</span>
+                </button>
+              </Tooltip>
+            )}
 
-            {/* Plan mode toggle */}
-            <Tooltip content={t('planModeTooltip')}>
-              <button
-                className={`chat-bottom-chip ${activeSession.planModeEnabled ? 'chip-active' : ''}`}
-                onClick={togglePlanMode}
-              >
-                <span className="chip-icon"><IconClipboardCheck /></span>
-                <span>{t('planMode')}</span>
-              </button>
-            </Tooltip>
+            {/* Plan mode toggle - hidden for ACP agents */}
+            {!isAcp && (
+              <Tooltip content={t('planModeTooltip')}>
+                <button
+                  className={`chat-bottom-chip ${activeSession.planModeEnabled ? 'chip-active' : ''}`}
+                  onClick={togglePlanMode}
+                >
+                  <span className="chip-icon"><IconClipboardCheck /></span>
+                  <span>{t('planMode')}</span>
+                </button>
+              </Tooltip>
+            )}
 
             {/* Image attach */}
             <Tooltip content={t('attachImage')}>

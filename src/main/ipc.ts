@@ -8,6 +8,7 @@ import { join } from 'path'
 import { storageService } from './services/storage'
 import { gitService } from './services/git'
 import { agentService } from './services/agent'
+import { acpConfigService } from './services/acpConfig'
 import { ptyService } from './services/pty'
 import { githubService } from './services/github'
 import { sessionStorageService, PersistedSession } from './services/sessionStorage'
@@ -114,8 +115,8 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('git:findChildRepos', (_e, parentPath: string) => gitService.findChildRepos(parentPath))
 
   // Agent
-  ipcMain.handle('agent:startSession', (_e, sessionId: string, worktreeId: string, worktreePath: string, prompt: string, model: string, thinking: boolean, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string) =>
-    agentService.startSession(sessionId, worktreeId, worktreePath, prompt, model, thinking, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework)
+  ipcMain.handle('agent:startSession', (_e, sessionId: string, worktreeId: string, worktreePath: string, prompt: string, model: string, thinking: boolean, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string, backend?: import('./services/agentTypes').AgentBackend) =>
+    agentService.startSession(sessionId, worktreeId, worktreePath, prompt, model, thinking, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework, backend)
   )
   ipcMain.handle('agent:sendMessage', (_e, sessionId: string, message: string, sdkSessionId: string, cwd: string, model: string, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string) =>
     agentService.sendMessage(sessionId, message, sdkSessionId, cwd, model, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework)
@@ -147,6 +148,10 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('agent:generateSessionTitle', (_e, userMessage: string, assistantSummary: string, currentTitle?: string) =>
     agentService.generateSessionTitle(userMessage, assistantSummary, currentTitle)
   )
+
+  // ACP agent config
+  ipcMain.handle('agent:getAcpAgents', () => acpConfigService.load())
+  ipcMain.handle('agent:saveAcpAgents', (_e, agents: import('./services/agentTypes').AcpAgentConfig[]) => acpConfigService.save(agents))
 
   // PTY
   ipcMain.handle('pty:spawn', (_e, cwd: string) => ptyService.spawn(cwd))

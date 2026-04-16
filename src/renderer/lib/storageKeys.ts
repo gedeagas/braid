@@ -105,6 +105,7 @@ export const SK = {
 
   // ── Experimental / Web apps ────────────────────────────────────────────
   experimentalCapture:        `${prefix}:experimentalCapture`,
+  experimentalAcp:            `${prefix}:experimentalAcp`,
   bottomTerminalEnabled:      `${prefix}:bottomTerminalEnabled`,
   noVirtualization:           `${prefix}:noVirtualization`,
   webAppsEnabled:             `${prefix}:webAppsEnabled`,

@@ -1,3 +1,10 @@
+// ─── Agent backend ────────────────────────────────────────────────────────────
+
+/** Identifies which agent backend a session uses. */
+export type AgentBackend =
+  | { type: 'claude-sdk' }
+  | { type: 'acp'; agentId: string; agentName: string }
+
 // ─── Session ──────────────────────────────────────────────────────────────────
 
 export type SessionStatus = 'idle' | 'running' | 'waiting_input' | 'error' | 'inactive'
@@ -84,6 +91,8 @@ export interface AgentSession {
   linkedWorktrees?: LinkedWorktree[]
   /** When set, the mobile-device MCP server is injected into this session. */
   connectedDeviceId?: string
+  /** Agent backend for this session. Omitted = claude-sdk (backward compat). */
+  backend?: AgentBackend
 }
 
 export type ContentBlock =
