@@ -3,7 +3,7 @@
  *
  * Handles: drag-and-drop, paste, image previews, file mention chips,
  * snippet chips, context warning, textarea, slash/mention autocomplete,
- * queued-message banner, and prompt overlays (AskUserQuestion, ExitPlanMode, ToolPermission).
+ * queued-message banner, and prompt overlays (ExitPlanMode, ToolPermission).
  *
  * Extracted from ChatView.tsx to keep each file under the 450-line limit.
  */
@@ -14,7 +14,6 @@ import { MentionAutocomplete } from './MentionAutocomplete'
 import { InputHighlightBackdrop } from './mentionHighlight'
 import { SnippetChips } from './SnippetChips'
 import { LinkedWorktreeChips } from './LinkedWorktreeChips'
-import { AskUserQuestionPrompt } from './AskUserQuestionPrompt'
 import { ExitPlanModePrompt } from './ExitPlanModePrompt'
 import { ToolPermissionPrompt } from './ToolPermissionPrompt'
 import { AuthErrorPrompt } from './AuthErrorPrompt'
@@ -76,7 +75,6 @@ export function ChatInput({
   const setQueuedMessage = useSessionsStore((s) => s.setQueuedMessage)
   const setEditingQueue = useSessionsStore((s) => s.setEditingQueue)
   const drainDeferredQueue = useSessionsStore((s) => s.drainDeferredQueue)
-  const answerQuestion = useSessionsStore((s) => s.answerQuestion)
   const approvePlan = useSessionsStore((s) => s.approvePlan)
   const rejectPlan = useSessionsStore((s) => s.rejectPlan)
   const allowTool = useSessionsStore((s) => s.allowTool)
@@ -242,10 +240,6 @@ export function ChatInput({
 
   // ─── Prompts ───────────────────────────────────────────────────────────────
 
-  const handleAnswerSubmit = useCallback((answers: Record<string, string>) => {
-    answerQuestion(activeSession.id, answers)
-  }, [activeSession.id, answerQuestion])
-
   const handlePlanApprove = useCallback(() => approvePlan(activeSession.id), [activeSession.id, approvePlan])
   const handlePlanReject = useCallback((reason?: string) => rejectPlan(activeSession.id, reason), [activeSession.id, rejectPlan])
   const handleAllowTool = useCallback(() => allowTool(activeSession.id), [activeSession.id, allowTool])
@@ -297,9 +291,6 @@ export function ChatInput({
       onDrop={handleDrop}
     >
       {/* Prompt overlays - hidden in diff variant */}
-      {variant === 'default' && isWaitingInput && activeSession.pendingQuestion && (
-        <AskUserQuestionPrompt pendingQuestion={activeSession.pendingQuestion} onSubmit={handleAnswerSubmit} />
-      )}
       {variant === 'default' && isWaitingInput && activeSession.pendingPlanApproval && (
         <ExitPlanModePrompt
           onApprove={handlePlanApprove}
