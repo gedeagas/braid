@@ -322,7 +322,10 @@ export class AcpWorker {
 
     // Register server-side handlers for agent-initiated methods
     rpc.addMethod('session/update', (params) => {
-      clientHandlers.sessionUpdate(params as Record<string, unknown>)
+      const p = params as Record<string, unknown>
+      // ACP wraps the update in {sessionId, update} - extract the inner object
+      const inner = (p.update as Record<string, unknown>) ?? p
+      clientHandlers.sessionUpdate(inner)
       // Notifications don't return a value
     })
 
