@@ -140,14 +140,16 @@ function classifyCloneError(err: unknown): CloneErrorCode {
 }
 
 /**
- * Clones a remote git URL into ~/${DATA_DIR_NAME}/worktrees/{repoName}/.
+ * Clones a remote git URL into ~/${DATA_DIR_NAME}/repos/{repoName}/.
  * Returns the local path of the cloned repository.
  */
 export async function cloneRepo(url: string, storagePath?: string): Promise<string> {
   const repoName = parseRepoName(url)
+  // Clone into ~/Braid/repos/ (not ~/Braid/worktrees/) so the cloned repo
+  // doesn't collide with worktrees created at ~/Braid/worktrees/{project}/{branch}/
   const baseDir = storagePath
     ? storagePath.replace(/^~/, homedir())
-    : join(homedir(), DATA_DIR_NAME, 'worktrees')
+    : join(homedir(), DATA_DIR_NAME, 'repos')
   const targetPath = join(baseDir, repoName)
 
   mkdirSync(dirname(targetPath), { recursive: true })

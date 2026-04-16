@@ -268,7 +268,7 @@ describe('cloneRepo', () => {
     mockMkdirSync.mockReturnValue(undefined)
   })
 
-  it('clones to ~/Braid/worktrees/{repoName}/', async () => {
+  it('clones to ~/Braid/repos/{repoName}/', async () => {
     mockExistsSync.mockReturnValue(false)
     mockClone.mockResolvedValue('')
 
