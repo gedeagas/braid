@@ -1,10 +1,9 @@
 import { logger } from '../../lib/logger'
-import { getGit } from './core'
+import { getGit, getValidGit } from './core'
 import { mkdirSync, existsSync, rmSync } from 'fs'
 import { join, dirname } from 'path'
 import { homedir } from 'os'
 import { DATA_DIR_NAME } from '../../appBrand'
-import { getValidGit } from './core'
 import type { WorktreeInfo } from './types'
 
 export async function getWorktrees(repoPath: string): Promise<WorktreeInfo[]> {
