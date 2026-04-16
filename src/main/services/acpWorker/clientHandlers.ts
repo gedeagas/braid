@@ -9,7 +9,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { dirname } from 'path'
 import type { WorkerEvent } from '../agentTypes'
-import { mapSessionUpdate, finalizeTurn, createTurnState, type TurnState } from './eventMapper'
+import { mapSessionUpdate, createTurnState, type TurnState } from './eventMapper'
 
 export interface ClientHandlers {
   /** Called for every ACP session/update notification. */
@@ -26,6 +26,8 @@ export interface ClientHandlers {
   getTurnState(): TurnState
   /** Reset turn state for a new prompt. */
   resetTurn(): void
+  /** Reject all pending permission promises (called on session close/stop). */
+  cleanup(): void
 }
 
 export function createClientHandlers(
@@ -89,6 +91,14 @@ export function createClientHandlers(
 
     resetTurn(): void {
       turnState = createTurnState()
+    },
+
+    cleanup(): void {
+      // Resolve all pending permission promises as "reject" so they don't hang forever
+      for (const [, pending] of pendingPermissions) {
+        pending.resolve({ optionId: 'reject_once' })
+      }
+      pendingPermissions.clear()
     }
   }
 }

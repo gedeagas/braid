@@ -19,6 +19,7 @@
   "queueSave": "Save",
   "queueCancel": "Cancel",
   "switchModel": "Switch model",
+  "acpAgentsSection": "ACP Agents",
   "stopTooltip": "Stop generation",
   "stopRestoreTooltip": "Stop and restore queued message to input",
   "stop": "Stop",

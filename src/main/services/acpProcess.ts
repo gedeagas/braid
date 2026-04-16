@@ -23,7 +23,8 @@ process.parentPort!.on('message', (e: { data: WorkerCommand }) => {
         cmd.worktreePath, cmd.prompt, cmd.model,
         cmd.thinking, cmd.planMode, cmd.sessionName, cmd.settings,
         cmd.images, cmd.additionalDirectories, cmd.linkedWorktreeContext,
-        cmd.connectedDeviceId, cmd.mobileFramework, cmd.backend
+        cmd.connectedDeviceId, cmd.mobileFramework, cmd.backend,
+        cmd.agentConfig
       )
       break
     case 'sendMessage':
@@ -42,6 +43,9 @@ process.parentPort!.on('message', (e: { data: WorkerCommand }) => {
       break
     case 'answerToolInput':
       worker.answerToolInput(cmd.sessionId, cmd.result)
+      break
+    case 'answerElicitation':
+      worker.answerElicitation(cmd.sessionId, cmd.result)
       break
     case 'updateSessionName':
       worker.updateSessionName(cmd.sessionId, cmd.name)

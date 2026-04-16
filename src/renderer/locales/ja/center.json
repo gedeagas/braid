@@ -19,6 +19,7 @@
   "queueSave": "保存",
   "queueCancel": "キャンセル",
   "switchModel": "モデルを切り替え",
+  "acpAgentsSection": "ACPエージェント",
   "stopTooltip": "生成を停止",
   "stopRestoreTooltip": "停止してキューのメッセージを入力欄に戻す",
   "stop": "停止",

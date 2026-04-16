@@ -6,15 +6,25 @@
  * WorkerEvent types identical to AgentWorker so the coordinator
  * and renderer need zero changes.
  *
- * ⚠️  This file runs in a UtilityProcess (acpProcess.ts).
- *     Only Node.js APIs are available - no Electron imports.
+ * This file runs in a UtilityProcess (acpProcess.ts).
+ * Only Node.js APIs are available - no Electron imports.
  */
 
 import { spawn, type ChildProcess } from 'child_process'
-import type { WorkerEvent, AgentSettings, AgentBackend } from '../agentTypes'
-import { acpConfigService } from '../acpConfig'
+import type { WorkerEvent, AgentSettings, AgentBackend, AcpAgentConfig } from '../agentTypes'
 import { createClientHandlers, type ClientHandlers } from './clientHandlers'
 import { finalizeTurn } from './eventMapper'
+
+/** JSON-RPC 2.0 allows both number and string IDs. */
+type RpcId = number | string
+
+const RPC_TIMEOUT_MS = 60_000
+
+interface PendingRpc {
+  resolve: (v: unknown) => void
+  reject: (e: Error) => void
+  timer: ReturnType<typeof setTimeout>
+}
 
 interface AcpSession {
   acpSessionId: string
@@ -22,6 +32,10 @@ interface AcpSession {
   clientHandlers: ClientHandlers
   /** Buffered NDJSON data from stdout. */
   stdoutBuffer: string
+  /** Per-session pending RPCs to avoid cross-session ID collisions. */
+  pendingRpc: Map<number, PendingRpc>
+  /** Per-session RPC ID counter. */
+  rpcId: number
 }
 
 /**
@@ -31,9 +45,12 @@ interface AcpSession {
 export class AcpWorker {
   private emit: (event: WorkerEvent) => void
   private sessions = new Map<string, AcpSession>()
-  /** Tracks pending JSON-RPC request IDs for correlating responses. */
-  private rpcId = 0
-  private pendingRpc = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>()
+  /**
+   * Agent config injected from the coordinator (main process reads the config
+   * file, then passes it via the startSession command). This avoids importing
+   * Electron's `app` module which is unavailable in UtilityProcess.
+   */
+  private agentConfig: AcpAgentConfig | null = null
 
   constructor(emit: (event: WorkerEvent) => void) {
     this.emit = emit
@@ -55,35 +72,28 @@ export class AcpWorker {
     _linkedWorktreeContext?: string,
     _connectedDeviceId?: string,
     _mobileFramework?: string,
-    backend?: AgentBackend
+    backend?: AgentBackend,
+    agentConfig?: AcpAgentConfig
   ): Promise<void> {
     try {
-      const agentId = backend?.type === 'acp' ? backend.agentId : ''
-      const agentConfig = acpConfigService.get(agentId)
-      if (!agentConfig) {
+      // Prefer injected config from coordinator, fall back to stored
+      const config = agentConfig ?? this.agentConfig
+      if (!config) {
+        const agentId = backend?.type === 'acp' ? backend.agentId : ''
         this.emit({ type: 'error', sessionId, message: `ACP agent "${agentId}" not found in configuration` })
         return
       }
+      this.agentConfig = config
 
       // Spawn agent subprocess
-      const agentProcess = spawn(agentConfig.command, agentConfig.args, {
+      const agentProcess = spawn(config.command, config.args, {
         stdio: ['pipe', 'pipe', 'inherit'],
         cwd: worktreePath,
-        env: { ...process.env, ...agentConfig.env }
+        env: { ...process.env, ...config.env }
       })
 
       agentProcess.on('error', (err) => {
         this.emit({ type: 'error', sessionId, message: `Failed to spawn ACP agent: ${err.message}` })
-      })
-
-      agentProcess.on('exit', (code) => {
-        if (this.sessions.has(sessionId)) {
-          this.sessions.delete(sessionId)
-        }
-        // Don't emit error on normal exit (code 0)
-        if (code !== 0 && code !== null) {
-          this.emit({ type: 'error', sessionId, message: `ACP agent exited with code ${code}` })
-        }
       })
 
       // Set up client handlers for the ACP callbacks
@@ -93,15 +103,31 @@ export class AcpWorker {
         acpSessionId: '',
         agentProcess,
         clientHandlers,
-        stdoutBuffer: ''
+        stdoutBuffer: '',
+        pendingRpc: new Map(),
+        rpcId: 0,
       }
       this.sessions.set(sessionId, session)
+
+      agentProcess.on('exit', (code) => {
+        // Reject all pending RPCs for this session
+        this.rejectAllPendingRpc(session, `ACP agent exited (code ${code})`)
+        // Clean up pending permissions
+        clientHandlers.cleanup()
+        if (this.sessions.has(sessionId)) {
+          this.sessions.delete(sessionId)
+        }
+        // Don't emit error on normal exit (code 0)
+        if (code !== 0 && code !== null) {
+          this.emit({ type: 'error', sessionId, message: `ACP agent exited with code ${code}` })
+        }
+      })
 
       // Set up NDJSON reader on stdout
       this.setupStdoutReader(sessionId, session)
 
       // ACP handshake: initialize -> newSession -> prompt
-      const initResult = await this.sendRpc(session, 'initialize', {
+      await this.sendRpc(session, 'initialize', {
         protocolVersion: 1,
         clientInfo: { name: 'Braid', version: '1.0.0' },
         clientCapabilities: {
@@ -109,8 +135,6 @@ export class AcpWorker {
           terminal: false // Terminal support comes in phase 2
         }
       })
-
-      const capabilities = (initResult as Record<string, unknown>)?.capabilities ?? {}
 
       const newSessionResult = await this.sendRpc(session, 'session/new', {
         cwd: worktreePath
@@ -125,14 +149,14 @@ export class AcpWorker {
         slashCommands: []
       })
 
-      // Send the prompt
+      // Send the prompt - notifications arrive during the RPC await
       clientHandlers.resetTurn()
       await this.sendRpc(session, 'session/prompt', {
         sessionId: session.acpSessionId,
         prompt: [{ type: 'text', text: prompt }]
       })
 
-      // Finalize the turn
+      // Finalize the turn (close any open blocks, emit result)
       const finalEvents = finalizeTurn(sessionId, clientHandlers.getTurnState())
       for (const event of finalEvents) this.emit(event)
 
@@ -183,8 +207,10 @@ export class AcpWorker {
 
   stopSession(sessionId: string): void {
     const session = this.sessions.get(sessionId)
-    if (session?.agentProcess) {
-      session.agentProcess.kill('SIGTERM')
+    if (session) {
+      this.rejectAllPendingRpc(session, 'Session stopped')
+      session.clientHandlers.cleanup()
+      session.agentProcess?.kill('SIGTERM')
     }
     this.sessions.delete(sessionId)
     this.emit({ type: 'done', sessionId })
@@ -192,8 +218,10 @@ export class AcpWorker {
 
   closeSession(sessionId: string): void {
     const session = this.sessions.get(sessionId)
-    if (session?.agentProcess) {
-      session.agentProcess.kill('SIGKILL')
+    if (session) {
+      this.rejectAllPendingRpc(session, 'Session closed')
+      session.clientHandlers.cleanup()
+      session.agentProcess?.kill('SIGKILL')
     }
     this.sessions.delete(sessionId)
   }
@@ -209,24 +237,51 @@ export class AcpWorker {
     }
   }
 
+  answerElicitation(_sessionId: string, _result: { action: string; content?: Record<string, unknown> }): void {
+    // No-op for ACP agents (no elicitation support yet)
+  }
+
   updateSessionName(_sessionId: string, _name: string): void {
     // No-op for ACP agents
   }
 
-  // ── JSON-RPC over NDJSON ────────────────────────────────────────────────
+  // -- JSON-RPC over NDJSON --------------------------------------------------
 
   private sendRpc(session: AcpSession, method: string, params: unknown): Promise<unknown> {
     return new Promise((resolve, reject) => {
-      const id = ++this.rpcId
-      this.pendingRpc.set(id, { resolve, reject })
+      const id = ++session.rpcId
+
+      const timer = setTimeout(() => {
+        session.pendingRpc.delete(id)
+        reject(new Error(`ACP RPC timeout after ${RPC_TIMEOUT_MS}ms (method: ${method})`))
+      }, RPC_TIMEOUT_MS)
+
+      session.pendingRpc.set(id, { resolve, reject, timer })
 
       const message = JSON.stringify({ jsonrpc: '2.0', id, method, params })
-      const ok = session.agentProcess.stdin?.write(message + '\n')
+      const stdin = session.agentProcess.stdin
+      if (!stdin || !stdin.writable) {
+        clearTimeout(timer)
+        session.pendingRpc.delete(id)
+        reject(new Error(`Failed to write to ACP agent stdin (method: ${method})`))
+        return
+      }
+      const ok = stdin.write(message + '\n')
       if (!ok) {
-        this.pendingRpc.delete(id)
+        clearTimeout(timer)
+        session.pendingRpc.delete(id)
         reject(new Error(`Failed to write to ACP agent stdin (method: ${method})`))
       }
     })
+  }
+
+  /** Reject all pending RPCs for a session and clear their timers. */
+  private rejectAllPendingRpc(session: AcpSession, reason: string): void {
+    for (const [id, pending] of session.pendingRpc) {
+      clearTimeout(pending.timer)
+      pending.reject(new Error(reason))
+    }
+    session.pendingRpc.clear()
   }
 
   private setupStdoutReader(sessionId: string, session: AcpSession): void {
@@ -257,11 +312,13 @@ export class AcpWorker {
     session: AcpSession,
     msg: Record<string, unknown>
   ): void {
-    // JSON-RPC response (has 'id' field)
-    if (msg.id != null && typeof msg.id === 'number') {
-      const pending = this.pendingRpc.get(msg.id)
+    // JSON-RPC response (has 'id' field - supports both number and string IDs)
+    if (msg.id != null && (typeof msg.id === 'number' || typeof msg.id === 'string')) {
+      const numericId = typeof msg.id === 'string' ? parseInt(msg.id, 10) : msg.id
+      const pending = session.pendingRpc.get(numericId)
       if (pending) {
-        this.pendingRpc.delete(msg.id)
+        clearTimeout(pending.timer)
+        session.pendingRpc.delete(numericId)
         if (msg.error) {
           const err = msg.error as Record<string, unknown>
           pending.reject(new Error((err.message as string) ?? 'ACP RPC error'))
@@ -313,10 +370,11 @@ export class AcpWorker {
     handler: () => Promise<unknown>
   ): Promise<void> {
     const id = msg.id
+    const stdin = session.agentProcess.stdin
     try {
       const result = await handler()
       const response = JSON.stringify({ jsonrpc: '2.0', id, result })
-      session.agentProcess.stdin?.write(response + '\n')
+      if (stdin?.writable) stdin.write(response + '\n')
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       const response = JSON.stringify({
@@ -324,7 +382,7 @@ export class AcpWorker {
         id,
         error: { code: -32000, message }
       })
-      session.agentProcess.stdin?.write(response + '\n')
+      if (stdin?.writable) stdin.write(response + '\n')
     }
   }
 }

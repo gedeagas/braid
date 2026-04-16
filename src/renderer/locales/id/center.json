@@ -19,6 +19,7 @@
   "queueSave": "Simpan",
   "queueCancel": "Batal",
   "switchModel": "Ganti model",
+  "acpAgentsSection": "Agen ACP",
   "stopTooltip": "Hentikan pembuatan",
   "stopRestoreTooltip": "Hentikan dan kembalikan pesan dalam antrean ke input",
   "stop": "Hentikan",

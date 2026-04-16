@@ -36,14 +36,13 @@ export const createModelSettingsActions: StateCreator<
   },
 
   updateBackend: (sessionId, backend) => {
-    const session = get().sessions[sessionId]
-    if (session) {
-      set((s) => ({
-        sessions: { ...s.sessions, [sessionId]: { ...session, backend } }
-      }))
-      persistSession(sessionId)
-      console.log(`[Braid] backend changed → ${backend?.type ?? 'claude-sdk'}`)
-    }
+    set((s) => {
+      const session = s.sessions[sessionId]
+      if (!session) return s
+      return { sessions: { ...s.sessions, [sessionId]: { ...session, backend } } }
+    })
+    persistSession(sessionId)
+    console.log(`[Braid] backend changed → ${backend?.type ?? 'claude-sdk'}`)
   },
 
   updateThinking: (sessionId, enabled) => {

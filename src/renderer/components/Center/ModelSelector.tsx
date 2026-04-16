@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next'
 import * as ipc from '@/lib/ipc'
 import { useUIStore } from '@/store/ui'
 import { Tooltip } from '@/components/shared/Tooltip'
-import { IconSparkle, IconCheckmark, IconChevronDown } from '@/components/shared/icons'
+import { IconSparkle, IconCheckmark, IconChevronDown, IconBolt } from '@/components/shared/icons'
 import type { AgentBackend, ModelId } from '@/types'
 
 export const MODELS: { id: ModelId; label: string }[] = [
@@ -138,7 +138,7 @@ export function ModelSelector({ currentModelId, backend, onSelect, onSelectBacke
             {experimentalAcp && acpAgents.length > 0 && (
               <>
                 <div role="separator" className="model-menu-separator">
-                  <span className="model-menu-separator-text">ACP Agents</span>
+                  <span className="model-menu-separator-text">{t('acpAgentsSection')}</span>
                 </div>
                 {acpAgents.map((agent) => (
                   <button
@@ -147,7 +147,7 @@ export function ModelSelector({ currentModelId, backend, onSelect, onSelectBacke
                     className={`model-menu-item${isAcp && backend.agentId === agent.id ? ' model-menu-item--active' : ''}`}
                     onClick={() => handleSelectAgent(agent)}
                   >
-                    <span className="chip-icon" style={{ opacity: 0.7 }}>⚡</span>
+                    <span className="chip-icon" style={{ opacity: 0.7 }}><IconBolt size={12} /></span>
                     <span>{agent.name}</span>
                     {isAcp && backend.agentId === agent.id && (
                       <IconCheckmark style={{ marginLeft: 'auto' }} />

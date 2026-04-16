@@ -14,12 +14,24 @@ export interface TurnState {
   started: boolean
   /** Whether we've emitted content_block_start for text. */
   textBlockStarted: boolean
+  /** Whether a thinking block is currently open. */
+  thinkingBlockStarted: boolean
   /** Running block index for content_block_start/stop. */
   blockIndex: number
+  /** Accumulated token usage for the turn (updated by cost_update). */
+  inputTokens: number
+  outputTokens: number
 }
 
 export function createTurnState(): TurnState {
-  return { started: false, textBlockStarted: false, blockIndex: 0 }
+  return {
+    started: false,
+    textBlockStarted: false,
+    thinkingBlockStarted: false,
+    blockIndex: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+  }
 }
 
 /**
@@ -37,15 +49,16 @@ export function mapSessionUpdate(
   switch (kind) {
     case 'agent_message_chunk': {
       // Ensure message_start is sent once per turn
-      if (!turn.started) {
-        turn.started = true
+      ensureMessageStarted(sessionId, turn, events)
+
+      // Close any open thinking block before starting text
+      if (turn.thinkingBlockStarted) {
         events.push(sdkMsg(sessionId, {
           type: 'stream_event',
-          event: {
-            type: 'message_start',
-            message: { usage: { input_tokens: 0, output_tokens: 0 } }
-          }
+          event: { type: 'content_block_stop', index: turn.blockIndex }
         }))
+        turn.thinkingBlockStarted = false
+        turn.blockIndex++
       }
 
       // Ensure content_block_start for text is sent once
@@ -78,26 +91,21 @@ export function mapSessionUpdate(
     }
 
     case 'agent_thought_chunk': {
-      // Thinking blocks - the renderer shows activity but ignores the content
-      if (!turn.started) {
-        turn.started = true
+      // Thinking blocks - the renderer shows activity indicator
+      ensureMessageStarted(sessionId, turn, events)
+
+      // Only emit content_block_start once for a contiguous thinking sequence
+      if (!turn.thinkingBlockStarted) {
+        turn.thinkingBlockStarted = true
         events.push(sdkMsg(sessionId, {
           type: 'stream_event',
           event: {
-            type: 'message_start',
-            message: { usage: { input_tokens: 0, output_tokens: 0 } }
+            type: 'content_block_start',
+            index: turn.blockIndex,
+            content_block: { type: 'thinking' }
           }
         }))
       }
-      // Emit a thinking content_block_start so the renderer shows "Thinking..."
-      events.push(sdkMsg(sessionId, {
-        type: 'stream_event',
-        event: {
-          type: 'content_block_start',
-          index: turn.blockIndex,
-          content_block: { type: 'thinking' }
-        }
-      }))
       break
     }
 
@@ -107,6 +115,8 @@ export function mapSessionUpdate(
       const toolName = (update.name as string) ?? 'unknown'
 
       if (status === 'running' || status === 'started' || !status) {
+        ensureMessageStarted(sessionId, turn, events)
+
         // Close any open text block
         if (turn.textBlockStarted) {
           events.push(sdkMsg(sessionId, {
@@ -114,6 +124,16 @@ export function mapSessionUpdate(
             event: { type: 'content_block_stop', index: turn.blockIndex }
           }))
           turn.textBlockStarted = false
+          turn.blockIndex++
+        }
+
+        // Close any open thinking block
+        if (turn.thinkingBlockStarted) {
+          events.push(sdkMsg(sessionId, {
+            type: 'stream_event',
+            event: { type: 'content_block_stop', index: turn.blockIndex }
+          }))
+          turn.thinkingBlockStarted = false
           turn.blockIndex++
         }
 
@@ -153,22 +173,12 @@ export function mapSessionUpdate(
     }
 
     case 'cost_update': {
+      // Accumulate tokens in turn state instead of emitting a duplicate message_start.
+      // The renderer picks up usage from the initial message_start event.
       const inputTokens = (update.inputTokens as number) ?? 0
       const outputTokens = (update.outputTokens as number) ?? 0
-      if (inputTokens > 0 || outputTokens > 0) {
-        events.push(sdkMsg(sessionId, {
-          type: 'stream_event',
-          event: {
-            type: 'message_start',
-            message: {
-              usage: {
-                input_tokens: inputTokens,
-                output_tokens: outputTokens
-              }
-            }
-          }
-        }))
-      }
+      turn.inputTokens += inputTokens
+      turn.outputTokens += outputTokens
       break
     }
 
@@ -189,10 +199,33 @@ export function mapSessionUpdate(
 export function finalizeTurn(sessionId: string, turn: TurnState): WorkerEvent[] {
   const events: WorkerEvent[] = []
 
+  // Close any open thinking block
+  if (turn.thinkingBlockStarted) {
+    events.push(sdkMsg(sessionId, {
+      type: 'stream_event',
+      event: { type: 'content_block_stop', index: turn.blockIndex }
+    }))
+  }
+
+  // Close any open text block
   if (turn.textBlockStarted) {
     events.push(sdkMsg(sessionId, {
       type: 'stream_event',
       event: { type: 'content_block_stop', index: turn.blockIndex }
+    }))
+  }
+
+  // Emit final usage via message_delta (same as Claude SDK does)
+  if (turn.inputTokens > 0 || turn.outputTokens > 0) {
+    events.push(sdkMsg(sessionId, {
+      type: 'stream_event',
+      event: {
+        type: 'message_delta',
+        usage: {
+          input_tokens: turn.inputTokens,
+          output_tokens: turn.outputTokens
+        }
+      }
     }))
   }
 
@@ -204,6 +237,21 @@ export function finalizeTurn(sessionId: string, turn: TurnState): WorkerEvent[] 
   }))
 
   return events
+}
+
+// -- Helpers ----------------------------------------------------------------
+
+/** Ensure message_start has been emitted for this turn (idempotent). */
+function ensureMessageStarted(sessionId: string, turn: TurnState, events: WorkerEvent[]): void {
+  if (turn.started) return
+  turn.started = true
+  events.push(sdkMsg(sessionId, {
+    type: 'stream_event',
+    event: {
+      type: 'message_start',
+      message: { usage: { input_tokens: 0, output_tokens: 0 } }
+    }
+  }))
 }
 
 function sdkMsg(sessionId: string, message: unknown): WorkerEvent {

@@ -3,7 +3,7 @@
 /** Identifies which agent backend a session uses. */
 export type AgentBackend =
   | { type: 'claude-sdk' }
-  | { type: 'acp'; agentId: string }
+  | { type: 'acp'; agentId: string; agentName: string }
 
 /** Registered ACP agent configuration (persisted in ~/Braid/acp-agents.json). */
 export interface AcpAgentConfig {

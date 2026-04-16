@@ -121,7 +121,7 @@ export function SettingsAgents() {
                 </Button>
               )}
               <Button
-                variant="default"
+                variant="danger"
                 size="sm"
                 onClick={() => dispatch({ type: 'REMOVE_AGENT', id: agent.id })}
               >

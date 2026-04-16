@@ -5,6 +5,7 @@ import { execFile } from 'child_process'
 import { mainSettings } from '../ipc'
 import type { WorkerEvent, AgentSettings, AgentBackend, SlashCommand } from './agentTypes'
 import type { WorkerCommand, WorkerResult } from './agentProcessTypes'
+import { acpConfigService } from './acpConfig'
 import { ptyService } from './pty'
 import { enrichedEnv } from '../lib/enrichedEnv'
 
@@ -295,12 +296,17 @@ class AgentCoordinator {
     const branch = await resolveGitBranch(worktreePath)
     const projectName = path.basename(path.dirname(worktreePath))
     this.sessionMeta.set(sessionId, { sessionName, cwd: worktreePath, branch, projectName, backend: backend ?? { type: 'claude-sdk' } })
+
+    // Resolve ACP agent config in the main process (which can use Electron APIs)
+    // and pass it to the UtilityProcess worker to avoid Electron imports there.
+    const agentConfig = backend?.type === 'acp' ? acpConfigService.get(backend.agentId) : undefined
+
     this.postCommand(sessionId, {
       type: 'startSession', sessionId, worktreeId, projectName,
       worktreePath, prompt, model, thinking,
       planMode, sessionName, settings: this.getAgentSettings(), images,
       additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework,
-      backend
+      backend, agentConfig
     }, backend)
   }
 
