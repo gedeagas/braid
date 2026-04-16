@@ -175,8 +175,12 @@ class AgentCoordinator {
         } else {
           this.sendEvent(event.sessionId, { type: 'waiting_input', reason: event.reason })
         }
+        // Fire desktop notification directly from the main process. For
+        // waiting_input we intentionally bypass the isFocused guard (see
+        // maybeNotify) because the user may be looking at a different session
+        // or have Braid focused behind another app.
         this.maybeNotify(event.sessionId, 'waiting_input', undefined,
-          event.reason === 'tool_permission' || event.reason === 'elicitation' ? undefined : event.reason)
+          event.reason === 'question' || event.reason === 'plan_approval' ? event.reason : undefined)
         break
       case 'elicitation_complete':
         this.sendEvent(event.sessionId, { type: 'elicitation_complete', serverName: event.serverName })
@@ -411,7 +415,10 @@ class AgentCoordinator {
     if (type === 'waiting_input' && !mainSettings.notifyOnWaitingInput) return
 
     const win = this.getWindow()
-    if (win && !win.isDestroyed() && win.isFocused()) return
+    // For waiting_input (AI asking a question), always notify regardless of focus —
+    // the user may be looking at a different session or worktree.
+    const skipWhenFocused = type !== 'waiting_input'
+    if (skipWhenFocused && win && !win.isDestroyed() && win.isFocused()) return
 
     if (process.platform === 'darwin' && app.dock) {
       app.dock.bounce(type === 'waiting_input' ? 'critical' : 'informational')
@@ -436,7 +443,7 @@ class AgentCoordinator {
       ? `${projectPrefix}${rawName} — ${branch}`
       : `${projectPrefix}${sessionName}`
 
-    const waitingTitle = reason === 'plan_approval' ? 'Plan ready for review' : 'Agent has a question'
+    const waitingTitle = reason === 'plan_approval' ? 'Plan ready for review' : reason === 'question' ? 'Agent has a question' : 'Agent needs input'
     const waitingBody = reason === 'plan_approval'
       ? `${label} — review and approve the plan`
       : `${label} — reply to continue`

@@ -37,9 +37,10 @@ export function maybeShowToast(
   if (type === 'error' && !ui.notifyOnError) return
   if (type === 'waiting_input' && !ui.notifyOnWaitingInput) return
 
-  // Skip if user is already viewing this session
+  // Skip if user is already viewing this session — but always notify for
+  // waiting_input: Claude is blocked and needs attention regardless of focus
   const cv = ui.activeCenterView
-  if (cv?.type === 'session' && cv.sessionId === sessionId) return
+  if (type !== 'waiting_input' && cv?.type === 'session' && cv.sessionId === sessionId) return
 
   const session = deps.getSessionInfo(sessionId)
   if (!session) return
@@ -69,8 +70,13 @@ export function fireDesktopNotification(
   sessionId: string,
   type: 'done' | 'error' | 'waiting_input',
   sessionName: string,
-  deps: Pick<NotificationDeps, 'desktopNotify'>
+  deps: Pick<NotificationDeps, 'desktopNotify'>,
+  reason?: 'question' | 'plan_approval'
 ): void {
+  if (reason !== undefined) {
+    deps.desktopNotify(sessionId, type, sessionName, undefined, reason)
+    return
+  }
   deps.desktopNotify(sessionId, type, sessionName)
 }
 
@@ -108,7 +114,7 @@ export function createNotificationDeps(): NotificationDeps {
     },
     getProjectCount: () => useProjectsStore.getState().projects.length,
     addToast: (toast) => useToastsStore.getState().addToast(toast),
-    desktopNotify: (sessionId, type, name) =>
-      ipc.agent.notify(sessionId, type as 'done' | 'error' | 'waiting_input', name)
+    desktopNotify: (sessionId, type, name, errorMessage, reason) =>
+      ipc.agent.notify(sessionId, type, name, errorMessage, reason)
   }
 }
