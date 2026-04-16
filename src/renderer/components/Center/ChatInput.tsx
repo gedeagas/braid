@@ -72,6 +72,7 @@ export function ChatInput({
   const { attachedImages, isDragOver, showSlash, slashFilter, slashIndex, editingQueue, queueEditValue } = state
 
   const setDraftInput = useSessionsStore((s) => s.setDraftInput)
+  const stopSession = useSessionsStore((s) => s.stopSession)
   const fetchSlashCommands = useSessionsStore((s) => s.fetchSlashCommands)
   const setQueuedMessage = useSessionsStore((s) => s.setQueuedMessage)
   const setEditingQueue = useSessionsStore((s) => s.setEditingQueue)
@@ -94,6 +95,32 @@ export function ChatInput({
     handleInputChangeForMention, handleMentionKeyDown,
     buildPromptWithFiles, clearFiles: clearMentionFiles, attachedFiles: mentionFiles,
   } = mention
+
+  // ─── Message history navigation ──────────────────────────────────────────
+  const historyIndexRef = useRef(-1) // -1 = not browsing history
+  const savedDraftRef = useRef('')   // draft saved before entering history
+  const lastEscapeRef = useRef(0)    // timestamp of last Escape — for double-Esc detection
+
+  const userMessages = useMemo(
+    () => activeSession.messages
+      .filter((m) => m.role === 'user')
+      .map((m) => ({
+        text: (m.content ?? '')
+          .replace(/\[Image \d+\]:\s*/g, '')
+          .replace(/data:[^;]+;base64,[A-Za-z0-9+/=]+/g, '')
+          .trim(),
+        images: m.images ?? [],
+      }))
+      .filter((m) => m.text || m.images.length > 0),
+    [activeSession.messages]
+  )
+
+  // Reset history cursor and escape tracker when switching sessions
+  useEffect(() => {
+    historyIndexRef.current = -1
+    savedDraftRef.current = ''
+    lastEscapeRef.current = 0
+  }, [activeSession.id])
 
   // ─── Auto-resize textarea + sync backdrop ────────────────────────────────
   useEffect(() => {
@@ -180,6 +207,7 @@ export function ChatInput({
 
   const handleInputChange = useCallback((value: string) => {
     if (value.length > MAX_DRAFT_INPUT) { flash('warning', t('draftInputTooLarge')); return }
+    historyIndexRef.current = -1
     setDraftInput(activeSession.id, value)
     if (value.startsWith('/') && !value.includes(' ')) {
       dispatch({ type: 'OPEN_SLASH', filter: value.slice(1) })
@@ -196,8 +224,34 @@ export function ChatInput({
     textareaRef.current?.focus()
   }, [activeSession.id, setDraftInput, dispatch, textareaRef])
 
+  const restoreEntry = useCallback((entry: { text: string; images: string[] }) => {
+    setDraftInput(activeSession.id, entry.text)
+    dispatch({ type: 'SET_IMAGES', images: entry.images })
+  }, [activeSession.id, setDraftInput, dispatch])
+
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (handleMentionKeyDown(e)) return
+
+    const noAutocomplete = !showSlash && !mention.showMention
+
+    if (e.key === 'Escape' && noAutocomplete) {
+      if (isRunning) { stopSession(activeSession.id); return }
+      const now = Date.now()
+      const isDouble = now - lastEscapeRef.current < 500
+      lastEscapeRef.current = now
+      if (isDouble && input) {
+        historyIndexRef.current = -1
+        savedDraftRef.current = ''
+        restoreEntry({ text: '', images: [] })
+        return
+      }
+    }
+    if (e.key === 'c' && e.ctrlKey && isRunning) {
+      e.preventDefault()
+      stopSession(activeSession.id)
+      return
+    }
+
     if (showSlash) {
       const filtered = filterSlashCommands(slashCommands, slashFilter)
       if (e.key === 'ArrowDown') { e.preventDefault(); dispatch({ type: 'SLASH_NAV', direction: 'down', maxIndex: filtered.length - 1 }); return }
@@ -205,8 +259,34 @@ export function ChatInput({
       if ((e.key === 'Tab' || e.key === 'Enter') && filtered[slashIndex]) { e.preventDefault(); handleSlashSelect(filtered[slashIndex].name); return }
       if (e.key === 'Escape') { dispatch({ type: 'CLOSE_SLASH' }); return }
     }
+
+    // Message history navigation: ↑ when empty, ↓ when browsing
+    if (e.key === 'ArrowUp' && noAutocomplete && (input === '' || historyIndexRef.current !== -1)) {
+      if (userMessages.length === 0) return
+      e.preventDefault()
+      if (historyIndexRef.current === -1) {
+        savedDraftRef.current = input
+        historyIndexRef.current = userMessages.length - 1
+      } else if (historyIndexRef.current > 0) {
+        historyIndexRef.current--
+      }
+      restoreEntry(userMessages[historyIndexRef.current])
+      return
+    }
+    if (e.key === 'ArrowDown' && noAutocomplete && historyIndexRef.current !== -1) {
+      e.preventDefault()
+      if (historyIndexRef.current < userMessages.length - 1) {
+        historyIndexRef.current++
+        restoreEntry(userMessages[historyIndexRef.current])
+      } else {
+        historyIndexRef.current = -1
+        restoreEntry({ text: savedDraftRef.current, images: [] })
+      }
+      return
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend() }
-  }, [handleMentionKeyDown, showSlash, slashCommands, slashFilter, slashIndex, handleSlashSelect, dispatch, onSend])
+  }, [handleMentionKeyDown, showSlash, mention.showMention, slashCommands, slashFilter, slashIndex, handleSlashSelect, dispatch, onSend, isRunning, stopSession, activeSession.id, userMessages, input, restoreEntry])
 
   // ─── Queue editing ─────────────────────────────────────────────────────────
 
