@@ -21,8 +21,6 @@ import {
   JSONRPCClient,
   JSONRPCServer,
   JSONRPCServerAndClient,
-  JSONRPCErrorException,
-  JSONRPCErrorCode,
 } from 'json-rpc-2.0'
 import type { WorkerEvent, AgentSettings, AgentBackend, AcpAgentConfig } from '../agentTypes'
 import { createClientHandlers, type ClientHandlers } from './clientHandlers'
@@ -324,7 +322,9 @@ export class AcpWorker {
           const msg = JSON.parse(line)
           // receiveAndSend dispatches to server (if request/notification) or
           // client (if response), and sends back any server response automatically.
-          session.rpc.receiveAndSend(msg, undefined, undefined)
+          session.rpc.receiveAndSend(msg, undefined, undefined).catch((err) => {
+            console.error(`[AcpWorker] receiveAndSend error:`, err)
+          })
         } catch {
           // Skip unparseable lines
         }

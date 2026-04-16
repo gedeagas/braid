@@ -7,9 +7,22 @@
  */
 
 import { readFileSync, writeFileSync, mkdirSync } from 'fs'
-import { dirname } from 'path'
+import { dirname, resolve, relative } from 'path'
 import type { WorkerEvent } from '../agentTypes'
 import { mapSessionUpdate, createTurnState, type TurnState } from './eventMapper'
+
+/**
+ * Resolve and validate that a file path stays within the worktree root.
+ * Prevents path traversal attacks from ACP agents reading/writing arbitrary files.
+ */
+function assertWithinWorktree(worktreePath: string, filePath: string): string {
+  const resolved = resolve(worktreePath, filePath)
+  const rel = relative(worktreePath, resolved)
+  if (rel.startsWith('..') || resolve(resolved) !== resolved) {
+    throw new Error(`Path traversal denied: "${filePath}" escapes worktree root`)
+  }
+  return resolved
+}
 
 export interface ClientHandlers {
   /** Called for every ACP session/update notification. */
@@ -32,7 +45,7 @@ export interface ClientHandlers {
 
 export function createClientHandlers(
   sessionId: string,
-  _worktreePath: string,
+  worktreePath: string,
   emit: (event: WorkerEvent) => void
 ): ClientHandlers {
   const pendingPermissions = new Map<string, { resolve: (value: { optionId: string }) => void }>()
@@ -66,13 +79,15 @@ export function createClientHandlers(
     },
 
     async readTextFile({ path }: { path: string }): Promise<{ content: string }> {
-      const content = readFileSync(path, 'utf-8')
+      const safePath = assertWithinWorktree(worktreePath, path)
+      const content = readFileSync(safePath, 'utf-8')
       return { content }
     },
 
     async writeTextFile({ path, content }: { path: string; content: string }): Promise<null> {
-      mkdirSync(dirname(path), { recursive: true })
-      writeFileSync(path, content, 'utf-8')
+      const safePath = assertWithinWorktree(worktreePath, path)
+      mkdirSync(dirname(safePath), { recursive: true })
+      writeFileSync(safePath, content, 'utf-8')
       return null
     },
 

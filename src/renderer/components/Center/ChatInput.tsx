@@ -176,17 +176,19 @@ export function ChatInput({
 
   // ─── Input handling ───────────────────────────────────────────────────────
 
+  const isAcpSession = activeSession.backend?.type === 'acp'
+
   const handleInputChange = useCallback((value: string) => {
     if (value.length > MAX_DRAFT_INPUT) { flash('warning', t('draftInputTooLarge')); return }
     setDraftInput(activeSession.id, value)
-    if (value.startsWith('/') && !value.includes(' ')) {
+    if (!isAcpSession && value.startsWith('/') && !value.includes(' ')) {
       dispatch({ type: 'OPEN_SLASH', filter: value.slice(1) })
       if (!slashCommands || slashCommands.length === 0) fetchSlashCommands(activeSession.id)
     } else {
       dispatch({ type: 'CLOSE_SLASH' })
     }
     handleInputChangeForMention(value, textareaRef.current?.selectionStart ?? value.length)
-  }, [activeSession.id, setDraftInput, slashCommands, fetchSlashCommands, handleInputChangeForMention, dispatch, textareaRef, t])
+  }, [activeSession.id, isAcpSession, setDraftInput, slashCommands, fetchSlashCommands, handleInputChangeForMention, dispatch, textareaRef, t])
 
   const handleSlashSelect = useCallback((command: string) => {
     setDraftInput(activeSession.id, `/${command} `)

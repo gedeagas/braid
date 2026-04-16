@@ -184,7 +184,16 @@ describe('mapSessionUpdate - tool_call', () => {
     expect(turn.thinkingBlockStarted).toBe(false)
   })
 
-  it('emits tool_result on completed status', () => {
+  it('emits content_block_stop + tool_result on completed status', () => {
+    // First start the tool_use block so blockIndex advances
+    mapSessionUpdate(SID, {
+      type: 'tool_call',
+      status: 'running',
+      id: 'tc-4',
+      name: 'ReadFile',
+    }, turn)
+    expect(turn.blockIndex).toBe(1) // tool_use block was at index 0, blockIndex now 1
+
     const events = mapSessionUpdate(SID, {
       type: 'tool_call',
       status: 'completed',
@@ -193,8 +202,12 @@ describe('mapSessionUpdate - tool_call', () => {
       isError: false,
     }, turn)
 
-    expect(events).toHaveLength(1)
-    const m = msg(events[0]) as Record<string, unknown>
+    // content_block_stop for the tool_use block (index 0) + tool_result
+    expect(events).toHaveLength(2)
+    expect(streamEvent(events[0]).type).toBe('content_block_stop')
+    expect(streamEvent(events[0]).index).toBe(0) // tool_use block index
+
+    const m = msg(events[1]) as Record<string, unknown>
     expect(m.type).toBe('user')
     const inner = m.message as Record<string, unknown>
     expect(inner.role).toBe('user')

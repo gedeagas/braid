@@ -167,29 +167,53 @@ describe('cleanup', () => {
 
 // ---------------------------------------------------------------------------
 describe('readTextFile', () => {
-  it('reads file content via fs.readFileSync', async () => {
+  it('reads file content within the worktree', async () => {
     mockReadFileSync.mockReturnValue('file contents here')
 
-    const result = await handlers.readTextFile({ path: '/test/file.txt' })
+    const result = await handlers.readTextFile({ path: '/test/project/file.txt' })
 
     expect(result).toEqual({ content: 'file contents here' })
-    expect(mockReadFileSync).toHaveBeenCalledWith('/test/file.txt', 'utf-8')
+    expect(mockReadFileSync).toHaveBeenCalledWith('/test/project/file.txt', 'utf-8')
+  })
+
+  it('resolves relative paths against worktree root', async () => {
+    mockReadFileSync.mockReturnValue('ok')
+
+    const result = await handlers.readTextFile({ path: 'src/index.ts' })
+
+    expect(result).toEqual({ content: 'ok' })
+    expect(mockReadFileSync).toHaveBeenCalledWith('/test/project/src/index.ts', 'utf-8')
+  })
+
+  it('rejects path traversal attempts', async () => {
+    await expect(handlers.readTextFile({ path: '/etc/passwd' }))
+      .rejects.toThrow('Path traversal denied')
+  })
+
+  it('rejects relative path traversal via ..', async () => {
+    await expect(handlers.readTextFile({ path: '../../../etc/passwd' }))
+      .rejects.toThrow('Path traversal denied')
   })
 
   it('propagates errors from readFileSync', async () => {
     mockReadFileSync.mockImplementation(() => { throw new Error('ENOENT') })
 
-    await expect(handlers.readTextFile({ path: '/missing' })).rejects.toThrow('ENOENT')
+    await expect(handlers.readTextFile({ path: '/test/project/missing' })).rejects.toThrow('ENOENT')
   })
 })
 
 // ---------------------------------------------------------------------------
 describe('writeTextFile', () => {
-  it('creates parent dir and writes file', async () => {
-    const result = await handlers.writeTextFile({ path: '/test/sub/out.txt', content: 'data' })
+  it('creates parent dir and writes file within worktree', async () => {
+    const result = await handlers.writeTextFile({ path: '/test/project/sub/out.txt', content: 'data' })
 
     expect(result).toBeNull()
-    expect(mockMkdirSync).toHaveBeenCalledWith('/test/sub', { recursive: true })
-    expect(mockWriteFileSync).toHaveBeenCalledWith('/test/sub/out.txt', 'data', 'utf-8')
+    expect(mockMkdirSync).toHaveBeenCalledWith('/test/project/sub', { recursive: true })
+    expect(mockWriteFileSync).toHaveBeenCalledWith('/test/project/sub/out.txt', 'data', 'utf-8')
+  })
+
+  it('rejects path traversal on write', async () => {
+    await expect(handlers.writeTextFile({ path: '/tmp/malicious.txt', content: 'bad' }))
+      .rejects.toThrow('Path traversal denied')
   })
 })

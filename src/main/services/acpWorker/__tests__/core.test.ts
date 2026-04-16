@@ -80,8 +80,8 @@ let worker: AcpWorker
  * Parse outgoing JSON-RPC messages that the worker writes to stdin.
  * Returns them as they arrive.
  */
-function captureStdin(proc: MockProcess): Array<{ id?: number; method?: string; params?: unknown }> {
-  const captured: Array<{ id?: number; method?: string; params?: unknown }> = []
+function captureStdin(proc: MockProcess): Array<Record<string, unknown>> {
+  const captured: Array<Record<string, unknown>> = []
   proc.stdin.on('data', (chunk: Buffer | string) => {
     const lines = chunk.toString().split('\n').filter(Boolean)
     for (const line of lines) {
@@ -374,7 +374,8 @@ describe('agent-initiated requests', () => {
           mockProc.respond(msg.id, { sessionId: 'acp-s1' })
         } else if (rpcCount === 3) {
           // Agent sends a read_text_file request before responding to prompt
-          mockProc.writeLine({ jsonrpc: '2.0', id: 100, method: 'fs/read_text_file', params: { path: '/test/file.txt' } })
+          // Path must be within the worktree (/cwd) to pass path traversal check
+          mockProc.writeLine({ jsonrpc: '2.0', id: 100, method: 'fs/read_text_file', params: { path: '/cwd/file.txt' } })
           // Then respond to prompt
           mockProc.respond(msg.id, { status: 'complete' })
         }

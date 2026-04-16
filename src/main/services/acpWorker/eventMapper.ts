@@ -154,6 +154,16 @@ export function mapSessionUpdate(
       }
 
       if (status === 'completed') {
+        // Emit content_block_stop for the tool_use block.
+        // The block was started at (turn.blockIndex - 1) since blockIndex was
+        // incremented immediately after content_block_start for tool_use.
+        if (turn.blockIndex > 0) {
+          events.push(sdkMsg(sessionId, {
+            type: 'stream_event',
+            event: { type: 'content_block_stop', index: turn.blockIndex - 1 }
+          }))
+        }
+
         const output = update.output as string | undefined
         const isError = (update.isError as boolean) ?? false
         events.push(sdkMsg(sessionId, {

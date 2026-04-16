@@ -25,13 +25,15 @@ export const createModelSettingsActions: StateCreator<
   >
 > = (set, get) => ({
   updateModel: (sessionId, model) => {
-    const session = get().sessions[sessionId]
-    if (session) {
-      set((s) => ({
-        sessions: { ...s.sessions, [sessionId]: { ...session, model } }
-      }))
-      persistSession(sessionId)
-      console.log(`[Braid] model changed → ${model} | thinking: ${session.thinkingEnabled} | planMode: ${session.planModeEnabled}`)
+    set((s) => {
+      const session = s.sessions[sessionId]
+      if (!session) return s
+      return { sessions: { ...s.sessions, [sessionId]: { ...session, model } } }
+    })
+    persistSession(sessionId)
+    const fresh = get().sessions[sessionId]
+    if (fresh) {
+      console.log(`[Braid] model changed → ${model} | thinking: ${fresh.thinkingEnabled} | planMode: ${fresh.planModeEnabled}`)
     }
   },
 
@@ -46,43 +48,49 @@ export const createModelSettingsActions: StateCreator<
   },
 
   updateThinking: (sessionId, enabled) => {
-    const session = get().sessions[sessionId]
-    if (session) {
-      set((s) => ({
-        sessions: { ...s.sessions, [sessionId]: { ...session, thinkingEnabled: enabled } }
-      }))
-      persistSession(sessionId)
-      // Persist as default for new sessions
-      useUIStore.getState().setDefaultThinking(enabled)
-      console.log(`[Braid] thinking → ${enabled} | model: ${session.model} | planMode: ${session.planModeEnabled}`)
+    set((s) => {
+      const session = s.sessions[sessionId]
+      if (!session) return s
+      return { sessions: { ...s.sessions, [sessionId]: { ...session, thinkingEnabled: enabled } } }
+    })
+    persistSession(sessionId)
+    // Persist as default for new sessions
+    useUIStore.getState().setDefaultThinking(enabled)
+    const fresh = get().sessions[sessionId]
+    if (fresh) {
+      console.log(`[Braid] thinking → ${enabled} | model: ${fresh.model} | planMode: ${fresh.planModeEnabled}`)
     }
   },
 
   updatePlanMode: (sessionId, enabled) => {
-    const session = get().sessions[sessionId]
-    if (session) {
-      set((s) => ({
-        sessions: { ...s.sessions, [sessionId]: { ...session, planModeEnabled: enabled } }
-      }))
-      persistSession(sessionId)
-      console.log(`[Braid] planMode → ${enabled} | model: ${session.model} | thinking: ${session.thinkingEnabled}`)
+    set((s) => {
+      const session = s.sessions[sessionId]
+      if (!session) return s
+      return { sessions: { ...s.sessions, [sessionId]: { ...session, planModeEnabled: enabled } } }
+    })
+    persistSession(sessionId)
+    const fresh = get().sessions[sessionId]
+    if (fresh) {
+      console.log(`[Braid] planMode → ${enabled} | model: ${fresh.model} | thinking: ${fresh.thinkingEnabled}`)
     }
   },
 
   renameSession: (sessionId, name) => {
-    const session = get().sessions[sessionId]
-    if (!session) return
     const trimmed = name.trim()
-    set((s) => ({
-      sessions: {
-        ...s.sessions,
-        [sessionId]: {
-          ...session,
-          name: trimmed || 'New Chat',
-          customName: trimmed.length > 0
+    set((s) => {
+      const session = s.sessions[sessionId]
+      if (!session) return s
+      return {
+        sessions: {
+          ...s.sessions,
+          [sessionId]: {
+            ...session,
+            name: trimmed || 'New Chat',
+            customName: trimmed.length > 0
+          }
         }
       }
-    }))
+    })
     persistSession(sessionId)
     // Sync to main process so notifications use the updated name
     ipc.agent.updateSessionName(sessionId, trimmed || 'New Chat')
