@@ -1,9 +1,22 @@
 // ── Agent backend discriminant ──────────────────────────────────────────────
 
+/** Model descriptor returned by an ACP agent during session/new. */
+export interface AcpModelInfo {
+  modelId: string
+  name: string
+  description?: string
+}
+
 /** Identifies which agent backend a session uses. */
 export type AgentBackend =
   | { type: 'claude-sdk' }
-  | { type: 'acp'; agentId: string; agentName: string }
+  | {
+      type: 'acp'
+      agentId: string
+      agentName: string
+      availableModels?: AcpModelInfo[]
+      currentModelId?: string
+    }
 
 /** Registered ACP agent configuration (persisted in ~/Braid/acp-agents.json). */
 export interface AcpAgentConfig {
@@ -70,6 +83,8 @@ export type WorkerEvent =
       sessionId: string
       sdkSessionId: string
       slashCommands: Array<{ name: string; source: 'builtin' | 'skill' }>
+      acpModels?: AcpModelInfo[]
+      acpCurrentModelId?: string
     }
   | { type: 'slash_commands'; sessionId: string; commands: SlashCommand[] }
   | { type: 'done'; sessionId: string }

@@ -1,9 +1,22 @@
 // ─── Agent backend ────────────────────────────────────────────────────────────
 
+/** Model descriptor returned by an ACP agent during session/new. */
+export interface AcpModelInfo {
+  modelId: string
+  name: string
+  description?: string
+}
+
 /** Identifies which agent backend a session uses. */
 export type AgentBackend =
   | { type: 'claude-sdk' }
-  | { type: 'acp'; agentId: string; agentName: string }
+  | {
+      type: 'acp'
+      agentId: string
+      agentName: string
+      availableModels?: AcpModelInfo[]
+      currentModelId?: string
+    }
 
 // ─── Session ──────────────────────────────────────────────────────────────────
 
