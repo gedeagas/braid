@@ -21,12 +21,30 @@ import {
   JSONRPCClient,
   JSONRPCServer,
   JSONRPCServerAndClient,
+  JSONRPCErrorException,
 } from 'json-rpc-2.0'
 import type { WorkerEvent, AgentSettings, AgentBackend, AcpAgentConfig } from '../agentTypes'
 import { createClientHandlers, type ClientHandlers } from './clientHandlers'
 import { finalizeTurn } from './eventMapper'
 
 const RPC_TIMEOUT_MS = 60_000
+const DEBUG = true // Wire-level ACP protocol logging
+
+function debug(...args: unknown[]): void {
+  if (DEBUG) console.log('[ACP:debug]', ...args)
+}
+
+/** Extract a readable message from JSON-RPC errors (includes code + data). */
+function formatRpcError(err: unknown): string {
+  if (err instanceof JSONRPCErrorException) {
+    const parts = [`[${err.code}] ${err.message}`]
+    if (err.data != null) {
+      parts.push(typeof err.data === 'string' ? err.data : JSON.stringify(err.data, null, 2))
+    }
+    return parts.join('\n')
+  }
+  return err instanceof Error ? err.message : String(err)
+}
 
 interface AcpSession {
   acpSessionId: string
@@ -85,15 +103,28 @@ export class AcpWorker {
       this.agentConfig = config
 
       // Spawn agent subprocess
+      debug(`spawn: ${config.command} ${config.args.join(' ')}`)
+      debug(`cwd: ${worktreePath}`)
       const agentProcess = spawn(config.command, config.args, {
-        stdio: ['pipe', 'pipe', 'inherit'],
+        stdio: ['pipe', 'pipe', 'pipe'],
         cwd: worktreePath,
         env: { ...process.env, ...config.env }
       })
 
+      debug(`pid: ${agentProcess.pid}`)
+
       agentProcess.on('error', (err) => {
+        debug(`process error: ${err.message}`)
         this.emit({ type: 'error', sessionId, message: `Failed to spawn ACP agent: ${err.message}` })
       })
+
+      // Capture stderr for debugging (agents often log here)
+      if (agentProcess.stderr) {
+        agentProcess.stderr.setEncoding('utf-8')
+        agentProcess.stderr.on('data', (chunk: string) => {
+          debug(`stderr: ${chunk.trimEnd()}`)
+        })
+      }
 
       // Set up client handlers for the ACP callbacks
       const clientHandlers = createClientHandlers(sessionId, worktreePath, this.emit)
@@ -110,7 +141,8 @@ export class AcpWorker {
       }
       this.sessions.set(sessionId, session)
 
-      agentProcess.on('exit', (code) => {
+      agentProcess.on('exit', (code, signal) => {
+        debug(`exit: code=${code} signal=${signal}`)
         rpc.rejectAllPendingRequests(`ACP agent exited (code ${code})`)
         clientHandlers.cleanup()
         this.sessions.delete(sessionId)
@@ -124,18 +156,27 @@ export class AcpWorker {
 
       // ACP handshake: initialize -> newSession -> prompt
       const rpcWithTimeout = rpc.timeout(RPC_TIMEOUT_MS)
-      await rpcWithTimeout.request('initialize', {
+
+      debug('>>> initialize')
+      const initResult = await rpcWithTimeout.request('initialize', {
         protocolVersion: 1,
         clientInfo: { name: 'Braid', version: '1.0.0' },
         clientCapabilities: {
-          fileSystem: true,
-          terminal: false // Terminal support comes in phase 2
+          fs: {
+            readTextFile: true,
+            writeTextFile: true
+          },
+          terminal: true
         }
       })
+      debug('<<< initialize:', JSON.stringify(initResult))
 
+      debug('>>> session/new')
       const newSessionResult = await rpcWithTimeout.request('session/new', {
-        cwd: worktreePath
+        cwd: worktreePath,
+        mcpServers: []
       }) as Record<string, unknown> | undefined
+      debug('<<< session/new:', JSON.stringify(newSessionResult))
       session.acpSessionId = (newSessionResult?.sessionId as string) ?? `acp-${Date.now()}`
 
       // Emit init event
@@ -151,11 +192,13 @@ export class AcpWorker {
       // travel over the same pipe and are read sequentially by setupStdoutReader,
       // all notifications written before the response are guaranteed to be
       // dispatched (to clientHandlers.sessionUpdate) before the request resolves.
+      debug('>>> session/prompt')
       clientHandlers.resetTurn()
-      await rpcWithTimeout.request('session/prompt', {
+      const promptResult = await rpcWithTimeout.request('session/prompt', {
         sessionId: session.acpSessionId,
         prompt: [{ type: 'text', text: prompt }]
       })
+      debug('<<< session/prompt:', JSON.stringify(promptResult))
 
       // Yield to drain any remaining stdout chunks queued in the same tick.
       await new Promise((r) => setImmediate(r))
@@ -166,8 +209,8 @@ export class AcpWorker {
 
       this.emit({ type: 'done', sessionId })
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      this.emit({ type: 'error', sessionId, message: `ACP session error: ${message}` })
+      console.error('[AcpWorker] session error:', err)
+      this.emit({ type: 'error', sessionId, message: `ACP session error: ${formatRpcError(err)}` })
     }
   }
 
@@ -207,8 +250,8 @@ export class AcpWorker {
 
       this.emit({ type: 'done', sessionId })
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      this.emit({ type: 'error', sessionId, message: `ACP message error: ${message}` })
+      console.error('[AcpWorker] message error:', err)
+      this.emit({ type: 'error', sessionId, message: `ACP message error: ${formatRpcError(err)}` })
     }
   }
 
@@ -265,7 +308,9 @@ export class AcpWorker {
       if (!stdin || !stdin.writable) {
         throw new Error('ACP agent stdin is not writable')
       }
-      stdin.write(JSON.stringify(payload) + '\n')
+      const line = JSON.stringify(payload)
+      debug(`--> stdin: ${line}`)
+      stdin.write(line + '\n')
     })
 
     const rpc = new JSONRPCServerAndClient(server, client, {
@@ -294,8 +339,40 @@ export class AcpWorker {
       })
     })
 
-    rpc.addMethod('request/permission', async (params) => {
+    rpc.addMethod('session/request_permission', async (params) => {
       return await clientHandlers.requestPermission(params as Record<string, unknown>)
+    })
+
+    // Terminal methods
+    rpc.addMethod('terminal/create', async (params) => {
+      const p = params as Record<string, unknown>
+      return await clientHandlers.createTerminal({
+        command: p.command as string,
+        args: p.args as string[] | undefined,
+        cwd: p.cwd as string | null | undefined,
+        env: p.env as Array<{ name: string; value: string }> | undefined,
+        outputByteLimit: p.outputByteLimit as number | null | undefined,
+      })
+    })
+
+    rpc.addMethod('terminal/output', async (params) => {
+      const p = params as Record<string, unknown>
+      return await clientHandlers.terminalOutput({ terminalId: p.terminalId as string })
+    })
+
+    rpc.addMethod('terminal/wait_for_exit', async (params) => {
+      const p = params as Record<string, unknown>
+      return await clientHandlers.waitForExit({ terminalId: p.terminalId as string })
+    })
+
+    rpc.addMethod('terminal/kill', async (params) => {
+      const p = params as Record<string, unknown>
+      return await clientHandlers.killTerminal({ terminalId: p.terminalId as string })
+    })
+
+    rpc.addMethod('terminal/release', async (params) => {
+      const p = params as Record<string, unknown>
+      return await clientHandlers.releaseTerminal({ terminalId: p.terminalId as string })
     })
 
     return rpc
@@ -312,6 +389,7 @@ export class AcpWorker {
 
     stdout.setEncoding('utf-8')
     stdout.on('data', (chunk: string) => {
+      debug(`<-- stdout raw: ${chunk.trimEnd()}`)
       session.stdoutBuffer += chunk
       const lines = session.stdoutBuffer.split('\n')
       session.stdoutBuffer = lines.pop() ?? ''
@@ -320,13 +398,14 @@ export class AcpWorker {
         if (!line.trim()) continue
         try {
           const msg = JSON.parse(line)
+          debug(`<-- parsed: ${JSON.stringify(msg)}`)
           // receiveAndSend dispatches to server (if request/notification) or
           // client (if response), and sends back any server response automatically.
           session.rpc.receiveAndSend(msg, undefined, undefined).catch((err) => {
             console.error(`[AcpWorker] receiveAndSend error:`, err)
           })
         } catch {
-          // Skip unparseable lines
+          debug(`<-- unparseable: ${line}`)
         }
       }
     })

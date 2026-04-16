@@ -11,6 +11,16 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs'
 import { DATA_DIR_NAME } from '../appBrand'
 import type { AcpAgentConfig } from './agentTypes'
 
+/** Default agents seeded on first run. Users can remove or edit these. */
+const DEFAULT_AGENTS: AcpAgentConfig[] = [
+  {
+    id: 'gemini-cli',
+    name: 'Gemini CLI',
+    command: 'gemini',
+    args: ['--acp'],
+  },
+]
+
 class AcpConfigService {
   private configDir: string
   private configPath: string
@@ -22,7 +32,11 @@ class AcpConfigService {
 
   load(): AcpAgentConfig[] {
     try {
-      if (!existsSync(this.configPath)) return []
+      if (!existsSync(this.configPath)) {
+        // Seed defaults on first run
+        this.save(DEFAULT_AGENTS)
+        return DEFAULT_AGENTS
+      }
       const raw = readFileSync(this.configPath, 'utf-8')
       const parsed = JSON.parse(raw)
       return Array.isArray(parsed) ? parsed : []
