@@ -3293,6 +3293,7 @@ __metadata:
     i18next: "npm:^25.10.10"
     i18next-browser-languagedetector: "npm:^8.2.1"
     jsdom: "npm:^29.0.1"
+    json-rpc-2.0: "npm:^1.7.1"
     lodash.throttle: "npm:^4.1.1"
     marked: "npm:^18.0.0"
     monaco-editor: "npm:^0.52.0"
@@ -5416,6 +5417,13 @@ __metadata:
   version: 3.0.1
   resolution: "json-buffer@npm:3.0.1"
   checksum: 10c0/0d1c91569d9588e7eef2b49b59851f297f3ab93c7b35c7c221e288099322be6b562767d11e4821da500f3219542b9afd2e54c5dc573107c1126ed1080f8e96d7
+  languageName: node
+  linkType: hard
+
+"json-rpc-2.0@npm:^1.7.1":
+  version: 1.7.1
+  resolution: "json-rpc-2.0@npm:1.7.1"
+  checksum: 10c0/260f573fd2f38c04bce63076b9293ed0c222c10bff12dd14fed8b926555af6d390c4bcc888b01dd42f28a8759056b8e4420b9f65f09e64d12d042a541fd88695
   languageName: node
   linkType: hard
 

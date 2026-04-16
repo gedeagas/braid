@@ -6,36 +6,37 @@
  * WorkerEvent types identical to AgentWorker so the coordinator
  * and renderer need zero changes.
  *
+ * JSON-RPC protocol handling is delegated to the `json-rpc-2.0` library
+ * via JSONRPCServerAndClient: the "client" side sends requests to the
+ * agent (initialize, session/new, session/prompt), while the "server"
+ * side handles agent-initiated requests (fs/read_text_file, etc.) and
+ * notifications (session/update).
+ *
  * This file runs in a UtilityProcess (acpProcess.ts).
  * Only Node.js APIs are available - no Electron imports.
  */
 
 import { spawn, type ChildProcess } from 'child_process'
+import {
+  JSONRPCClient,
+  JSONRPCServer,
+  JSONRPCServerAndClient,
+  JSONRPCErrorException,
+  JSONRPCErrorCode,
+} from 'json-rpc-2.0'
 import type { WorkerEvent, AgentSettings, AgentBackend, AcpAgentConfig } from '../agentTypes'
 import { createClientHandlers, type ClientHandlers } from './clientHandlers'
 import { finalizeTurn } from './eventMapper'
 
-/** JSON-RPC 2.0 allows both number and string IDs. */
-type RpcId = number | string
-
 const RPC_TIMEOUT_MS = 60_000
-
-interface PendingRpc {
-  resolve: (v: unknown) => void
-  reject: (e: Error) => void
-  timer: ReturnType<typeof setTimeout>
-}
 
 interface AcpSession {
   acpSessionId: string
   agentProcess: ChildProcess
   clientHandlers: ClientHandlers
+  rpc: JSONRPCServerAndClient
   /** Buffered NDJSON data from stdout. */
   stdoutBuffer: string
-  /** Per-session pending RPCs to avoid cross-session ID collisions. */
-  pendingRpc: Map<number, PendingRpc>
-  /** Per-session RPC ID counter. */
-  rpcId: number
 }
 
 /**
@@ -99,35 +100,33 @@ export class AcpWorker {
       // Set up client handlers for the ACP callbacks
       const clientHandlers = createClientHandlers(sessionId, worktreePath, this.emit)
 
+      // Build the bidirectional JSON-RPC endpoint
+      const rpc = this.createRpc(agentProcess, clientHandlers)
+
       const session: AcpSession = {
         acpSessionId: '',
         agentProcess,
         clientHandlers,
+        rpc,
         stdoutBuffer: '',
-        pendingRpc: new Map(),
-        rpcId: 0,
       }
       this.sessions.set(sessionId, session)
 
       agentProcess.on('exit', (code) => {
-        // Reject all pending RPCs for this session
-        this.rejectAllPendingRpc(session, `ACP agent exited (code ${code})`)
-        // Clean up pending permissions
+        rpc.rejectAllPendingRequests(`ACP agent exited (code ${code})`)
         clientHandlers.cleanup()
-        if (this.sessions.has(sessionId)) {
-          this.sessions.delete(sessionId)
-        }
-        // Don't emit error on normal exit (code 0)
+        this.sessions.delete(sessionId)
         if (code !== 0 && code !== null) {
           this.emit({ type: 'error', sessionId, message: `ACP agent exited with code ${code}` })
         }
       })
 
       // Set up NDJSON reader on stdout
-      this.setupStdoutReader(sessionId, session)
+      this.setupStdoutReader(session)
 
       // ACP handshake: initialize -> newSession -> prompt
-      await this.sendRpc(session, 'initialize', {
+      const rpcWithTimeout = rpc.timeout(RPC_TIMEOUT_MS)
+      await rpcWithTimeout.request('initialize', {
         protocolVersion: 1,
         clientInfo: { name: 'Braid', version: '1.0.0' },
         clientCapabilities: {
@@ -136,10 +135,10 @@ export class AcpWorker {
         }
       })
 
-      const newSessionResult = await this.sendRpc(session, 'session/new', {
+      const newSessionResult = await rpcWithTimeout.request('session/new', {
         cwd: worktreePath
-      })
-      session.acpSessionId = (newSessionResult as Record<string, unknown>)?.sessionId as string ?? `acp-${Date.now()}`
+      }) as Record<string, unknown> | undefined
+      session.acpSessionId = (newSessionResult?.sessionId as string) ?? `acp-${Date.now()}`
 
       // Emit init event
       this.emit({
@@ -153,17 +152,14 @@ export class AcpWorker {
       // stdout during processing, then the RPC response when done. Because both
       // travel over the same pipe and are read sequentially by setupStdoutReader,
       // all notifications written before the response are guaranteed to be
-      // dispatched (to clientHandlers.sessionUpdate) before sendRpc resolves.
-      // This means finalizeTurn always sees the complete turn state.
+      // dispatched (to clientHandlers.sessionUpdate) before the request resolves.
       clientHandlers.resetTurn()
-      await this.sendRpc(session, 'session/prompt', {
+      await rpcWithTimeout.request('session/prompt', {
         sessionId: session.acpSessionId,
         prompt: [{ type: 'text', text: prompt }]
       })
 
       // Yield to drain any remaining stdout chunks queued in the same tick.
-      // This handles the edge case where Node batches multiple pipe reads
-      // into the same microtask queue entry as the RPC response.
       await new Promise((r) => setImmediate(r))
 
       // Finalize the turn (close any open blocks, emit result)
@@ -200,7 +196,7 @@ export class AcpWorker {
       }
 
       session.clientHandlers.resetTurn()
-      await this.sendRpc(session, 'session/prompt', {
+      await session.rpc.timeout(RPC_TIMEOUT_MS).request('session/prompt', {
         sessionId: session.acpSessionId,
         prompt: [{ type: 'text', text: message }]
       })
@@ -221,7 +217,7 @@ export class AcpWorker {
   stopSession(sessionId: string): void {
     const session = this.sessions.get(sessionId)
     if (session) {
-      this.rejectAllPendingRpc(session, 'Session stopped')
+      session.rpc.rejectAllPendingRequests('Session stopped')
       session.clientHandlers.cleanup()
       session.agentProcess?.kill('SIGTERM')
     }
@@ -232,7 +228,7 @@ export class AcpWorker {
   closeSession(sessionId: string): void {
     const session = this.sessions.get(sessionId)
     if (session) {
-      this.rejectAllPendingRpc(session, 'Session closed')
+      session.rpc.rejectAllPendingRequests('Session closed')
       session.clientHandlers.cleanup()
       session.agentProcess?.kill('SIGKILL')
     }
@@ -242,8 +238,6 @@ export class AcpWorker {
   answerToolInput(sessionId: string, result: Record<string, unknown>): void {
     const session = this.sessions.get(sessionId)
     if (!session) return
-
-    // Find the permission ID from the result and resolve it
     const toolUseId = result.toolUseId as string | undefined
     if (toolUseId) {
       session.clientHandlers.resolvePermission(toolUseId, result)
@@ -258,46 +252,63 @@ export class AcpWorker {
     // No-op for ACP agents
   }
 
-  // -- JSON-RPC over NDJSON --------------------------------------------------
+  // -- JSON-RPC wiring -------------------------------------------------------
 
-  private sendRpc(session: AcpSession, method: string, params: unknown): Promise<unknown> {
-    return new Promise((resolve, reject) => {
-      const id = ++session.rpcId
-
-      const timer = setTimeout(() => {
-        session.pendingRpc.delete(id)
-        reject(new Error(`ACP RPC timeout after ${RPC_TIMEOUT_MS}ms (method: ${method})`))
-      }, RPC_TIMEOUT_MS)
-
-      session.pendingRpc.set(id, { resolve, reject, timer })
-
-      const message = JSON.stringify({ jsonrpc: '2.0', id, method, params })
-      const stdin = session.agentProcess.stdin
+  /**
+   * Create a bidirectional JSON-RPC endpoint for one session.
+   *
+   * Client side: Braid sends requests to the agent (initialize, session/prompt).
+   * Server side: agent sends requests/notifications to Braid (session/update, fs/*).
+   */
+  private createRpc(agentProcess: ChildProcess, clientHandlers: ClientHandlers): JSONRPCServerAndClient {
+    const server = new JSONRPCServer()
+    const client = new JSONRPCClient((payload) => {
+      const stdin = agentProcess.stdin
       if (!stdin || !stdin.writable) {
-        clearTimeout(timer)
-        session.pendingRpc.delete(id)
-        reject(new Error(`Failed to write to ACP agent stdin (method: ${method})`))
-        return
+        throw new Error('ACP agent stdin is not writable')
       }
-      const ok = stdin.write(message + '\n')
-      if (!ok) {
-        clearTimeout(timer)
-        session.pendingRpc.delete(id)
-        reject(new Error(`Failed to write to ACP agent stdin (method: ${method})`))
+      stdin.write(JSON.stringify(payload) + '\n')
+    })
+
+    const rpc = new JSONRPCServerAndClient(server, client, {
+      errorListener: (msg) => {
+        // Log protocol-level errors but don't crash
+        console.error(`[AcpWorker] JSON-RPC error: ${msg}`)
       }
     })
+
+    // Register server-side handlers for agent-initiated methods
+    rpc.addMethod('session/update', (params) => {
+      clientHandlers.sessionUpdate(params as Record<string, unknown>)
+      // Notifications don't return a value
+    })
+
+    rpc.addMethod('fs/read_text_file', async (params) => {
+      const p = params as Record<string, unknown>
+      return await clientHandlers.readTextFile({ path: p.path as string })
+    })
+
+    rpc.addMethod('fs/write_text_file', async (params) => {
+      const p = params as Record<string, unknown>
+      return await clientHandlers.writeTextFile({
+        path: p.path as string,
+        content: p.content as string,
+      })
+    })
+
+    rpc.addMethod('request/permission', async (params) => {
+      return await clientHandlers.requestPermission(params as Record<string, unknown>)
+    })
+
+    return rpc
   }
 
-  /** Reject all pending RPCs for a session and clear their timers. */
-  private rejectAllPendingRpc(session: AcpSession, reason: string): void {
-    for (const [id, pending] of session.pendingRpc) {
-      clearTimeout(pending.timer)
-      pending.reject(new Error(reason))
-    }
-    session.pendingRpc.clear()
-  }
-
-  private setupStdoutReader(sessionId: string, session: AcpSession): void {
+  /**
+   * Read NDJSON from stdout and feed each message into the JSON-RPC endpoint.
+   * The library figures out whether it's a response (for client) or a
+   * request/notification (for server) and dispatches accordingly.
+   */
+  private setupStdoutReader(session: AcpSession): void {
     const stdout = session.agentProcess.stdout
     if (!stdout) return
 
@@ -305,97 +316,19 @@ export class AcpWorker {
     stdout.on('data', (chunk: string) => {
       session.stdoutBuffer += chunk
       const lines = session.stdoutBuffer.split('\n')
-      // Keep the last incomplete line in the buffer
       session.stdoutBuffer = lines.pop() ?? ''
 
       for (const line of lines) {
         if (!line.trim()) continue
         try {
-          const msg = JSON.parse(line) as Record<string, unknown>
-          this.handleIncomingMessage(sessionId, session, msg)
+          const msg = JSON.parse(line)
+          // receiveAndSend dispatches to server (if request/notification) or
+          // client (if response), and sends back any server response automatically.
+          session.rpc.receiveAndSend(msg, undefined, undefined)
         } catch {
           // Skip unparseable lines
         }
       }
     })
-  }
-
-  private handleIncomingMessage(
-    sessionId: string,
-    session: AcpSession,
-    msg: Record<string, unknown>
-  ): void {
-    // JSON-RPC response (has 'id' field - supports both number and string IDs)
-    if (msg.id != null && (typeof msg.id === 'number' || typeof msg.id === 'string')) {
-      const numericId = typeof msg.id === 'string' ? parseInt(msg.id, 10) : msg.id
-      const pending = session.pendingRpc.get(numericId)
-      if (pending) {
-        clearTimeout(pending.timer)
-        session.pendingRpc.delete(numericId)
-        if (msg.error) {
-          const err = msg.error as Record<string, unknown>
-          pending.reject(new Error((err.message as string) ?? 'ACP RPC error'))
-        } else {
-          pending.resolve(msg.result)
-        }
-      }
-      return
-    }
-
-    // JSON-RPC notification (no 'id' field)
-    const method = msg.method as string | undefined
-    const params = msg.params as Record<string, unknown> | undefined
-
-    if (!method || !params) return
-
-    switch (method) {
-      case 'session/update':
-        session.clientHandlers.sessionUpdate(params)
-        break
-
-      case 'fs/read_text_file':
-        this.handleAgentRequest(session, msg, async () => {
-          return await session.clientHandlers.readTextFile({ path: params.path as string })
-        })
-        break
-
-      case 'fs/write_text_file':
-        this.handleAgentRequest(session, msg, async () => {
-          return await session.clientHandlers.writeTextFile({
-            path: params.path as string,
-            content: params.content as string
-          })
-        })
-        break
-
-      case 'request/permission':
-        this.handleAgentRequest(session, msg, async () => {
-          return await session.clientHandlers.requestPermission(params)
-        })
-        break
-    }
-  }
-
-  /** Handle an agent-initiated JSON-RPC request by running the handler and sending back the response. */
-  private async handleAgentRequest(
-    session: AcpSession,
-    msg: Record<string, unknown>,
-    handler: () => Promise<unknown>
-  ): Promise<void> {
-    const id = msg.id
-    const stdin = session.agentProcess.stdin
-    try {
-      const result = await handler()
-      const response = JSON.stringify({ jsonrpc: '2.0', id, result })
-      if (stdin?.writable) stdin.write(response + '\n')
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      const response = JSON.stringify({
-        jsonrpc: '2.0',
-        id,
-        error: { code: -32000, message }
-      })
-      if (stdin?.writable) stdin.write(response + '\n')
-    }
   }
 }
