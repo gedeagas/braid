@@ -39,7 +39,7 @@ function makeSession(overrides: Partial<AgentSession> = {}): AgentSession {
   return {
     id: 'sess-1', worktreeId: 'wt-1', name: 'My Session', customName: false,
     status: 'running', model: 'claude-sonnet-4-6', thinkingEnabled: false,
-    planModeEnabled: false, messages: [], activity: 'Running Bash...',
+    extendedContext: false, planModeEnabled: false, messages: [], activity: 'Running Bash...',
     runStartedAt: Date.now() - 5000, runCompletedAt: null, totalRunDurationMs: 0,
     tokenUsage: null, contextTokens: null, createdAt: Date.now(), ...overrides
   }

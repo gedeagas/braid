@@ -16,6 +16,7 @@ function makeSession(id: string, worktreeId = 'wt-1'): AgentSession {
     status: 'idle',
     model: 'claude-sonnet-4-6',
     thinkingEnabled: true,
+    extendedContext: false,
     planModeEnabled: false,
     messages: [],
     activity: null,
