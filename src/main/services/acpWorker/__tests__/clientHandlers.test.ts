@@ -250,3 +250,141 @@ describe('writeTextFile', () => {
       .rejects.toThrow('Path traversal denied')
   })
 })
+
+// ---------------------------------------------------------------------------
+describe('createTerminal', () => {
+  it('creates a terminal and returns a unique ID', async () => {
+    const result = await handlers.createTerminal({ command: 'echo', args: ['hello'] })
+
+    expect(result.terminalId).toMatch(/^term-/)
+    expect(mockProcs).toHaveLength(1)
+  })
+
+  it('generates unique IDs for multiple terminals', async () => {
+    const r1 = await handlers.createTerminal({ command: 'ls' })
+    const r2 = await handlers.createTerminal({ command: 'pwd' })
+
+    expect(r1.terminalId).not.toBe(r2.terminalId)
+  })
+})
+
+// ---------------------------------------------------------------------------
+describe('terminalOutput', () => {
+  it('captures stdout output', async () => {
+    const { terminalId } = await handlers.createTerminal({ command: 'echo', args: ['hi'] })
+    const proc = mockProcs[0]
+
+    proc.stdout.emit('data', 'hello world\n')
+
+    const result = await handlers.terminalOutput({ terminalId })
+    expect(result.output).toBe('hello world\n')
+    expect(result.truncated).toBe(false)
+    expect(result.exitStatus).toBeNull() // still running
+  })
+
+  it('merges stderr into output', async () => {
+    const { terminalId } = await handlers.createTerminal({ command: 'test' })
+    const proc = mockProcs[0]
+
+    proc.stdout.emit('data', 'out\n')
+    proc.stderr.emit('data', 'err\n')
+
+    const result = await handlers.terminalOutput({ terminalId })
+    expect(result.output).toBe('out\nerr\n')
+  })
+
+  it('returns exitStatus after process exits', async () => {
+    const { terminalId } = await handlers.createTerminal({ command: 'ls' })
+    const proc = mockProcs[0]
+
+    proc._exited = true
+    proc.emit('exit', 0, null)
+
+    const result = await handlers.terminalOutput({ terminalId })
+    expect(result.exitStatus).toEqual({ exitCode: 0, signal: null })
+  })
+
+  it('throws for unknown terminal ID', async () => {
+    await expect(handlers.terminalOutput({ terminalId: 'bogus' }))
+      .rejects.toThrow('Terminal not found')
+  })
+})
+
+// ---------------------------------------------------------------------------
+describe('waitForExit', () => {
+  it('resolves when process exits', async () => {
+    const { terminalId } = await handlers.createTerminal({ command: 'sleep' })
+    const proc = mockProcs[0]
+
+    // Simulate exit after a tick
+    setTimeout(() => { proc._exited = true; proc.emit('exit', 42, null) }, 5)
+
+    const result = await handlers.waitForExit({ terminalId })
+    expect(result.exitCode).toBe(42)
+    expect(result.signal).toBeNull()
+  })
+
+  it('returns signal when killed', async () => {
+    const { terminalId } = await handlers.createTerminal({ command: 'sleep' })
+    const proc = mockProcs[0]
+
+    setTimeout(() => { proc._exited = true; proc.emit('exit', null, 'SIGKILL') }, 5)
+
+    const result = await handlers.waitForExit({ terminalId })
+    expect(result.exitCode).toBeNull()
+    expect(result.signal).toBe('SIGKILL')
+  })
+})
+
+// ---------------------------------------------------------------------------
+describe('killTerminal', () => {
+  it('sends SIGTERM to the process', async () => {
+    const { terminalId } = await handlers.createTerminal({ command: 'sleep' })
+    const proc = mockProcs[0]
+
+    await handlers.killTerminal({ terminalId })
+    expect(proc.kill).toHaveBeenCalledWith('SIGTERM')
+  })
+
+  it('is a no-op if already exited', async () => {
+    const { terminalId } = await handlers.createTerminal({ command: 'true' })
+    const proc = mockProcs[0]
+
+    proc._exited = true
+    proc.emit('exit', 0, null)
+
+    await handlers.killTerminal({ terminalId })
+    expect(proc.kill).not.toHaveBeenCalled()
+  })
+})
+
+// ---------------------------------------------------------------------------
+describe('releaseTerminal', () => {
+  it('kills and removes the terminal', async () => {
+    const { terminalId } = await handlers.createTerminal({ command: 'sleep' })
+
+    await handlers.releaseTerminal({ terminalId })
+
+    // After release, output should throw
+    await expect(handlers.terminalOutput({ terminalId }))
+      .rejects.toThrow('Terminal not found')
+  })
+
+  it('is safe to call on unknown ID', async () => {
+    await expect(handlers.releaseTerminal({ terminalId: 'bogus' }))
+      .resolves.toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+describe('cleanup with terminals', () => {
+  it('kills all running terminals', async () => {
+    await handlers.createTerminal({ command: 'sleep', args: ['100'] })
+    await handlers.createTerminal({ command: 'sleep', args: ['200'] })
+
+    handlers.cleanup()
+
+    expect(mockProcs[0].kill).toHaveBeenCalledWith('SIGKILL')
+    expect(mockProcs[1].kill).toHaveBeenCalledWith('SIGKILL')
+  })
+})
