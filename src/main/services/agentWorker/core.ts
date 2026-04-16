@@ -158,9 +158,9 @@ export class AgentWorker {
         ? `${BRAID_SYSTEM_PROMPT}\n\n${settings.systemPromptSuffix}${linkedSuffix}${mobileSuffix}`
         : `${BRAID_SYSTEM_PROMPT}${linkedSuffix}${mobileSuffix}`
 
-      // Enable 1M context window beta for compatible models
-      const betas = (extendedContext && model.includes('sonnet'))
-        ? ['context-1m-2025-08-07' as const] : undefined
+      // Enable 1M context window beta for compatible older models (Sonnet 4/4.5)
+      const needsBeta = extendedContext && !model.includes('opus') && !model.includes('mythos') && !(model.includes('sonnet') && model.includes('4-6')) && model.includes('sonnet')
+      const betas = needsBeta ? ['context-1m-2025-08-07' as const] : undefined
 
       const q = queryFn({
         prompt: promptParam as Parameters<typeof queryFn>[0]['prompt'],
@@ -351,9 +351,9 @@ export class AgentWorker {
             yield { type: 'user', message: { role: 'user', content } }
           })(buildUserContent(effectiveMessage, images))
         : effectiveMessage
-      // Enable 1M context window beta for compatible models
-      const betas = (state.extendedContext && state.model.includes('sonnet'))
-        ? ['context-1m-2025-08-07' as const] : undefined
+      // Enable 1M context window beta for compatible older models (Sonnet 4/4.5)
+      const needsBeta = state.extendedContext && !state.model.includes('opus') && !state.model.includes('mythos') && !(state.model.includes('sonnet') && state.model.includes('4-6')) && state.model.includes('sonnet')
+      const betas = needsBeta ? ['context-1m-2025-08-07' as const] : undefined
 
       const q = queryFn({
         prompt: promptParam as Parameters<typeof queryFn>[0]['prompt'],
