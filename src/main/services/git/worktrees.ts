@@ -140,7 +140,7 @@ function classifyCloneError(err: unknown): CloneErrorCode {
 }
 
 /**
- * Clones a remote git URL into ~/${DATA_DIR_NAME}/worktrees/{repoName}/.
+ * Clones a remote git URL into ~/${DATA_DIR_NAME}/repos/{repoName}/.
  * Returns the local path of the cloned repository.
  */
 export async function cloneRepo(url: string, storagePath?: string): Promise<string> {
