@@ -1,10 +1,9 @@
 import { logger } from '../../lib/logger'
-import simpleGit from 'simple-git'
+import { getGit, getValidGit } from './core'
 import { mkdirSync, existsSync, rmSync } from 'fs'
 import { join, dirname } from 'path'
 import { homedir } from 'os'
 import { DATA_DIR_NAME } from '../../appBrand'
-import { getValidGit } from './core'
 import type { WorktreeInfo } from './types'
 
 export async function getWorktrees(repoPath: string): Promise<WorktreeInfo[]> {
@@ -162,7 +161,7 @@ export async function cloneRepo(url: string, storagePath?: string): Promise<stri
     finalPath = `${targetPath}-${i}`
   }
 
-  const git = simpleGit()
+  const git = getGit(dirname(finalPath))
   try {
     await git.clone(url, finalPath)
   } catch (err) {

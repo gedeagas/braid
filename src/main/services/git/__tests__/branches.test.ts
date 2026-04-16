@@ -3,10 +3,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // --- Mock simple-git ---
 const mockRaw = vi.fn()
 const mockBranchLocal = vi.fn()
-const mockGit = { raw: mockRaw, branchLocal: mockBranchLocal }
+const mockEnv = vi.fn()
+const mockGit = { raw: mockRaw, branchLocal: mockBranchLocal, env: mockEnv }
 
 vi.mock('simple-git', () => ({
   default: vi.fn(() => mockGit),
+}))
+
+vi.mock('../../../lib/enrichedEnv', () => ({
+  enrichedEnv: () => ({ ...process.env }),
 }))
 
 // --- Mock fs ---

@@ -1,8 +1,8 @@
 import { execFile, spawn } from 'child_process'
 import { promisify } from 'util'
-import simpleGit from 'simple-git'
 import { ServiceCache } from '../lib/serviceCache'
 import { enrichedEnv } from '../lib/enrichedEnv'
+import { getGit } from './git/core'
 
 const exec = promisify(execFile)
 
@@ -35,7 +35,7 @@ async function fetchIfStale(worktreePath: string): Promise<void> {
   if (now - lastFetch < FETCH_COOLDOWN_MS) return
 
   fetchTimestamps.set(worktreePath, now)
-  const git = simpleGit(worktreePath)
+  const git = getGit(worktreePath)
   await git.fetch(['--no-tags', '--prune', 'origin'])
 }
 
@@ -199,7 +199,7 @@ class GitHubService {
     const nwoRaw = await resolveNwo(worktreePath)
 
     // Get branch name from git
-    const git = simpleGit(worktreePath)
+    const git = getGit(worktreePath)
     const branch = (await git.revparse(['--abbrev-ref', 'HEAD'])).trim()
     if (!branch) return []
 
@@ -351,7 +351,7 @@ class GitHubService {
       baseBranch
     }
     try {
-      const git = simpleGit(worktreePath)
+      const git = getGit(worktreePath)
       const status = await git.status()
       result.uncommittedChanges =
         status.modified.length +

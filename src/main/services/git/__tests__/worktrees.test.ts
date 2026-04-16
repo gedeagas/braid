@@ -4,7 +4,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const mockRaw = vi.fn()
 const mockBranchLocal = vi.fn()
 const mockClone = vi.fn()
-const mockGit = { raw: mockRaw, branchLocal: mockBranchLocal, clone: mockClone }
+const mockEnv = vi.fn()
+const mockGit = { raw: mockRaw, branchLocal: mockBranchLocal, clone: mockClone, env: mockEnv }
 
 vi.mock('simple-git', () => ({
   default: vi.fn(() => mockGit),
@@ -27,6 +28,11 @@ vi.mock('fs', async (importActual) => {
 
 // --- Mock appBrand ---
 vi.mock('../../appBrand', () => ({ DATA_DIR_NAME: 'Braid' }))
+
+// --- Mock enrichedEnv ---
+vi.mock('../../../lib/enrichedEnv', () => ({
+  enrichedEnv: () => ({ ...process.env }),
+}))
 
 // Import AFTER mocks are in place
 import { getWorktrees, addWorktree, removeWorktree, cloneRepo, parseRepoName, CloneError } from '../worktrees'
