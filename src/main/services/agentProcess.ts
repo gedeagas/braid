@@ -10,8 +10,24 @@ import { AgentWorker } from './agentWorker'
 import type { WorkerCommand } from './agentProcessTypes'
 import { resolveBraidDataRequest, rejectBraidDataRequest } from './braidMcp'
 
+// EPIPE is expected when the SDK aborts an in-flight request — the claude CLI
+// subprocess pipe closes before all writes drain.  Without these handlers Node.js
+// crashes the UtilityProcess with exit code 1.
+process.on('uncaughtException', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EPIPE') return
+  throw err
+})
+process.on('unhandledRejection', (reason) => {
+  if ((reason as NodeJS.ErrnoException)?.code === 'EPIPE') return
+  throw reason
+})
+
 const worker = new AgentWorker((event) => {
-  process.parentPort!.postMessage(event)
+  try {
+    process.parentPort!.postMessage(event)
+  } catch {
+    // Parent IPC channel gone — process will exit soon; nothing to do.
+  }
 })
 
 process.parentPort!.on('message', (e: { data: WorkerCommand }) => {
