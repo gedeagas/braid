@@ -149,12 +149,22 @@ export class AcpWorker {
         slashCommands: []
       })
 
-      // Send the prompt - notifications arrive during the RPC await
+      // Send the prompt. The ACP agent sends session/update notifications on
+      // stdout during processing, then the RPC response when done. Because both
+      // travel over the same pipe and are read sequentially by setupStdoutReader,
+      // all notifications written before the response are guaranteed to be
+      // dispatched (to clientHandlers.sessionUpdate) before sendRpc resolves.
+      // This means finalizeTurn always sees the complete turn state.
       clientHandlers.resetTurn()
       await this.sendRpc(session, 'session/prompt', {
         sessionId: session.acpSessionId,
         prompt: [{ type: 'text', text: prompt }]
       })
+
+      // Yield to drain any remaining stdout chunks queued in the same tick.
+      // This handles the edge case where Node batches multiple pipe reads
+      // into the same microtask queue entry as the RPC response.
+      await new Promise((r) => setImmediate(r))
 
       // Finalize the turn (close any open blocks, emit result)
       const finalEvents = finalizeTurn(sessionId, clientHandlers.getTurnState())
@@ -194,6 +204,9 @@ export class AcpWorker {
         sessionId: session.acpSessionId,
         prompt: [{ type: 'text', text: message }]
       })
+
+      // Yield to drain any remaining stdout notification chunks (see startSession)
+      await new Promise((r) => setImmediate(r))
 
       const finalEvents = finalizeTurn(sessionId, session.clientHandlers.getTurnState())
       for (const event of finalEvents) this.emit(event)
