@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { EventEmitter } from 'events'
 import type { WorkerEvent } from '../../agentTypes'
 
 // --- Mock fs ----------------------------------------------------------------
@@ -10,6 +11,37 @@ vi.mock('fs', () => ({
   readFileSync: (...args: unknown[]) => mockReadFileSync(...args),
   writeFileSync: (...args: unknown[]) => mockWriteFileSync(...args),
   mkdirSync: (...args: unknown[]) => mockMkdirSync(...args),
+}))
+
+// --- Mock child_process.spawn ------------------------------------------------
+function createMockChildProcess() {
+  const stdout = new EventEmitter()
+  const stderr = new EventEmitter()
+  const proc = Object.assign(new EventEmitter(), {
+    stdout,
+    stderr,
+    stdin: null,
+    pid: 12345,
+    kill: vi.fn(() => {
+      if (!proc._exited) {
+        proc._exited = true
+        proc.emit('exit', null, 'SIGTERM')
+      }
+      return true
+    }),
+    _exited: false,
+  })
+  return proc
+}
+
+let mockProcs: ReturnType<typeof createMockChildProcess>[]
+
+vi.mock('child_process', () => ({
+  spawn: vi.fn(() => {
+    const proc = createMockChildProcess()
+    mockProcs.push(proc)
+    return proc
+  }),
 }))
 
 // Import AFTER mocks
@@ -24,6 +56,7 @@ let handlers: ReturnType<typeof createClientHandlers>
 beforeEach(() => {
   vi.clearAllMocks()
   emitted = []
+  mockProcs = []
   handlers = createClientHandlers(SID, CWD, (event) => emitted.push(event))
 })
 
