@@ -157,6 +157,17 @@ export function ChatView({ worktreePath = '' }: ChatViewProps) {
 
   // ─── Effects ────────────────────────────────────────────────────────────────
 
+  // When Claude asks a question (waiting_input), re-engage auto-scroll so the
+  // user sees the prompt even if they scrolled away during streaming.
+  const prevWaitingRef = useRef(false)
+  useEffect(() => {
+    const wasWaiting = prevWaitingRef.current
+    prevWaitingRef.current = !!isWaitingInput
+    if (!wasWaiting && isWaitingInput) {
+      engageScroll()
+    }
+  }, [isWaitingInput, engageScroll])
+
   useEffect(() => {
     const handler = () => textareaRef.current?.focus()
     window.addEventListener('braid:focusChat', handler)

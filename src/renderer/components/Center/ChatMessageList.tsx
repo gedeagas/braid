@@ -1,9 +1,10 @@
 import { useCallback, useRef, useLayoutEffect, memo } from 'react'
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
-import { useActiveSession } from '@/store/sessions'
+import { useActiveSession, useSessionsStore } from '@/store/sessions'
 import { useUIStore } from '@/store/ui'
 import { ChatMessage } from './ChatMessage'
 import { ActivityIndicator } from './ActivityIndicator'
+import { AskUserQuestionPrompt } from './AskUserQuestionPrompt'
 import type { Message } from '@/types'
 import { IconArrowDown } from '@/components/shared/icons'
 import { useTranslation } from 'react-i18next'
@@ -18,9 +19,16 @@ const VirtuosoHeader = () => <div style={{ height: 20 }} />
 
 const FooterContent = memo(function FooterContent({ itemClassName = 'chat-virtuoso-item' }: { itemClassName?: string }) {
   const session = useActiveSession()
+  const answerQuestion = useSessionsStore((s) => s.answerQuestion)
   const isRunning = session?.status === 'running'
   const isWaitingInput = session?.status === 'waiting_input'
   const showActivity = (isRunning || isWaitingInput) && session?.activity
+  const sessionId = session?.id
+
+  const handleAnswerSubmit = useCallback((answers: Record<string, string>) => {
+    if (sessionId) answerQuestion(sessionId, answers)
+  }, [sessionId, answerQuestion])
+
   return (
     // Fixed-height container prevents scroll bounce when activity toggles.
     <div style={{ minHeight: 68 }}>
@@ -33,6 +41,14 @@ const FooterContent = memo(function FooterContent({ itemClassName = 'chat-virtuo
           />
         </div>
       ) : null}
+      {isWaitingInput && session?.pendingQuestion && (
+        <div className={itemClassName}>
+          <AskUserQuestionPrompt
+            pendingQuestion={session.pendingQuestion}
+            onSubmit={handleAnswerSubmit}
+          />
+        </div>
+      )}
       <div style={{ height: 20 }} />
     </div>
   )
