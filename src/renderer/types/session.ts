@@ -66,6 +66,7 @@ export interface AgentSession {
   status: SessionStatus
   model: ModelId
   thinkingEnabled: boolean
+  extendedContext: boolean
   planModeEnabled: boolean
   messages: Message[]
   activity: string | null // e.g. "Thinking...", "Running Bash", "Reading file"

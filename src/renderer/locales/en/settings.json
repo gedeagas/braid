@@ -67,6 +67,8 @@
   },
   "ai": {
     "defaultModel": "Default Model",
+    "extendedContext": "Extended Context (1M)",
+    "extendedContextHint": "Enable 1M token context window for new sessions. Sonnet models only.",
     "thinkingMode": "Thinking Mode",
     "thinkingModeHint": "Enable extended thinking for new sessions",
     "systemPrompt": "System Prompt Suffix",

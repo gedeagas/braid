@@ -67,6 +67,8 @@
   },
   "ai": {
     "defaultModel": "デフォルトモデル",
+    "extendedContext": "拡張コンテキスト（1M）",
+    "extendedContextHint": "新しいセッションで1Mトークンコンテキストウィンドウを有効にする。Sonnetモデルのみ。",
     "thinkingMode": "シンキングモード",
     "thinkingModeHint": "新しいセッションで拡張思考を有効にする",
     "systemPrompt": "システムプロンプト追記",

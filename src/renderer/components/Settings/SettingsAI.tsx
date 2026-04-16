@@ -4,6 +4,7 @@ import { useUIStore } from '@/store/ui'
 import { flash } from '@/store/flash'
 import { dialog, claudeCli } from '@/lib/ipc'
 import { SegmentedControl } from '@/components/shared/SegmentedControl'
+import { Toggle } from '@/components/shared/Toggle'
 import type { ModelId } from '@/types'
 
 const MODELS: { value: ModelId; label: string }[] = [
@@ -50,6 +51,8 @@ export function SettingsAI() {
   const { t } = useTranslation('settings')
   const defaultModel = useUIStore((s) => s.defaultModel)
   const setDefaultModel = useUIStore((s) => s.setDefaultModel)
+  const defaultExtendedContext = useUIStore((s) => s.defaultExtendedContext)
+  const setDefaultExtendedContext = useUIStore((s) => s.setDefaultExtendedContext)
   const apiKey = useUIStore((s) => s.apiKey)
   const setApiKey = useUIStore((s) => s.setApiKey)
   const systemPromptSuffix = useUIStore((s) => s.systemPromptSuffix)
@@ -96,6 +99,17 @@ export function SettingsAI() {
           options={MODELS.map(({ value, label }) => ({ value, label }))}
           value={defaultModel}
           onChange={(v) => setDefaultModel(v as ModelId)}
+        />
+      </div>
+
+      <div className="settings-field settings-field--row">
+        <div>
+          <label className="settings-label">{t('ai.extendedContext')}</label>
+          <span className="settings-hint">{t('ai.extendedContextHint')}</span>
+        </div>
+        <Toggle
+          checked={defaultExtendedContext}
+          onChange={setDefaultExtendedContext}
         />
       </div>
 

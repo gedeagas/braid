@@ -67,6 +67,8 @@
   },
   "ai": {
     "defaultModel": "Model Default",
+    "extendedContext": "Konteks Diperpanjang (1M)",
+    "extendedContextHint": "Aktifkan jendela konteks 1M token untuk sesi baru. Hanya model Sonnet.",
     "thinkingMode": "Mode Berpikir",
     "thinkingModeHint": "Aktifkan berpikir mendalam untuk sesi baru",
     "systemPrompt": "Sufiks Prompt Sistem",

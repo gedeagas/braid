@@ -41,6 +41,7 @@ export interface SettingsSlice {
   // AI
   defaultModel: ModelId
   defaultThinking: boolean
+  defaultExtendedContext: boolean
   apiKey: string | null
   systemPromptSuffix: string
   claudeCodeExecutablePath: string
@@ -93,6 +94,7 @@ export interface SettingsSlice {
   closeQuickOpen: () => void
   setDefaultModel: (model: ModelId) => void
   setDefaultThinking: (v: boolean) => void
+  setDefaultExtendedContext: (v: boolean) => void
   setApiKey: (key: string | null) => void
   setSystemPromptSuffix: (suffix: string) => void
   setClaudeCodeExecutablePath: (path: string) => void
@@ -129,6 +131,7 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
 
   defaultModel: loadDefaultModel(),
   defaultThinking: loadBool(SK.defaultThinking, false),
+  defaultExtendedContext: loadBool(SK.defaultExtendedContext, false),
   apiKey: loadStr(SK.apiKey, '') || null,
   systemPromptSuffix: loadStr(SK.systemPromptSuffix, ''),
   claudeCodeExecutablePath: loadStr(SK.claudeCodeExecutablePath, ''),
@@ -199,6 +202,10 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   setDefaultThinking: (v) => {
     localStorage.setItem(SK.defaultThinking, String(v))
     set({ defaultThinking: v })
+  },
+  setDefaultExtendedContext: (v) => {
+    localStorage.setItem(SK.defaultExtendedContext, String(v))
+    set({ defaultExtendedContext: v })
   },
   setApiKey: (key) => {
     if (key) localStorage.setItem(SK.apiKey, key)

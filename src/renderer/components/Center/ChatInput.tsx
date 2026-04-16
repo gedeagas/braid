@@ -26,7 +26,7 @@ import { useTranslation } from 'react-i18next'
 import type { ChatViewAction, ChatViewState } from './ChatView'
 import { TERMINAL_ENTRY, type UseMentionReturn } from './useMentionAutocomplete'
 import { QueuedMessageBanner } from './QueuedMessageBanner'
-import { CONTEXT_WINDOW } from '@/lib/constants'
+import { getContextWindow } from '@/lib/constants'
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 export const ACCEPTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
@@ -268,8 +268,9 @@ export function ChatInput({
 
   const contextPercent = useMemo(() => {
     if (activeSession.contextTokens == null) return 0
-    return activeSession.contextTokens / CONTEXT_WINDOW
-  }, [activeSession.contextTokens])
+    const window = getContextWindow(activeSession.model, activeSession.extendedContext)
+    return activeSession.contextTokens / window
+  }, [activeSession.contextTokens, activeSession.model, activeSession.extendedContext])
 
   // Hide the compact warning if /compact is already queued or already typed,
   // or if the last message is a compact-boundary (compaction just happened with no new user turn yet)

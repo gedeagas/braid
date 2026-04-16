@@ -4,6 +4,7 @@ export interface SessionState {
   abortController?: AbortController
   cwd: string
   model: string
+  extendedContext?: boolean
   sessionName: string
   additionalDirectories?: string[]
   linkedWorktreeContext?: string

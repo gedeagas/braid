@@ -263,6 +263,19 @@
   color: var(--accent);
 }
 
+.model-1m-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--accent-tint-12);
+  color: var(--accent);
+  margin-left: var(--space-2);
+  line-height: 1.4;
+}
+
 .chat-send-btn {
   width: 32px;
   height: 32px;

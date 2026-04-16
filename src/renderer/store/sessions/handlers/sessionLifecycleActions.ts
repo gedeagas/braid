@@ -46,6 +46,7 @@ export const createSessionLifecycleActions: StateCreator<
       status: 'inactive',
       model: useUIStore.getState().defaultModel,
       thinkingEnabled: useUIStore.getState().defaultThinking,
+      extendedContext: useUIStore.getState().defaultExtendedContext,
       planModeEnabled: false,
       messages: [],
       activity: null,

@@ -37,6 +37,7 @@ export interface SessionsState {
   closeSessionsByWorktree: (worktreeId: string) => void
   updateModel: (sessionId: string, model: ModelId) => void
   updateThinking: (sessionId: string, enabled: boolean) => void
+  updateExtendedContext: (sessionId: string, enabled: boolean) => void
   updatePlanMode: (sessionId: string, enabled: boolean) => void
   renameSession: (sessionId: string, name: string) => void
   reorderSessions: (worktreeId: string, fromIndex: number, toIndex: number) => void

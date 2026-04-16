@@ -6,6 +6,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { IconSparkle, IconCheckmark, IconChevronDown } from '@/components/shared/icons'
+import { supportsExtendedContext } from '@/lib/constants'
 import type { ModelId } from '@/types'
 
 export const MODELS: { id: ModelId; label: string }[] = [
@@ -16,18 +17,21 @@ export const MODELS: { id: ModelId; label: string }[] = [
 
 interface ModelSelectorProps {
   currentModelId: ModelId
+  /** Whether extended (1M) context is active */
+  extendedContext?: boolean
   onSelect: (modelId: ModelId) => void
   /** Menu opens above the button (for bottom-anchored inputs) */
   above?: boolean
 }
 
-export function ModelSelector({ currentModelId, onSelect, above }: ModelSelectorProps) {
+export function ModelSelector({ currentModelId, extendedContext, onSelect, above }: ModelSelectorProps) {
   const { t } = useTranslation('center')
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const btnRef = useRef<HTMLButtonElement>(null)
 
   const currentModel = MODELS.find((m) => m.id === currentModelId) ?? MODELS[0]
+  const show1M = extendedContext && supportsExtendedContext(currentModelId)
 
   const toggle = useCallback(() => setIsOpen((v) => !v), [])
   const close = useCallback(() => setIsOpen(false), [])
@@ -72,6 +76,7 @@ export function ModelSelector({ currentModelId, onSelect, above }: ModelSelector
         >
           <span className="chip-icon"><IconSparkle /></span>
           <span>{currentModel.label}</span>
+          {show1M && <span className="model-1m-badge">1M</span>}
           <IconChevronDown size={10} style={{ opacity: 0.5 }} />
         </button>
       </Tooltip>

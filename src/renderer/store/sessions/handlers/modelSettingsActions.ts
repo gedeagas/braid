@@ -1,11 +1,12 @@
 // ---------------------------------------------------------------------------
-// Model and settings actions — updateModel, updateThinking, updatePlanMode,
-// renameSession, reorderSessions, setConnectedDevice
+// Model and settings actions — updateModel, updateThinking, updateExtendedContext,
+// updatePlanMode, renameSession, reorderSessions, setConnectedDevice
 // ---------------------------------------------------------------------------
 
 import type { StateCreator } from 'zustand'
 import * as ipc from '@/lib/ipc'
 import { useUIStore } from '@/store/ui'
+import { supportsExtendedContext } from '@/lib/constants'
 import { persistSession } from '../persistence'
 import { sessionOrderPerWorktree, saveMapToStorage, SESSION_ORDER_KEY } from '../storage'
 import type { SessionsState } from '../storeTypes'
@@ -17,6 +18,7 @@ export const createModelSettingsActions: StateCreator<
   Pick<SessionsState,
     | 'updateModel'
     | 'updateThinking'
+    | 'updateExtendedContext'
     | 'updatePlanMode'
     | 'renameSession'
     | 'reorderSessions'
@@ -26,11 +28,13 @@ export const createModelSettingsActions: StateCreator<
   updateModel: (sessionId, model) => {
     const session = get().sessions[sessionId]
     if (session) {
+      // Auto-disable extended context when switching to a model that doesn't support it
+      const needsDisable = session.extendedContext && !supportsExtendedContext(model)
       set((s) => ({
-        sessions: { ...s.sessions, [sessionId]: { ...session, model } }
+        sessions: { ...s.sessions, [sessionId]: { ...session, model, ...(needsDisable ? { extendedContext: false } : {}) } }
       }))
       persistSession(sessionId)
-      console.log(`[Braid] model changed → ${model} | thinking: ${session.thinkingEnabled} | planMode: ${session.planModeEnabled}`)
+      console.log(`[Braid] model changed -> ${model} | thinking: ${session.thinkingEnabled} | planMode: ${session.planModeEnabled}`)
     }
   },
 
@@ -43,7 +47,20 @@ export const createModelSettingsActions: StateCreator<
       persistSession(sessionId)
       // Persist as default for new sessions
       useUIStore.getState().setDefaultThinking(enabled)
-      console.log(`[Braid] thinking → ${enabled} | model: ${session.model} | planMode: ${session.planModeEnabled}`)
+      console.log(`[Braid] thinking -> ${enabled} | model: ${session.model} | planMode: ${session.planModeEnabled}`)
+    }
+  },
+
+  updateExtendedContext: (sessionId, enabled) => {
+    const session = get().sessions[sessionId]
+    if (session) {
+      set((s) => ({
+        sessions: { ...s.sessions, [sessionId]: { ...session, extendedContext: enabled } }
+      }))
+      persistSession(sessionId)
+      // Persist as default for new sessions
+      useUIStore.getState().setDefaultExtendedContext(enabled)
+      console.log(`[Braid] extendedContext -> ${enabled} | model: ${session.model}`)
     }
   },
 
@@ -54,7 +71,7 @@ export const createModelSettingsActions: StateCreator<
         sessions: { ...s.sessions, [sessionId]: { ...session, planModeEnabled: enabled } }
       }))
       persistSession(sessionId)
-      console.log(`[Braid] planMode → ${enabled} | model: ${session.model} | thinking: ${session.thinkingEnabled}`)
+      console.log(`[Braid] planMode -> ${enabled} | model: ${session.model} | thinking: ${session.thinkingEnabled}`)
     }
   },
 
