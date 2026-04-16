@@ -5,6 +5,23 @@ All notable changes to Braid are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [26.1.5] - 2026-04-16
+
+### Fixed
+
+- centralize SimpleGit initialization with enriched environment (#47)
+- reattach terminal after container recreation (#46)
+- scrollable multiple choice from AI (#43)
+- clone to ~/Braid/repos, compact warning UX, mission-control header (#42)
+- hide compact warning when /compact is already queued or typed (#38)
+- overlap back button (#37)
+
+### Style
+
+- fix header layout for traffic light clearance (#39)
+
+---
+
 ## [26.1.4] - 2026-04-15
 
 ### Added
