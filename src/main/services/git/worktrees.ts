@@ -162,7 +162,7 @@ export async function cloneRepo(url: string, storagePath?: string): Promise<stri
     finalPath = `${targetPath}-${i}`
   }
 
-  const git = getGit(process.cwd())
+  const git = getGit(dirname(finalPath))
   try {
     await git.clone(url, finalPath)
   } catch (err) {
