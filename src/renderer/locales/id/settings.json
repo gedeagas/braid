@@ -15,6 +15,7 @@
     "claudeMcp": "Server MCP",
     "claudeSkills": "Keahlian",
     "apps": "Aplikasi",
+    "jira": "Jira",
     "analytics": "Analitik",
     "about": "Tentang"
   },
@@ -60,7 +61,9 @@
     "indicatorDots": "Titik",
     "indicatorWaveform": "Gelombang",
     "streamingAnimation": "Animasi Streaming",
-    "streamingAnimationHint": "Animasikan kata saat streaming masuk"
+    "streamingAnimationHint": "Animasikan kata saat streaming masuk",
+    "chatCompactMode": "Mode Kompak Chat",
+    "chatCompactModeHint": "Kurangi jarak dan ukuran font untuk tampilan chat yang lebih padat seperti CLI"
   },
   "ai": {
     "defaultModel": "Model Default",
@@ -308,9 +311,22 @@
     "hide": "Sembunyikan",
     "invalidUrl": "URL harus diawali dengan http:// atau https://",
     "nameRequired": "Nama diperlukan",
-    "workspaceRequired": "Nama workspace diperlukan",
-    "jiraBaseUrl": "URL Dasar Jira",
-    "jiraBaseUrlHint": "URL situs Atlassian Anda (mis. https://perusahaan.atlassian.net). Terdeteksi otomatis dari konfigurasi jira-cli jika dikosongkan."
+    "workspaceRequired": "Nama workspace diperlukan"
+  },
+  "jira": {
+    "description": "Hubungkan ke Jira melalui Atlassian CLI (acli). Menampilkan tiket terkait dari nama branch dan memungkinkan pencarian tiket saat membuat worktree.",
+    "statusHeader": "Atlassian CLI",
+    "statusChecking": "Memeriksa...",
+    "statusInstalled": "Terinstal",
+    "statusNotInstalled": "Belum terinstal",
+    "statusInstalling": "Menginstal...",
+    "install": "Instal",
+    "installing": "Menginstal...",
+    "docs": "Dokumentasi",
+    "baseUrl": "URL Dasar Jira",
+    "baseUrlHint": "URL situs Atlassian Anda (mis. https://perusahaan.atlassian.net). Terdeteksi otomatis dari konfigurasi jira-cli jika dikosongkan.",
+    "save": "Simpan",
+    "saved": "Tersimpan"
   },
   "analytics": {
     "overview": "Ikhtisar",
@@ -350,12 +366,14 @@
     "tagline": "Generasi berikutnya dari cara perangkat lunak dibuat",
     "version": "v{{version}}",
     "missionTitle": "Misi",
-    "mission": "Kami percaya AI tidak hanya mempercepat coding — ia secara fundamental mengubah cara perangkat lunak dibuat. Braid dibangun berdasarkan keyakinan itu: ruang kerja di mana manusia dan agen AI berkolaborasi secara paralel, masing-masing memiliki Git worktree sendiri, bergerak secara independen, berinovasi lebih cepat. Ini bukan antarmuka chat yang ditempel ke editor Anda. Ini adalah primitif baru — lingkungan pengembang yang dirancang ulang untuk era AI.",
+    "mission": "Kami percaya AI tidak hanya mempercepat coding - ia secara fundamental mengubah cara perangkat lunak dibuat. Braid dibangun berdasarkan keyakinan itu: ruang kerja di mana manusia dan agen AI berkolaborasi secara paralel, masing-masing memiliki Git worktree sendiri, bergerak secara independen, berinovasi lebih cepat. Ini bukan antarmuka chat yang ditempel ke editor Anda. Ini adalah primitif baru, lingkungan pengembang yang dirancang ulang untuk era AI.",
     "capabilitiesTitle": "Apa yang Dilakukan Braid",
     "cap1": "Sesi Claude paralel, masing-masing tercakup dalam Git worktree khusus",
-    "cap2": "Mission Control — papan kanban untuk pengawasan lintas-worktree",
+    "cap2": "Mission Control - papan kanban untuk pengawasan lintas-worktree",
     "cap3": "Diff real-time, pemeriksaan PR, dan terminal penuh per worktree",
     "cap4": "Riwayat sesi, pergantian model, penyebutan file, lampiran gambar",
+    "contributorsTitle": "Kontributor",
+    "contributorsThanks": "Terima kasih kepada semua orang yang telah berkontribusi pada Braid.",
     "createdBy": "Proyek Braid",
     "builtIn": "Dibangun di Tokyo, Jepang"
   },

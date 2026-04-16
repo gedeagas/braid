@@ -157,6 +157,8 @@ export const github = {
     api().github.getChecks(worktreePath, forceRefresh),
   getDeployments: (worktreePath: string, forceRefresh?: boolean) =>
     api().github.getDeployments(worktreePath, forceRefresh),
+  getOwnerAvatarUrl: (cwd: string): Promise<string> =>
+    api().github.getOwnerAvatarUrl(cwd),
   getGitSyncStatus: (worktreePath: string, baseBranch: string, forceRefresh?: boolean) =>
     api().github.getGitSyncStatus(worktreePath, baseBranch, forceRefresh),
   getCheckRunLog: (worktreePath: string, checkUrl: string) =>
@@ -284,6 +286,7 @@ export const notes = {
 
 export const jira = {
   isAvailable: () => api().jira.isAvailable(),
+  recheckAvailability: () => api().jira.recheckAvailability() as Promise<boolean>,
   getIssuesForBranch: (worktreePath: string, overrideBaseUrl?: string) =>
     api().jira.getIssuesForBranch(worktreePath, overrideBaseUrl) as Promise<import('@/types').JiraResult>,
   getIssueByKey: (key: string, overrideBaseUrl?: string) =>

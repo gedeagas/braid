@@ -357,6 +357,15 @@ export function ChatInput({
     return activeSession.contextTokens / CONTEXT_WINDOW
   }, [activeSession.contextTokens])
 
+  // Hide the compact warning if /compact is already queued or already typed,
+  // or if the last message is a compact-boundary (compaction just happened with no new user turn yet)
+  const isCompactPending = useMemo(() => {
+    if (queuedMessage?.text?.trim() === '/compact') return true
+    if (input.trim() === '/compact') return true
+    const lastMsg = activeSession.messages.at(-1)
+    return lastMsg?.tag === 'compact-boundary'
+  }, [queuedMessage, input, activeSession.messages])
+
   const placeholder = useMemo(() => {
     if (isWaitingInput) return t('placeholderWaitingInput')
     if (isRunning) return queuedMessage !== null ? t('placeholderQueued') : t('placeholderQueueNext')
@@ -471,7 +480,7 @@ export function ChatInput({
         <LinkedWorktreeChips sessionId={activeSession.id} worktreeId={activeSession.worktreeId} />
       )}
 
-      {variant === 'default' && contextPercent >= CONTEXT_WARN_THRESHOLD && (
+      {variant === 'default' && contextPercent >= CONTEXT_WARN_THRESHOLD && !isCompactPending && (
         <button
           className={`context-warning-nudge${contextPercent >= CONTEXT_CRITICAL_THRESHOLD ? ' context-warning-nudge--critical' : ''}`}
           onClick={handleCompactClick}

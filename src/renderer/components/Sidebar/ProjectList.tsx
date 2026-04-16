@@ -1,4 +1,4 @@
-import { useMemo, useState, useReducer } from 'react'
+import { useMemo, useState, useReducer, useCallback, useEffect } from 'react'
 import { useProjectsStore } from '@/store/projects'
 import { useUIStore } from '@/store/ui'
 import { Tooltip } from '@/components/shared/Tooltip'
@@ -12,6 +12,43 @@ import { MIME_PROJECT, MIME_WORKTREE } from '@/lib/appBrand'
 
 interface Props {
   onAddWorktree: (projectId: string) => void
+}
+
+// ─── ProjectAvatar ────────────────────────────────────────────────────────────
+
+function ProjectAvatar({ name, avatarUrl }: { name: string; avatarUrl?: string }) {
+  const [failed, setFailed] = useState(false)
+  const onError = useCallback(() => setFailed(true), [])
+
+  // Reset failed state when avatarUrl changes (e.g. backfill arrives)
+  useEffect(() => { setFailed(false) }, [avatarUrl])
+
+  if (avatarUrl && !failed) {
+    return (
+      <img
+        src={avatarUrl}
+        width={18}
+        height={18}
+        alt=""
+        aria-hidden="true"
+        onError={onError}
+        className="project-avatar"
+      />
+    )
+  }
+
+  // Letter avatar fallback - deterministic color from name
+  const letter = name.charAt(0).toUpperCase() || '?'
+  const hue = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % 360
+  return (
+    <div
+      className="project-avatar project-avatar--letter"
+      aria-hidden="true"
+      style={{ background: `hsl(${hue}, 55%, 40%)` }}
+    >
+      {letter}
+    </div>
+  )
 }
 
 // ─── ProjectGroupRow state ────────────────────────────────────────────────────
@@ -160,6 +197,7 @@ function ProjectGroupRow({
         }}
       >
         <span className={`project-chevron ${isExpanded ? 'expanded' : ''}`}>&#9654;</span>
+        <ProjectAvatar name={project.name} avatarUrl={project.avatarUrl} />
         <span className="project-name">{project.name}</span>
 
         {!isExpanded && notifyStatus && (

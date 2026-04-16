@@ -30,7 +30,8 @@ function serializeProject(p: Project) {
     name: p.name,
     path: p.path,
     createdAt: p.createdAt,
-    settings: p.settings
+    settings: p.settings,
+    avatarUrl: p.avatarUrl
   }
 }
 
@@ -151,6 +152,34 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
           ipc.git.getRemoteBranches(p.path).catch(() => {})
         }
       }, 500)
+
+      // Backfill GitHub org avatars for projects that don't have one yet.
+      // Non-blocking — updates trickle in after the initial paint.
+      // Fetches run concurrently; results are batched into a single state + save.
+      const needsAvatar = projects.filter((p) => !p.avatarUrl)
+      if (needsAvatar.length > 0) {
+        Promise.allSettled(
+          needsAvatar.map(async (p) => {
+            const url = await ipc.github.getOwnerAvatarUrl(p.path)
+            return url ? { id: p.id, url } : null
+          })
+        ).then((results) => {
+          const filled = results
+            .filter((r): r is PromiseFulfilledResult<{ id: string; url: string } | null> => r.status === 'fulfilled')
+            .map((r) => r.value)
+            .filter((v): v is { id: string; url: string } => v !== null)
+          if (filled.length === 0) return
+
+          const lookup = new Map(filled.map((f) => [f.id, f.url]))
+          const current = get().projects
+          const updated = current.map((proj) => {
+            const url = lookup.get(proj.id)
+            return url ? { ...proj, avatarUrl: url } : proj
+          })
+          set({ projects: updated })
+          void ipc.storage.save({ projects: updated.map(serializeProject) }).catch(() => {})
+        })
+      }
     } catch {
       set({ loading: false })
     }
@@ -193,6 +222,17 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     const projects = [...get().projects, project]
     set({ projects })
     await ipc.storage.save({ projects: projects.map(serializeProject) })
+
+    // Fetch GitHub org avatar in background
+    ipc.github.getOwnerAvatarUrl(path).then((url) => {
+      if (!url) return
+      const current = get().projects
+      const updated = current.map((p) =>
+        p.id === id ? { ...p, avatarUrl: url } : p
+      )
+      set({ projects: updated })
+      void ipc.storage.save({ projects: updated.map(serializeProject) }).catch(() => {})
+    }).catch(() => {})
   },
 
   removeProject: async (id: string) => {

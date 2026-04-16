@@ -69,6 +69,7 @@ export interface SettingsSlice {
   // UI preferences
   streamingAnimation: boolean
   tabDisplayMode: TabDisplayMode
+  chatCompactMode: boolean
 
   // Experimental
   experimentalCapture: boolean
@@ -114,6 +115,7 @@ export interface SettingsSlice {
   setToastDuration: (duration: ToastDuration) => void
   setStreamingAnimation: (v: boolean) => void
   setTabDisplayMode: (mode: TabDisplayMode) => void
+  setChatCompactMode: (v: boolean) => void
   setExperimentalCapture: (v: boolean) => void
   setBottomTerminalEnabled: (v: boolean) => void
   setExperimentalNoVirtualization: (v: boolean) => void
@@ -171,6 +173,8 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
     const v = loadStr(SK.tabDisplayMode, 'icons')
     return (v === 'icons' || v === 'labels' || v === 'both') ? v as TabDisplayMode : 'icons'
   })(),
+
+  chatCompactMode: loadBool(SK.chatCompactMode, false),
 
   experimentalCapture: loadBool(SK.experimentalCapture, false),
   bottomTerminalEnabled: loadBool(SK.bottomTerminalEnabled, false),
@@ -259,6 +263,7 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   setToastDuration: (duration) => { localStorage.setItem(SK.toastDuration, String(duration)); set({ toastDuration: duration }) },
   setStreamingAnimation: (v) => { localStorage.setItem(SK.streamingAnimation, String(v)); set({ streamingAnimation: v }) },
   setTabDisplayMode: (mode) => { localStorage.setItem(SK.tabDisplayMode, mode); set({ tabDisplayMode: mode }) },
+  setChatCompactMode: (v) => { localStorage.setItem(SK.chatCompactMode, String(v)); set({ chatCompactMode: v }) },
   setExperimentalCapture: (v) => { localStorage.setItem(SK.experimentalCapture, String(v)); set({ experimentalCapture: v }) },
   setBottomTerminalEnabled: (v) => { localStorage.setItem(SK.bottomTerminalEnabled, String(v)); set({ bottomTerminalEnabled: v }) },
   setExperimentalNoVirtualization: (v) => { localStorage.setItem(SK.noVirtualization, String(v)); set({ experimentalNoVirtualization: v }) },

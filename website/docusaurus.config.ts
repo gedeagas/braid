@@ -81,6 +81,7 @@ const config: Config = {
           blogSidebarTitle: 'Releases',
           blogSidebarCount: 'ALL',
           showReadingTime: false,
+          sortPosts: 'descending',
           feedOptions: {
             type: ['rss', 'atom'],
             title: 'Braid Changelog',

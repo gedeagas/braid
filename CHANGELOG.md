@@ -5,6 +5,30 @@ All notable changes to Braid are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [26.1.4] - 2026-04-15
+
+### Added
+
+- contributors section, project avatars, compact mode, Jira settings (#36)
+- add context menu with open in app and reveal in finder (#35)
+- dedicated Jira settings page with acli status (#34)
+- add chat compact mode for denser CLI-like display (#33)
+- add project avatars from GitHub org (#31)
+- delete worktree via Delete key when row is focused (#27)
+- macOS Liquid Glass icon support (#24)
+
+### Fixed
+
+- suppress spurious error dialog after OTA restart (#29)
+- syntax highlighting aliases, enriched subprocess env, and Atlassian docs link (#22)
+- redirect Atlassian CLI docs link to official developer docs (#21)
+
+### Other
+
+- add unit tests for buildEnrichedPath and findBinary (#28)
+
+---
+
 ## [26.1.3] - 2026-04-15
 
 ### Fixed

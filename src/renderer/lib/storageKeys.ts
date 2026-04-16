@@ -80,6 +80,7 @@ export const SK = {
   streamingAnimation:         `${prefix}:streamingAnimation`,
   skipDeleteWorktreeConfirm:  `${prefix}:skipDeleteWorktreeConfirm`,
   tabDisplayMode:             `${prefix}:tabDisplayMode`,
+  chatCompactMode:            `${prefix}:chatCompactMode`,
 
   // ── i18n ───────────────────────────────────────────────────────────────
   language:                   `${prefix}:language`,
