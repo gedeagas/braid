@@ -50,6 +50,9 @@ process.parentPort!.on('message', (e: { data: WorkerCommand }) => {
     case 'updateSessionName':
       worker.updateSessionName(cmd.sessionId, cmd.name)
       break
+    case 'setAcpModel':
+      worker.setModel(cmd.sessionId, cmd.modelId)
+      break
     // ACP agents don't support data requests (terminal) or ephemeral
     // operations (generateCommitMessage, generateSessionTitle,
     // getSlashCommands). Those always use Claude SDK via agentProcess.ts.

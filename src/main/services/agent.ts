@@ -279,6 +279,11 @@ class AgentCoordinator {
     if (child) child.postMessage({ type: 'answerElicitation', sessionId, result } satisfies WorkerCommand)
   }
 
+  setAcpModel(sessionId: string, modelId: string): void {
+    const child = this.sessionProcesses.get(sessionId)
+    if (child) child.postMessage({ type: 'setAcpModel', sessionId, modelId } satisfies WorkerCommand)
+  }
+
   async startSession(
     sessionId: string,
     worktreeId: string,

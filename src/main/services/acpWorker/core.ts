@@ -287,6 +287,25 @@ export class AcpWorker {
     this.sessions.delete(sessionId)
   }
 
+  /**
+   * Tell the ACP agent to switch models via session/setModel.
+   * Fire-and-forget: if the agent doesn't support it, we just log the error.
+   */
+  async setModel(sessionId: string, modelId: string): Promise<void> {
+    const session = this.sessions.get(sessionId)
+    if (!session) return
+    try {
+      debug(`>>> session/setModel: ${modelId}`)
+      await session.rpc.timeout(RPC_TIMEOUT_MS).request('session/setModel', {
+        sessionId: session.acpSessionId,
+        modelId,
+      })
+      debug(`<<< session/setModel: ok`)
+    } catch (err) {
+      console.warn('[AcpWorker] session/setModel failed:', formatRpcError(err))
+    }
+  }
+
   answerToolInput(sessionId: string, result: Record<string, unknown>): void {
     const session = this.sessions.get(sessionId)
     if (!session) return

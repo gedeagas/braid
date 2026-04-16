@@ -31,6 +31,7 @@ export type WorkerCommand =
   | { type: 'answerToolInput'; sessionId: string; result: Record<string, unknown> }
   | { type: 'answerElicitation'; sessionId: string; result: { action: 'accept' | 'decline' | 'cancel'; content?: Record<string, unknown> } }
   | { type: 'updateSessionName'; sessionId: string; name: string }
+  | { type: 'setAcpModel'; sessionId: string; modelId: string }
   | {
       type: 'generateCommitMessage'; requestId: string
       worktreePath: string; settings: AgentSettings

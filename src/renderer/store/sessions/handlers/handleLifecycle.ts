@@ -3,21 +3,41 @@
 // ---------------------------------------------------------------------------
 
 import type { HandlerContext } from './types'
+import type { AcpModelInfo } from '@/types'
 import { parseRawCommands, parseRichCommands, parseLegacyCommands } from './commandParser'
 import { updateSession } from '../stateUtils'
 import { persistSession } from '../persistence'
 
 /**
- * Handle `init` event: first contact from the SDK.
- * Sets sdkSessionId and seeds slash commands with name-only metadata.
+ * Handle `init` event: first contact from the SDK/ACP agent.
+ * Sets sdkSessionId, seeds slash commands, and (for ACP) populates
+ * the backend's available models from the agent's session/new response.
  */
 export function handleInit(ctx: HandlerContext, ev: Record<string, unknown>): void {
   type RawCmd = { name: string; source?: 'builtin' | 'skill' }
   const commands = parseRawCommands(ev.slashCommands as RawCmd[] ?? [])
-  if (!updateSession(ctx.store, ctx.sessionId, () => ({
-    sdkSessionId: ev.sdkSessionId as string,
-    slashCommands: commands
-  }))) return
+
+  // ACP model discovery: merge into existing backend if present
+  const acpModels = ev.acpModels as AcpModelInfo[] | undefined
+  const acpCurrentModelId = ev.acpCurrentModelId as string | undefined
+
+  if (!updateSession(ctx.store, ctx.sessionId, (current) => {
+    const updates: Record<string, unknown> = {
+      sdkSessionId: ev.sdkSessionId as string,
+      slashCommands: commands,
+    }
+
+    // Enrich ACP backend with model data from the agent
+    if (acpModels && current.backend?.type === 'acp') {
+      updates.backend = {
+        ...current.backend,
+        availableModels: acpModels,
+        currentModelId: acpCurrentModelId,
+      }
+    }
+
+    return updates
+  })) return
   persistSession(ctx.sessionId)
 }
 
