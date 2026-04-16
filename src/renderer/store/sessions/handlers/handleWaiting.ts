@@ -17,6 +17,10 @@ import { maybeShowToast, createNotificationDeps } from './notifications'
  * - `reason === 'tool_permission'`: direct tool permission prompt (data in event)
  * - `reason === 'elicitation'`: MCP server auth/input request (data in event)
  * - Otherwise: AskUserQuestion / ExitPlanMode (resolved from message history)
+ *
+ * Desktop notifications are fired from the main process (agent.ts maybeNotify)
+ * so they fire even when the window is focused on a different session.
+ * The renderer only handles in-app toasts here.
  */
 export function handleWaitingInput(ctx: HandlerContext, ev: Record<string, unknown>): void {
   const { store, sessionId } = ctx
@@ -59,7 +63,22 @@ export function handleWaitingInput(ctx: HandlerContext, ev: Record<string, unkno
 
   // AskUserQuestion / ExitPlanMode: resolve pending state from message history
   const session = store.getState().sessions[sessionId]
-  if (!session || session.status === 'waiting_input') return
+  if (!session) return
+
+  // Always fire the in-app toast — addToast deduplicates by sessionId+type so
+  // this is safe even if handleAssistant already pre-set status to 'waiting_input'
+  // by calling resolvePendingState on the tool-call block.  Without this call the
+  // toast (and its accompanying sound) would never fire for AskUserQuestion /
+  // ExitPlanMode because the status guard below returns early.
+  maybeShowToast(
+    sessionId,
+    'waiting_input',
+    createNotificationDeps(),
+    reason as 'question' | 'plan_approval' | undefined
+  )
+
+  // State is already correct when handleAssistant pre-set it — skip the redundant update.
+  if (session.status === 'waiting_input') return
 
   const lastAssistant = findLastAssistantWithTools(session.messages)
   const pending = lastAssistant?.toolCalls
@@ -72,12 +91,6 @@ export function handleWaitingInput(ctx: HandlerContext, ev: Record<string, unkno
     ...pending
   }))
   persistSession(sessionId)
-  maybeShowToast(
-    sessionId,
-    'waiting_input',
-    createNotificationDeps(),
-    reason as 'question' | 'plan_approval' | undefined
-  )
 }
 
 /**
