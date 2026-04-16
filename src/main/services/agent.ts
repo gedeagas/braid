@@ -143,7 +143,9 @@ class AgentCoordinator {
         this.sendEvent(event.sessionId, {
           type: 'init',
           sdkSessionId: event.sdkSessionId,
-          slashCommands: event.slashCommands
+          slashCommands: event.slashCommands,
+          acpModels: event.acpModels,
+          acpCurrentModelId: event.acpCurrentModelId,
         })
         break
       case 'slash_commands':
