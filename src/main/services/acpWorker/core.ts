@@ -23,7 +23,7 @@ import {
   JSONRPCServerAndClient,
   JSONRPCErrorException,
 } from 'json-rpc-2.0'
-import type { WorkerEvent, AgentSettings, AgentBackend, AcpAgentConfig } from '../agentTypes'
+import type { WorkerEvent, AgentSettings, AgentBackend, AcpAgentConfig, AcpModelInfo } from '../agentTypes'
 import { createClientHandlers, type ClientHandlers } from './clientHandlers'
 import { finalizeTurn } from './eventMapper'
 
@@ -179,12 +179,23 @@ export class AcpWorker {
       debug('<<< session/new:', JSON.stringify(newSessionResult))
       session.acpSessionId = (newSessionResult?.sessionId as string) ?? `acp-${Date.now()}`
 
-      // Emit init event
+      // Extract model info from session/new response
+      const modelsPayload = newSessionResult?.models as Record<string, unknown> | undefined
+      const acpModels = (modelsPayload?.availableModels as AcpModelInfo[] | undefined)?.map((m) => ({
+        modelId: m.modelId,
+        name: m.name,
+        description: m.description,
+      }))
+      const acpCurrentModelId = modelsPayload?.currentModelId as string | undefined
+
+      // Emit init event with model discovery data
       this.emit({
         type: 'init',
         sessionId,
         sdkSessionId: session.acpSessionId,
-        slashCommands: []
+        slashCommands: [],
+        acpModels,
+        acpCurrentModelId,
       })
 
       // Send the prompt. The ACP agent sends session/update notifications on
