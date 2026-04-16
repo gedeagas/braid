@@ -180,7 +180,7 @@ class AgentCoordinator {
         // maybeNotify) because the user may be looking at a different session
         // or have Braid focused behind another app.
         this.maybeNotify(event.sessionId, 'waiting_input', undefined,
-          event.reason === 'tool_permission' || event.reason === 'elicitation' ? undefined : event.reason as 'question' | 'plan_approval' | undefined)
+          event.reason === 'question' || event.reason === 'plan_approval' ? event.reason : undefined)
         break
       case 'elicitation_complete':
         this.sendEvent(event.sessionId, { type: 'elicitation_complete', serverName: event.serverName })
@@ -443,7 +443,7 @@ class AgentCoordinator {
       ? `${projectPrefix}${rawName} — ${branch}`
       : `${projectPrefix}${sessionName}`
 
-    const waitingTitle = reason === 'plan_approval' ? 'Plan ready for review' : 'Agent has a question'
+    const waitingTitle = reason === 'plan_approval' ? 'Plan ready for review' : reason === 'question' ? 'Agent has a question' : 'Agent needs input'
     const waitingBody = reason === 'plan_approval'
       ? `${label} — review and approve the plan`
       : `${label} — reply to continue`

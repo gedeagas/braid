@@ -65,20 +65,18 @@ export function handleWaitingInput(ctx: HandlerContext, ev: Record<string, unkno
   const session = store.getState().sessions[sessionId]
   if (!session) return
 
+  const alreadyWaiting = session.status === 'waiting_input'
+  const typedReason = reason === 'question' || reason === 'plan_approval' ? reason : undefined
+
   // Always fire the in-app toast — addToast deduplicates by sessionId+type so
   // this is safe even if handleAssistant already pre-set status to 'waiting_input'
   // by calling resolvePendingState on the tool-call block.  Without this call the
   // toast (and its accompanying sound) would never fire for AskUserQuestion /
   // ExitPlanMode because the status guard below returns early.
-  maybeShowToast(
-    sessionId,
-    'waiting_input',
-    createNotificationDeps(),
-    reason as 'question' | 'plan_approval' | undefined
-  )
+  maybeShowToast(sessionId, 'waiting_input', createNotificationDeps(), typedReason)
 
   // State is already correct when handleAssistant pre-set it — skip the redundant update.
-  if (session.status === 'waiting_input') return
+  if (alreadyWaiting) return
 
   const lastAssistant = findLastAssistantWithTools(session.messages)
   const pending = lastAssistant?.toolCalls

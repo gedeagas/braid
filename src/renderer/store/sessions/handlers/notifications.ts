@@ -73,7 +73,11 @@ export function fireDesktopNotification(
   deps: Pick<NotificationDeps, 'desktopNotify'>,
   reason?: 'question' | 'plan_approval'
 ): void {
-  deps.desktopNotify(sessionId, type, sessionName, undefined, reason)
+  if (reason !== undefined) {
+    deps.desktopNotify(sessionId, type, sessionName, undefined, reason)
+    return
+  }
+  deps.desktopNotify(sessionId, type, sessionName)
 }
 
 // ---------------------------------------------------------------------------
@@ -111,6 +115,6 @@ export function createNotificationDeps(): NotificationDeps {
     getProjectCount: () => useProjectsStore.getState().projects.length,
     addToast: (toast) => useToastsStore.getState().addToast(toast),
     desktopNotify: (sessionId, type, name, errorMessage, reason) =>
-      ipc.agent.notify(sessionId, type as 'done' | 'error' | 'waiting_input', name, errorMessage, reason)
+      ipc.agent.notify(sessionId, type, name, errorMessage, reason)
   }
 }
