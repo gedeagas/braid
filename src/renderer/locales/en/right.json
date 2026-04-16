@@ -307,5 +307,10 @@
   "quickOpenPlaceholder": "Search files by name...",
   "quickOpenNoResults": "No matching files",
   "quickOpenOpen": "Open",
-  "offlineDisabled": "Unavailable while offline"
+  "offlineDisabled": "Unavailable while offline",
+
+  "openIn": "Open",
+  "copyPath": "Copy path",
+  "revealInFinder": "Reveal in Finder",
+  "openInApp": "Open in {{app}}"
 }

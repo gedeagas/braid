@@ -21,7 +21,7 @@ import { lspService, LspServerConfig } from './services/lsp'
 import { jiraService } from './services/jira'
 import { githubAuthService } from './services/githubAuth'
 import { resolveCliPath } from './services/claudePath'
-import { downloadUpdate, installUpdate } from './services/autoUpdate'
+import { downloadUpdate, installUpdate, checkForUpdates } from './services/autoUpdate'
 
 // In-process settings cache — renderer pushes values here so main-process
 // services (agent.ts, pty.ts) can read them synchronously.
@@ -109,6 +109,7 @@ export function registerIpcHandlers(): void {
     gitService.setGitUserConfig(repoPath, name, email)
   )
   ipcMain.handle('git:clearGitUserConfig', (_e, repoPath: string) => gitService.clearGitUserConfig(repoPath))
+  ipcMain.handle('git:initRepo', (_e, dirPath: string) => gitService.initRepo(dirPath))
   ipcMain.handle('git:isRepoRoot', (_e, repoPath: string) => gitService.isRepoRoot(repoPath))
   ipcMain.handle('git:findChildRepos', (_e, parentPath: string) => gitService.findChildRepos(parentPath))
 
@@ -151,6 +152,14 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('pty:spawn', (_e, cwd: string) => ptyService.spawn(cwd))
   ipcMain.on('pty:write', (_e, id: string, data: string) => ptyService.write(id, data))
   ipcMain.on('pty:resize', (_e, id: string, cols: number, rows: number) => ptyService.resize(id, cols, rows))
+
+  // Dock badge
+  ipcMain.on('dock:setBadgeCount', (_e, count: number) => {
+    if (process.platform === 'darwin' && app.dock) {
+      const safe = Math.max(0, Math.floor(count) || 0)
+      app.dock.setBadge(safe > 0 ? String(safe) : '')
+    }
+  })
   ipcMain.handle('pty:kill', (_e, id: string) => ptyService.kill(id))
   ipcMain.handle('pty:runScript', (_e, cwd: string, command: string) => ptyService.runScript(cwd, command))
   ipcMain.handle('pty:readTerminalOutput', (_e, worktreePath: string) => ptyService.readTerminalOutput(worktreePath))
@@ -162,6 +171,8 @@ export function registerIpcHandlers(): void {
     githubService.getChecks(worktreePath, forceRefresh))
   ipcMain.handle('github:getDeployments', (_e, worktreePath: string, forceRefresh?: boolean) =>
     githubService.getDeployments(worktreePath, forceRefresh))
+  ipcMain.handle('github:getOwnerAvatarUrl', (_e, cwd: string) =>
+    githubService.getOwnerAvatarUrl(cwd))
   ipcMain.handle('github:getGitSyncStatus', (_e, worktreePath: string, baseBranch: string, forceRefresh?: boolean) =>
     githubService.getGitSyncStatus(worktreePath, baseBranch, forceRefresh)
   )
@@ -195,6 +206,7 @@ export function registerIpcHandlers(): void {
 
   // Jira (optional — only available if acli is installed)
   ipcMain.handle('jira:isAvailable', () => jiraService.isAvailable())
+  ipcMain.handle('jira:recheckAvailability', () => jiraService.recheckAvailability())
   ipcMain.handle('jira:getIssuesForBranch', (_e, worktreePath: string, overrideBaseUrl?: string) =>
     jiraService.getIssuesForBranch(worktreePath, overrideBaseUrl)
   )
@@ -408,6 +420,9 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('files:toRelativePaths', (_e, basePath: string, absolutePaths: string[]) =>
     filesService.toRelativePaths(basePath, absolutePaths)
   )
+  ipcMain.handle('files:pathExists', (_e, dirPath: string) =>
+    filesService.pathExists(dirPath)
+  )
   ipcMain.handle('files:detectPlatform', (_e, repoPath: string) =>
     filesService.detectPlatform(repoPath)
   )
@@ -538,6 +553,7 @@ export function registerIpcHandlers(): void {
   // Auto-updater
   ipcMain.handle('updater:download', () => downloadUpdate())
   ipcMain.handle('updater:install', () => installUpdate())
+  ipcMain.handle('updater:check', () => checkForUpdates())
 
   // ── Menu ──────────────────────────────────────────────────────────────────
   ipcMain.on('menu:closeWindow', () => {

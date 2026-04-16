@@ -93,7 +93,10 @@
     },
     "later": "後で",
     "download": "ダウンロード",
-    "restart": "再起動"
+    "restart": "再起動",
+    "check": "アップデートを確認",
+    "checking": "確認中...",
+    "upToDate": "最新バージョンです"
   },
   "tour": {
     "next": "次へ",

@@ -152,6 +152,8 @@
   "snippetAttached_other": "{{count}} snippets attached ({{lines}} lines)",
   "imageLimitReached": "Maximum 5 images — remove one to add more",
   "imageTooLarge": "Image too large (max 2MB)",
+  "imageLoadFailed_one": "{{count}} image failed to load",
+  "imageLoadFailed_other": "{{count}} images failed to load",
   "draftInputTooLarge": "Input too long — use a snippet for large text",
   "linkWorktree": "Link Worktree",
   "unlinkWorktree": "Unlink",
@@ -318,5 +320,12 @@
   "offlineSendDisabled": "Can't send messages while offline",
   "networkError": "Connection lost",
   "networkErrorMessage": "Check your internet connection and try again.",
-  "networkRetry": "Retry"
+  "networkRetry": "Retry",
+
+  "turnStats.model": "Model",
+  "turnStats.duration": "Duration",
+  "turnStats.input": "Input",
+  "turnStats.output": "Output",
+  "turnStats.cacheRead": "Cache read",
+  "turnStats.cacheWrite": "Cache write"
 }

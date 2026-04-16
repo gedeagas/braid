@@ -527,6 +527,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-md);
   line-height: 1.55;
+  background: var(--bg-secondary);
 }
 
 .tcg-inline-diff .diff-line-num {
@@ -536,6 +537,14 @@
 .tcg-inline-diff .diff-line {
   min-height: unset;
   padding: 0 var(--space-4);
+}
+
+.tcg-inline-diff .diff-line-add {
+  background: color-mix(in srgb, var(--green) 18%, var(--bg-secondary));
+}
+
+.tcg-inline-diff .diff-line-del {
+  background: color-mix(in srgb, var(--red) 16%, var(--bg-secondary));
 }
 
 .tcg-inline-diff .diff-line-content {
@@ -636,5 +645,91 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+}
+
+/* ── Diff Preview Popover ─────────────────────────────────────────────────── */
+.diff-preview-popover {
+  position: fixed;
+  z-index: var(--z-popover);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-elevation-xl);
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  animation: diff-preview-in-below var(--duration-fast) ease-out;
+}
+
+.diff-preview-popover--above {
+  animation-name: diff-preview-in-above;
+}
+
+@keyframes diff-preview-in-below {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes diff-preview-in-above {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.diff-preview-popover-scroll {
+  max-height: 320px;
+  overflow: auto;
+  padding: var(--space-4) 0;
+}
+
+.diff-preview-popover-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.diff-preview-popover-scroll::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border-radius: var(--radius-pill);
+}
+.diff-preview-popover-scroll::-webkit-scrollbar-track {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-pill);
+}
+
+.diff-preview-lines {
+  width: max-content;
+  min-width: 100%;
+}
+
+.diff-preview-popover .diff-line {
+  min-height: unset;
+  min-width: unset;
+  width: 100%;
+  padding: 0 var(--space-6) 0 0;
+}
+
+.diff-preview-popover .diff-line-add {
+  background: color-mix(in srgb, var(--green) 18%, var(--bg-secondary));
+}
+
+.diff-preview-popover .diff-line-del {
+  background: color-mix(in srgb, var(--red) 16%, var(--bg-secondary));
+}
+
+.diff-preview-popover .diff-line-content {
+  padding-right: var(--space-10);
+}
+
+.diff-preview-sep {
+  height: 1px;
+  background: var(--border);
+  margin: var(--space-4) 0;
+}
+
+.diff-preview-truncated {
+  text-align: center;
+  padding: var(--space-4) 0;
+  color: var(--text-muted);
+  font-size: var(--text-base);
+  font-family: var(--font-mono);
 }
 

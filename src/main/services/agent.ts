@@ -6,6 +6,7 @@ import { mainSettings } from '../ipc'
 import type { WorkerEvent, AgentSettings, SlashCommand } from './agentTypes'
 import type { WorkerCommand, WorkerResult } from './agentProcessTypes'
 import { ptyService } from './pty'
+import { enrichedEnv } from '../lib/enrichedEnv'
 
 /** Metadata cached in the coordinator (no cross-process call needed). */
 interface SessionMeta { sessionName: string; cwd: string; branch: string; projectName: string }
@@ -49,7 +50,8 @@ class AgentCoordinator {
 
   private spawnSessionProcess(sessionId: string): Electron.UtilityProcess {
     const child = utilityProcess.fork(ENTRY_PATH, [], {
-      serviceName: `claude-${sessionId.slice(-6)}`
+      serviceName: `claude-${sessionId.slice(-6)}`,
+      env: enrichedEnv(),
     })
 
     child.on('message', (msg: WorkerEvent) => {
@@ -84,7 +86,8 @@ class AgentCoordinator {
     return new Promise((resolve, reject) => {
       const { requestId } = cmd
       const child = utilityProcess.fork(ENTRY_PATH, [], {
-        serviceName: `claude-ephemeral`
+        serviceName: `claude-ephemeral`,
+        env: enrichedEnv(),
       })
 
       const timer = setTimeout(() => {

@@ -16,7 +16,8 @@ import { useShallow } from 'zustand/shallow'
 import { useSessionsStore, useActiveSession } from '@/store/sessions'
 import { useUIStore, selectSelectedDiffFile, selectActiveCenterView } from '@/store/ui'
 import { ChatMessageList } from './ChatMessageList'
-import { ChatInput, MAX_IMAGES, fileToDataUri } from './ChatInput'
+import { ChatInput, MAX_IMAGES, ACCEPTED_IMAGE_TYPES, MAX_IMAGE_SIZE } from './ChatInput'
+import { compressImage } from '@/lib/imageCompression'
 import { ChatHeader } from './ChatHeader'
 import { buildDiffCommentBlocks } from './diffCommentUtils'
 import type { Message, SlashCommand, SnippetAttachment, DiffComment } from '@/types'
@@ -158,6 +159,17 @@ export function ChatView({ worktreePath = '' }: ChatViewProps) {
 
   // ─── Effects ────────────────────────────────────────────────────────────────
 
+  // When Claude asks a question (waiting_input), re-engage auto-scroll so the
+  // user sees the prompt even if they scrolled away during streaming.
+  const prevWaitingRef = useRef(false)
+  useEffect(() => {
+    const wasWaiting = prevWaitingRef.current
+    prevWaitingRef.current = !!isWaitingInput
+    if (!wasWaiting && isWaitingInput) {
+      engageScroll()
+    }
+  }, [isWaitingInput, engageScroll])
+
   useEffect(() => {
     const handler = () => textareaRef.current?.focus()
     window.addEventListener('braid:focusChat', handler)
@@ -196,10 +208,10 @@ export function ChatView({ worktreePath = '' }: ChatViewProps) {
   // ─── Image management ──────────────────────────────────────────────────────
 
   const addImages = useCallback(async (files: File[]) => {
-    const imageFiles = files.filter((f) => ['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(f.type))
+    const imageFiles = files.filter((f) => ACCEPTED_IMAGE_TYPES.includes(f.type))
     if (imageFiles.length === 0) return
     const valid = imageFiles.filter((f) => {
-      if (f.size > 2 * 1024 * 1024) { flash('warning', t('imageTooLarge')); return false }
+      if (f.size > MAX_IMAGE_SIZE) { flash('warning', t('imageTooLarge')); return false }
       return true
     })
     if (valid.length === 0) return
@@ -207,7 +219,13 @@ export function ChatView({ worktreePath = '' }: ChatViewProps) {
     if (remaining <= 0) { flash('warning', t('imageLimitReached')); return }
     const toAdd = valid.slice(0, remaining)
     if (toAdd.length < valid.length) flash('warning', t('imageLimitReached'))
-    const uris = await Promise.all(toAdd.map(fileToDataUri))
+    const results = await Promise.allSettled(toAdd.map(compressImage))
+    const failed = results.filter((r) => r.status === 'rejected').length
+    if (failed > 0) flash('warning', t('imageLoadFailed', { count: failed }))
+    const uris = results
+      .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled')
+      .map((r) => r.value)
+    if (uris.length === 0) return
     dispatch({ type: 'APPEND_IMAGES', uris })
   }, [attachedImages.length, dispatch, t])
 

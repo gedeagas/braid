@@ -64,7 +64,7 @@ body.resizing .right-panel {
 }
 
 .sidebar-header {
-  padding: 0 var(--space-8);
+  padding: var(--space-10) var(--space-8) 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -76,6 +76,22 @@ body.resizing .right-panel {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--text-secondary);
+}
+
+.sidebar-add-btn {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-2) var(--space-6);
+  border-radius: var(--radius-sm);
+  transition: color var(--duration-fast), background var(--duration-fast);
+}
+
+.sidebar-add-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
 .sidebar-content {

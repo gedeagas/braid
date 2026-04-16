@@ -91,5 +91,19 @@
   "jiraInvalidInput": "Masukkan kunci Jira (mis. PROJ-123) atau URL tiket",
   "attentionWaiting": "Menunggu input",
   "attentionError": "Error",
-  "attentionOverflow": "+{{count}} lainnya"
+  "attentionOverflow": "+{{count}} lainnya",
+  "quickStartTab": "Mulai Cepat",
+  "quickStartNameLabel": "Nama",
+  "quickStartNamePlaceholder": "proyek-saya",
+  "quickStartLocationLabel": "Lokasi",
+  "quickStartLocationPlaceholder": "~/projects",
+  "quickStartTemplateLabel": "Template",
+  "quickStartTemplateEmpty": "Kosong",
+  "quickStartCreateButton": "Buat",
+  "quickStartCreating": "Membuat proyek...",
+  "quickStartNameEmpty": "Silakan masukkan nama proyek",
+  "quickStartNameInvalid": "Nama harus dimulai dengan huruf atau angka dan hanya mengandung huruf, angka, titik, tanda hubung, atau garis bawah",
+  "quickStartLocationEmpty": "Silakan pilih lokasi",
+  "quickStartPathExists": "Folder dengan nama ini sudah ada di lokasi tersebut",
+  "quickStartCreateFailed": "Gagal membuat proyek"
 }

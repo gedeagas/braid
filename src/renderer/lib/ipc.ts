@@ -69,6 +69,8 @@ export const git = {
     api().git.setGitUserConfig(repoPath, name, email) as Promise<void>,
   clearGitUserConfig: (repoPath: string) =>
     api().git.clearGitUserConfig(repoPath) as Promise<void>,
+  initRepo: (dirPath: string) =>
+    api().git.initRepo(dirPath) as Promise<void>,
   isRepoRoot: (repoPath: string) =>
     api().git.isRepoRoot(repoPath) as Promise<boolean>,
   findChildRepos: (parentPath: string) =>
@@ -155,6 +157,8 @@ export const github = {
     api().github.getChecks(worktreePath, forceRefresh),
   getDeployments: (worktreePath: string, forceRefresh?: boolean) =>
     api().github.getDeployments(worktreePath, forceRefresh),
+  getOwnerAvatarUrl: (cwd: string): Promise<string> =>
+    api().github.getOwnerAvatarUrl(cwd),
   getGitSyncStatus: (worktreePath: string, baseBranch: string, forceRefresh?: boolean) =>
     api().github.getGitSyncStatus(worktreePath, baseBranch, forceRefresh),
   getCheckRunLog: (worktreePath: string, checkUrl: string) =>
@@ -202,6 +206,7 @@ export const files = {
   getFileInfo: (worktreePath: string, paths: string[]) => api().files.getFileInfo(worktreePath, paths),
   copyToWorktree: (src: string, dest: string, paths: string[]) => api().files.copyToWorktree(src, dest, paths),
   toRelativePaths: (basePath: string, absolutePaths: string[]) => api().files.toRelativePaths(basePath, absolutePaths),
+  pathExists: (dirPath: string) => api().files.pathExists(dirPath) as Promise<boolean>,
   detectPlatform: (repoPath: string) => api().files.detectPlatform(repoPath) as Promise<import('@/types').ProjectPlatform>,
   detectFramework: (repoPath: string) => api().files.detectFramework(repoPath) as Promise<import('@/types').MobileFramework>,
 }
@@ -218,6 +223,10 @@ export const claudeCli = {
 export const appWindow = {
   setZoomFactor: (factor: number) => api().window.setZoomFactor(factor),
   closeWindow: () => api().menu.closeWindow(),
+}
+
+export const dock = {
+  setBadgeCount: (count: number) => api().dock.setBadgeCount(count),
 }
 
 export const claudeConfig = {
@@ -277,6 +286,7 @@ export const notes = {
 
 export const jira = {
   isAvailable: () => api().jira.isAvailable(),
+  recheckAvailability: () => api().jira.recheckAvailability() as Promise<boolean>,
   getIssuesForBranch: (worktreePath: string, overrideBaseUrl?: string) =>
     api().jira.getIssuesForBranch(worktreePath, overrideBaseUrl) as Promise<import('@/types').JiraResult>,
   getIssueByKey: (key: string, overrideBaseUrl?: string) =>

@@ -65,6 +65,8 @@ const api = {
       ipcRenderer.invoke('git:setGitUserConfig', repoPath, name, email) as Promise<void>,
     clearGitUserConfig: (repoPath: string) =>
       ipcRenderer.invoke('git:clearGitUserConfig', repoPath) as Promise<void>,
+    initRepo: (dirPath: string) =>
+      ipcRenderer.invoke('git:initRepo', dirPath) as Promise<void>,
     isRepoRoot: (repoPath: string) =>
       ipcRenderer.invoke('git:isRepoRoot', repoPath) as Promise<boolean>,
     findChildRepos: (parentPath: string) =>
@@ -175,6 +177,8 @@ const api = {
       ipcRenderer.invoke('github:getChecks', worktreePath, forceRefresh),
     getDeployments: (worktreePath: string, forceRefresh?: boolean) =>
       ipcRenderer.invoke('github:getDeployments', worktreePath, forceRefresh),
+    getOwnerAvatarUrl: (cwd: string) =>
+      ipcRenderer.invoke('github:getOwnerAvatarUrl', cwd) as Promise<string>,
     getGitSyncStatus: (worktreePath: string, baseBranch: string, forceRefresh?: boolean) =>
       ipcRenderer.invoke('github:getGitSyncStatus', worktreePath, baseBranch, forceRefresh),
     getCheckRunLog: (worktreePath: string, checkUrl: string) =>
@@ -202,6 +206,7 @@ const api = {
   // Jira (optional — only available when acli is installed)
   jira: {
     isAvailable: () => ipcRenderer.invoke('jira:isAvailable') as Promise<boolean>,
+    recheckAvailability: () => ipcRenderer.invoke('jira:recheckAvailability') as Promise<boolean>,
     getIssuesForBranch: (worktreePath: string, overrideBaseUrl?: string) =>
       ipcRenderer.invoke('jira:getIssuesForBranch', worktreePath, overrideBaseUrl),
     getIssueByKey: (key: string, overrideBaseUrl?: string) =>
@@ -238,6 +243,8 @@ const api = {
       ipcRenderer.invoke('files:copyToWorktree', src, dest, paths) as Promise<{ copied: string[]; failed: string[] }>,
     toRelativePaths: (basePath: string, absolutePaths: string[]) =>
       ipcRenderer.invoke('files:toRelativePaths', basePath, absolutePaths) as Promise<string[]>,
+    pathExists: (dirPath: string) =>
+      ipcRenderer.invoke('files:pathExists', dirPath) as Promise<boolean>,
     detectPlatform: (repoPath: string) =>
       ipcRenderer.invoke('files:detectPlatform', repoPath) as Promise<'mobile' | 'web' | 'unknown'>,
     detectFramework: (repoPath: string) =>
@@ -302,6 +309,11 @@ const api = {
       return () => { ipcRenderer.removeListener('menu:action', handler) }
     },
     closeWindow: () => ipcRenderer.send('menu:closeWindow'),
+  },
+
+  // Dock badge
+  dock: {
+    setBadgeCount: (count: number) => ipcRenderer.send('dock:setBadgeCount', count),
   },
 
   // Notes
@@ -374,6 +386,12 @@ const api = {
       const handler = (_e: Electron.IpcRendererEvent, info: { message: string }) => cb(info)
       ipcRenderer.on('updater:error', handler)
       return () => ipcRenderer.removeListener('updater:error', handler)
+    },
+    check: () => ipcRenderer.invoke('updater:check') as Promise<boolean>,
+    onUpToDate: (cb: () => void) => {
+      const handler = () => cb()
+      ipcRenderer.on('updater:up-to-date', handler)
+      return () => ipcRenderer.removeListener('updater:up-to-date', handler)
     },
   },
 

@@ -10,7 +10,7 @@ import { useUIStore } from '@/store/ui'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { applyTheme } from '@/themes/apply'
 import { findTheme, builtinThemes } from '@/themes/palettes'
-import { settings, appWindow } from '@/lib/ipc'
+import { settings, appWindow, dock } from '@/lib/ipc'
 import i18n from '@/lib/i18n'
 import { SettingsOverlay } from '@/components/Settings/SettingsOverlay'
 import { ShortcutsModal } from '@/components/Shortcuts/ShortcutsModal'
@@ -25,6 +25,7 @@ import { FeatureTour } from '@/components/Onboarding/FeatureTour'
 import { SimulatorTour } from '@/components/Onboarding/SimulatorTour'
 import { UpdateDialog } from '@/components/shared/UpdateDialog'
 import { useAutoUpdate } from '@/hooks/useAutoUpdate'
+import { initUpdateListeners } from '@/store/updater'
 
 /** Build the unified tab list matching SessionTabBar's reconciliation logic */
 function getUnifiedTabs(): string[] {
@@ -120,6 +121,22 @@ export default function App() {
     return unsub
   }, [])
 
+  // Apply chat density mode on mount and subscribe to changes
+  useEffect(() => {
+    const applyDensity = (compact: boolean) => {
+      document.documentElement.setAttribute('data-density', compact ? 'compact' : 'default')
+    }
+    applyDensity(useUIStore.getState().chatCompactMode)
+    let prev = useUIStore.getState().chatCompactMode
+    const unsub = useUIStore.subscribe((state) => {
+      if (state.chatCompactMode !== prev) {
+        prev = state.chatCompactMode
+        applyDensity(state.chatCompactMode)
+      }
+    })
+    return unsub
+  }, [])
+
   // Apply UI zoom on mount
   useEffect(() => {
     try { appWindow.setZoomFactor(useUIStore.getState().uiZoom) } catch {}
@@ -131,7 +148,13 @@ export default function App() {
       .then(() => console.log('[Braid] Projects loaded'))
       .catch((e) => console.error('[Braid] Failed to load projects:', e))
     loadPersistedSessions()
-      .then(() => console.log('[Braid] Persisted sessions loaded'))
+      .then(() => {
+        console.log('[Braid] Persisted sessions loaded')
+        // Set initial badge from any persisted sessions already in waiting_input
+        const count = Object.values(useSessionsStore.getState().sessions)
+          .filter(s => s.status === 'waiting_input').length
+        dock.setBadgeCount(count)
+      })
       .catch((e) => console.error('[Braid] Failed to load sessions:', e))
 
     // Push initial settings to main process and keep in sync
@@ -154,9 +177,22 @@ export default function App() {
     const unsubSettings = useUIStore.subscribe(syncSettings)
 
     const cleanup = initAgentEventListener()
+    const cleanupUpdater = initUpdateListeners()
+
+    // Keep dock badge in sync with sessions needing attention
+    const unsubBadge = useSessionsStore.subscribe((state, prevState) => {
+      const count = Object.values(state.sessions).filter(s => s.status === 'waiting_input').length
+      const prevCount = Object.values(prevState.sessions).filter(s => s.status === 'waiting_input').length
+      if (count !== prevCount) {
+        dock.setBadgeCount(count)
+      }
+    })
+
     return () => {
       cleanup()
       unsubSettings()
+      cleanupUpdater()
+      unsubBadge()
     }
   }, [loadProjects, loadPersistedSessions])
 

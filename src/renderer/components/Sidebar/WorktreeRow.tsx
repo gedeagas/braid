@@ -9,6 +9,8 @@ import { Checkbox } from '@/components/ui'
 import { ContextMenu, type ContextMenuItem } from '@/components/shared/ContextMenu'
 import { useSessionsForWorktree } from '@/store/sessions'
 import { useTranslation } from 'react-i18next'
+import { IconGitBranch } from '@/components/shared/icons'
+import { worktreeName } from '@/lib/branchValidation'
 
 interface Props {
   worktree: Worktree
@@ -71,6 +73,14 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew }: Props) 
   else if (sessions.some((s) => s.status === 'error')) status = 'error'
   else if (sessions.some((s) => s.status === 'idle')) status = 'idle'
 
+  const requestDeleteWorktree = () => {
+    if (skipDeleteConfirm) {
+      removeWorktree(worktree.projectId, worktree.id)
+    } else {
+      rowDispatch({ type: 'SHOW_DELETE_CONFIRM' })
+    }
+  }
+
   const worktreeMenuItems: ContextMenuItem[] = [
     {
       label: isPinned ? t('contextMenuUnpin') : t('contextMenuPin'),
@@ -85,13 +95,7 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew }: Props) 
       label: t('contextMenuDeleteWorktree'),
       danger: true,
       disabled: worktree.isMain,
-      onClick: () => {
-        if (skipDeleteConfirm) {
-          removeWorktree(worktree.projectId, worktree.id)
-        } else {
-          rowDispatch({ type: 'SHOW_DELETE_CONFIRM' })
-        }
-      }
+      onClick: requestDeleteWorktree
     }
   ]
 
@@ -118,6 +122,9 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew }: Props) 
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
             selectWorktree(worktree.projectId, worktree.id)
+          } else if ((e.key === 'Delete' || (e.key === 'Backspace' && e.metaKey)) && !worktree.isMain && e.currentTarget === e.target) {
+            e.preventDefault()
+            requestDeleteWorktree()
           }
         }}
         onContextMenu={(e) => {
@@ -142,9 +149,15 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew }: Props) 
         >
           <StatusDot status={status} count={sessions.length} />
         </Tooltip>
-        <span className="worktree-branch-name">
-          {worktree.branch}
-        </span>
+        <div className="worktree-name-stack">
+          <span className="worktree-branch-name">
+            {worktreeName(worktree.path, worktree.branch)}
+          </span>
+          <span className="worktree-branch-secondary">
+            <IconGitBranch size={9} />
+            <span>{worktree.branch}</span>
+          </span>
+        </div>
         <div className="worktree-row-actions">
           <PrIcon worktreePath={worktree.path} />
           {worktree.isMain && (

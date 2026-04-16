@@ -157,7 +157,7 @@ const IGNORE_PATTERNS = [
   /\/node_modules\/monaco-editor\/dev(\/|$)/,
   /\/node_modules\/monaco-editor\/esm(\/|$)/,
   /\/node_modules\/monaco-editor\/min-maps(\/|$)/,
-  // @mobilenext/mobilecli: 53MB of platform binaries
+  // @mobilenext/mobilecli: 53MB of platform binaries (user installs via brew)
   /\/node_modules\/@mobilenext\/mobilecli\/bin(\/|$)/,
   // node-pty: strip non-macOS prebuilds (~58MB win32)
   /\/node_modules\/node-pty\/prebuilds\/win32-/,
@@ -197,8 +197,16 @@ const IGNORE_PATTERNS = [
   /^\/vitest\.config\./,
 ]
 
-function shouldIgnore(filePath) {
-  return IGNORE_PATTERNS.some((re) => re.test(filePath))
+function createIgnore(arch) {
+  // Keep only the darwin binary matching the target arch (~13MB instead of ~53MB)
+  const keepBinary = `mobilecli-darwin-${arch === 'arm64' ? 'arm64' : 'amd64'}`
+  return function shouldIgnore(filePath) {
+    // Strip non-matching darwin binary (the non-darwin ones are already caught by IGNORE_PATTERNS)
+    if (/\/node_modules\/@mobilenext\/mobilecli\/bin\/mobilecli-darwin-/.test(filePath)) {
+      return !filePath.endsWith(keepBinary)
+    }
+    return IGNORE_PATTERNS.some((re) => re.test(filePath))
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -432,16 +440,17 @@ async function packageArch(arch) {
     overwrite: true,
     prune: true,
 
-    // ASAR with selective unpacking for native modules and Claude SDK
+    // ASAR with selective unpacking for native modules, Claude SDK, and mobilecli
     asar: {
       unpack:
-        '{**/*.node,**/node_modules/node-pty/**,**/node_modules/@anthropic-ai/claude-agent-sdk/**}',
+        '{**/*.node,**/node_modules/node-pty/**,**/node_modules/@anthropic-ai/claude-agent-sdk/**,**/node_modules/@mobilenext/mobilecli/bin/*}',
     },
 
-    ignore: shouldIgnore,
+    ignore: createIgnore(arch),
 
     // Info.plist extensions
     extendInfo: {
+      CFBundleIconName: APP_NAME, // macOS 26+ Liquid Glass icon (from Assets.car)
       NSCameraUsageDescription:
         'Braid needs camera access for video calls in embedded web apps like Google Meet.',
       NSMicrophoneUsageDescription:
@@ -458,6 +467,28 @@ async function packageArch(arch) {
   log(`Packaging complete in ${elapsed}s: ${outputDir}`)
 
   const appPath = path.join(outputDir, `${APP_NAME}.app`)
+
+  // Inject app-update.yml so electron-updater doesn't throw ENOENT.
+  // setFeedURL() in autoUpdate.ts overrides the provider config for checking,
+  // but getOrCreateDownloadHelper() still reads this file at download time to
+  // get updaterCacheDirName for the disk cache directory.
+  const appUpdateYml = [
+    'provider: github',
+    'owner: gedeagas',
+    'repo: braid',
+    `updaterCacheDirName: ${APP_PKG.name}-updater`,
+    '',
+  ].join('\n')
+  const resourcesDir = path.join(appPath, 'Contents/Resources')
+  fs.writeFileSync(path.join(resourcesDir, 'app-update.yml'), appUpdateYml)
+  log('Injected app-update.yml into Resources/')
+
+  // Copy Assets.car for macOS 26+ Liquid Glass icon (compiled by generate-icon.js)
+  const assetsCar = path.join(BUILD_DIR, 'Assets.car')
+  if (fs.existsSync(assetsCar)) {
+    fs.copyFileSync(assetsCar, path.join(resourcesDir, 'Assets.car'))
+    log('Copied Assets.car into Resources/ (Liquid Glass icon)')
+  }
 
   // Fix native binary permissions (ASAR unpack strips +x from Mach-O helpers)
   fixNativePermissions(appPath)

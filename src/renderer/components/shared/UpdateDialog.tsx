@@ -50,7 +50,11 @@ export function UpdateDialog({ state, onDownload, onInstall, onDismiss, onRetry 
         {state.releaseNotes && (
           <>
             <p className="update-dialog__notes-label">{t('update.available.whatsNew')}</p>
-            <div className="update-dialog__notes">{state.releaseNotes}</div>
+            {/* Release notes come as HTML from GitHub Releases API via electron-updater */}
+            <div
+              className="update-dialog__notes"
+              dangerouslySetInnerHTML={{ __html: state.releaseNotes }}
+            />
           </>
         )}
       </Dialog>

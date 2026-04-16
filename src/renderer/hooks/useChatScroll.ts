@@ -29,12 +29,15 @@ interface UseChatScrollReturn {
  *     while idle sets `escapedFromLock = true`. Once escaped, the rAF loop
  *     stops forcing scroll and content growth can never silently re-engage it.
  *
- *   - **Re-engage** (explicit user intent only):
+ *   - **Re-engage** (explicit user intent or programmatic trigger):
  *     1. Scroll-to-bottom button click → `engageScroll()`
  *     2. User sends a message → `engageScroll()`
  *     3. Session switch → `engageScroll()`
  *     4. User manually scrolls to absolute bottom (≤ 2px) — tiny threshold to
  *        ensure it's deliberate, not content-growth drift.
+ *     5. `waiting_input` transition (Claude's `AskUserQuestion` fires) →
+ *        `engageScroll()` called programmatically from `ChatView` so the inline
+ *        prompt is scrolled into view automatically.
  *
  *   - **Streaming end**: When streaming stops and the user is within 150px of
  *     bottom, auto-re-engage so idle reading isn't stuck with the button showing.
@@ -174,8 +177,8 @@ export function useChatScroll({ isStreaming }: UseChatScrollOptions): UseChatScr
   }, [isStreaming])
 
   // Explicit re-engage: clears the escape latch and re-enables auto-scroll.
-  // Callers (scroll-to-bottom button, send message, session switch) must use
-  // this instead of poking wantsBottomRef directly.
+  // Callers (scroll-to-bottom button, send message, session switch,
+  // waiting_input transition) must use this instead of poking wantsBottomRef directly.
   const engageScroll = useCallback(() => {
     escapedRef.current = false
     wantsBottomRef.current = true

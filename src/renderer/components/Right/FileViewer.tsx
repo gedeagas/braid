@@ -5,6 +5,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { StreamingMarkdown } from '@/components/Center/StreamingMarkdown'
 import { IconEye } from '@/components/shared/icons'
+import { OpenInDropdown } from '@/components/shared/OpenInDropdown'
 import * as ipc from '@/lib/ipc'
 import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/store/ui'
@@ -26,6 +27,7 @@ interface Props {
   onDirtyChange?: (filePath: string, isDirty: boolean) => void
 }
 
+// LSP-protocol language IDs (used for textDocument/didOpen).
 const EXT_TO_LANG: Record<string, string> = {
   ts: 'typescript', tsx: 'typescriptreact',
   js: 'javascript', jsx: 'javascriptreact',
@@ -38,11 +40,24 @@ const EXT_TO_LANG: Record<string, string> = {
   proto: 'protobuf', dockerfile: 'dockerfile',
 }
 
+// Monaco registers tsx/jsx under "typescript"/"javascript" - it does NOT
+// recognize VS Code-style "typescriptreact"/"javascriptreact" IDs.
+const LSP_TO_MONACO: Record<string, string> = {
+  typescriptreact: 'typescript',
+  javascriptreact: 'javascript',
+}
+
+/** LSP-protocol language ID for a file path. */
 function getLanguage(path: string): string {
   const ext = path.split('.').pop()?.toLowerCase() ?? ''
   const name = path.split('/').pop()?.toLowerCase() ?? ''
   if (name === 'dockerfile') return 'dockerfile'
   return EXT_TO_LANG[ext] ?? 'plaintext'
+}
+
+/** Map an LSP language ID to a Monaco-recognized language ID. */
+function toMonacoLanguage(lang: string): string {
+  return LSP_TO_MONACO[lang] ?? lang
 }
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
@@ -259,6 +274,7 @@ export function FileViewer({ filePath, projectRoot = null, onDirtyChange }: Prop
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div className="file-viewer-toolbar">
           <span className="file-viewer-path">{fileName}</span>
+          <OpenInDropdown path={filePath} label={t('openIn')} />
         </div>
         <div style={{ flex: 1, overflow: 'auto' }}>
           {isImageFile(filePath) ? (
@@ -323,6 +339,7 @@ export function FileViewer({ filePath, projectRoot = null, onDirtyChange }: Prop
               {state.showPreview ? t('filePreviewHide') : t('filePreviewShow')}
             </button>
           )}
+          <OpenInDropdown path={filePath} label={t('openIn')} />
           <Tooltip content={t('fileSaveTooltip')} shortcut={t('fileSaveShortcut')}>
             <button
               className={`file-viewer-save-btn ${state.isDirty ? 'active' : ''}`}
@@ -344,7 +361,7 @@ export function FileViewer({ filePath, projectRoot = null, onDirtyChange }: Prop
         ) : (
           <Editor
             height="100%"
-            language={languageId}
+            language={toMonacoLanguage(languageId)}
             defaultValue={state.savedContent}
             theme={MONACO_THEME_NAME}
             onMount={handleEditorMount}

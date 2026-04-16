@@ -1,4 +1,4 @@
-import { useReducer, useCallback, useMemo, useState } from 'react'
+import { useReducer, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/react/shallow'
 import { useUIStore } from '@/store/ui'
@@ -61,8 +61,6 @@ export function SettingsApps() {
   const { t } = useTranslation('settings')
   const webAppsEnabled = useUIStore((s) => s.webAppsEnabled)
   const setWebAppsEnabled = useUIStore((s) => s.setWebAppsEnabled)
-  const jiraBaseUrl = useUIStore((s) => s.jiraBaseUrl)
-  const setJiraBaseUrl = useUIStore((s) => s.setJiraBaseUrl)
   const embeddedApps = useUIStore(useShallow((s) => s.embeddedApps))
   const addEmbeddedApp = useUIStore((s) => s.addEmbeddedApp)
   const removeEmbeddedApp = useUIStore((s) => s.removeEmbeddedApp)
@@ -73,8 +71,6 @@ export function SettingsApps() {
   const appIds = useMemo(() => embeddedApps.map((a) => a.id), [embeddedApps])
   const { dragKey, overKey, onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd } =
     useTabReorder(appIds, reorderEmbeddedApps)
-
-  const [jiraDraft, setJiraDraft] = useState(jiraBaseUrl)
 
   const [form, dispatch] = useReducer(formReducer, {
     name: '', url: '', error: '', pendingPreset: null, workspace: '',
@@ -116,22 +112,6 @@ export function SettingsApps() {
         <Toggle checked={webAppsEnabled} onChange={setWebAppsEnabled} />
       </div>
       <span className="settings-hint">{t('apps.enableHint')}</span>
-
-      <div className="settings-divider" />
-
-      <div className="settings-field">
-        <label className="settings-label">{t('apps.jiraBaseUrl')}</label>
-        <input
-          type="text"
-          className="settings-input"
-          value={jiraDraft}
-          onChange={(e) => setJiraDraft(e.target.value)}
-          onBlur={() => setJiraBaseUrl(jiraDraft)}
-          placeholder="https://yourcompany.atlassian.net"
-          spellCheck={false}
-        />
-        <span className="settings-hint">{t('apps.jiraBaseUrlHint')}</span>
-      </div>
 
       <div className="settings-divider" />
 

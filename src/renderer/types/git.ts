@@ -39,6 +39,8 @@ export interface Project {
   worktrees: Worktree[]
   createdAt: number
   settings?: ProjectSettings
+  /** GitHub org/user avatar URL, fetched automatically */
+  avatarUrl?: string
   /** Detected platform — 'mobile' shows the Simulator tab */
   platform?: ProjectPlatform
   /** Detected mobile framework — enables framework-specific debug controls */

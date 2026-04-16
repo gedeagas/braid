@@ -1,6 +1,7 @@
 ---
 sidebar_position: 1
 title: Keyboard Shortcuts
+description: Complete reference of keyboard shortcuts for navigating and controlling Braid.
 ---
 
 # Keyboard Shortcuts

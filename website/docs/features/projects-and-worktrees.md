@@ -1,6 +1,7 @@
 ---
 sidebar_position: 1
 title: Projects & Worktrees
+description: Organize work around Git repositories and isolated worktrees for parallel development in Braid.
 ---
 
 # Projects & Worktrees

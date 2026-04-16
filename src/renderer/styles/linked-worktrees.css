@@ -265,6 +265,22 @@
   overflow: hidden;
 }
 
+.lwt-card-branch-row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lwt-card-branch-row svg {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
 .lwt-card-upstream {
   flex-shrink: 0;
   white-space: nowrap;

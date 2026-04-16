@@ -152,10 +152,10 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
 
   // ─── Data fetching ────────────────────────────────────────────────────────
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (forceRefresh?: boolean) => {
     try {
       const [prResult, jiraFetch] = await Promise.all([
-        ipc.github.getPrStatus(worktreePath) as Promise<PrStatus | null>,
+        ipc.github.getPrStatus(worktreePath, forceRefresh) as Promise<PrStatus | null>,
         (ipc.jira.getIssuesForBranch(worktreePath, jiraBaseUrl || undefined) as Promise<JiraResult>)
           .catch((): 'error' => 'error'),
       ])
@@ -177,9 +177,9 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
       if (prResult) {
         const syncBranch = upstream ?? prResult.baseRefName ?? 'main'
         const [checksData, deploymentsData, syncData] = await Promise.all([
-          ipc.github.getChecks(worktreePath),
-          ipc.github.getDeployments(worktreePath),
-          ipc.github.getGitSyncStatus(worktreePath, syncBranch),
+          ipc.github.getChecks(worktreePath, forceRefresh),
+          ipc.github.getDeployments(worktreePath, forceRefresh),
+          ipc.github.getGitSyncStatus(worktreePath, syncBranch, forceRefresh),
         ])
         latestChecks = (checksData as CheckRun[]) ?? []
         latestDeployments = (deploymentsData as Deployment[]) ?? []
@@ -200,7 +200,7 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
 
   const handleRefresh = useCallback(async () => {
     dispatch({ type: 'SET_REFRESHING', value: true })
-    try { await load() } finally { dispatch({ type: 'SET_REFRESHING', value: false }) }
+    try { await load(true) } finally { dispatch({ type: 'SET_REFRESHING', value: false }) }
   }, [load])
 
   const handlePull = useCallback(async () => {

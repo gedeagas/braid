@@ -152,6 +152,8 @@
   "snippetAttached_other": "{{count}} cuplikan terlampir ({{lines}} baris)",
   "imageLimitReached": "Maksimal 5 gambar — hapus satu untuk menambah lagi",
   "imageTooLarge": "Gambar terlalu besar (maks 2MB)",
+  "imageLoadFailed_one": "{{count}} gambar gagal dimuat",
+  "imageLoadFailed_other": "{{count}} gambar gagal dimuat",
   "draftInputTooLarge": "Input terlalu panjang — gunakan cuplikan untuk teks besar",
   "linkWorktree": "Tautkan Worktree",
   "unlinkWorktree": "Lepas Tautan",
@@ -300,5 +302,12 @@
   "offlineSendDisabled": "Tidak dapat mengirim pesan saat offline",
   "networkError": "Koneksi terputus",
   "networkErrorMessage": "Periksa koneksi internet Anda dan coba lagi.",
-  "networkRetry": "Coba lagi"
+  "networkRetry": "Coba lagi",
+
+  "turnStats.model": "Model",
+  "turnStats.duration": "Durasi",
+  "turnStats.input": "Input",
+  "turnStats.output": "Output",
+  "turnStats.cacheRead": "Cache baca",
+  "turnStats.cacheWrite": "Cache tulis"
 }

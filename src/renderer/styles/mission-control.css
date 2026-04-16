@@ -9,23 +9,16 @@
   min-width: 0;
 }
 
-/* Spacer to clear macOS traffic lights when sidebar panel is closed */
-.mission-control::before {
-  content: '';
-  height: 48px;
-  flex-shrink: 0;
-  -webkit-app-region: drag;
-}
-
 .mission-control-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--space-16);
-  height: 40px;
+  padding: 0 var(--space-16) 0 var(--space-40);
+  height: 52px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   position: relative;
+  background: var(--bg-secondary);
 }
 
 .mission-control-header .drag-region {
@@ -311,8 +304,8 @@
 }
 
 .mc-card-project {
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
+  font-size: var(--text-base);
+  color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -423,6 +416,88 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   display: block;
+}
+
+/* Session card: pending reason (italic amber for need-attention) */
+.mc-card-pending {
+  font-size: var(--text-base);
+  color: var(--amber);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+  font-style: italic;
+}
+
+/* Session card: footer row (completed time + token count) */
+.mc-card-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  margin-top: var(--space-4);
+}
+
+.mc-card-completed-ago {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.mc-card-tokens {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+  cursor: default;
+}
+
+/* PR card: title */
+.mc-card-pr-title {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: var(--space-4);
+  line-height: 1.4;
+}
+
+/* PR card: badge row (review decision, merge state, draft) */
+.mc-card-pr-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+}
+
+/* PR card: CI status icon (replacing emoji) */
+.mc-card-checks-icon {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+
+/* PR card: GitHub external link button (hover-visible) */
+.mc-card-github-link {
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
+  padding: var(--space-2);
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color var(--duration-fast), background var(--duration-fast);
+  opacity: 0;
+}
+
+.mc-card:hover .mc-card-github-link {
+  opacity: 1;
+}
+
+.mc-card-github-link:hover {
+  color: var(--accent);
+  background: var(--bg-hover);
 }
 
 /* PR card: green left border for open, muted for merged */
@@ -742,4 +817,119 @@
   color: var(--red);
   background: var(--bg-hover);
   border-color: transparent;
+}
+
+/* ── Session Hover Card (portal popover) ─────────────────────────────── */
+
+.mc-hover-card {
+  position: fixed;
+  width: 280px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-elevation-xl);
+  padding: var(--space-12);
+  z-index: var(--z-popover);
+  animation: mc-popover-enter var(--duration-fast) ease-out;
+}
+
+.mc-hover-header {
+  margin-bottom: var(--space-8);
+}
+
+.mc-hover-badge {
+  display: inline-block;
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px var(--space-6);
+  border-radius: var(--radius-sm);
+}
+
+.mc-hover-badge--running {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+
+.mc-hover-badge--waiting_input {
+  background: color-mix(in srgb, var(--amber) 18%, transparent);
+  color: var(--amber);
+}
+
+.mc-hover-badge--error {
+  background: color-mix(in srgb, var(--red) 18%, transparent);
+  color: var(--red);
+}
+
+.mc-hover-badge--idle {
+  background: color-mix(in srgb, var(--green) 18%, transparent);
+  color: var(--green);
+}
+
+.mc-hover-badge--inactive {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+}
+
+.mc-hover-name {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-10);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mc-hover-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.mc-hover-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  font-size: var(--text-base);
+}
+
+.mc-hover-label {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.mc-hover-value {
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.mc-hover-value .additions { color: var(--green); }
+.mc-hover-value .deletions { color: var(--red); }
+
+.mc-hover-muted {
+  color: var(--text-tertiary);
+}
+
+.mc-hover-link {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--text-muted);
+  border-radius: var(--radius-xs);
+  padding: var(--space-2);
+  transition: color var(--duration-fast);
+}
+
+.mc-hover-link:hover {
+  color: var(--accent);
 }

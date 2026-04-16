@@ -4,6 +4,7 @@ import { readFile } from 'fs/promises'
 import { homedir } from 'os'
 import { join } from 'path'
 import { ServiceCache } from '../lib/serviceCache'
+import { enrichedEnv } from '../lib/enrichedEnv'
 
 const exec = promisify(execFile)
 
@@ -23,7 +24,7 @@ export interface JiraResult {
 }
 
 class JiraService {
-  // Cached per app session — acli installation doesn't change at runtime
+  // Cached availability flag, reset by recheckAvailability() after install
   private _available: boolean | null = null
 
   // Base URL detection cache: undefined = not yet attempted
@@ -38,12 +39,17 @@ class JiraService {
   async isAvailable(): Promise<boolean> {
     if (this._available !== null) return this._available
     try {
-      await exec('which', ['acli'], { timeout: 3_000 })
+      await exec('which', ['acli'], { timeout: 3_000, env: enrichedEnv() })
       this._available = true
     } catch {
       this._available = false
     }
     return this._available
+  }
+
+  async recheckAvailability(): Promise<boolean> {
+    this._available = null
+    return this.isAvailable()
   }
 
   /**
@@ -109,7 +115,8 @@ class JiraService {
     const data = await this.issueDataCache.get(key, async () => {
       try {
         const { stdout } = await exec('acli', ['jira', 'workitem', 'view', key, '--json'], {
-          timeout: 10_000
+          timeout: 10_000,
+          env: enrichedEnv()
         })
         return JSON.parse(stdout.trim()) as Record<string, unknown>
       } catch {

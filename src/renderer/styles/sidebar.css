@@ -241,6 +241,24 @@
 .badge--danger { background: var(--red-tint-15); color: var(--red); }
 .badge--muted { background: var(--overlay-6); color: var(--text-muted); }
 
+.project-avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.project-avatar--letter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  user-select: none;
+  line-height: 1;
+}
+
 .project-name {
   flex: 1;
   min-width: 0;
@@ -460,11 +478,44 @@
    Extracted inline styles
    ══════════════════════════════════════════════════════════════════ */
 
-.worktree-branch-name {
+.worktree-name-stack {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  gap: var(--space-1);
+}
+
+.worktree-branch-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.worktree-branch-secondary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0.75;
+}
+
+.worktree-branch-secondary svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.worktree-branch-secondary span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.worktree-row.selected .worktree-branch-secondary,
+.worktree-row:hover .worktree-branch-secondary {
+  opacity: 1;
 }
 
 .sidebar-empty-state {

@@ -1,7 +1,10 @@
 import { logger } from '../lib/logger'
+import { enrichedEnv as baseEnrichedEnv, waitForEnrichedEnv } from '../lib/enrichedEnv'
 import { app } from 'electron'
 import { execFile, spawn, ChildProcess } from 'child_process'
 import { promisify } from 'util'
+import { existsSync } from 'fs'
+import path from 'path'
 import http from 'http'
 
 const exec = promisify(execFile)
@@ -68,22 +71,66 @@ class SimulatorService implements ISimulatorService {
   }
 
   private enrichedEnv(): NodeJS.ProcessEnv {
+    const base = baseEnrichedEnv()
     const androidHome = process.env.ANDROID_HOME ?? process.env.ANDROID_SDK_ROOT ?? ''
     const androidPaths = androidHome
       ? [`${androidHome}/platform-tools`, `${androidHome}/emulator`, `${androidHome}/tools/bin`]
       : []
-    const envPath = ['/opt/homebrew/bin', '/usr/local/bin', ...androidPaths, process.env.PATH ?? ''].join(':')
-    return { ...process.env, PATH: envPath }
+    // Prepend Android SDK paths to the login-shell-resolved PATH
+    const envPath = [...androidPaths, base.PATH ?? ''].join(':')
+    return { ...base, PATH: envPath }
   }
 
+  /**
+   * Resolve the mobilecli binary path.
+   *
+   * Priority:
+   *   1. Bundled binary from @mobilenext/mobilecli (works in dev and packaged builds)
+   *   2. System-installed binary via PATH (e.g. `brew install mobilecli`)
+   */
   private async resolveCli(): Promise<string | null> {
     if (this.cliPath !== null) return this.cliPath || null
+
+    // 1. Try the bundled binary shipped with the app
+    const bundled = this.resolveBundledCli()
+    if (bundled) {
+      this.cliPath = bundled
+      logger.debug(`[Simulator] Using bundled mobilecli: ${bundled}`)
+      return this.cliPath
+    }
+
+    // 2. Fall back to system PATH (e.g. Homebrew install)
+    await waitForEnrichedEnv()
     try {
-      const { stdout } = await exec('which', ['mobilecli'], { env: this.enrichedEnv() })
+      const { stdout } = await exec('which', ['mobilecli'], { env: this.enrichedEnv(), timeout: 5000 })
       this.cliPath = stdout.trim()
+      logger.debug(`[Simulator] Using system mobilecli: ${this.cliPath}`)
       return this.cliPath
     } catch { /* not found */ }
+
     this.cliPath = ''
+    return null
+  }
+
+  /**
+   * Find the platform-specific mobilecli binary bundled in node_modules.
+   * In packaged builds, the binary is ASAR-unpacked so it can be executed directly.
+   */
+  private resolveBundledCli(): string | null {
+    const binaryName = `mobilecli-darwin-${process.arch === 'arm64' ? 'arm64' : 'amd64'}`
+    const appPath = app.getAppPath()
+
+    // Packaged build: binary is in the ASAR-unpacked directory
+    const unpackedPath = path.join(
+      appPath.replace('app.asar', 'app.asar.unpacked'),
+      'node_modules', '@mobilenext', 'mobilecli', 'bin', binaryName,
+    )
+    if (existsSync(unpackedPath)) return unpackedPath
+
+    // Dev mode: binary is in the project's node_modules
+    const devPath = path.join(appPath, 'node_modules', '@mobilenext', 'mobilecli', 'bin', binaryName)
+    if (existsSync(devPath)) return devPath
+
     return null
   }
 
@@ -95,9 +142,9 @@ class SimulatorService implements ISimulatorService {
 
   /** Detect which platform toolchains are available. */
   async checkPlatformTools(): Promise<{ xcode: boolean; androidSdk: boolean }> {
-    const env = this.enrichedEnv()
+    await waitForEnrichedEnv()
     const has = (bin: string) =>
-      exec('which', [bin], { env }).then(() => true).catch(() => false)
+      exec('which', [bin], { env: this.enrichedEnv(), timeout: 5000 }).then(() => true).catch(() => false)
     const [xcode, androidSdk] = await Promise.all([
       has('xcrun'),     // Xcode CLT — ships simctl
       has('adb'),       // Android SDK — platform-tools

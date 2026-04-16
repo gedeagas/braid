@@ -93,7 +93,10 @@
     },
     "later": "Later",
     "download": "Download",
-    "restart": "Restart"
+    "restart": "Restart",
+    "check": "Check for Updates",
+    "checking": "Checking...",
+    "upToDate": "Braid is up to date"
   },
   "tour": {
     "next": "Next",

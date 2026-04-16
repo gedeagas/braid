@@ -1,20 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <!--
-    CONCEPT D (macOS optimised) — "Triple Sweep"
-    Changes from original:
-    • Sweep tails are noticeably brighter so all 3 stripes stay distinct at 32–64px
-    • Gap opacity increased between sweeps (perceived separation at small sizes)
-    • Squircle matches Apple's exact superellipse approximation
-    • Sweep curves adjusted so the diagonal silhouette is bold and clean at 16px
-    • No detail that disappears below 64px — only the gradient richness is lost gracefully
-  -->
   <defs>
-    <!--
-      Apple-accurate squircle: superellipse |x|^5+|y|^5=r^5 bezier approximation.
-      No straight sides — the curve is continuous all the way around.
-      Control point ratio ~0.678 of half-size from each axis midpoint.
-    -->
-    <clipPath id="sq-mac">
+    <!-- Apple-accurate squircle: continuous superellipse, no straight sides -->
+    <clipPath id="sq">
       <path d="
         M 512 0
         C 679.6 0 776.4 0 848.8 35.6
@@ -32,19 +19,12 @@
       "/>
     </clipPath>
 
-    <!-- Background: very dark, almost black -->
     <radialGradient id="bg" cx="60%" cy="38%" r="72%">
       <stop offset="0%"   stop-color="#12172a"/>
       <stop offset="100%" stop-color="#060709"/>
     </radialGradient>
 
-    <!--
-      Sweep gradient: tail is NOT pure black — it's dark-but-visible blue.
-      This keeps the 3-stripe shape readable at small sizes.
-      Head is bright white-blue.
-    -->
-    <linearGradient id="sg" gradientUnits="userSpaceOnUse"
-                    x1="80" y1="900" x2="960" y2="100">
+    <linearGradient id="sg" gradientUnits="userSpaceOnUse" x1="80" y1="900" x2="960" y2="100">
       <stop offset="0%"   stop-color="#0a1a3d"/>
       <stop offset="30%"  stop-color="#1040a0"/>
       <stop offset="65%"  stop-color="#3b82f6"/>
@@ -52,40 +32,24 @@
       <stop offset="100%" stop-color="#e0f2fe"/>
     </linearGradient>
 
-    <!-- Gap gradient: nearly black, same angle — used to cut dark lines between sweeps -->
-    <linearGradient id="gap" gradientUnits="userSpaceOnUse"
-                    x1="80" y1="900" x2="960" y2="100">
+    <linearGradient id="gap" gradientUnits="userSpaceOnUse" x1="80" y1="900" x2="960" y2="100">
       <stop offset="0%"   stop-color="#030507"/>
       <stop offset="100%" stop-color="#080c16"/>
     </linearGradient>
 
-    <!--
-      SWEEP PATHS — three parallel arcs, same curvature, 190px vertical offset each.
-      Stroke widths are generous so they survive at 32px output.
-    -->
-
-    <!--
-      Sweep paths shifted so the middle stripe bisects the icon at (512, 512).
-      All y-coordinates moved +110px from original.
-    -->
-
-    <!-- Sweep 1 (top — thinnest) -->
     <mask id="m1">
       <path d="M -80,500 C 180,380 580,265 1100,170"
             fill="none" stroke="white" stroke-width="64" stroke-linecap="round"/>
     </mask>
-    <!-- Sweep 2 (middle — passes through icon centre) -->
     <mask id="m2">
       <path d="M -80,690 C 180,570 580,455 1100,360"
             fill="none" stroke="white" stroke-width="80" stroke-linecap="round"/>
     </mask>
-    <!-- Sweep 3 (bottom — thickest) -->
     <mask id="m3">
       <path d="M -80,880 C 180,760 580,645 1100,550"
             fill="none" stroke="white" stroke-width="96" stroke-linecap="round"/>
     </mask>
 
-    <!-- Gap masks — dark separator lines between sweeps -->
     <mask id="gap12">
       <path d="M -80,564 C 180,444 580,329 1100,234"
             fill="none" stroke="white" stroke-width="10" stroke-linecap="round"/>
@@ -95,46 +59,34 @@
             fill="none" stroke="white" stroke-width="10" stroke-linecap="round"/>
     </mask>
 
-    <!-- Soft glow filters -->
     <filter id="halo" x="-20%" y="-20%" width="140%" height="140%">
       <feGaussianBlur stdDeviation="28"/>
     </filter>
-    <filter id="edge" x="-5%" y="-5%" width="110%" height="110%">
-      <feGaussianBlur stdDeviation="1.5" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
 
-    <!-- Upper-right corner flare -->
     <radialGradient id="flare" cx="82%" cy="10%" r="38%">
       <stop offset="0%"   stop-color="#dbeafe" stop-opacity="0.20"/>
       <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
     </radialGradient>
   </defs>
 
-  <g clip-path="url(#sq-mac)">
-    <!-- Background -->
+  <g>
     <rect width="1024" height="1024" fill="url(#bg)"/>
 
-    <!-- Glow halos behind sweeps (larger, blurred) -->
     <rect width="1024" height="1024" fill="url(#sg)" mask="url(#m3)" opacity="0.30" filter="url(#halo)"/>
     <rect width="1024" height="1024" fill="url(#sg)" mask="url(#m2)" opacity="0.25" filter="url(#halo)"/>
     <rect width="1024" height="1024" fill="url(#sg)" mask="url(#m1)" opacity="0.20" filter="url(#halo)"/>
 
-    <!-- Solid sweeps — bottom to top (back to front) -->
     <rect width="1024" height="1024" fill="url(#sg)" mask="url(#m3)" opacity="0.65"/>
     <rect width="1024" height="1024" fill="url(#sg)" mask="url(#m2)" opacity="0.82"/>
     <rect width="1024" height="1024" fill="url(#sg)" mask="url(#m1)" opacity="1.0"/>
 
-    <!-- Dark gap lines (painted over sweeps to separate them at small sizes) -->
     <rect width="1024" height="1024" fill="url(#gap)" mask="url(#gap12)" opacity="0.9"/>
     <rect width="1024" height="1024" fill="url(#gap)" mask="url(#gap23)" opacity="0.9"/>
 
-    <!-- Specular catch-light on leading edge of top sweep -->
     <path d="M 20,470 C 270,354 620,242 1080,148"
           fill="none" stroke="white" stroke-width="2"
           stroke-linecap="round" opacity="0.28"/>
 
-    <!-- Upper-right corner flare bloom -->
     <rect width="1024" height="1024" fill="url(#flare)"/>
   </g>
 </svg>

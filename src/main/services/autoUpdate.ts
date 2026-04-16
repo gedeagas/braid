@@ -20,6 +20,8 @@ const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000 // 4 hours
 let checkTimer: ReturnType<typeof setTimeout> | null = null
 let checkInterval: ReturnType<typeof setInterval> | null = null
 let isDownloading = false
+let isInstallingUpdate = false
+let activeWindow: BrowserWindow | null = null
 
 /** Safe IPC send - guards against destroyed window. */
 function sendToRenderer(window: BrowserWindow, channel: string, data: unknown): void {
@@ -33,6 +35,7 @@ function sendToRenderer(window: BrowserWindow, channel: string, data: unknown): 
  * guarded by `if (app.isPackaged)`.
  */
 export function initAutoUpdater(mainWindow: BrowserWindow): void {
+  activeWindow = mainWindow
   autoUpdater.logger = logger
   autoUpdater.autoDownload = false
   // Let the user control when to restart - don't silently install on quit
@@ -47,6 +50,7 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
   })
 
   autoUpdater.on('update-available', (info: UpdateInfo) => {
+    logger.info(`[updater] Update available: v${info.version}`)
     sendToRenderer(mainWindow, 'updater:update-available', {
       version: info.version,
       releaseNotes: typeof info.releaseNotes === 'string'
@@ -73,10 +77,18 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
 
   autoUpdater.on('error', (err: Error) => {
     isDownloading = false
+    // Suppress errors that fire during quit-and-install — the app is
+    // relaunching and the error is an artifact of the process teardown.
+    if (isInstallingUpdate) return
     logger.error('Auto-updater error', err)
     sendToRenderer(mainWindow, 'updater:error', {
       message: err.message,
     })
+  })
+
+  autoUpdater.on('update-not-available', () => {
+    logger.info('[updater] No update available - app is up to date')
+    sendToRenderer(mainWindow, 'updater:up-to-date', {})
   })
 
   // Check after a short delay so the window is fully loaded
@@ -99,6 +111,31 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
 export function stopAutoUpdater(): void {
   if (checkTimer) { clearTimeout(checkTimer); checkTimer = null }
   if (checkInterval) { clearInterval(checkInterval); checkInterval = null }
+  activeWindow = null
+}
+
+/**
+ * Manually trigger an update check. Called via IPC from renderer.
+ * Returns true if a check was initiated, false if skipped (dev mode, no window, etc.).
+ */
+export function checkForUpdates(): boolean {
+  if (!app.isPackaged) {
+    logger.info('[updater] Skipped check - app is not packaged (dev mode)')
+    return false
+  }
+  if (!activeWindow) {
+    logger.info('[updater] Skipped check - no active window')
+    return false
+  }
+  if (isDownloading) {
+    logger.info('[updater] Skipped check - download in progress')
+    return false
+  }
+  logger.info('[updater] Starting manual update check')
+  autoUpdater.checkForUpdates().catch((err) => {
+    logger.error('[updater] Manual update check failed', err)
+  })
+  return true
 }
 
 /** Start downloading the update. Called via IPC from renderer. */
@@ -115,6 +152,15 @@ export function downloadUpdate(): void {
 
 /** Quit and install the downloaded update. Called via IPC from renderer. */
 export function installUpdate(): void {
-  // isSilent=false (show installer), isForceRunAfter=true (relaunch after)
-  autoUpdater.quitAndInstall(false, true)
+  isInstallingUpdate = true
+  try {
+    // isSilent=false (show installer), isForceRunAfter=true (relaunch after)
+    autoUpdater.quitAndInstall(false, true)
+  } catch (err) {
+    isInstallingUpdate = false
+    throw err
+  }
+  // Safety net: if the process hasn't exited within 5s (e.g. dev mode or a
+  // failed quit), clear the flag so real errors aren't silently swallowed.
+  setTimeout(() => { isInstallingUpdate = false }, 5_000)
 }

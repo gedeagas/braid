@@ -690,3 +690,82 @@
   white-space: nowrap;
   max-width: 180px;
 }
+
+/* ============= Turn Actions (Bottom Copy Button) ============= */
+
+.turn-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding-top: var(--space-4);
+}
+
+.turn-actions-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color var(--duration-fast), background var(--duration-fast);
+}
+
+.turn-actions-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.turn-actions-btn--copied {
+  color: var(--green);
+}
+
+.turn-actions-btn--copied:hover {
+  color: var(--green);
+  background: none;
+}
+
+.turn-actions-duration {
+  font-size: var(--text-lg);
+  color: var(--text-muted);
+  cursor: default;
+}
+
+/* ---- Turn Usage Tooltip (portal, position: fixed) ---- */
+
+.turn-usage-tooltip {
+  position: fixed;
+  min-width: 180px;
+  padding: var(--space-6) var(--space-8);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-elevation-md);
+  z-index: var(--z-popover);
+  pointer-events: none;
+  animation: tooltip-fade-in 0.12s ease-out;
+}
+
+.turn-usage-tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-2) 0;
+}
+
+.turn-usage-tooltip-label {
+  font-size: var(--text-md);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.turn-usage-tooltip-value {
+  font-size: var(--text-md);
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

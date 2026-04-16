@@ -2,6 +2,7 @@ import { execFile, spawn } from 'child_process'
 import { promisify } from 'util'
 import simpleGit from 'simple-git'
 import { ServiceCache } from '../lib/serviceCache'
+import { enrichedEnv } from '../lib/enrichedEnv'
 
 const exec = promisify(execFile)
 
@@ -16,7 +17,7 @@ export async function resolveNwo(cwd: string): Promise<string> {
   return nwoCache.get(cwd, async () => {
     const { stdout } = await exec(
       'gh', ['repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner'],
-      { cwd, timeout: 15_000 }
+      { cwd, timeout: 15_000, env: enrichedEnv() }
     )
     const nwo = stdout.trim()
     if (!nwo) throw new Error('Could not resolve repo nameWithOwner')
@@ -87,7 +88,7 @@ class GitHubService {
 
   private async gh(args: string[], cwd: string, throwOnError = false): Promise<string> {
     try {
-      const { stdout } = await exec('gh', args, { cwd, timeout: 15_000, maxBuffer: 10 * 1024 * 1024 })
+      const { stdout } = await exec('gh', args, { cwd, timeout: 15_000, maxBuffer: 10 * 1024 * 1024, env: enrichedEnv() })
       return stdout.trim()
     } catch (err) {
       if (throwOnError) {
@@ -282,7 +283,7 @@ class GitHubService {
   /** Spawn `gh` and stream stdout, keeping only the last `tailChars` characters. */
   private ghTail(args: string[], cwd: string, tailChars: number): Promise<string> {
     return new Promise((resolve, reject) => {
-      const proc = spawn('gh', args, { cwd, stdio: ['ignore', 'pipe', 'ignore'] })
+      const proc = spawn('gh', args, { cwd, stdio: ['ignore', 'pipe', 'ignore'], env: enrichedEnv() })
       let tail = ''
       const timer = setTimeout(() => { proc.kill(); reject(new Error('gh log fetch timed out')) }, 30_000)
 
@@ -320,6 +321,26 @@ class GitHubService {
   async markPrReady(worktreePath: string): Promise<void> {
     await this.gh(['pr', 'ready'], worktreePath, true)
     this.prCache.invalidate(worktreePath)
+  }
+
+  private avatarCache = new ServiceCache<string>(Infinity)
+
+  async getOwnerAvatarUrl(cwd: string): Promise<string> {
+    const nwo = await resolveNwo(cwd)
+    try {
+      return await this.avatarCache.get(nwo, async () => {
+        const raw = await this.gh(
+          ['api', `repos/${nwo}`, '--jq', '.owner.avatar_url'],
+          cwd,
+          true
+        )
+        const url = raw.trim()
+        if (!url) throw new Error('Empty avatar URL')
+        return url
+      })
+    } catch {
+      return ''
+    }
   }
 
   async getGitSyncStatus(worktreePath: string, baseBranch: string, _forceRefresh?: boolean): Promise<GitSyncStatus> {

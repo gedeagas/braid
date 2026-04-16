@@ -91,6 +91,14 @@ export type ContentBlock =
   | { type: 'text'; text: string }
   | { type: 'tool_use'; toolCall: ToolCall }
 
+export interface TurnUsage {
+  model?: string // raw model id from API (e.g. "claude-sonnet-4-6-20250514")
+  inputTokens: number
+  outputTokens: number
+  cacheReadTokens: number
+  cacheWriteTokens: number
+}
+
 export interface Message {
   id: string
   role: 'user' | 'assistant' | 'system'
@@ -101,6 +109,8 @@ export interface Message {
   isPartial?: boolean
   tag?: string // optional semantic tag (e.g. 'create-pr') for special renderers
   timestamp: number
+  turnDurationMs?: number // wall-clock duration for this assistant turn
+  turnUsage?: TurnUsage // per-turn token usage snapshot
 }
 
 export interface ToolCall {
