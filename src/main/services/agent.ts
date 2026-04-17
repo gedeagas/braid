@@ -282,6 +282,8 @@ class AgentCoordinator {
     prompt: string,
     model: string,
     thinking: boolean,
+    extendedContext: boolean,
+    effortLevel: string,
     planMode: boolean,
     sessionName: string = 'New Chat',
     images?: string[],
@@ -295,7 +297,7 @@ class AgentCoordinator {
     this.sessionMeta.set(sessionId, { sessionName, cwd: worktreePath, branch, projectName })
     this.postCommand(sessionId, {
       type: 'startSession', sessionId, worktreeId, projectName,
-      worktreePath, prompt, model, thinking,
+      worktreePath, prompt, model, thinking, extendedContext, effortLevel,
       planMode, sessionName, settings: this.getAgentSettings(), images,
       additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework
     })
@@ -307,6 +309,8 @@ class AgentCoordinator {
     sdkSessionId: string,
     cwd: string,
     model: string,
+    extendedContext: boolean,
+    effortLevel: string,
     planMode: boolean,
     sessionName: string = 'New Chat',
     images?: string[],
@@ -330,7 +334,7 @@ class AgentCoordinator {
     }
     this.postCommand(sessionId, {
       type: 'sendMessage', sessionId, message, sdkSessionId, cwd, model,
-      planMode, sessionName, settings: this.getAgentSettings(), images,
+      extendedContext, effortLevel, planMode, sessionName, settings: this.getAgentSettings(), images,
       additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework
     })
   }

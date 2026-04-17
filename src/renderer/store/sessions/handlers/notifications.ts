@@ -37,7 +37,7 @@ export function maybeShowToast(
   if (type === 'error' && !ui.notifyOnError) return
   if (type === 'waiting_input' && !ui.notifyOnWaitingInput) return
 
-  // Skip if user is already viewing this session — but always notify for
+  // Skip if user is already viewing this session - but always notify for
   // waiting_input: Claude is blocked and needs attention regardless of focus
   const cv = ui.activeCenterView
   if (type !== 'waiting_input' && cv?.type === 'session' && cv.sessionId === sessionId) return

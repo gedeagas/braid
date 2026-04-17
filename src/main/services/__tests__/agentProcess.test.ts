@@ -118,7 +118,7 @@ describe('agentProcess entry point', () => {
 
     sendCommand({
       type: 'startSession', sessionId: 's1', worktreeId: 'wt-1', projectName: 'test',
-      worktreePath: '/tmp', prompt: 'hello', model: 'claude-sonnet-4-6', thinking: false,
+      worktreePath: '/tmp', prompt: 'hello', model: 'claude-sonnet-4-6', thinking: false, extendedContext: false, effortLevel: 'high',
       planMode: false, sessionName: 'Test', settings: defaultSettings
     })
 
@@ -184,7 +184,7 @@ describe('agentProcess entry point', () => {
     mockQuery.mockReturnValue(makeAsyncIterable([]))
     sendCommand({
       type: 'startSession', sessionId: 's2', worktreeId: 'wt-2', projectName: 'test',
-      worktreePath: '/tmp', prompt: 'hi', model: 'claude-sonnet-4-6', thinking: false,
+      worktreePath: '/tmp', prompt: 'hi', model: 'claude-sonnet-4-6', thinking: false, extendedContext: false, effortLevel: 'high',
       planMode: false, sessionName: 'Test', settings: defaultSettings
     })
     await waitFor(() =>
