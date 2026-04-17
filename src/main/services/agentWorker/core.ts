@@ -41,7 +41,7 @@ function needsExtendedContextBeta(model: string): boolean {
  * --effort value, Claude.ai subscriber limits). Merge the last few stderr
  * lines into the message so the renderer can show a useful error.
  */
-function enrichExitError(rawMessage: string, stderrBuffer: string): string {
+export function enrichExitError(rawMessage: string, stderrBuffer: string): string {
   if (!/process exited with code/i.test(rawMessage)) return rawMessage
   const trimmed = stderrBuffer.trim()
   if (!trimmed) return rawMessage
