@@ -64,7 +64,7 @@
   white-space: nowrap;
   flex-shrink: 0;
   padding: var(--space-1) var(--space-6);
-  background: var(--overlay-5);
+  background: var(--overlay-6);
   border-radius: var(--radius-pill);
 }
 

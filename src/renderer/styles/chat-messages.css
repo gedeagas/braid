@@ -133,7 +133,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  max-width: 75%;
+  max-width: 60%;
   min-width: 0;
 }
 
@@ -183,7 +183,7 @@
   white-space: nowrap;
   flex-shrink: 0;
   padding: var(--space-1) var(--space-6);
-  background: var(--overlay-5);
+  background: var(--overlay-6);
   border-radius: var(--radius-pill);
 }
 
@@ -207,6 +207,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  max-width: 100%;
+  min-width: 0;
 }
 
 .chat-msg-terminal-card {
@@ -253,7 +255,9 @@
   color: var(--text-muted);
   white-space: nowrap;
   flex-shrink: 0;
-  opacity: 0.8;
+  padding: var(--space-1) var(--space-6);
+  background: var(--overlay-6);
+  border-radius: var(--radius-pill);
 }
 
 .chat-msg-terminal-card-content {
