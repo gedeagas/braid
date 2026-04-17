@@ -14,11 +14,8 @@ import { sessionStorageService, PersistedSession } from './services/sessionStora
 import { filesService } from './services/files'
 import { simulatorService } from './services/simulator'
 import { detectScripts } from './services/scriptDetector'
-import {
-  templatesService,
-  TemplateKind,
-  CreateTemplateArgs,
-} from './services/templates'
+import { templatesService } from './services/templates'
+import type { TemplateKind, CreateTemplateArgs } from '../shared/templates'
 import { windowCaptureService } from './services/windowCapture'
 import { claudeConfigService, ClaudePermissions, ClaudeHookConfig, SkillDetail, McpServerEntry, McpServerConfig } from './services/claudeConfig'
 import { notesService } from './services/notes'

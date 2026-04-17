@@ -201,23 +201,11 @@ export const scripts = {
   detect: (projectPath: string, forceRefresh?: boolean) => api().scripts.detect(projectPath, forceRefresh) as Promise<import('@/types').RunCommand[]>,
 }
 
-export type CreateTemplateFailureReason =
-  | 'invalid-name'
-  | 'missing-parent'
-  | 'parent-not-directory'
-  | 'tool-missing'
-  | 'timeout'
-  | 'cancelled'
-  | 'failed'
-
-export type CreateTemplateResult =
-  | { success: true }
-  | { success: false; reason: CreateTemplateFailureReason; stderr?: string }
-
-export type TemplateLogEntry = { stream: 'stdout' | 'stderr'; line: string }
+export type { CreateFailureReason as CreateTemplateFailureReason, CreateTemplateResult, TemplateLogEntry } from '@shared/templates'
+import type { TemplateKind, CreateTemplateArgs, CreateTemplateResult, TemplateLogEntry } from '@shared/templates'
 
 export const templates = {
-  create: (kind: 'nextjs', args: { parentDir: string; projectName: string }) =>
+  create: (kind: TemplateKind, args: CreateTemplateArgs) =>
     api().templates.create(kind, args) as Promise<CreateTemplateResult>,
   cancel: () => api().templates.cancel() as Promise<boolean>,
   /** Subscribe to per-line stdout/stderr from the active scaffold. Returns unsubscribe. */

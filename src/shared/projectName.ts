@@ -17,9 +17,14 @@
 export const MAX_PROJECT_NAME_LENGTH = 214
 
 /**
- * Final-pass regex used as a defence-in-depth guard in the main process.
- * The richer `validateProjectName` below is what the UI uses for per-reason
- * feedback; both must agree on the accept set.
+ * Regex that checks the character-level pattern (lowercase alphanumeric start,
+ * followed by lowercase alphanumerics, dots, hyphens, or underscores).
+ *
+ * This is a necessary but NOT sufficient condition for validity. It does not
+ * enforce the max-length cap or reserved-name blocklist that
+ * `validateProjectName()` applies. Prefer `validateProjectName()` for full
+ * validation; this regex exists for quick pre-filtering in contexts where
+ * granular error feedback is not needed.
  */
 export const PROJECT_NAME_REGEX = /^[a-z0-9][a-z0-9._-]*$/
 

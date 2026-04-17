@@ -45,7 +45,7 @@ function errorKeyFor(reason: CreateTemplateFailureReason): string | null {
 }
 
 /** Async path-existence status. */
-type PathStatus = 'idle' | 'checking' | 'exists' | 'available'
+type PathStatus = 'idle' | 'checking' | 'exists' | 'already-added' | 'available'
 
 /** Join a parent dir and a child name into a normalized POSIX path preview. */
 function joinPath(parentDir: string, name: string): string {
@@ -91,10 +91,10 @@ export function QuickStartTab({ state, dispatch, existingPaths, addProject, onCl
       setPathStatus('idle')
       return
     }
-    // Collision with an already-added project is synchronous; surface it first.
+    // Collision with an already-added project is synchronous; surface it immediately.
     if (existingPaths.has(fullPath)) {
       checkSeqRef.current++
-      setPathStatus('exists')
+      setPathStatus('already-added')
       return
     }
     setPathStatus('checking')
@@ -161,6 +161,10 @@ export function QuickStartTab({ state, dispatch, existingPaths, addProject, onCl
     // for the common cases, but we re-check defensively (user may submit via
     // Enter before live state catches up, and path could appear between
     // debounce and click).
+    if (trimmedName === '') {
+      dispatch({ type: 'setError', error: t('quickStartNameEmpty') })
+      return
+    }
     if (nameIssue !== null) {
       dispatch({ type: 'setError', error: issueMessage(nameIssue) })
       return
@@ -170,8 +174,12 @@ export function QuickStartTab({ state, dispatch, existingPaths, addProject, onCl
       return
     }
     const exists = await ipc.files.pathExists(fullPath)
-    if (exists || existingPaths.has(fullPath)) {
+    if (exists) {
       dispatch({ type: 'setError', error: t('quickStartPathExists') })
+      return
+    }
+    if (existingPaths.has(fullPath)) {
+      dispatch({ type: 'setError', error: t('projectAlreadyAdded') })
       return
     }
 
@@ -249,6 +257,7 @@ export function QuickStartTab({ state, dispatch, existingPaths, addProject, onCl
   const feedback: Feedback = (() => {
     if (trimmedName === '') return { kind: 'none' }
     if (nameIssue !== null) return { kind: 'error', text: issueMessage(nameIssue) }
+    if (pathStatus === 'already-added') return { kind: 'error', text: t('projectAlreadyAdded') }
     if (pathStatus === 'exists') return { kind: 'error', text: t('quickStartPathExists') }
     if (pathStatus === 'checking') return { kind: 'checking', text: t('quickStartNameChecking') }
     if (pathStatus === 'available') return { kind: 'ok', text: t('quickStartNameAvailable') }

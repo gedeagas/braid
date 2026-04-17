@@ -2,38 +2,16 @@ import { execFile } from 'child_process'
 import { promises as fs } from 'fs'
 import { logger } from '../lib/logger'
 import { enrichedEnv, waitForEnrichedEnv } from '../lib/enrichedEnv'
-import { PROJECT_NAME_REGEX } from '../../shared/projectName'
+import { validateProjectName } from '../../shared/projectName'
+import type {
+  TemplateKind,
+  CreateTemplateArgs,
+  CreateFailureReason,
+  CreateTemplateResult,
+  TemplateLogEntry,
+} from '../../shared/templates'
 
-export type TemplateKind = 'nextjs'
-
-export interface CreateTemplateArgs {
-  parentDir: string
-  projectName: string
-}
-
-/**
- * Classified failure reasons. The renderer maps each to a specific i18n
- * string so users see an actionable message instead of a generic "failed".
- */
-export type CreateFailureReason =
-  | 'invalid-name'
-  | 'missing-parent'
-  | 'parent-not-directory'
-  | 'tool-missing'
-  | 'timeout'
-  | 'cancelled'
-  | 'failed'
-
-export type CreateTemplateResult =
-  | { success: true }
-  | { success: false; reason: CreateFailureReason; stderr?: string }
-
-export type LogStream = 'stdout' | 'stderr'
-export interface TemplateLogEntry {
-  stream: LogStream
-  /** Single trimmed line; caller is expected to render whitespace-preserved. */
-  line: string
-}
+export type { TemplateKind, CreateTemplateArgs, CreateFailureReason, CreateTemplateResult, TemplateLogEntry }
 
 export interface CreateTemplateOptions {
   /**
@@ -176,7 +154,7 @@ async function createNextAppTemplate(
   signal: AbortSignal,
   onLog?: (entry: TemplateLogEntry) => void
 ): Promise<CreateTemplateResult> {
-  if (!args.projectName || !PROJECT_NAME_REGEX.test(args.projectName)) {
+  if (!args.projectName || validateProjectName(args.projectName) !== null) {
     return { success: false, reason: 'invalid-name' }
   }
   if (!args.parentDir) {

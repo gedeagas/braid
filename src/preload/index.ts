@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer, webFrame } from 'electron'
+import type { TemplateKind, CreateTemplateArgs, CreateTemplateResult, TemplateLogEntry } from '../shared/templates'
 
 const api = {
   // Storage
@@ -160,32 +161,15 @@ const api = {
 
   // Templates - scaffold new projects from built-in starter templates
   templates: {
-    create: (kind: 'nextjs', args: { parentDir: string; projectName: string }) =>
-      ipcRenderer.invoke('templates:create', kind, args) as Promise<
-        | { success: true }
-        | {
-            success: false
-            reason:
-              | 'invalid-name'
-              | 'missing-parent'
-              | 'parent-not-directory'
-              | 'tool-missing'
-              | 'timeout'
-              | 'cancelled'
-              | 'failed'
-            stderr?: string
-          }
-      >,
+    create: (kind: TemplateKind, args: CreateTemplateArgs) =>
+      ipcRenderer.invoke('templates:create', kind, args) as Promise<CreateTemplateResult>,
     cancel: () => ipcRenderer.invoke('templates:cancel') as Promise<boolean>,
     /**
      * Subscribe to per-line stdout/stderr from the active scaffold.
      * Returns an unsubscribe function.
      */
-    onLog: (handler: (entry: { stream: 'stdout' | 'stderr'; line: string }) => void) => {
-      const listener = (
-        _: Electron.IpcRendererEvent,
-        entry: { stream: 'stdout' | 'stderr'; line: string }
-      ) => handler(entry)
+    onLog: (handler: (entry: TemplateLogEntry) => void) => {
+      const listener = (_: Electron.IpcRendererEvent, entry: TemplateLogEntry) => handler(entry)
       ipcRenderer.on('templates:log', listener)
       return () => {
         ipcRenderer.off('templates:log', listener)

@@ -22,7 +22,10 @@ export default defineConfig({
       {
         plugins: [react()],
         resolve: {
-          alias: { '@': resolve(__dirname, 'src/renderer') },
+          alias: {
+            '@': resolve(__dirname, 'src/renderer'),
+            '@shared': resolve(__dirname, 'src/shared'),
+          },
         },
         define: {
           // Force React's development build so React.act is available in tests.
