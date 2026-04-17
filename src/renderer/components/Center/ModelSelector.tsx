@@ -7,7 +7,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { Toggle } from '@/components/shared/Toggle'
-import { IconSparkle, IconCheckmark, IconChevronDown } from '@/components/shared/icons'
+import { IconSparkle, IconCheckmark, IconChevronDown, IconStar, IconStarFilled } from '@/components/shared/icons'
 import { supportsExtendedContext, getEffortLevelsForModel, EFFORT_LEVELS, DEFAULT_EFFORT } from '@/lib/constants'
 import type { ModelId, EffortLevel } from '@/types'
 
@@ -24,14 +24,18 @@ interface ModelSelectorProps {
   extendedContext?: boolean
   /** Current effort level */
   effortLevel?: EffortLevel
+  /** The global default model (shown with filled star) */
+  defaultModelId?: ModelId
   onSelect: (modelId: ModelId) => void
   onToggleExtendedContext?: (enabled: boolean) => void
   onChangeEffortLevel?: (level: EffortLevel) => void
+  /** Toggle a model as the global default */
+  onSetDefault?: (modelId: ModelId) => void
   /** Menu opens above the button (for bottom-anchored inputs) */
   above?: boolean
 }
 
-export function ModelSelector({ currentModelId, extendedContext, effortLevel, onSelect, onToggleExtendedContext, onChangeEffortLevel, above }: ModelSelectorProps) {
+export function ModelSelector({ currentModelId, extendedContext, effortLevel, defaultModelId, onSelect, onToggleExtendedContext, onChangeEffortLevel, onSetDefault, above }: ModelSelectorProps) {
   const { t } = useTranslation('center')
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -103,20 +107,33 @@ export function ModelSelector({ currentModelId, extendedContext, effortLevel, on
             ref={menuRef}
             onKeyDown={handleKeyDown}
           >
-            {MODELS.map((m) => (
-              <button
-                key={m.id}
-                role="menuitem"
-                className={`model-menu-item${m.id === currentModelId ? ' model-menu-item--active' : ''}`}
-                onClick={() => handleSelect(m.id)}
-              >
-                <span className="chip-icon"><IconSparkle /></span>
-                <span>{m.label}</span>
-                {m.id === currentModelId && (
-                  <IconCheckmark style={{ marginLeft: 'auto' }} />
-                )}
-              </button>
-            ))}
+            {MODELS.map((m) => {
+              const isDefault = m.id === defaultModelId
+              return (
+                <div key={m.id} className="model-menu-row">
+                  <button
+                    role="menuitem"
+                    className={`model-menu-item${m.id === currentModelId ? ' model-menu-item--active' : ''}`}
+                    onClick={() => handleSelect(m.id)}
+                  >
+                    <span className="chip-icon"><IconSparkle /></span>
+                    <span className="model-menu-item-label">{m.label}</span>
+                    {m.id === currentModelId && <IconCheckmark />}
+                  </button>
+                  {onSetDefault && (
+                    <Tooltip content={isDefault ? t('defaultModelUnpin') : t('defaultModelPin')}>
+                      <button
+                        className={`model-menu-star${isDefault ? ' model-menu-star--active' : ''}`}
+                        onClick={(e) => { e.stopPropagation(); onSetDefault(m.id) }}
+                        aria-label={isDefault ? t('defaultModelUnpin') : t('defaultModelPin')}
+                      >
+                        {isDefault ? <IconStarFilled size={12} /> : <IconStar size={12} />}
+                      </button>
+                    </Tooltip>
+                  )}
+                </div>
+              )
+            })}
             {showToggle && (
               <>
                 <div className="model-menu-divider" />

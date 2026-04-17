@@ -59,6 +59,8 @@
   "newChat": "New chat",
   "newChatDefault": "New Chat",
   "modelTooltip": "Select model",
+  "defaultModelPin": "Set as default",
+  "defaultModelUnpin": "Default model",
   "tokenCountTooltip": "Messages in this session",
   "branchChecking": "Checking…",
   "branchRenameLockedTooltip": "Cannot rename the main worktree branch",

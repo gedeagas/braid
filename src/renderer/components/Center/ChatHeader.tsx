@@ -7,6 +7,7 @@
  */
 import { useCallback } from 'react'
 import { useSessionsStore } from '@/store/sessions'
+import { useUIStore } from '@/store/ui'
 import type { ModelId, EffortLevel, AgentSession } from '@/types'
 import type { ChatViewAction } from './ChatView'
 import { Tooltip } from '@/components/shared/Tooltip'
@@ -50,6 +51,8 @@ export function ChatHeader({
   const stopSession = useSessionsStore((s) => s.stopSession)
   const setDraftInput = useSessionsStore((s) => s.setDraftInput)
   const setQueuedMessage = useSessionsStore((s) => s.setQueuedMessage)
+  const defaultModel = useUIStore((s) => s.defaultModel)
+  const setDefaultModel = useUIStore((s) => s.setDefaultModel)
 
   const handleModelSelect = useCallback((modelId: ModelId) => {
     updateModel(activeSession.id, modelId)
@@ -62,6 +65,10 @@ export function ChatHeader({
   const handleEffortChange = useCallback((level: EffortLevel) => {
     updateEffortLevel(activeSession.id, level)
   }, [activeSession.id, updateEffortLevel])
+
+  const handleSetDefault = useCallback((modelId: ModelId) => {
+    setDefaultModel(modelId)
+  }, [setDefaultModel])
 
   const handleStop = useCallback(() => {
     if (queuedMessage !== null) {
@@ -99,9 +106,11 @@ export function ChatHeader({
           currentModelId={activeSession.model}
           extendedContext={activeSession.extendedContext}
           effortLevel={activeSession.effortLevel}
+          defaultModelId={defaultModel}
           onSelect={handleModelSelect}
           onToggleExtendedContext={handleExtendedContextToggle}
           onChangeEffortLevel={handleEffortChange}
+          onSetDefault={handleSetDefault}
         />
 
         {variant === 'default' && (

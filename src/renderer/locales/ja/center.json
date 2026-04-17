@@ -59,6 +59,8 @@
   "newChat": "新しいチャット",
   "newChatDefault": "新しいチャット",
   "modelTooltip": "モデルを選択",
+  "defaultModelPin": "デフォルトに設定",
+  "defaultModelUnpin": "デフォルトモデル",
   "tokenCountTooltip": "このセッションのメッセージ数",
   "branchChecking": "確認中…",
   "branchRenamePlaceholder": "クリックしてブランチ名を変更",

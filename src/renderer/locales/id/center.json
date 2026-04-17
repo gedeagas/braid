@@ -59,6 +59,8 @@
   "newChat": "Chat Baru",
   "newChatDefault": "Chat Baru",
   "modelTooltip": "Pilih model",
+  "defaultModelPin": "Atur sebagai default",
+  "defaultModelUnpin": "Model default",
   "tokenCountTooltip": "Pesan dalam sesi ini",
   "branchChecking": "Memeriksa…",
   "branchRenameLockedTooltip": "Tidak dapat mengubah nama cabang worktree utama",
