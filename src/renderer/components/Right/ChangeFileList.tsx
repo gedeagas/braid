@@ -16,25 +16,29 @@ function sumStats(changes: GitChange[]): { additions: number; deletions: number 
   return { additions, deletions }
 }
 
-function DiffStats({ additions, deletions }: { additions?: number; deletions?: number }) {
-  if (!additions && !deletions) return null
-  return (
-    <span className="change-diff-stats">
-      {(additions ?? 0) > 0 && <span className="change-diff-add">+{additions}</span>}
-      {(deletions ?? 0) > 0 && <span className="change-diff-del">-{deletions}</span>}
-    </span>
-  )
+interface DiffStatsProps {
+  additions?: number
+  deletions?: number
+  /** Variant controls layout/spacing; visual color tokens are shared. */
+  variant?: 'row' | 'section'
 }
 
-function SectionStats({ changes }: { changes: GitChange[] }) {
-  const { additions, deletions } = useMemo(() => sumStats(changes), [changes])
-  if (!additions && !deletions) return null
+/** Renders `+N -N` stats; returns null when there's nothing to show. */
+function DiffStats({ additions = 0, deletions = 0, variant = 'row' }: DiffStatsProps) {
+  if (additions <= 0 && deletions <= 0) return null
+  const className = variant === 'section' ? 'change-section-stats' : 'change-diff-stats'
   return (
-    <span className="change-section-stats">
+    <span className={className}>
       {additions > 0 && <span className="change-diff-add">+{additions}</span>}
       {deletions > 0 && <span className="change-diff-del">-{deletions}</span>}
     </span>
   )
+}
+
+/** Aggregates line stats across a set of changes. Thin wrapper over `DiffStats`. */
+function SectionStats({ changes }: { changes: GitChange[] }) {
+  const { additions, deletions } = useMemo(() => sumStats(changes), [changes])
+  return <DiffStats additions={additions} deletions={deletions} variant="section" />
 }
 
 interface ChangeFileListProps {

@@ -21,30 +21,48 @@ export function invalidateTrackedFiles(worktreePath: string): void {
   trackedFilesCache.invalidate(worktreePath)
 }
 
-/** Parse `git diff --numstat` output into a file-keyed map. */
-function parseNumstat(raw: string): Map<string, { additions: number; deletions: number }> {
-  const map = new Map<string, { additions: number; deletions: number }>()
+interface LineStats { additions: number; deletions: number }
+
+/**
+ * Parse `git diff --numstat` output into a file-keyed map.
+ * Format: `<additions>\t<deletions>\t<path>` per line. Binary files emit '-' for counts.
+ * Filenames may contain tabs, so the path is everything after the second tab.
+ */
+function parseNumstat(raw: string): Map<string, LineStats> {
+  const map = new Map<string, LineStats>()
   for (const line of raw.split('\n')) {
     if (!line) continue
-    const parts = line.split('\t')
-    if (parts.length < 3) continue
-    const [add, del, file] = parts
+    const firstTab = line.indexOf('\t')
+    if (firstTab < 0) continue
+    const secondTab = line.indexOf('\t', firstTab + 1)
+    if (secondTab < 0) continue
+    const add = line.slice(0, firstTab)
+    const del = line.slice(firstTab + 1, secondTab)
+    const file = line.slice(secondTab + 1)
     // Binary files show '-' for both counts
     if (add === '-' || del === '-') continue
-    map.set(file, { additions: parseInt(add, 10), deletions: parseInt(del, 10) })
+    const additions = parseInt(add, 10)
+    const deletions = parseInt(del, 10)
+    if (!Number.isFinite(additions) || !Number.isFinite(deletions)) continue
+    map.set(file, { additions, deletions })
   }
   return map
 }
+
+// `-c core.quotePath=false` forces literal UTF-8 paths instead of octal-escaped
+// quoted strings, so lookups by path match regardless of locale (e.g. Japanese filenames).
+const NUMSTAT_ARGS_UNSTAGED = ['-c', 'core.quotePath=false', 'diff', '--numstat']
+const NUMSTAT_ARGS_STAGED = ['-c', 'core.quotePath=false', 'diff', '--cached', '--numstat']
 
 export async function getStatus(worktreePath: string): Promise<GitChangeInfo[]> {
   const git = await getValidGit(worktreePath)
   if (!git) return []
 
-  // Fetch status and numstat in parallel
+  // Fetch status and numstat in parallel for both indexes
   const [status, unstagedNumstat, stagedNumstat] = await Promise.all([
     git.status(),
-    git.diff(['--numstat']).catch(() => ''),
-    git.diff(['--cached', '--numstat']).catch(() => ''),
+    git.raw(NUMSTAT_ARGS_UNSTAGED).catch(() => ''),
+    git.raw(NUMSTAT_ARGS_STAGED).catch(() => ''),
   ])
 
   const unstagedStats = parseNumstat(unstagedNumstat)
