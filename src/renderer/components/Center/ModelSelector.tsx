@@ -108,17 +108,19 @@ export function ModelSelector({ currentModelId, extendedContext, effortLevel, de
             onKeyDown={handleKeyDown}
           >
             {MODELS.map((m) => {
+              const isActive = m.id === currentModelId
               const isDefault = m.id === defaultModelId
               return (
                 <div key={m.id} className="model-menu-row">
                   <button
                     role="menuitem"
-                    className={`model-menu-item${m.id === currentModelId ? ' model-menu-item--active' : ''}`}
+                    className={`model-menu-item${isActive ? ' model-menu-item--active' : ''}`}
                     onClick={() => handleSelect(m.id)}
                   >
-                    <span className="chip-icon"><IconSparkle /></span>
                     <span className="model-menu-item-label">{m.label}</span>
-                    {m.id === currentModelId && <IconCheckmark />}
+                    <span className="model-menu-check">
+                      {isActive && <IconCheckmark size={14} />}
+                    </span>
                   </button>
                   {onSetDefault && (
                     <Tooltip content={isDefault ? t('defaultModelUnpin') : t('defaultModelPin')}>
