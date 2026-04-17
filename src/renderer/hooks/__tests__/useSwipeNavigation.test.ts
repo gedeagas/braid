@@ -126,4 +126,32 @@ describe('useSwipeNavigation', () => {
 
     expect(onNavigate).not.toHaveBeenCalled()
   })
+
+  it('skips events from horizontally scrollable children', () => {
+    const onNavigate = vi.fn()
+    const ref = { current: container }
+    renderHook(() => useSwipeNavigation(ref, onNavigate))
+
+    // Create a child that can scroll horizontally (e.g. tab bar)
+    const scrollChild = document.createElement('div')
+    scrollChild.style.overflowX = 'auto'
+    Object.defineProperty(scrollChild, 'scrollWidth', { value: 800, configurable: true })
+    Object.defineProperty(scrollChild, 'clientWidth', { value: 300, configurable: true })
+    container.appendChild(scrollChild)
+
+    // Wheel from the scrollable child bubbles up but should be ignored
+    fireWheel(scrollChild, 60)
+    fireWheel(scrollChild, 60)
+
+    expect(onNavigate).not.toHaveBeenCalled()
+
+    // Wheel from a non-scrollable child still triggers
+    const plainChild = document.createElement('div')
+    container.appendChild(plainChild)
+
+    fireWheel(plainChild, 30)
+    fireWheel(plainChild, 30)
+
+    expect(onNavigate).toHaveBeenCalledWith(1)
+  })
 })

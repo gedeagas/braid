@@ -6,8 +6,28 @@ const COOLDOWN_MS = 400 // prevent re-trigger during momentum scrolling
 const RESET_MS = 200 // reset accumulator after gesture pause
 
 /**
+ * Walk from the event target up to (but not including) the root element.
+ * Return true if any ancestor can scroll horizontally - we must not hijack
+ * those wheel events (tab bar, code editor, terminal, etc.).
+ */
+function isInScrollableX(target: EventTarget | null, root: HTMLElement): boolean {
+  let node = target as HTMLElement | null
+  while (node && node !== root) {
+    if (node.scrollWidth > node.clientWidth + 1) {
+      const { overflowX } = getComputedStyle(node)
+      if (overflowX === 'auto' || overflowX === 'scroll') return true
+    }
+    node = node.parentElement
+  }
+  return false
+}
+
+/**
  * Detects two-finger horizontal trackpad swipes on the referenced element
  * and calls onNavigate with -1 (previous tab) or 1 (next tab).
+ *
+ * Skips events that originate inside horizontally scrollable children
+ * (tab bar, Monaco editor, terminal, etc.) so we don't steal their scroll.
  */
 export function useSwipeNavigation(
   ref: RefObject<HTMLElement | null>,
@@ -37,6 +57,9 @@ export function useSwipeNavigation(
         accumulatedX = 0
         return
       }
+
+      // Don't hijack scroll inside horizontally scrollable children
+      if (isInScrollableX(e.target, el)) return
 
       if (coolingDown) return
 
