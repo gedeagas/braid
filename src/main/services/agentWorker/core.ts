@@ -45,8 +45,13 @@ function enrichExitError(rawMessage: string, stderrBuffer: string): string {
   if (!/process exited with code/i.test(rawMessage)) return rawMessage
   const trimmed = stderrBuffer.trim()
   if (!trimmed) return rawMessage
-  const lastLines = trimmed.split('\n').slice(-3).join('\n')
-  return `${lastLines}\n(${rawMessage})`
+  // Strip "Error:" prefix from each stderr line - the renderer adds its own.
+  const lastLines = trimmed
+    .split('\n')
+    .slice(-3)
+    .map((line) => line.replace(/^\s*Error:\s*/i, ''))
+    .join('\n')
+  return `${lastLines} (${rawMessage})`
 }
 
 export class AgentWorker {
