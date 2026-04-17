@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/react/shallow'
 import { IconGridFill, IconGitHub, IconSparkle } from '@/components/shared/icons'
 import { Dialog, Button } from '@/components/ui'
+import { isValidProjectName } from '@shared/projectName'
 import { reducer, initialState } from './types'
 import type { Tab } from './types'
 import { LocalTab } from './LocalTab'
@@ -57,7 +58,8 @@ export function AddProjectDialog() {
   }
 
   const primaryDisabled = isBusy || (isPicker && state.selectedRepos.size === 0)
-    || (state.tab === 'quickstart' && !state.projectName.trim())
+    || (state.tab === 'quickstart' && !isValidProjectName(state.projectName.trim()))
+    || (state.tab === 'quickstart' && !state.projectLocation.trim())
 
   // ── Tab config ─────────────────────────────────────────────────────────────
 
