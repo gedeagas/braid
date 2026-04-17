@@ -103,6 +103,7 @@ export function ChatInput({
   const historyIndexRef = useRef(-1)                            // -1 = not browsing history
   const savedDraftRef = useRef('')                              // draft text saved before entering history
   const savedDraftSnippetsRef = useRef<SnippetAttachment[]>([]) // draft snippet chips saved before entering history
+  const savedDraftImagesRef = useRef<string[]>([])              // draft attached images saved before entering history
   const lastEscapeRef = useRef(0)                               // timestamp of last Escape — for double-Esc detection
 
   const userMessages = useMemo(
@@ -124,6 +125,7 @@ export function ChatInput({
     historyIndexRef.current = -1
     savedDraftRef.current = ''
     savedDraftSnippetsRef.current = []
+    savedDraftImagesRef.current = []
     lastEscapeRef.current = 0
   }, [activeSession.id])
 
@@ -253,9 +255,11 @@ export function ChatInput({
       const now = Date.now()
       const isDouble = now - lastEscapeRef.current < 500
       lastEscapeRef.current = now
-      if (isDouble && input) {
+      if (isDouble && (input || snippets.length > 0 || attachedImages.length > 0)) {
         historyIndexRef.current = -1
         savedDraftRef.current = ''
+        savedDraftSnippetsRef.current = []
+        savedDraftImagesRef.current = []
         restoreEntry({ text: '', images: [] })
         return
       }
@@ -281,6 +285,7 @@ export function ChatInput({
       if (historyIndexRef.current === -1) {
         savedDraftRef.current = input
         savedDraftSnippetsRef.current = snippets
+        savedDraftImagesRef.current = attachedImages
         historyIndexRef.current = userMessages.length - 1
       } else if (historyIndexRef.current > 0) {
         historyIndexRef.current--
@@ -297,13 +302,13 @@ export function ChatInput({
         historyIndexRef.current = -1
         setDraftSnippets(activeSession.id, savedDraftSnippetsRef.current)
         setDraftInput(activeSession.id, savedDraftRef.current)
-        dispatch({ type: 'SET_IMAGES', images: [] })
+        dispatch({ type: 'SET_IMAGES', images: savedDraftImagesRef.current })
       }
       return
     }
 
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend() }
-  }, [handleMentionKeyDown, showSlash, mention.showMention, slashCommands, slashFilter, slashIndex, handleSlashSelect, dispatch, onSend, isRunning, stopSession, activeSession.id, userMessages, input, snippets, setDraftInput, setDraftSnippets, restoreEntry])
+  }, [handleMentionKeyDown, showSlash, mention.showMention, slashCommands, slashFilter, slashIndex, handleSlashSelect, dispatch, onSend, isRunning, stopSession, activeSession.id, userMessages, input, snippets, attachedImages, setDraftInput, setDraftSnippets, restoreEntry])
 
   // ─── Queue editing ─────────────────────────────────────────────────────────
 
