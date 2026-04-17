@@ -228,6 +228,15 @@ export const IconEye = ({ size = 14, ...p }: IconProps) => (
   <svg {...strokeIcon(size, p)}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
 )
 
+// ─── Star icons ─────────────────────────────────────────────────────────────
+
+export const IconStar = ({ size = 14, ...p }: IconProps) => (
+  <svg {...strokeIcon(size, p)}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+)
+export const IconStarFilled = ({ size = 14, ...p }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth={1} strokeLinecap="round" strokeLinejoin="round" className={p.className} style={p.style}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+)
+
 // ─── Right panel tab icons ──────────────────────────────────────────────────
 
 export const IconDiff = ({ size = 14, ...p }: IconProps) => (

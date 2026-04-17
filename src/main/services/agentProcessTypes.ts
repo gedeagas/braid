@@ -13,14 +13,14 @@ export type WorkerCommand =
   | {
       type: 'startSession'; sessionId: string; worktreeId: string; projectName: string
       worktreePath: string; prompt: string
-      model: string; thinking: boolean; planMode: boolean; sessionName: string
+      model: string; thinking: boolean; extendedContext: boolean; effortLevel: string; planMode: boolean; sessionName: string
       settings: AgentSettings; images?: string[]; additionalDirectories?: string[]
       linkedWorktreeContext?: string; connectedDeviceId?: string; mobileFramework?: string
       backend?: AgentBackend
     }
   | {
       type: 'sendMessage'; sessionId: string; message: string; sdkSessionId: string
-      cwd: string; model: string; planMode: boolean; sessionName: string
+      cwd: string; model: string; extendedContext: boolean; effortLevel: string; planMode: boolean; sessionName: string
       settings: AgentSettings; images?: string[]; additionalDirectories?: string[]
       linkedWorktreeContext?: string; connectedDeviceId?: string; mobileFramework?: string
     }

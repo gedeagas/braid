@@ -18,7 +18,8 @@
     "agents": "Agen ACP",
     "jira": "Jira",
     "analytics": "Analitik",
-    "about": "Tentang"
+    "about": "Tentang",
+    "experimental": "Eksperimental"
   },
   "groups": {
     "general": "Umum",
@@ -26,6 +27,7 @@
     "claudeAgent": "Claude",
     "appearance": "Tampilan",
     "integrations": "Integrasi",
+    "experimental": "Eksperimental",
     "projects": "Proyek"
   },
   "general": {
@@ -66,10 +68,20 @@
     "streamingAnimation": "Animasi Streaming",
     "streamingAnimationHint": "Animasikan kata saat streaming masuk",
     "chatCompactMode": "Mode Kompak Chat",
-    "chatCompactModeHint": "Kurangi jarak dan ukuran font untuk tampilan chat yang lebih padat seperti CLI"
+    "chatCompactModeHint": "Kurangi jarak dan ukuran font untuk tampilan chat yang lebih padat seperti CLI",
+    "projectAvatar": "Avatar Proyek",
+    "projectAvatarHint": "Tampilkan ikon proyek di samping nama proyek di sidebar"
   },
   "ai": {
     "defaultModel": "Model Default",
+    "extendedContext": "Konteks Diperpanjang (1M)",
+    "extendedContextHint": "Aktifkan jendela konteks 1M token secara default untuk sesi baru",
+    "defaultEffort": "Upaya Default",
+    "defaultEffortHint": "Upaya penalaran default untuk sesi baru",
+    "effort_low": "Rendah",
+    "effort_medium": "Sedang",
+    "effort_high": "Tinggi",
+    "effort_max": "Maks",
     "thinkingMode": "Mode Berpikir",
     "thinkingModeHint": "Aktifkan berpikir mendalam untuk sesi baru",
     "systemPrompt": "Sufiks Prompt Sistem",
@@ -379,6 +391,14 @@
     "contributorsThanks": "Terima kasih kepada semua orang yang telah berkontribusi pada Braid.",
     "createdBy": "Proyek Braid",
     "builtIn": "Dibangun di Tokyo, Jepang"
+  },
+  "experimental": {
+    "hint": "Fitur dalam pengembangan. Mungkin tidak stabil atau berubah tanpa pemberitahuan.",
+    "features": "Fitur eksperimental",
+    "magicTrackpad": "Magic Trackpad",
+    "magicTrackpadHint": "Geser horizontal dua jari pada trackpad untuk berpindah tab. Geser kiri untuk tab berikutnya, geser kanan untuk tab sebelumnya.",
+    "otherFlags": "Flag Lainnya",
+    "previewTab": "Tab {{n}}"
   },
   "claudeSkills": {
     "title": "Keahlian",

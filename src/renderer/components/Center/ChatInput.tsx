@@ -19,6 +19,7 @@ import { ToolPermissionPrompt } from './ToolPermissionPrompt'
 import { AuthErrorPrompt } from './AuthErrorPrompt'
 import { ElicitationPrompt } from './ElicitationPrompt'
 import type { AgentSession, SlashCommand, SnippetAttachment } from '@/types'
+import { parseSnippets, stripAttachmentBlocks } from './diffCommentUtils'
 import type { AttachedFile } from '@/types'
 import { IconArrowDown, IconClose } from '@/components/shared/icons'
 import { flash } from '@/store/flash'
@@ -26,7 +27,7 @@ import { useTranslation } from 'react-i18next'
 import type { ChatViewAction, ChatViewState } from './ChatView'
 import { TERMINAL_ENTRY, type UseMentionReturn } from './useMentionAutocomplete'
 import { QueuedMessageBanner } from './QueuedMessageBanner'
-import { CONTEXT_WINDOW } from '@/lib/constants'
+import { getContextWindow } from '@/lib/constants'
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 export const ACCEPTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
@@ -35,6 +36,7 @@ const MAX_SNIPPET_SIZE = 100_000
 const MAX_SNIPPETS = 5
 const SNIPPET_LINE_THRESHOLD = 10
 const SNIPPET_CHAR_THRESHOLD = 500
+const generateSnippetId = () => `snippet-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
 const MAX_DRAFT_INPUT = 50_000
 const CONTEXT_WARN_THRESHOLD = 0.75
 const CONTEXT_CRITICAL_THRESHOLD = 0.90
@@ -71,6 +73,7 @@ export function ChatInput({
   const { attachedImages, isDragOver, showSlash, slashFilter, slashIndex, editingQueue, queueEditValue } = state
 
   const setDraftInput = useSessionsStore((s) => s.setDraftInput)
+  const stopSession = useSessionsStore((s) => s.stopSession)
   const fetchSlashCommands = useSessionsStore((s) => s.fetchSlashCommands)
   const setQueuedMessage = useSessionsStore((s) => s.setQueuedMessage)
   const setEditingQueue = useSessionsStore((s) => s.setEditingQueue)
@@ -85,6 +88,7 @@ export function ChatInput({
   const answerElicitation = useSessionsStore((s) => s.answerElicitation)
   const addDraftSnippet = useSessionsStore((s) => s.addDraftSnippet)
   const removeDraftSnippet = useSessionsStore((s) => s.removeDraftSnippet)
+  const setDraftSnippets = useSessionsStore((s) => s.setDraftSnippets)
 
   const queuedMessage = useSessionsStore((s) => s.queuedMessages[activeSession.id] ?? null)
 
@@ -92,6 +96,36 @@ export function ChatInput({
     handleInputChangeForMention, handleMentionKeyDown,
     buildPromptWithFiles, clearFiles: clearMentionFiles, attachedFiles: mentionFiles,
   } = mention
+
+  // ─── Message history navigation ──────────────────────────────────────────
+  const historyIndexRef = useRef(-1)                            // -1 = not browsing history
+  const savedDraftRef = useRef('')                              // draft text saved before entering history
+  const savedDraftSnippetsRef = useRef<SnippetAttachment[]>([]) // draft snippet chips saved before entering history
+  const savedDraftImagesRef = useRef<string[]>([])              // draft attached images saved before entering history
+  const lastEscapeRef = useRef(0)                               // timestamp of last Escape — for double-Esc detection
+
+  const userMessages = useMemo(
+    () => activeSession.messages
+      .filter((m) => m.role === 'user')
+      .map((m) => ({
+        text: (m.content ?? '')
+          .replace(/\[Image \d+\]:\s*/g, '')
+          .replace(/data:[^;]+;base64,[A-Za-z0-9+/=]+/g, '')
+          .trim(),
+        images: m.images ?? [],
+      }))
+      .filter((m) => m.text || m.images.length > 0),
+    [activeSession.messages]
+  )
+
+  // Reset history cursor and escape tracker when switching sessions
+  useEffect(() => {
+    historyIndexRef.current = -1
+    savedDraftRef.current = ''
+    savedDraftSnippetsRef.current = []
+    savedDraftImagesRef.current = []
+    lastEscapeRef.current = 0
+  }, [activeSession.id])
 
   // ─── Auto-resize textarea + sync backdrop ────────────────────────────────
   useEffect(() => {
@@ -138,7 +172,7 @@ export function ChatInput({
           const lines = text.split('\n')
           const firstLine = (lines.find((l) => l.trim()) ?? '').slice(0, 80)
           addDraftSnippet(activeSession.id, {
-            id: `snippet-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            id: generateSnippetId(),
             content: text,
             firstLine: file.name ? `${file.name}: ${firstLine}` : firstLine,
             lineCount: lines.length,
@@ -161,7 +195,7 @@ export function ChatInput({
       const lines = text.split('\n')
       const firstLine = (lines.find((l) => l.trim()) ?? '').slice(0, 80)
       addDraftSnippet(activeSession.id, {
-        id: `snippet-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        id: generateSnippetId(),
         content: text, firstLine, lineCount: lines.length, charCount: text.length,
       })
       return
@@ -180,6 +214,7 @@ export function ChatInput({
 
   const handleInputChange = useCallback((value: string) => {
     if (value.length > MAX_DRAFT_INPUT) { flash('warning', t('draftInputTooLarge')); return }
+    historyIndexRef.current = -1
     setDraftInput(activeSession.id, value)
     if (!isAcpSession && value.startsWith('/') && !value.includes(' ')) {
       dispatch({ type: 'OPEN_SLASH', filter: value.slice(1) })
@@ -196,8 +231,45 @@ export function ChatInput({
     textareaRef.current?.focus()
   }, [activeSession.id, setDraftInput, dispatch, textareaRef])
 
+  const restoreEntry = useCallback((entry: { text: string; images: string[] }) => {
+    // Re-inflate <snippet> blocks as chips so raw XML doesn't appear in the textarea.
+    const chips = parseSnippets(entry.text).map((p) => ({
+      id: generateSnippetId(),
+      content: p.content,
+      firstLine: p.firstLine.slice(0, 80),
+      lineCount: p.lines,
+      charCount: p.content.length,
+    }))
+    setDraftSnippets(activeSession.id, chips)
+    setDraftInput(activeSession.id, stripAttachmentBlocks(entry.text))
+    dispatch({ type: 'SET_IMAGES', images: entry.images })
+  }, [activeSession.id, setDraftInput, setDraftSnippets, dispatch])
+
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (handleMentionKeyDown(e)) return
+
+    const noAutocomplete = !showSlash && !mention.showMention
+
+    if (e.key === 'Escape' && noAutocomplete) {
+      if (isRunning) { stopSession(activeSession.id); return }
+      const now = Date.now()
+      const isDouble = now - lastEscapeRef.current < 500
+      lastEscapeRef.current = now
+      if (isDouble && (input || snippets.length > 0 || attachedImages.length > 0)) {
+        historyIndexRef.current = -1
+        savedDraftRef.current = ''
+        savedDraftSnippetsRef.current = []
+        savedDraftImagesRef.current = []
+        restoreEntry({ text: '', images: [] })
+        return
+      }
+    }
+    if (e.key === 'c' && e.ctrlKey && isRunning) {
+      e.preventDefault()
+      stopSession(activeSession.id)
+      return
+    }
+
     if (showSlash) {
       const filtered = filterSlashCommands(slashCommands, slashFilter)
       if (e.key === 'ArrowDown') { e.preventDefault(); dispatch({ type: 'SLASH_NAV', direction: 'down', maxIndex: filtered.length - 1 }); return }
@@ -205,8 +277,38 @@ export function ChatInput({
       if ((e.key === 'Tab' || e.key === 'Enter') && filtered[slashIndex]) { e.preventDefault(); handleSlashSelect(filtered[slashIndex].name); return }
       if (e.key === 'Escape') { dispatch({ type: 'CLOSE_SLASH' }); return }
     }
+
+    // Message history navigation: ↑ when empty, ↓ when browsing
+    if (e.key === 'ArrowUp' && noAutocomplete && (input === '' || historyIndexRef.current !== -1)) {
+      if (userMessages.length === 0) return
+      e.preventDefault()
+      if (historyIndexRef.current === -1) {
+        savedDraftRef.current = input
+        savedDraftSnippetsRef.current = snippets
+        savedDraftImagesRef.current = attachedImages
+        historyIndexRef.current = userMessages.length - 1
+      } else if (historyIndexRef.current > 0) {
+        historyIndexRef.current--
+      }
+      restoreEntry(userMessages[historyIndexRef.current])
+      return
+    }
+    if (e.key === 'ArrowDown' && noAutocomplete && historyIndexRef.current !== -1) {
+      e.preventDefault()
+      if (historyIndexRef.current < userMessages.length - 1) {
+        historyIndexRef.current++
+        restoreEntry(userMessages[historyIndexRef.current])
+      } else {
+        historyIndexRef.current = -1
+        setDraftSnippets(activeSession.id, savedDraftSnippetsRef.current)
+        setDraftInput(activeSession.id, savedDraftRef.current)
+        dispatch({ type: 'SET_IMAGES', images: savedDraftImagesRef.current })
+      }
+      return
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend() }
-  }, [handleMentionKeyDown, showSlash, slashCommands, slashFilter, slashIndex, handleSlashSelect, dispatch, onSend])
+  }, [handleMentionKeyDown, showSlash, mention.showMention, slashCommands, slashFilter, slashIndex, handleSlashSelect, dispatch, onSend, isRunning, stopSession, activeSession.id, userMessages, input, snippets, attachedImages, setDraftInput, setDraftSnippets, restoreEntry])
 
   // ─── Queue editing ─────────────────────────────────────────────────────────
 
@@ -270,8 +372,9 @@ export function ChatInput({
 
   const contextPercent = useMemo(() => {
     if (activeSession.contextTokens == null) return 0
-    return activeSession.contextTokens / CONTEXT_WINDOW
-  }, [activeSession.contextTokens])
+    const window = getContextWindow(activeSession.model, activeSession.extendedContext)
+    return activeSession.contextTokens / window
+  }, [activeSession.contextTokens, activeSession.model, activeSession.extendedContext])
 
   // Hide the compact warning if /compact is already queued or already typed,
   // or if the last message is a compact-boundary (compaction just happened with no new user turn yet)

@@ -45,6 +45,8 @@ export const SK = {
   // ── Settings — AI ──────────────────────────────────────────────────────
   defaultModel:               `${prefix}:defaultModel`,
   defaultThinking:            `${prefix}:defaultThinking`,
+  defaultExtendedContext:     `${prefix}:defaultExtendedContext`,
+  defaultEffortLevel:         `${prefix}:defaultEffortLevel`,
   apiKey:                     `${prefix}:apiKey`,
   systemPromptSuffix:         `${prefix}:systemPromptSuffix`,
   claudeCodeExecutablePath:   `${prefix}:claudeCodeExecutablePath`,
@@ -81,6 +83,7 @@ export const SK = {
   skipDeleteWorktreeConfirm:  `${prefix}:skipDeleteWorktreeConfirm`,
   tabDisplayMode:             `${prefix}:tabDisplayMode`,
   chatCompactMode:            `${prefix}:chatCompactMode`,
+  projectAvatarVisible:       `${prefix}:projectAvatarVisible`,
 
   // ── i18n ───────────────────────────────────────────────────────────────
   language:                   `${prefix}:language`,
@@ -108,6 +111,7 @@ export const SK = {
   experimentalAcp:            `${prefix}:experimentalAcp`,
   bottomTerminalEnabled:      `${prefix}:bottomTerminalEnabled`,
   noVirtualization:           `${prefix}:noVirtualization`,
+  magicTrackpad:              `${prefix}:magicTrackpad`,
   webAppsEnabled:             `${prefix}:webAppsEnabled`,
   embeddedApps:               `${prefix}:embeddedApps`,
   webAppLastUrls:             `${prefix}:webAppLastUrls`,

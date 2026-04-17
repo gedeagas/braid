@@ -114,11 +114,11 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('git:findChildRepos', (_e, parentPath: string) => gitService.findChildRepos(parentPath))
 
   // Agent
-  ipcMain.handle('agent:startSession', (_e, sessionId: string, worktreeId: string, worktreePath: string, prompt: string, model: string, thinking: boolean, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string, backend?: import('./services/agentTypes').AgentBackend) =>
-    agentService.startSession(sessionId, worktreeId, worktreePath, prompt, model, thinking, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework, backend)
+  ipcMain.handle('agent:startSession', (_e, sessionId: string, worktreeId: string, worktreePath: string, prompt: string, model: string, thinking: boolean, extendedContext: boolean, effortLevel: string, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string, backend?: import('./services/agentTypes').AgentBackend) =>
+    agentService.startSession(sessionId, worktreeId, worktreePath, prompt, model, thinking, extendedContext, effortLevel, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework, backend)
   )
-  ipcMain.handle('agent:sendMessage', (_e, sessionId: string, message: string, sdkSessionId: string, cwd: string, model: string, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string) =>
-    agentService.sendMessage(sessionId, message, sdkSessionId, cwd, model, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework)
+  ipcMain.handle('agent:sendMessage', (_e, sessionId: string, message: string, sdkSessionId: string, cwd: string, model: string, extendedContext: boolean, effortLevel: string, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string) =>
+    agentService.sendMessage(sessionId, message, sdkSessionId, cwd, model, extendedContext, effortLevel, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework)
   )
   ipcMain.handle('agent:updateSessionName', (_e, sessionId: string, name: string) =>
     agentService.updateSessionName(sessionId, name)

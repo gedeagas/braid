@@ -12,6 +12,7 @@ import {
   loadPlugins,
   BRAID_SYSTEM_PROMPT,
   MOBILE_SYSTEM_PROMPT,
+  OPUS_NOISE_REDUCTION_PROMPT,
   frameworkPrompt,
   buildUserContent
 } from '../agentUtils'
@@ -21,6 +22,38 @@ import type { BraidAction } from '../braidMcp'
 import { createCanUseTool, fetchSlashCommands } from './tools'
 import { classifyError, classifyAuthType } from './errorClassifier'
 import type { SessionState, SlashCommand, WorkerEvent, AgentSettings } from '../agentTypes'
+
+const CONTEXT_1M_BETA = 'context-1m-2025-08-07' as const
+
+/**
+ * Returns true if the model needs the beta header for 1M context.
+ * Opus 4.6, Sonnet 4.6, and Mythos have native 1M - no beta needed.
+ * Older Sonnet models (4, 4.5) require the context-1m beta header.
+ */
+function needsExtendedContextBeta(model: string): boolean {
+  if (model.includes('opus') || model.includes('mythos')) return false
+  if (model.includes('sonnet') && model.includes('4-6')) return false
+  return model.includes('sonnet')
+}
+
+/**
+ * The SDK throws a generic "Claude Code process exited with code N" when the
+ * underlying CLI dies. The actionable reason is in stderr (e.g. invalid
+ * --effort value, Claude.ai subscriber limits). Merge the last few stderr
+ * lines into the message so the renderer can show a useful error.
+ */
+export function enrichExitError(rawMessage: string, stderrBuffer: string): string {
+  if (!/process exited with code/i.test(rawMessage)) return rawMessage
+  const trimmed = stderrBuffer.trim()
+  if (!trimmed) return rawMessage
+  // Strip "Error:" prefix from each stderr line - the renderer adds its own.
+  const lastLines = trimmed
+    .split('\n')
+    .slice(-3)
+    .map((line) => line.replace(/^\s*Error:\s*/i, ''))
+    .join('\n')
+  return `${lastLines} (${rawMessage})`
+}
 
 export class AgentWorker {
   private sessions = new Map<string, SessionState>()
@@ -109,6 +142,8 @@ export class AgentWorker {
     prompt: string,
     model: string,
     thinking: boolean,
+    extendedContext: boolean,
+    effortLevel: string,
     planMode: boolean,
     sessionName: string = 'New Chat',
     settings: AgentSettings,
@@ -118,8 +153,8 @@ export class AgentWorker {
     connectedDeviceId?: string,
     mobileFramework?: string
   ): Promise<void> {
-    this.log(sessionId, 'startSession', { worktreePath, model, thinking, planMode, promptLen: prompt.length, imageCount: images?.length ?? 0, linkedDirs: additionalDirectories?.length ?? 0 })
-    console.log(`[Braid] startSession — model: ${model} | thinking: ${thinking} | planMode: ${planMode}`)
+    this.log(sessionId, 'startSession', { worktreePath, model, thinking, extendedContext, effortLevel, planMode, promptLen: prompt.length, imageCount: images?.length ?? 0, linkedDirs: additionalDirectories?.length ?? 0 })
+    console.log(`[Braid] startSession - model: ${model} | thinking: ${thinking} | extendedContext: ${extendedContext} | effort: ${effortLevel} | planMode: ${planMode}`)
 
     let queryFn: typeof import('@anthropic-ai/claude-agent-sdk').query
     try {
@@ -131,9 +166,11 @@ export class AgentWorker {
 
     delete process.env.CLAUDECODE
     const abortController = new AbortController()
-    const state: SessionState = { abortController, cwd: worktreePath, model, sessionName, additionalDirectories, linkedWorktreeContext, initialLinkedContext: linkedWorktreeContext, connectedDeviceId, mobileFramework, worktreeId, projectName }
+    const state: SessionState = { abortController, cwd: worktreePath, model, extendedContext, effortLevel, sessionName, additionalDirectories, linkedWorktreeContext, initialLinkedContext: linkedWorktreeContext, connectedDeviceId, mobileFramework, worktreeId, projectName }
     this.sessions.set(sessionId, state)
     this.applyApiKey(settings)
+
+    let stderrBuffer = ''
 
     try {
       this.log(sessionId, 'Creating query...')
@@ -153,9 +190,21 @@ export class AgentWorker {
         ? `\n\nLinked worktrees (you have full read/write access):\n${linkedWorktreeContext}`
         : ''
       const mobileSuffix = connectedDeviceId ? `\n\n${MOBILE_SYSTEM_PROMPT}${frameworkPrompt(mobileFramework)}` : ''
+      const opusSuffix = model.includes('opus-4-7') ? `\n\n${OPUS_NOISE_REDUCTION_PROMPT}` : ''
       const systemAppend = settings.systemPromptSuffix
-        ? `${BRAID_SYSTEM_PROMPT}\n\n${settings.systemPromptSuffix}${linkedSuffix}${mobileSuffix}`
-        : `${BRAID_SYSTEM_PROMPT}${linkedSuffix}${mobileSuffix}`
+        ? `${BRAID_SYSTEM_PROMPT}\n\n${settings.systemPromptSuffix}${linkedSuffix}${mobileSuffix}${opusSuffix}`
+        : `${BRAID_SYSTEM_PROMPT}${linkedSuffix}${mobileSuffix}${opusSuffix}`
+
+      const betas = (extendedContext && needsExtendedContextBeta(model))
+        ? [CONTEXT_1M_BETA] : undefined
+      const effort = effortLevel && effortLevel !== 'high' ? effortLevel : undefined
+
+      const captureStderr = (data: string): void => {
+        const trimmed = data.trim()
+        if (!trimmed) return
+        stderrBuffer = (stderrBuffer + '\n' + trimmed).slice(-2000)
+        this.log(sessionId, 'stderr:', trimmed)
+      }
 
       const q = queryFn({
         prompt: promptParam as Parameters<typeof queryFn>[0]['prompt'],
@@ -172,7 +221,9 @@ export class AgentWorker {
           plugins: loadPlugins(worktreePath),
           abortController,
           systemPrompt: { type: 'preset', preset: 'claude_code', append: systemAppend },
-          stderr: (data: string) => { this.log(sessionId, 'stderr:', data.trim()) },
+          stderr: captureStderr,
+          ...(effort ? { effort } : {}),
+          ...(betas ? { betas } : {}),
           ...(mcpServers ? { mcpServers } : {}),
           ...(getCliPath(this.userCliPath) ? { pathToClaudeCodeExecutable: getCliPath(this.userCliPath) } : {}),
         } as Parameters<typeof queryFn>[0]['options']
@@ -245,9 +296,10 @@ export class AgentWorker {
         this.emit({ type: 'done', sessionId })
         return
       }
-      const message = err instanceof Error ? err.message : String(err)
-      this.log(sessionId, 'ERROR:', message)
+      const rawMessage = err instanceof Error ? err.message : String(err)
+      this.log(sessionId, 'ERROR:', rawMessage)
       if (err instanceof Error && err.stack) this.log(sessionId, 'Stack:', err.stack)
+      const message = enrichExitError(rawMessage, stderrBuffer)
       const errorKind = classifyError(message)
       this.emit({
         type: 'error', sessionId, message, errorKind,
@@ -262,6 +314,8 @@ export class AgentWorker {
     sdkSessionId: string,
     cwd: string,
     model: string,
+    extendedContext: boolean,
+    effortLevel: string,
     planMode: boolean,
     sessionName: string = 'New Chat',
     settings: AgentSettings,
@@ -274,11 +328,13 @@ export class AgentWorker {
     let state = this.sessions.get(sessionId)
     if (!state) {
       this.log(sessionId, 'Recovering lost session state from renderer')
-      state = { sdkSessionId, cwd, model, sessionName, additionalDirectories, linkedWorktreeContext, initialLinkedContext: undefined, connectedDeviceId, mobileFramework }
+      state = { sdkSessionId, cwd, model, extendedContext, effortLevel, sessionName, additionalDirectories, linkedWorktreeContext, initialLinkedContext: undefined, connectedDeviceId, mobileFramework }
       this.sessions.set(sessionId, state)
     } else {
       state.sessionName = sessionName
       state.model = model
+      state.extendedContext = extendedContext
+      state.effortLevel = effortLevel
       state.additionalDirectories = additionalDirectories
       state.linkedWorktreeContext = linkedWorktreeContext
       state.connectedDeviceId = connectedDeviceId
@@ -287,7 +343,7 @@ export class AgentWorker {
 
     const resumeId = state.sdkSessionId ?? sdkSessionId
     this.log(sessionId, 'sendMessage', { sdkSessionId: resumeId, cwd: state.cwd, planMode, messageLen: message.length })
-    console.log(`[Braid] sendMessage — model: ${model} | planMode: ${planMode}`)
+    console.log(`[Braid] sendMessage - model: ${model} | effort: ${effortLevel} | planMode: ${planMode}`)
 
     if (!resumeId) {
       const err = 'No active SDK session to resume'
@@ -308,6 +364,8 @@ export class AgentWorker {
     this.applyApiKey(settings)
     const abortController = new AbortController()
     state.abortController = abortController
+
+    let stderrBuffer = ''
 
     try {
       // Re-inject all MCP servers on resume (user-configured + Braid + mobile)
@@ -343,6 +401,17 @@ export class AgentWorker {
             yield { type: 'user', message: { role: 'user', content } }
           })(buildUserContent(effectiveMessage, images))
         : effectiveMessage
+      const betas = (state.extendedContext && needsExtendedContextBeta(state.model))
+        ? [CONTEXT_1M_BETA] : undefined
+      const effort = state.effortLevel && state.effortLevel !== 'high' ? state.effortLevel : undefined
+
+      const captureStderr = (data: string): void => {
+        const trimmed = data.trim()
+        if (!trimmed) return
+        stderrBuffer = (stderrBuffer + '\n' + trimmed).slice(-2000)
+        this.log(sessionId, 'resume stderr:', trimmed)
+      }
+
       const q = queryFn({
         prompt: promptParam as Parameters<typeof queryFn>[0]['prompt'],
         options: {
@@ -357,7 +426,9 @@ export class AgentWorker {
           settingSources: ['user', 'project', 'local'],
           plugins: loadPlugins(state.cwd),
           abortController,
-          stderr: (data: string) => { this.log(sessionId, 'resume stderr:', data.trim()) },
+          stderr: captureStderr,
+          ...(effort ? { effort } : {}),
+          ...(betas ? { betas } : {}),
           ...(mcpServers ? { mcpServers } : {}),
           ...(getCliPath(this.userCliPath) ? { pathToClaudeCodeExecutable: getCliPath(this.userCliPath) } : {}),
         } as Parameters<typeof queryFn>[0]['options']
@@ -395,21 +466,22 @@ export class AgentWorker {
         this.emit({ type: 'done', sessionId })
         return
       }
-      const errMsg = err instanceof Error ? err.message : String(err)
-      this.log(sessionId, 'RESUME ERROR:', errMsg)
+      const rawErrMsg = err instanceof Error ? err.message : String(err)
+      this.log(sessionId, 'RESUME ERROR:', rawErrMsg)
       if (err instanceof Error && err.stack) this.log(sessionId, 'Stack:', err.stack)
+      const errMsg = enrichExitError(rawErrMsg, stderrBuffer)
 
       if (errMsg.includes('text content blocks must be non-empty')) {
-        this.log(sessionId, 'Corrupt session history detected — falling back to fresh session')
+        this.log(sessionId, 'Corrupt session history detected - falling back to fresh session')
         state.sdkSessionId = undefined
-        await this.startSession(sessionId, state.worktreeId ?? '', state.projectName ?? '', state.cwd, message, state.model, false, false, state.sessionName, settings, images, state.additionalDirectories, state.linkedWorktreeContext, state.connectedDeviceId, state.mobileFramework)
+        await this.startSession(sessionId, state.worktreeId ?? '', state.projectName ?? '', state.cwd, message, state.model, false, state.extendedContext ?? false, state.effortLevel ?? 'high', false, state.sessionName, settings, images, state.additionalDirectories, state.linkedWorktreeContext, state.connectedDeviceId, state.mobileFramework)
         return
       }
 
       if (errMsg.includes('No conversation found with session ID')) {
-        this.log(sessionId, 'Stale session ID detected (conversation was never committed) — falling back to fresh session')
+        this.log(sessionId, 'Stale session ID detected (conversation was never committed) - falling back to fresh session')
         state.sdkSessionId = undefined
-        await this.startSession(sessionId, state.worktreeId ?? '', state.projectName ?? '', state.cwd, message, state.model, false, false, state.sessionName, settings, images, state.additionalDirectories, state.linkedWorktreeContext, state.connectedDeviceId, state.mobileFramework)
+        await this.startSession(sessionId, state.worktreeId ?? '', state.projectName ?? '', state.cwd, message, state.model, false, state.extendedContext ?? false, state.effortLevel ?? 'high', false, state.sessionName, settings, images, state.additionalDirectories, state.linkedWorktreeContext, state.connectedDeviceId, state.mobileFramework)
         return
       }
 

@@ -79,7 +79,11 @@ function chatViewReducer(state: ChatViewState, action: ChatViewAction): ChatView
   switch (action.type) {
     case 'APPEND_IMAGES': return { ...state, attachedImages: [...state.attachedImages, ...action.uris] }
     case 'REMOVE_IMAGE': return { ...state, attachedImages: state.attachedImages.filter((_, i) => i !== action.index) }
-    case 'SET_IMAGES': return { ...state, attachedImages: action.images }
+    case 'SET_IMAGES': {
+      if (state.attachedImages.length === 0 && action.images.length === 0) return state
+      if (state.attachedImages === action.images) return state
+      return { ...state, attachedImages: action.images }
+    }
     case 'SET_DRAG_OVER': return state.isDragOver === action.value ? state : { ...state, isDragOver: action.value }
     case 'OPEN_SLASH': return { ...state, showSlash: true, slashFilter: action.filter, slashIndex: 0 }
     case 'CLOSE_SLASH': return state.showSlash ? { ...state, showSlash: false } : state

@@ -54,7 +54,8 @@ function getMergedPRs(since) {
   }
 
   // Fetch recent merged PRs (gh pr list always returns most recent first)
-  const cmd = 'gh pr list --repo gedeagas/braid --state merged --limit 100 --json number,title,mergedAt'
+  const cmd =
+    'gh pr list --repo gedeagas/braid --state merged --limit 100 --json number,title,mergedAt,author'
   const raw = exec(cmd)
   const prs = JSON.parse(raw)
 
@@ -63,6 +64,21 @@ function getMergedPRs(since) {
     return prs.filter((pr) => new Date(pr.mergedAt) > tagDate)
   }
   return prs
+}
+
+function getContributors(prs) {
+  const seen = new Map()
+  for (const pr of prs) {
+    const login = pr.author?.login
+    if (!login) continue
+    if (!seen.has(login)) {
+      seen.set(login, { login, name: pr.author.name || login })
+    }
+  }
+  // Sort alphabetically by login for stable output
+  return Array.from(seen.values()).sort((a, b) =>
+    a.login.localeCompare(b.login, 'en', { sensitivity: 'base' }),
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -112,7 +128,7 @@ function categorizePRs(prs) {
 // Format
 // ---------------------------------------------------------------------------
 
-function formatChangelog(categories) {
+function formatChangelog(categories, contributors) {
   const today = new Date().toISOString().split('T')[0]
   const lines = [`## [${VERSION}] - ${today}`, '']
 
@@ -120,14 +136,22 @@ function formatChangelog(categories) {
 
   if (sorted.length === 0) {
     lines.push('No notable app changes.', '')
-    return lines.join('\n')
+  } else {
+    for (const [heading, { items }] of sorted) {
+      lines.push(`### ${heading}`, '')
+      for (const item of items) {
+        lines.push(`- ${item.description} (#${item.number})`)
+      }
+      lines.push('')
+    }
   }
 
-  for (const [heading, { items }] of sorted) {
-    lines.push(`### ${heading}`, '')
-    for (const item of items) {
-      lines.push(`- ${item.description} (#${item.number})`)
-    }
+  // Append contributors section
+  if (contributors.length > 0) {
+    lines.push('### Contributors', '')
+    lines.push(
+      `Thanks to ${contributors.map((c) => `[@${c.login}](https://github.com/${c.login})`).join(', ')} for their contributions to this release!`,
+    )
     lines.push('')
   }
 
@@ -145,7 +169,10 @@ const prs = getMergedPRs(lastTag)
 console.error(`[changelog] Found ${prs.length} merged PRs since ${lastTag}`)
 
 const categories = categorizePRs(prs)
-const entry = formatChangelog(categories)
+const contributors = getContributors(prs)
+console.error(`[changelog] ${contributors.length} contributor(s): ${contributors.map((c) => c.login).join(', ')}`)
+
+const entry = formatChangelog(categories, contributors)
 
 if (shouldWrite) {
   if (!fs.existsSync(CHANGELOG_PATH)) {

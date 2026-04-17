@@ -9,6 +9,7 @@ import type { Message } from '@/types'
 import { IconArrowDown } from '@/components/shared/icons'
 import { useTranslation } from 'react-i18next'
 import { ChatScrollContext } from '@/lib/chatScrollContext'
+import { getContextWindow } from '@/lib/constants'
 
 // ─── Stable Virtuoso component references ─────────────────────────────────────
 // Defined at module scope so their identity never changes between renders.
@@ -38,6 +39,7 @@ const FooterContent = memo(function FooterContent({ itemClassName = 'chat-virtuo
             activity={session.activity!}
             runStartedAt={session.runStartedAt}
             contextTokens={session.contextTokens}
+            contextWindow={getContextWindow(session.model, session.extendedContext)}
           />
         </div>
       ) : null}

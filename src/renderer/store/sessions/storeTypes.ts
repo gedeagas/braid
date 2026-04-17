@@ -2,7 +2,7 @@
 // Store type definitions — shared between store.ts and action slice factories
 // ---------------------------------------------------------------------------
 
-import type { AgentBackend, AgentSession, DiffComment, LinkedWorktree, ModelId, SnippetAttachment } from '@/types'
+import type { AgentBackend, AgentSession, DiffComment, EffortLevel, LinkedWorktree, ModelId, SnippetAttachment } from '@/types'
 
 export interface QueuedMessage {
   text: string
@@ -39,6 +39,8 @@ export interface SessionsState {
   updateBackend: (sessionId: string, backend: AgentBackend | undefined) => void
   updateAcpModel: (sessionId: string, modelId: string) => void
   updateThinking: (sessionId: string, enabled: boolean) => void
+  updateExtendedContext: (sessionId: string, enabled: boolean) => void
+  updateEffortLevel: (sessionId: string, level: EffortLevel) => void
   updatePlanMode: (sessionId: string, enabled: boolean) => void
   renameSession: (sessionId: string, name: string) => void
   reorderSessions: (worktreeId: string, fromIndex: number, toIndex: number) => void
@@ -52,6 +54,7 @@ export interface SessionsState {
   addDraftSnippet: (sessionId: string, snippet: SnippetAttachment) => void
   removeDraftSnippet: (sessionId: string, snippetId: string) => void
   clearDraftSnippets: (sessionId: string) => void
+  setDraftSnippets: (sessionId: string, snippets: SnippetAttachment[]) => void
   addDiffComment: (sessionId: string, comment: DiffComment) => void
   updateDiffComment: (sessionId: string, commentId: string, text: string) => void
   removeDiffComment: (sessionId: string, commentId: string) => void

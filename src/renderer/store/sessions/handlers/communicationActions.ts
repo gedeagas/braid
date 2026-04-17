@@ -116,13 +116,13 @@ export const createCommunicationActions: StateCreator<
       const worktreeCwd = sessionWorktreePaths.get(sessionId) ?? worktreePath
       await ipc.agent.sendMessage(
         sessionId, text, freshSession.sdkSessionId, worktreeCwd,
-        freshSession.model, freshSession.planModeEnabled, freshSession.name,
+        freshSession.model, freshSession.extendedContext, freshSession.effortLevel, freshSession.planModeEnabled, freshSession.name,
         images, additionalDirs, linkedContext, freshSession.connectedDeviceId, mobileFramework
       )
     } else if (freshSession) {
       await ipc.agent.startSession(
         sessionId, freshSession.worktreeId, worktreePath, text, freshSession.model,
-        freshSession.thinkingEnabled, freshSession.planModeEnabled, freshSession.name,
+        freshSession.thinkingEnabled, freshSession.extendedContext, freshSession.effortLevel, freshSession.planModeEnabled, freshSession.name,
         images, additionalDirs, linkedContext, freshSession.connectedDeviceId, mobileFramework,
         freshSession.backend
       )

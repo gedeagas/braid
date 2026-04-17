@@ -18,7 +18,8 @@
     "agents": "ACP Agents",
     "jira": "Jira",
     "analytics": "Analytics",
-    "about": "About"
+    "about": "About",
+    "experimental": "Experimental"
   },
   "groups": {
     "general": "General",
@@ -26,6 +27,7 @@
     "claudeAgent": "Claude",
     "appearance": "Appearance",
     "integrations": "Integrations",
+    "experimental": "Experimental",
     "projects": "Projects"
   },
   "general": {
@@ -66,10 +68,20 @@
     "streamingAnimation": "Streaming Animation",
     "streamingAnimationHint": "Animate words as they stream in",
     "chatCompactMode": "Chat Compact Mode",
-    "chatCompactModeHint": "Reduce spacing and font sizes for a denser, CLI-like chat display"
+    "chatCompactModeHint": "Reduce spacing and font sizes for a denser, CLI-like chat display",
+    "projectAvatar": "Project Avatar",
+    "projectAvatarHint": "Show project icon next to each project name in the sidebar"
   },
   "ai": {
     "defaultModel": "Default Model",
+    "extendedContext": "Extended Context (1M)",
+    "extendedContextHint": "Enable 1M token context window by default for new sessions",
+    "defaultEffort": "Default Effort",
+    "defaultEffortHint": "Default reasoning effort for new sessions",
+    "effort_low": "Low",
+    "effort_medium": "Med",
+    "effort_high": "High",
+    "effort_max": "Max",
     "thinkingMode": "Thinking Mode",
     "thinkingModeHint": "Enable extended thinking for new sessions",
     "systemPrompt": "System Prompt Suffix",
@@ -379,6 +391,14 @@
     "contributorsThanks": "Thanks to all the people who have contributed to Braid.",
     "createdBy": "The Braid Project",
     "builtIn": "Built in Tokyo, Japan"
+  },
+  "experimental": {
+    "hint": "Features in development. May be unstable or change without notice.",
+    "features": "Experimental features",
+    "magicTrackpad": "Magic Trackpad",
+    "magicTrackpadHint": "Two-finger horizontal swipe on the trackpad to switch between tabs. Swipe left for the next tab, swipe right for the previous tab.",
+    "otherFlags": "Other Flags",
+    "previewTab": "Tab {{n}}"
   },
   "claudeSkills": {
     "title": "Skills",
