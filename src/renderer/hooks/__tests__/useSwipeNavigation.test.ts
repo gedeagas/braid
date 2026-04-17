@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { useSwipeNavigation } from '../useSwipeNavigation'
 
+// GESTURE_END_MS in the hook is 300
+const GESTURE_END_MS = 300
+
 function fireWheel(el: HTMLElement, deltaX: number, deltaY = 0, ctrlKey = false) {
   el.dispatchEvent(new WheelEvent('wheel', { deltaX, deltaY, ctrlKey, bubbles: true }))
 }
@@ -77,7 +80,7 @@ describe('useSwipeNavigation', () => {
     expect(onNavigate).not.toHaveBeenCalled()
   })
 
-  it('enforces cooldown after navigation', () => {
+  it('blocks re-trigger while momentum events are still arriving', () => {
     const onNavigate = vi.fn()
     const ref = { current: container }
     renderHook(() => useSwipeNavigation(ref, onNavigate))
@@ -86,12 +89,30 @@ describe('useSwipeNavigation', () => {
     fireWheel(container, 60)
     expect(onNavigate).toHaveBeenCalledTimes(1)
 
-    // Immediate second swipe is blocked by cooldown
+    // Momentum events keep arriving - should stay in cooldown
+    vi.advanceTimersByTime(100)
+    fireWheel(container, 20)
+    vi.advanceTimersByTime(100)
+    fireWheel(container, 10)
+    vi.advanceTimersByTime(100)
+    fireWheel(container, 5)
+
+    expect(onNavigate).toHaveBeenCalledTimes(1)
+  })
+
+  it('allows new gesture after momentum fully stops', () => {
+    const onNavigate = vi.fn()
+    const ref = { current: container }
+    renderHook(() => useSwipeNavigation(ref, onNavigate))
+
+    // First gesture
     fireWheel(container, 60)
     expect(onNavigate).toHaveBeenCalledTimes(1)
 
-    // After cooldown expires, new swipe triggers
-    vi.advanceTimersByTime(400)
+    // Silence long enough for gesture to end
+    vi.advanceTimersByTime(GESTURE_END_MS + 50)
+
+    // New gesture triggers
     fireWheel(container, 30)
     fireWheel(container, 30)
     expect(onNavigate).toHaveBeenCalledTimes(2)
@@ -105,8 +126,8 @@ describe('useSwipeNavigation', () => {
     // Partial swipe (30 < 50 threshold)
     fireWheel(container, 30)
 
-    // Pause exceeds reset timer (200ms)
-    vi.advanceTimersByTime(300)
+    // Pause exceeds gesture-end timer
+    vi.advanceTimersByTime(GESTURE_END_MS + 50)
 
     // New partial swipe should not combine with previous
     fireWheel(container, 30)
