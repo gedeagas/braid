@@ -44,6 +44,7 @@ export function ChatHeader({
   const { t } = useTranslation('center')
   const updateModel = useSessionsStore((s) => s.updateModel)
   const updateBackend = useSessionsStore((s) => s.updateBackend)
+  const updateAcpModel = useSessionsStore((s) => s.updateAcpModel)
   const updateThinking = useSessionsStore((s) => s.updateThinking)
   const updatePlanMode = useSessionsStore((s) => s.updatePlanMode)
   const stopSession = useSessionsStore((s) => s.stopSession)
@@ -57,6 +58,10 @@ export function ChatHeader({
   const handleBackendSelect = useCallback((backend: AgentBackend | undefined) => {
     updateBackend(activeSession.id, backend)
   }, [activeSession.id, updateBackend])
+
+  const handleAcpModelSelect = useCallback((modelId: string) => {
+    updateAcpModel(activeSession.id, modelId)
+  }, [activeSession.id, updateAcpModel])
 
   const isAcp = activeSession.backend?.type === 'acp'
 
@@ -97,6 +102,7 @@ export function ChatHeader({
           backend={activeSession.backend}
           onSelect={handleModelSelect}
           onSelectBackend={handleBackendSelect}
+          onSelectAcpModel={handleAcpModelSelect}
         />
 
         {variant === 'default' && (

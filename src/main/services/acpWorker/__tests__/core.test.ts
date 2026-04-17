@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { EventEmitter, PassThrough } from 'stream'
-import type { WorkerEvent, AcpAgentConfig } from '../../agentTypes'
+import type { WorkerEvent } from '../../agentTypes'
 
 // --- Mock child_process.spawn -----------------------------------------------
 
@@ -56,14 +56,6 @@ vi.mock('fs', () => ({
 // Import AFTER mocks
 import { AcpWorker } from '../core'
 
-const AGENT_CONFIG: AcpAgentConfig = {
-  id: 'test-agent',
-  name: 'Test Agent',
-  command: '/usr/bin/test-agent',
-  args: ['--stdio'],
-  env: { AGENT_MODE: 'acp' },
-}
-
 const SETTINGS = {
   apiKey: null,
   systemPromptSuffix: '',
@@ -71,7 +63,7 @@ const SETTINGS = {
   bypassPermissions: true,
 }
 
-const BACKEND = { type: 'acp' as const, agentId: 'test-agent', agentName: 'Test Agent' }
+const BACKEND = { type: 'acp' as const }
 
 let emitted: WorkerEvent[]
 let worker: AcpWorker
@@ -134,23 +126,30 @@ afterEach(() => {
 
 // ---------------------------------------------------------------------------
 describe('startSession', () => {
-  it('emits error when no agent config is provided', async () => {
-    await worker.startSession(
+  it('spawns gemini with hardcoded config', async () => {
+    const { spawn } = await import('child_process')
+    const promise = worker.startSession(
       'sess-1', 'wt-1', 'proj', '/cwd', 'hello', 'model', true, false,
       'New Chat', SETTINGS, undefined, undefined, undefined, undefined, undefined,
-      BACKEND, undefined // no agentConfig
+      BACKEND,
     )
 
-    expect(emitted).toHaveLength(1)
-    expect(emitted[0].type).toBe('error')
-    expect((emitted[0] as { message: string }).message).toContain('not found in configuration')
+    await vi.advanceTimersByTimeAsync(0)
+    autoRespond(mockProc)
+    await vi.advanceTimersByTimeAsync(0)
+    await promise
+
+    expect(spawn).toHaveBeenCalledWith('gemini', ['--acp'], expect.objectContaining({
+      stdio: ['pipe', 'pipe', 'pipe'],
+      cwd: '/cwd',
+    }))
   })
 
   it('completes handshake and emits init + done', async () => {
     const promise = worker.startSession(
       'sess-1', 'wt-1', 'proj', '/cwd', 'Say hello', 'model', true, false,
       'New Chat', SETTINGS, undefined, undefined, undefined, undefined, undefined,
-      BACKEND, AGENT_CONFIG
+      BACKEND,
     )
 
     await vi.advanceTimersByTimeAsync(0)
@@ -171,7 +170,7 @@ describe('startSession', () => {
     const promise = worker.startSession(
       'sess-1', 'wt-1', 'proj', '/cwd', 'fail', 'model', true, false,
       'New Chat', SETTINGS, undefined, undefined, undefined, undefined, undefined,
-      BACKEND, AGENT_CONFIG
+      BACKEND,
     )
 
     await vi.advanceTimersByTimeAsync(0)
@@ -188,7 +187,7 @@ describe('startSession', () => {
     const promise = worker.startSession(
       'sess-1', 'wt-1', 'proj', '/cwd', 'hello', 'model', true, false,
       'New Chat', SETTINGS, undefined, undefined, undefined, undefined, undefined,
-      BACKEND, AGENT_CONFIG
+      BACKEND,
     )
 
     // spawn() has run, mockProc is now the live process
@@ -229,7 +228,7 @@ describe('stopSession', () => {
     const startPromise = worker.startSession(
       'sess-1', 'wt-1', 'proj', '/cwd', 'hi', 'model', true, false,
       'New Chat', SETTINGS, undefined, undefined, undefined, undefined, undefined,
-      BACKEND, AGENT_CONFIG
+      BACKEND,
     )
 
     await vi.advanceTimersByTimeAsync(0)
@@ -255,7 +254,7 @@ describe('closeSession', () => {
     const startPromise = worker.startSession(
       'sess-1', 'wt-1', 'proj', '/cwd', 'hi', 'model', true, false,
       'New Chat', SETTINGS, undefined, undefined, undefined, undefined, undefined,
-      BACKEND, AGENT_CONFIG
+      BACKEND,
     )
 
     await vi.advanceTimersByTimeAsync(0)
@@ -281,7 +280,7 @@ describe('RPC timeout', () => {
     const promise = worker.startSession(
       'sess-1', 'wt-1', 'proj', '/cwd', 'hi', 'model', true, false,
       'New Chat', SETTINGS, undefined, undefined, undefined, undefined, undefined,
-      BACKEND, AGENT_CONFIG
+      BACKEND,
     )
 
     // Don't respond - let the timeout fire
@@ -301,7 +300,7 @@ describe('session update notifications during prompt', () => {
     const promise = worker.startSession(
       'sess-1', 'wt-1', 'proj', '/cwd', 'hello', 'model', true, false,
       'New Chat', SETTINGS, undefined, undefined, undefined, undefined, undefined,
-      BACKEND, AGENT_CONFIG
+      BACKEND,
     )
 
     await vi.advanceTimersByTimeAsync(0)
@@ -344,7 +343,7 @@ describe('agent-initiated requests', () => {
     const promise = worker.startSession(
       'sess-1', 'wt-1', 'proj', '/cwd', 'hello', 'model', true, false,
       'New Chat', SETTINGS, undefined, undefined, undefined, undefined, undefined,
-      BACKEND, AGENT_CONFIG
+      BACKEND,
     )
 
     await vi.advanceTimersByTimeAsync(0)
@@ -400,7 +399,7 @@ describe('batch messages', () => {
     const promise = worker.startSession(
       'sess-1', 'wt-1', 'proj', '/cwd', 'hello', 'model', true, false,
       'New Chat', SETTINGS, undefined, undefined, undefined, undefined, undefined,
-      BACKEND, AGENT_CONFIG
+      BACKEND,
     )
 
     await vi.advanceTimersByTimeAsync(0)

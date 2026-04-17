@@ -97,9 +97,9 @@ describe('resetTurn', () => {
 
 // ---------------------------------------------------------------------------
 describe('requestPermission', () => {
-  it('emits waiting_input event with tool_permission reason', async () => {
+  it('reads ACP-spec fields: toolName, rawInput, title', async () => {
     const promise = handlers.requestPermission({
-      toolCall: { name: 'WriteFile', input: { path: '/foo' } },
+      toolCall: { toolName: 'WriteFile', rawInput: { path: '/foo' }, title: 'Write to file' },
       message: 'Write to /foo?',
     })
 
@@ -108,24 +108,62 @@ describe('requestPermission', () => {
     expect(event.type).toBe('waiting_input')
     expect(event.reason).toBe('tool_permission')
     expect(event.toolName).toBe('WriteFile')
+    expect(event.toolInput).toEqual({ path: '/foo' })
+    expect(event.displayName).toBe('Write to file')
     expect(event.description).toBe('Write to /foo?')
 
-    // Resolve the permission
     const permId = event.toolUseId as string
     handlers.resolvePermission(permId, { behavior: 'allow' })
 
     const result = await promise
+    expect(result.outcome).toBe('selected')
     expect(result.optionId).toBe('allow_once')
   })
 
-  it('resolves as reject_once when behavior is deny', async () => {
-    const promise = handlers.requestPermission({ toolCall: { name: 'Bash' } })
+  it('falls back to legacy name/input fields for compat', async () => {
+    const promise = handlers.requestPermission({
+      toolCall: { name: 'Bash', input: { command: 'ls' } },
+      message: 'Run command?',
+    })
+
+    const event = emitted[0] as Record<string, unknown>
+    expect(event.toolName).toBe('Bash')
+    expect(event.toolInput).toEqual({ command: 'ls' })
+
+    const permId = event.toolUseId as string
+    handlers.resolvePermission(permId, { behavior: 'allow' })
+    await promise
+  })
+
+  it('prefers toolName over name when both present', async () => {
+    const promise = handlers.requestPermission({
+      toolCall: { toolName: 'AcpWrite', name: 'Write', rawInput: { x: 1 }, input: { y: 2 } },
+    })
+
+    const event = emitted[0] as Record<string, unknown>
+    expect(event.toolName).toBe('AcpWrite')
+    expect(event.toolInput).toEqual({ x: 1 })
+
+    const permId = event.toolUseId as string
+    handlers.resolvePermission(permId, { behavior: 'allow' })
+    await promise
+  })
+
+  it('falls back to title when neither toolName nor name present', () => {
+    handlers.requestPermission({ toolCall: { title: 'Read file' } })
+    const event = emitted[0] as Record<string, unknown>
+    expect(event.toolName).toBe('Read file')
+  })
+
+  it('resolves as cancelled when behavior is deny', async () => {
+    const promise = handlers.requestPermission({ toolCall: { toolName: 'Bash' } })
     const permId = (emitted[0] as Record<string, unknown>).toolUseId as string
 
     handlers.resolvePermission(permId, { behavior: 'deny' })
 
     const result = await promise
-    expect(result.optionId).toBe('reject_once')
+    expect(result.outcome).toBe('cancelled')
+    expect(result.optionId).toBeUndefined()
   })
 
   it('defaults to Unknown when toolCall is missing', () => {
@@ -135,8 +173,8 @@ describe('requestPermission', () => {
   })
 
   it('generates unique permission IDs', () => {
-    handlers.requestPermission({ toolCall: { name: 'A' } })
-    handlers.requestPermission({ toolCall: { name: 'B' } })
+    handlers.requestPermission({ toolCall: { toolName: 'A' } })
+    handlers.requestPermission({ toolCall: { toolName: 'B' } })
 
     const id1 = (emitted[0] as Record<string, unknown>).toolUseId
     const id2 = (emitted[1] as Record<string, unknown>).toolUseId
@@ -152,7 +190,7 @@ describe('resolvePermission', () => {
   })
 
   it('only resolves each permission once', async () => {
-    const promise = handlers.requestPermission({ toolCall: { name: 'Test' } })
+    const promise = handlers.requestPermission({ toolCall: { toolName: 'Test' } })
     const permId = (emitted[0] as Record<string, unknown>).toolUseId as string
 
     handlers.resolvePermission(permId, { behavior: 'allow' })
@@ -161,25 +199,26 @@ describe('resolvePermission', () => {
 
     const result = await promise
     // First resolution wins
+    expect(result.outcome).toBe('selected')
     expect(result.optionId).toBe('allow_once')
   })
 })
 
 // ---------------------------------------------------------------------------
 describe('cleanup', () => {
-  it('resolves all pending permissions as reject_once', async () => {
-    const p1 = handlers.requestPermission({ toolCall: { name: 'A' } })
-    const p2 = handlers.requestPermission({ toolCall: { name: 'B' } })
+  it('resolves all pending permissions as cancelled', async () => {
+    const p1 = handlers.requestPermission({ toolCall: { toolName: 'A' } })
+    const p2 = handlers.requestPermission({ toolCall: { toolName: 'B' } })
 
     handlers.cleanup()
 
     const [r1, r2] = await Promise.all([p1, p2])
-    expect(r1.optionId).toBe('reject_once')
-    expect(r2.optionId).toBe('reject_once')
+    expect(r1.outcome).toBe('cancelled')
+    expect(r2.outcome).toBe('cancelled')
   })
 
   it('clears the pending map so resolvePermission is a no-op after cleanup', async () => {
-    const promise = handlers.requestPermission({ toolCall: { name: 'X' } })
+    const promise = handlers.requestPermission({ toolCall: { toolName: 'X' } })
     const permId = (emitted[0] as Record<string, unknown>).toolUseId as string
 
     handlers.cleanup()
@@ -188,7 +227,7 @@ describe('cleanup', () => {
     handlers.resolvePermission(permId, { behavior: 'allow' })
 
     const result = await promise
-    expect(result.optionId).toBe('reject_once') // cleanup wins
+    expect(result.outcome).toBe('cancelled') // cleanup wins
   })
 
   it('is safe to call multiple times', () => {

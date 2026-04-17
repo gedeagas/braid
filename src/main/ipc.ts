@@ -8,7 +8,6 @@ import { join } from 'path'
 import { storageService } from './services/storage'
 import { gitService } from './services/git'
 import { agentService } from './services/agent'
-import { acpConfigService } from './services/acpConfig'
 import { ptyService } from './services/pty'
 import { githubService } from './services/github'
 import { sessionStorageService, PersistedSession } from './services/sessionStorage'
@@ -149,9 +148,8 @@ export function registerIpcHandlers(): void {
     agentService.generateSessionTitle(userMessage, assistantSummary, currentTitle)
   )
 
-  // ACP agent config
-  ipcMain.handle('agent:getAcpAgents', () => acpConfigService.load())
-  ipcMain.handle('agent:saveAcpAgents', (_e, agents: import('./services/agentTypes').AcpAgentConfig[]) => acpConfigService.save(agents))
+  // ACP model switching
+  ipcMain.on('agent:setAcpModel', (_e, sessionId: string, modelId: string) => agentService.setAcpModel(sessionId, modelId))
 
   // PTY
   ipcMain.handle('pty:spawn', (_e, cwd: string) => ptyService.spawn(cwd))

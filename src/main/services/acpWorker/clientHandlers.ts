@@ -49,10 +49,10 @@ interface AcpTerminal {
 export interface ClientHandlers {
   /** Called for every ACP session/update notification. */
   sessionUpdate(update: Record<string, unknown>): void
-  /** Called when the agent requests user permission. */
-  requestPermission(options: Record<string, unknown>): Promise<{ optionId: string }>
-  /** Read a text file from the filesystem. */
-  readTextFile(params: { path: string }): Promise<{ content: string }>
+  /** Called when the agent requests user permission. Returns ACP RequestPermissionOutcome. */
+  requestPermission(options: Record<string, unknown>): Promise<{ outcome: string; optionId?: string }>
+  /** Read a text file from the filesystem. ACP supports optional line/limit. */
+  readTextFile(params: { path: string; line?: number; limit?: number }): Promise<{ content: string }>
   /** Write a text file to the filesystem. */
   writeTextFile(params: { path: string; content: string }): Promise<null>
   /** Create a terminal (subprocess) and return its ID. */
@@ -93,7 +93,10 @@ export function createClientHandlers(
   worktreePath: string,
   emit: (event: WorkerEvent) => void
 ): ClientHandlers {
-  const pendingPermissions = new Map<string, { resolve: (value: { optionId: string }) => void }>()
+  const pendingPermissions = new Map<string, {
+    resolve: (value: { outcome: string; optionId?: string }) => void
+    options: Array<{ optionId: string; kind: string }>
+  }>()
   const terminals = new Map<string, AcpTerminal>()
   let turnState = createTurnState()
   let terminalCounter = 0
@@ -106,28 +109,47 @@ export function createClientHandlers(
       }
     },
 
-    async requestPermission(options: Record<string, unknown>): Promise<{ optionId: string }> {
+    async requestPermission(options: Record<string, unknown>): Promise<{ outcome: string; optionId?: string }> {
       const permId = `acp-perm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
       const toolCall = options.toolCall as Record<string, unknown> | undefined
+
+      // ACP spec uses `toolName` + `rawInput`; fall back to `name` + `input` for compat
+      const toolName =
+        (toolCall?.toolName as string) ?? (toolCall?.name as string) ?? (toolCall?.title as string) ?? 'Unknown'
+      const toolInput =
+        (toolCall?.rawInput as Record<string, unknown>) ?? (toolCall?.input as Record<string, unknown>) ?? {}
+
+      // Extract the agent's option IDs so we can map allow/deny to the correct one
+      const agentOptions = (options.options as Array<{ optionId: string; kind: string }>) ?? []
 
       emit({
         type: 'waiting_input',
         sessionId,
         reason: 'tool_permission',
-        toolName: (toolCall?.name as string) ?? 'Unknown',
-        toolInput: (toolCall?.input as Record<string, unknown>) ?? {},
+        toolName,
+        toolInput,
         toolUseId: permId,
+        displayName: (toolCall?.title as string) ?? undefined,
         description: (options.message as string) ?? undefined
       })
 
       return new Promise((resolve) => {
-        pendingPermissions.set(permId, { resolve })
+        pendingPermissions.set(permId, { resolve, options: agentOptions })
       })
     },
 
-    async readTextFile({ path }: { path: string }): Promise<{ content: string }> {
+    async readTextFile({ path, line, limit }: { path: string; line?: number; limit?: number }): Promise<{ content: string }> {
       const safePath = assertWithinWorktree(worktreePath, path)
-      const content = readFileSync(safePath, 'utf-8')
+      let content = readFileSync(safePath, 'utf-8')
+
+      // ACP spec: optional line (1-based start) and limit (max lines)
+      if (line != null || limit != null) {
+        const lines = content.split('\n')
+        const startIdx = Math.max(0, (line ?? 1) - 1) // 1-based to 0-based
+        const endIdx = limit != null ? startIdx + limit : lines.length
+        content = lines.slice(startIdx, endIdx).join('\n')
+      }
+
       return { content }
     },
 
@@ -236,10 +258,26 @@ export function createClientHandlers(
 
     resolvePermission(permId: string, result: Record<string, unknown>): void {
       const pending = pendingPermissions.get(permId)
-      if (pending) {
-        pendingPermissions.delete(permId)
-        const behavior = (result.behavior as string) ?? 'allow'
-        pending.resolve({ optionId: behavior === 'deny' ? 'reject_once' : 'allow_once' })
+      if (!pending) return
+      pendingPermissions.delete(permId)
+
+      const behavior = (result.behavior as string) ?? 'allow'
+      if (behavior === 'deny') {
+        // Find the agent's reject option, fall back to 'cancelled' outcome
+        const rejectOpt = pending.options.find((o) => o.kind === 'reject_once')
+        if (rejectOpt) {
+          pending.resolve({ outcome: 'selected', optionId: rejectOpt.optionId })
+        } else {
+          pending.resolve({ outcome: 'cancelled' })
+        }
+      } else {
+        // Find the agent's allow option matching the behavior kind
+        const allowOpt =
+          pending.options.find((o) => o.kind === 'allow_once') ??
+          pending.options.find((o) => o.kind === 'allow_always') ??
+          pending.options.find((o) => o.kind.startsWith('allow'))
+        const optionId = allowOpt?.optionId ?? 'allow_once'
+        pending.resolve({ outcome: 'selected', optionId })
       }
     },
 
@@ -252,9 +290,9 @@ export function createClientHandlers(
     },
 
     cleanup(): void {
-      // Resolve all pending permission promises as "reject" so they don't hang forever
+      // Resolve all pending permission promises as "cancelled" so they don't hang forever
       for (const [, pending] of pendingPermissions) {
-        pending.resolve({ optionId: 'reject_once' })
+        pending.resolve({ outcome: 'cancelled' })
       }
       pendingPermissions.clear()
 

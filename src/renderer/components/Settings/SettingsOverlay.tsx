@@ -22,7 +22,6 @@ import { SettingsApps } from './SettingsApps'
 import { SettingsJira } from './SettingsJira'
 import { SettingsAnalytics } from './SettingsAnalytics'
 import { SettingsAbout } from './SettingsAbout'
-import { SettingsAgents } from './SettingsAgents'
 
 /**
  * Maps nav section keys → their rendered page component.
@@ -52,7 +51,6 @@ const sectionMap: Record<string, React.ReactNode> = {
   jira: <SettingsJira />,
   analytics: <SettingsAnalytics />,
   about: <SettingsAbout />,
-  agents: <SettingsAgents />,
 }
 
 function SettingsContent() {

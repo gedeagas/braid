@@ -96,10 +96,7 @@ export const agent = {
   generateCommitMessage: (worktreePath: string) => api().agent.generateCommitMessage(worktreePath) as Promise<string>,
   generateSessionTitle: (userMessage: string, assistantSummary: string, currentTitle?: string) =>
     api().agent.generateSessionTitle(userMessage, assistantSummary, currentTitle) as Promise<string>,
-  getAcpAgents: () =>
-    api().agent.getAcpAgents() as Promise<Array<{ id: string; name: string; command: string; args: string[]; env?: Record<string, string> }>>,
-  saveAcpAgents: (agents: Array<{ id: string; name: string; command: string; args: string[]; env?: Record<string, string> }>) =>
-    api().agent.saveAcpAgents(agents),
+  setAcpModel: (sessionId: string, modelId: string) => api().agent.setAcpModel(sessionId, modelId),
   onEvent: (callback: (data: { sessionId: string; event: unknown }) => void) =>
     api().agent.onEvent(callback)
 }

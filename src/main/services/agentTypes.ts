@@ -12,20 +12,9 @@ export type AgentBackend =
   | { type: 'claude-sdk' }
   | {
       type: 'acp'
-      agentId: string
-      agentName: string
       availableModels?: AcpModelInfo[]
       currentModelId?: string
     }
-
-/** Registered ACP agent configuration (persisted in ~/Braid/acp-agents.json). */
-export interface AcpAgentConfig {
-  id: string
-  name: string
-  command: string
-  args: string[]
-  env?: Record<string, string>
-}
 
 // ── Session state ───────────────────────────────────────────────────────────
 
@@ -85,6 +74,8 @@ export type WorkerEvent =
       slashCommands: Array<{ name: string; source: 'builtin' | 'skill' }>
       acpModels?: AcpModelInfo[]
       acpCurrentModelId?: string
+      acpModes?: Array<{ id: string; name: string; description?: string }>
+      acpCurrentModeId?: string
     }
   | { type: 'slash_commands'; sessionId: string; commands: SlashCommand[] }
   | { type: 'done'; sessionId: string }

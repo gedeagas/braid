@@ -17,6 +17,7 @@ export const createModelSettingsActions: StateCreator<
   Pick<SessionsState,
     | 'updateModel'
     | 'updateBackend'
+    | 'updateAcpModel'
     | 'updateThinking'
     | 'updatePlanMode'
     | 'renameSession'
@@ -45,6 +46,26 @@ export const createModelSettingsActions: StateCreator<
     })
     persistSession(sessionId)
     console.log(`[Braid] backend changed → ${backend?.type ?? 'claude-sdk'}`)
+  },
+
+  updateAcpModel: (sessionId, modelId) => {
+    set((s) => {
+      const session = s.sessions[sessionId]
+      if (!session || session.backend?.type !== 'acp') return s
+      return {
+        sessions: {
+          ...s.sessions,
+          [sessionId]: {
+            ...session,
+            backend: { ...session.backend, currentModelId: modelId },
+          },
+        },
+      }
+    })
+    persistSession(sessionId)
+    // Fire-and-forget IPC to tell the ACP agent to switch models
+    ipc.agent.setAcpModel(sessionId, modelId)
+    console.log(`[Braid] ACP model changed → ${modelId}`)
   },
 
   updateThinking: (sessionId, enabled) => {

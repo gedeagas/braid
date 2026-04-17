@@ -24,7 +24,6 @@ process.parentPort!.on('message', (e: { data: WorkerCommand }) => {
         cmd.thinking, cmd.planMode, cmd.sessionName, cmd.settings,
         cmd.images, cmd.additionalDirectories, cmd.linkedWorktreeContext,
         cmd.connectedDeviceId, cmd.mobileFramework, cmd.backend,
-        cmd.agentConfig
       )
       break
     case 'sendMessage':

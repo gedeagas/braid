@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/store/ui'
 import { useProjectsStore } from '@/store/projects'
@@ -29,17 +28,9 @@ export function SettingsNav() {
   const { t } = useTranslation('settings')
   const settingsSection = useUIStore((s) => s.settingsSection)
   const setSettingsSection = useUIStore((s) => s.setSettingsSection)
-  const experimentalAcp = useUIStore((s) => s.experimentalAcp)
   const projects = useProjectsStore((s) => s.projects)
 
-  // Conditionally add the "agents" page to integrations when the ACP flag is on
-  const navGroups = useMemo(() => {
-    if (!experimentalAcp) return NAV_GROUPS
-    return NAV_GROUPS.map((group) => {
-      if (group.header !== 'integrations') return group
-      return { ...group, items: ['agents', ...group.items] }
-    })
-  }, [experimentalAcp])
+  const navGroups = NAV_GROUPS
 
   return (
     <nav className="settings-nav">

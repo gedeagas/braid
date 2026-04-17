@@ -12,8 +12,6 @@ export type AgentBackend =
   | { type: 'claude-sdk' }
   | {
       type: 'acp'
-      agentId: string
-      agentName: string
       availableModels?: AcpModelInfo[]
       currentModelId?: string
     }

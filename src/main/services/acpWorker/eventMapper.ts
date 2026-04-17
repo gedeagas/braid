@@ -21,6 +21,8 @@ export interface TurnState {
   /** Accumulated token usage for the turn (updated by cost_update). */
   inputTokens: number
   outputTokens: number
+  /** Slash commands received via available_commands_update. */
+  slashCommands?: Array<{ name: string; description: string; argumentHint?: string }>
 }
 
 export function createTurnState(): TurnState {
@@ -109,12 +111,17 @@ export function mapSessionUpdate(
       break
     }
 
-    case 'tool_call': {
+    case 'tool_call':
+    case 'tool_call_update': {
       const status = update.status as string | undefined
-      const toolCallId = (update.id as string) ?? `acp-tc-${Date.now()}`
-      const toolName = (update.name as string) ?? 'unknown'
+      // ACP spec: toolCallId; legacy: id
+      const toolCallId = (update.toolCallId as string) ?? (update.id as string) ?? `acp-tc-${Date.now()}`
+      // ACP spec: title is the human-readable label; fall back to toolName / name
+      const toolName = (update.toolName as string) ?? (update.title as string)
+        ?? (update.name as string) ?? 'unknown'
 
-      if (status === 'running' || status === 'started' || !status) {
+      // ACP sends 'in_progress' or 'pending'; also accept legacy 'running'/'started'
+      if (status === 'in_progress' || status === 'pending' || status === 'running' || status === 'started' || !status) {
         ensureMessageStarted(sessionId, turn, events)
 
         // Close any open text block
@@ -153,7 +160,7 @@ export function mapSessionUpdate(
         turn.blockIndex++
       }
 
-      if (status === 'completed') {
+      if (status === 'completed' || status === 'failed') {
         // Emit content_block_stop for the tool_use block.
         // The block was started at (turn.blockIndex - 1) since blockIndex was
         // incremented immediately after content_block_start for tool_use.
@@ -164,8 +171,9 @@ export function mapSessionUpdate(
           }))
         }
 
-        const output = update.output as string | undefined
-        const isError = (update.isError as boolean) ?? false
+        // ACP sends content as an array; legacy sends output as a string
+        const output = extractToolOutput(update)
+        const isError = status === 'failed' || ((update.isError as boolean) ?? false)
         events.push(sdkMsg(sessionId, {
           type: 'user',
           message: {
@@ -174,7 +182,7 @@ export function mapSessionUpdate(
               type: 'tool_result',
               tool_use_id: toolCallId,
               is_error: isError,
-              content: [{ type: 'text', text: output ?? '' }]
+              content: [{ type: 'text', text: output }]
             }]
           }
         }))
@@ -192,11 +200,24 @@ export function mapSessionUpdate(
       break
     }
 
+    case 'available_commands_update': {
+      // ACP sends { availableCommands: [{ name, description, input? }] }
+      // Stash on turn state so the caller can emit a slash_commands event
+      const cmds = update.availableCommands as Array<Record<string, unknown>> | undefined
+      if (Array.isArray(cmds) && cmds.length > 0) {
+        turn.slashCommands = cmds.map((cmd) => ({
+          name: (cmd.name as string) ?? '',
+          description: (cmd.description as string) ?? '',
+          argumentHint: ((cmd.input as Record<string, unknown>)?.hint as string) ?? undefined,
+        }))
+      }
+      break
+    }
+
     // Plan updates, mode changes, config changes - no direct mapping needed yet
     case 'plan':
     case 'current_mode_update':
     case 'config_option_update':
-    case 'available_commands_update':
       break
   }
 
@@ -262,6 +283,35 @@ function ensureMessageStarted(sessionId: string, turn: TurnState, events: Worker
       message: { usage: { input_tokens: 0, output_tokens: 0 } }
     }
   }))
+}
+
+/**
+ * Extract human-readable output from a tool_call / tool_call_update.
+ *
+ * ACP spec sends `content` as an array of content blocks:
+ *   [{ type: 'content', content: { type: 'text', text: '...' } }, ...]
+ * Legacy agents may send a plain `output` string.
+ */
+function extractToolOutput(update: Record<string, unknown>): string {
+  // Try ACP-spec content array first
+  const contentArr = update.content as Array<Record<string, unknown>> | undefined
+  if (Array.isArray(contentArr) && contentArr.length > 0) {
+    const texts: string[] = []
+    for (const item of contentArr) {
+      // ACP wraps in { type: 'content', content: { type: 'text', text } }
+      const inner = item.content as Record<string, unknown> | undefined
+      if (inner?.text) {
+        texts.push(inner.text as string)
+      } else if (item.type === 'text' && item.text) {
+        // Flat content block: { type: 'text', text: '...' }
+        texts.push(item.text as string)
+      }
+    }
+    if (texts.length > 0) return texts.join('\n')
+  }
+
+  // Fall back to legacy output string
+  return (update.output as string) ?? ''
 }
 
 function sdkMsg(sessionId: string, message: unknown): WorkerEvent {

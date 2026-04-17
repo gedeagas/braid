@@ -126,9 +126,9 @@ export const createUserInputActions: StateCreator<
   allowTool: (sessionId) => {
     const session = get().sessions[sessionId]
     if (!session?.pendingToolPermission) return
-    // Capture toolInput before set() clears pendingToolPermission
-    const toolInput = session.pendingToolPermission.toolInput
-    ipc.agent.answerToolInput(sessionId, { behavior: 'allow', updatedInput: toolInput })
+    // Capture fields before set() clears pendingToolPermission
+    const { toolUseId, toolInput } = session.pendingToolPermission
+    ipc.agent.answerToolInput(sessionId, { behavior: 'allow', toolUseId, updatedInput: toolInput })
     set((s) => {
       const current = s.sessions[sessionId]
       if (!current) return s
@@ -145,7 +145,8 @@ export const createUserInputActions: StateCreator<
   denyTool: (sessionId) => {
     const session = get().sessions[sessionId]
     if (!session?.pendingToolPermission) return
-    ipc.agent.answerToolInput(sessionId, { behavior: 'deny', message: 'Denied by user' })
+    const { toolUseId } = session.pendingToolPermission
+    ipc.agent.answerToolInput(sessionId, { behavior: 'deny', toolUseId, message: 'Denied by user' })
     set((s) => {
       const current = s.sessions[sessionId]
       if (!current) return s

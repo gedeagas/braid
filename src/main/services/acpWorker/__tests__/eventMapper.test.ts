@@ -129,7 +129,7 @@ describe('mapSessionUpdate - agent_thought_chunk', () => {
 })
 
 // ---------------------------------------------------------------------------
-describe('mapSessionUpdate - tool_call', () => {
+describe('mapSessionUpdate - tool_call (legacy fields)', () => {
   it('emits tool_use content_block_start on running status', () => {
     const events = mapSessionUpdate(SID, {
       type: 'tool_call',
@@ -217,7 +217,7 @@ describe('mapSessionUpdate - tool_call', () => {
     expect(content.is_error).toBe(false)
   })
 
-  it('handles tool_call with no status (defaults to running)', () => {
+  it('handles tool_call with no status (defaults to in_progress)', () => {
     const events = mapSessionUpdate(SID, {
       type: 'tool_call',
       id: 'tc-5',
@@ -234,6 +234,119 @@ describe('mapSessionUpdate - tool_call', () => {
     expect(turn.blockIndex).toBe(1)
     mapSessionUpdate(SID, { type: 'tool_call', status: 'running', id: 'b', name: 'B' }, turn)
     expect(turn.blockIndex).toBe(2)
+  })
+})
+
+// ---------------------------------------------------------------------------
+describe('mapSessionUpdate - tool_call (ACP spec fields)', () => {
+  it('reads toolCallId and title from ACP wire format', () => {
+    const events = mapSessionUpdate(SID, {
+      sessionUpdate: 'tool_call',
+      toolCallId: 'read_file-123',
+      status: 'in_progress',
+      title: 'package.json',
+      kind: 'read',
+      content: [],
+      locations: [{ path: '/project/package.json' }],
+    }, turn)
+
+    expect(events).toHaveLength(2)
+    expect(streamEvent(events[0]).type).toBe('message_start')
+    const block = streamEvent(events[1])
+    expect(block.type).toBe('content_block_start')
+    expect((block.content_block as Record<string, unknown>).id).toBe('read_file-123')
+    expect((block.content_block as Record<string, unknown>).name).toBe('package.json')
+  })
+
+  it('handles tool_call_update with completed status', () => {
+    // Start the tool
+    mapSessionUpdate(SID, {
+      sessionUpdate: 'tool_call',
+      toolCallId: 'read_file-456',
+      status: 'in_progress',
+      title: 'CHANGELOG.md',
+      kind: 'read',
+    }, turn)
+    expect(turn.blockIndex).toBe(1)
+
+    // Complete via tool_call_update
+    const events = mapSessionUpdate(SID, {
+      sessionUpdate: 'tool_call_update',
+      toolCallId: 'read_file-456',
+      status: 'completed',
+      title: 'CHANGELOG.md',
+      content: [{ type: 'content', content: { type: 'text', text: 'Read lines 1-20 of 169' } }],
+      kind: 'read',
+    }, turn)
+
+    expect(events).toHaveLength(2)
+    expect(streamEvent(events[0]).type).toBe('content_block_stop')
+
+    const m = msg(events[1]) as Record<string, unknown>
+    expect(m.type).toBe('user')
+    const inner = m.message as Record<string, unknown>
+    const result = (inner.content as Array<Record<string, unknown>>)[0]
+    expect(result.tool_use_id).toBe('read_file-456')
+    expect(result.is_error).toBe(false)
+    expect((result.content as Array<Record<string, unknown>>)[0].text).toBe('Read lines 1-20 of 169')
+  })
+
+  it('handles tool_call_update with empty content array', () => {
+    mapSessionUpdate(SID, {
+      sessionUpdate: 'tool_call',
+      toolCallId: 'tc-empty',
+      status: 'in_progress',
+      title: 'file.txt',
+    }, turn)
+
+    const events = mapSessionUpdate(SID, {
+      sessionUpdate: 'tool_call_update',
+      toolCallId: 'tc-empty',
+      status: 'completed',
+      title: 'file.txt',
+      content: [],
+    }, turn)
+
+    const m = msg(events[1]) as Record<string, unknown>
+    const inner = m.message as Record<string, unknown>
+    const result = (inner.content as Array<Record<string, unknown>>)[0]
+    expect((result.content as Array<Record<string, unknown>>)[0].text).toBe('')
+  })
+
+  it('handles failed status as error', () => {
+    mapSessionUpdate(SID, {
+      sessionUpdate: 'tool_call',
+      toolCallId: 'tc-fail',
+      status: 'in_progress',
+      title: 'missing.txt',
+    }, turn)
+
+    const events = mapSessionUpdate(SID, {
+      sessionUpdate: 'tool_call_update',
+      toolCallId: 'tc-fail',
+      status: 'failed',
+      title: 'missing.txt',
+      content: [{ type: 'content', content: { type: 'text', text: 'ENOENT' } }],
+    }, turn)
+
+    const m = msg(events[1]) as Record<string, unknown>
+    const inner = m.message as Record<string, unknown>
+    const result = (inner.content as Array<Record<string, unknown>>)[0]
+    expect(result.is_error).toBe(true)
+    expect((result.content as Array<Record<string, unknown>>)[0].text).toBe('ENOENT')
+  })
+
+  it('prefers toolName over title when both present', () => {
+    const events = mapSessionUpdate(SID, {
+      sessionUpdate: 'tool_call',
+      toolCallId: 'tc-both',
+      toolName: 'ReadFile',
+      title: 'package.json',
+      status: 'in_progress',
+    }, turn)
+
+    const block = streamEvent(events[1])
+    expect((block.content_block as Record<string, unknown>).name).toBe('ReadFile')
   })
 })
 
@@ -344,7 +457,7 @@ describe('finalizeTurn', () => {
 
 // ---------------------------------------------------------------------------
 describe('full turn scenario: thinking -> text -> tool -> text', () => {
-  it('produces correct blockIndex sequence', () => {
+  it('produces correct blockIndex sequence (legacy fields)', () => {
     // Thinking at index 0
     mapSessionUpdate(SID, { type: 'agent_thought_chunk' }, turn)
     expect(turn.blockIndex).toBe(0)
@@ -364,5 +477,32 @@ describe('full turn scenario: thinking -> text -> tool -> text', () => {
     // New text at index 3
     mapSessionUpdate(SID, { type: 'agent_message_chunk', content: { text: 'Done' } }, turn)
     expect(turn.blockIndex).toBe(3) // text block still open at 3
+  })
+
+  it('produces correct blockIndex sequence (ACP wire format)', () => {
+    mapSessionUpdate(SID, { type: 'agent_message_chunk', content: { text: 'Checking' } }, turn)
+    expect(turn.blockIndex).toBe(0)
+
+    // ACP tool_call with in_progress + tool_call_update with completed
+    mapSessionUpdate(SID, {
+      sessionUpdate: 'tool_call',
+      toolCallId: 'read-1',
+      status: 'in_progress',
+      title: 'package.json',
+      kind: 'read',
+    }, turn)
+    expect(turn.blockIndex).toBe(2) // text closed at 0 -> 1, tool started at 1 -> 2
+
+    mapSessionUpdate(SID, {
+      sessionUpdate: 'tool_call_update',
+      toolCallId: 'read-1',
+      status: 'completed',
+      title: 'package.json',
+      content: [{ type: 'content', content: { type: 'text', text: 'file data' } }],
+    }, turn)
+    expect(turn.blockIndex).toBe(2)
+
+    mapSessionUpdate(SID, { type: 'agent_message_chunk', content: { text: 'Done' } }, turn)
+    expect(turn.blockIndex).toBe(2)
   })
 })

@@ -37,6 +37,7 @@ export interface SessionsState {
   closeSessionsByWorktree: (worktreeId: string) => void
   updateModel: (sessionId: string, model: ModelId) => void
   updateBackend: (sessionId: string, backend: AgentBackend | undefined) => void
+  updateAcpModel: (sessionId: string, modelId: string) => void
   updateThinking: (sessionId: string, enabled: boolean) => void
   updatePlanMode: (sessionId: string, enabled: boolean) => void
   renameSession: (sessionId: string, name: string) => void

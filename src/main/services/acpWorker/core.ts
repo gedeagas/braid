@@ -23,12 +23,15 @@ import {
   JSONRPCServerAndClient,
   JSONRPCErrorException,
 } from 'json-rpc-2.0'
-import type { WorkerEvent, AgentSettings, AgentBackend, AcpAgentConfig, AcpModelInfo } from '../agentTypes'
+import type { WorkerEvent, AgentSettings, AgentBackend, AcpModelInfo } from '../agentTypes'
 import { createClientHandlers, type ClientHandlers } from './clientHandlers'
 import { finalizeTurn } from './eventMapper'
 
 const RPC_TIMEOUT_MS = 60_000
 const DEBUG = true // Wire-level ACP protocol logging
+
+/** Hardcoded Gemini CLI configuration - the sole ACP provider. */
+const GEMINI_CONFIG = { command: 'gemini', args: ['--acp'] } as const
 
 function debug(...args: unknown[]): void {
   if (DEBUG) console.log('[ACP:debug]', ...args)
@@ -62,12 +65,6 @@ interface AcpSession {
 export class AcpWorker {
   private emit: (event: WorkerEvent) => void
   private sessions = new Map<string, AcpSession>()
-  /**
-   * Agent config injected from the coordinator (main process reads the config
-   * file, then passes it via the startSession command). This avoids importing
-   * Electron's `app` module which is unavailable in UtilityProcess.
-   */
-  private agentConfig: AcpAgentConfig | null = null
 
   constructor(emit: (event: WorkerEvent) => void) {
     this.emit = emit
@@ -90,25 +87,15 @@ export class AcpWorker {
     _connectedDeviceId?: string,
     _mobileFramework?: string,
     backend?: AgentBackend,
-    agentConfig?: AcpAgentConfig
   ): Promise<void> {
     try {
-      // Prefer injected config from coordinator, fall back to stored
-      const config = agentConfig ?? this.agentConfig
-      if (!config) {
-        const agentId = backend?.type === 'acp' ? backend.agentId : ''
-        this.emit({ type: 'error', sessionId, message: `ACP agent "${agentId}" not found in configuration` })
-        return
-      }
-      this.agentConfig = config
-
-      // Spawn agent subprocess
+      // Spawn Gemini CLI subprocess
+      const config = GEMINI_CONFIG
       debug(`spawn: ${config.command} ${config.args.join(' ')}`)
       debug(`cwd: ${worktreePath}`)
       const agentProcess = spawn(config.command, config.args, {
         stdio: ['pipe', 'pipe', 'pipe'],
         cwd: worktreePath,
-        env: { ...process.env, ...config.env }
       })
 
       debug(`pid: ${agentProcess.pid}`)
@@ -188,7 +175,12 @@ export class AcpWorker {
       }))
       const acpCurrentModelId = modelsPayload?.currentModelId as string | undefined
 
-      // Emit init event with model discovery data
+      // Extract mode info from session/new response
+      const modesPayload = newSessionResult?.modes as Record<string, unknown> | undefined
+      const acpModes = modesPayload?.availableModes as Array<{ id: string; name: string; description?: string }> | undefined
+      const acpCurrentModeId = modesPayload?.currentModeId as string | undefined
+
+      // Emit init event with model and mode discovery data
       this.emit({
         type: 'init',
         sessionId,
@@ -196,6 +188,8 @@ export class AcpWorker {
         slashCommands: [],
         acpModels,
         acpCurrentModelId,
+        acpModes,
+        acpCurrentModeId,
       })
 
       // Send the prompt. The ACP agent sends session/update notifications on
@@ -215,8 +209,23 @@ export class AcpWorker {
       await new Promise((r) => setImmediate(r))
 
       // Finalize the turn (close any open blocks, emit result)
-      const finalEvents = finalizeTurn(sessionId, clientHandlers.getTurnState())
+      const turnState = clientHandlers.getTurnState()
+      const finalEvents = finalizeTurn(sessionId, turnState)
       for (const event of finalEvents) this.emit(event)
+
+      // Emit slash commands if the agent sent available_commands_update
+      if (turnState.slashCommands?.length) {
+        this.emit({
+          type: 'slash_commands',
+          sessionId,
+          commands: turnState.slashCommands.map((cmd) => ({
+            name: cmd.name,
+            description: cmd.description,
+            argumentHint: cmd.argumentHint,
+            source: 'builtin' as const,
+          })),
+        })
+      }
 
       this.emit({ type: 'done', sessionId })
     } catch (err) {
@@ -256,8 +265,23 @@ export class AcpWorker {
       // Yield to drain any remaining stdout notification chunks (see startSession)
       await new Promise((r) => setImmediate(r))
 
-      const finalEvents = finalizeTurn(sessionId, session.clientHandlers.getTurnState())
+      const turnState = session.clientHandlers.getTurnState()
+      const finalEvents = finalizeTurn(sessionId, turnState)
       for (const event of finalEvents) this.emit(event)
+
+      // Emit slash commands if the agent sent available_commands_update
+      if (turnState.slashCommands?.length) {
+        this.emit({
+          type: 'slash_commands',
+          sessionId,
+          commands: turnState.slashCommands.map((cmd) => ({
+            name: cmd.name,
+            description: cmd.description,
+            argumentHint: cmd.argumentHint,
+            source: 'builtin' as const,
+          })),
+        })
+      }
 
       this.emit({ type: 'done', sessionId })
     } catch (err) {
@@ -269,6 +293,12 @@ export class AcpWorker {
   stopSession(sessionId: string): void {
     const session = this.sessions.get(sessionId)
     if (session) {
+      // Send ACP cancel notification before tearing down
+      try {
+        session.rpc.notify('session/cancel', { sessionId: session.acpSessionId })
+      } catch {
+        // Best-effort: agent may already be dead
+      }
       session.rpc.rejectAllPendingRequests('Session stopped')
       session.clientHandlers.cleanup()
       session.agentProcess?.kill('SIGTERM')
@@ -288,21 +318,40 @@ export class AcpWorker {
   }
 
   /**
-   * Tell the ACP agent to switch models via session/setModel.
+   * Tell the ACP agent to switch models via unstable_setSessionModel.
    * Fire-and-forget: if the agent doesn't support it, we just log the error.
    */
   async setModel(sessionId: string, modelId: string): Promise<void> {
     const session = this.sessions.get(sessionId)
     if (!session) return
     try {
-      debug(`>>> session/setModel: ${modelId}`)
-      await session.rpc.timeout(RPC_TIMEOUT_MS).request('session/setModel', {
+      debug(`>>> unstable_setSessionModel: ${modelId}`)
+      await session.rpc.timeout(RPC_TIMEOUT_MS).request('unstable_setSessionModel', {
         sessionId: session.acpSessionId,
         modelId,
       })
-      debug(`<<< session/setModel: ok`)
+      debug(`<<< unstable_setSessionModel: ok`)
     } catch (err) {
-      console.warn('[AcpWorker] session/setModel failed:', formatRpcError(err))
+      console.warn('[AcpWorker] unstable_setSessionModel failed:', formatRpcError(err))
+    }
+  }
+
+  /**
+   * Tell the ACP agent to switch operating mode via session/set_mode.
+   * Fire-and-forget: if the agent doesn't support it, we just log the error.
+   */
+  async setMode(sessionId: string, modeId: string): Promise<void> {
+    const session = this.sessions.get(sessionId)
+    if (!session) return
+    try {
+      debug(`>>> session/set_mode: ${modeId}`)
+      await session.rpc.timeout(RPC_TIMEOUT_MS).request('session/set_mode', {
+        sessionId: session.acpSessionId,
+        modeId,
+      })
+      debug(`<<< session/set_mode: ok`)
+    } catch (err) {
+      console.warn('[AcpWorker] session/set_mode failed:', formatRpcError(err))
     }
   }
 
@@ -361,7 +410,11 @@ export class AcpWorker {
 
     rpc.addMethod('fs/read_text_file', async (params) => {
       const p = params as Record<string, unknown>
-      return await clientHandlers.readTextFile({ path: p.path as string })
+      return await clientHandlers.readTextFile({
+        path: p.path as string,
+        line: p.line as number | undefined,
+        limit: p.limit as number | undefined,
+      })
     })
 
     rpc.addMethod('fs/write_text_file', async (params) => {
