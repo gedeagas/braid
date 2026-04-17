@@ -99,11 +99,14 @@
   "quickStartLocationPlaceholder": "~/projects",
   "quickStartTemplateLabel": "Template",
   "quickStartTemplateEmpty": "Empty",
+  "quickStartTemplateNextjs": "Next.js",
   "quickStartCreateButton": "Create",
   "quickStartCreating": "Creating project...",
+  "quickStartCreatingNextjs": "Creating Next.js project... this can take a minute",
   "quickStartNameEmpty": "Please enter a project name",
   "quickStartNameInvalid": "Name must start with a letter or number and contain only letters, numbers, dots, hyphens, or underscores",
   "quickStartLocationEmpty": "Please select a location",
   "quickStartPathExists": "A folder with this name already exists at that location",
-  "quickStartCreateFailed": "Failed to create project"
+  "quickStartCreateFailed": "Failed to create project",
+  "quickStartNextjsFailed": "Failed to scaffold Next.js project. Check that Node.js and npx are installed and that you are online."
 }

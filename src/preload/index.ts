@@ -158,6 +158,12 @@ const api = {
       ipcRenderer.invoke('scripts:detect', projectPath, forceRefresh) as Promise<Array<{ id: string; name: string; command: string; source: string }>>,
   },
 
+  // Templates — scaffold new projects from built-in starter templates
+  templates: {
+    create: (kind: 'nextjs', args: { parentDir: string; projectName: string }) =>
+      ipcRenderer.invoke('template:create', kind, args) as Promise<{ success: boolean; stderr?: string }>,
+  },
+
   // Window Capture
   windowCapture: {
     getSources: () => ipcRenderer.invoke('windowCapture:getSources'),

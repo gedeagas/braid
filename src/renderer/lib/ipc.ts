@@ -201,6 +201,11 @@ export const scripts = {
   detect: (projectPath: string, forceRefresh?: boolean) => api().scripts.detect(projectPath, forceRefresh) as Promise<import('@/types').RunCommand[]>,
 }
 
+export const templates = {
+  create: (kind: 'nextjs', args: { parentDir: string; projectName: string }) =>
+    api().templates.create(kind, args) as Promise<{ success: boolean; stderr?: string }>,
+}
+
 export const files = {
   getIgnored: (worktreePath: string, patterns?: string[]) => api().files.getIgnored(worktreePath, patterns),
   getFileInfo: (worktreePath: string, paths: string[]) => api().files.getFileInfo(worktreePath, paths),

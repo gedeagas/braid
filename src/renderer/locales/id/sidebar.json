@@ -99,11 +99,14 @@
   "quickStartLocationPlaceholder": "~/projects",
   "quickStartTemplateLabel": "Template",
   "quickStartTemplateEmpty": "Kosong",
+  "quickStartTemplateNextjs": "Next.js",
   "quickStartCreateButton": "Buat",
   "quickStartCreating": "Membuat proyek...",
+  "quickStartCreatingNextjs": "Membuat proyek Next.js... ini bisa memakan waktu beberapa menit",
   "quickStartNameEmpty": "Silakan masukkan nama proyek",
   "quickStartNameInvalid": "Nama harus dimulai dengan huruf atau angka dan hanya mengandung huruf, angka, titik, tanda hubung, atau garis bawah",
   "quickStartLocationEmpty": "Silakan pilih lokasi",
   "quickStartPathExists": "Folder dengan nama ini sudah ada di lokasi tersebut",
-  "quickStartCreateFailed": "Gagal membuat proyek"
+  "quickStartCreateFailed": "Gagal membuat proyek",
+  "quickStartNextjsFailed": "Gagal membuat proyek Next.js. Pastikan Node.js dan npx sudah terpasang dan Anda sedang online."
 }

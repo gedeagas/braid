@@ -37,7 +37,8 @@ export function QuickStartTab({ state, dispatch, existingPaths, addProject, onCl
       dispatch({ type: 'setError', error: t('quickStartLocationEmpty') })
       return
     }
-    const fullPath = `${location.replace(/\/+$/, '')}/${name}`
+    const parentDir = location.replace(/\/+$/, '')
+    const fullPath = `${parentDir}/${name}`
     const exists = await ipc.files.pathExists(fullPath)
     if (exists) {
       dispatch({ type: 'setError', error: t('quickStartPathExists') })
@@ -50,7 +51,18 @@ export function QuickStartTab({ state, dispatch, existingPaths, addProject, onCl
 
     dispatch({ type: 'startCreating' })
     try {
-      await ipc.git.initRepo(fullPath)
+      if (state.selectedTemplate === 'nextjs') {
+        // create-next-app scaffolds the project dir AND runs `git init`,
+        // so we don't need ipc.git.initRepo for this template.
+        const res = await ipc.templates.create('nextjs', { parentDir, projectName: name })
+        if (!res.success) {
+          dispatch({ type: 'setError', error: t('quickStartNextjsFailed') })
+          dispatch({ type: 'doneCreating' })
+          return
+        }
+      } else {
+        await ipc.git.initRepo(fullPath)
+      }
       await addProject(fullPath)
       onClose()
     } catch {
@@ -104,13 +116,21 @@ export function QuickStartTab({ state, dispatch, existingPaths, addProject, onCl
             <span className="template-card__icon">📄</span>
             <span className="template-card__name">{t('quickStartTemplateEmpty')}</span>
           </button>
+          <button
+            className={`template-card${state.selectedTemplate === 'nextjs' ? ' template-card--selected' : ''}`}
+            onClick={() => dispatch({ type: 'setTemplate', value: 'nextjs' })}
+            disabled={state.creating}
+          >
+            <span className="template-card__icon">⚡</span>
+            <span className="template-card__name">{t('quickStartTemplateNextjs')}</span>
+          </button>
         </div>
       </div>
 
       {state.creating && (
         <div className="dialog-clone-progress">
           <Spinner size="sm" />
-          {t('quickStartCreating')}
+          {state.selectedTemplate === 'nextjs' ? t('quickStartCreatingNextjs') : t('quickStartCreating')}
         </div>
       )}
     </>
