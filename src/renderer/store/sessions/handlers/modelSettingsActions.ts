@@ -26,71 +26,67 @@ export const createModelSettingsActions: StateCreator<
   >
 > = (set, get) => ({
   updateModel: (sessionId, model) => {
-    const session = get().sessions[sessionId]
-    if (session) {
+    if (!get().sessions[sessionId]) return
+    set((s) => {
+      const fresh = s.sessions[sessionId]
+      if (!fresh) return s
       // Auto-disable extended context when switching to a model that doesn't support it
-      const needsDisable = session.extendedContext && !supportsExtendedContext(model)
-      set((s) => ({
-        sessions: { ...s.sessions, [sessionId]: { ...session, model, ...(needsDisable ? { extendedContext: false } : {}) } }
-      }))
-      persistSession(sessionId)
-      console.log(`[Braid] model changed -> ${model} | thinking: ${session.thinkingEnabled} | planMode: ${session.planModeEnabled}`)
-    }
+      const disableExtended = fresh.extendedContext && !supportsExtendedContext(model)
+      return { sessions: { ...s.sessions, [sessionId]: { ...fresh, model, ...(disableExtended ? { extendedContext: false } : {}) } } }
+    })
+    persistSession(sessionId)
+    console.log(`[Braid] model changed -> ${model}`)
   },
 
   updateThinking: (sessionId, enabled) => {
-    const session = get().sessions[sessionId]
-    if (session) {
-      set((s) => ({
-        sessions: { ...s.sessions, [sessionId]: { ...session, thinkingEnabled: enabled } }
-      }))
-      persistSession(sessionId)
-      // Persist as default for new sessions
-      useUIStore.getState().setDefaultThinking(enabled)
-      console.log(`[Braid] thinking -> ${enabled} | model: ${session.model} | planMode: ${session.planModeEnabled}`)
-    }
+    if (!get().sessions[sessionId]) return
+    set((s) => {
+      const fresh = s.sessions[sessionId]
+      if (!fresh) return s
+      return { sessions: { ...s.sessions, [sessionId]: { ...fresh, thinkingEnabled: enabled } } }
+    })
+    persistSession(sessionId)
+    useUIStore.getState().setDefaultThinking(enabled)
+    console.log(`[Braid] thinking -> ${enabled}`)
   },
 
   updateExtendedContext: (sessionId, enabled) => {
-    const session = get().sessions[sessionId]
-    if (session) {
-      set((s) => ({
-        sessions: { ...s.sessions, [sessionId]: { ...session, extendedContext: enabled } }
-      }))
-      persistSession(sessionId)
-      // Persist as default for new sessions
-      useUIStore.getState().setDefaultExtendedContext(enabled)
-      console.log(`[Braid] extendedContext -> ${enabled} | model: ${session.model}`)
-    }
+    if (!get().sessions[sessionId]) return
+    set((s) => {
+      const fresh = s.sessions[sessionId]
+      if (!fresh) return s
+      return { sessions: { ...s.sessions, [sessionId]: { ...fresh, extendedContext: enabled } } }
+    })
+    persistSession(sessionId)
+    useUIStore.getState().setDefaultExtendedContext(enabled)
+    console.log(`[Braid] extendedContext -> ${enabled}`)
   },
 
   updatePlanMode: (sessionId, enabled) => {
-    const session = get().sessions[sessionId]
-    if (session) {
-      set((s) => ({
-        sessions: { ...s.sessions, [sessionId]: { ...session, planModeEnabled: enabled } }
-      }))
-      persistSession(sessionId)
-      console.log(`[Braid] planMode -> ${enabled} | model: ${session.model} | thinking: ${session.thinkingEnabled}`)
-    }
+    if (!get().sessions[sessionId]) return
+    set((s) => {
+      const fresh = s.sessions[sessionId]
+      if (!fresh) return s
+      return { sessions: { ...s.sessions, [sessionId]: { ...fresh, planModeEnabled: enabled } } }
+    })
+    persistSession(sessionId)
+    console.log(`[Braid] planMode -> ${enabled}`)
   },
 
   renameSession: (sessionId, name) => {
-    const session = get().sessions[sessionId]
-    if (!session) return
+    if (!get().sessions[sessionId]) return
     const trimmed = name.trim()
-    set((s) => ({
-      sessions: {
-        ...s.sessions,
-        [sessionId]: {
-          ...session,
-          name: trimmed || 'New Chat',
-          customName: trimmed.length > 0
+    set((s) => {
+      const fresh = s.sessions[sessionId]
+      if (!fresh) return s
+      return {
+        sessions: {
+          ...s.sessions,
+          [sessionId]: { ...fresh, name: trimmed || 'New Chat', customName: trimmed.length > 0 }
         }
       }
-    }))
+    })
     persistSession(sessionId)
-    // Sync to main process so notifications use the updated name
     ipc.agent.updateSessionName(sessionId, trimmed || 'New Chat')
   },
 

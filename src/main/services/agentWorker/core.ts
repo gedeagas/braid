@@ -22,6 +22,19 @@ import { createCanUseTool, fetchSlashCommands } from './tools'
 import { classifyError, classifyAuthType } from './errorClassifier'
 import type { SessionState, SlashCommand, WorkerEvent, AgentSettings } from '../agentTypes'
 
+const CONTEXT_1M_BETA = 'context-1m-2025-08-07' as const
+
+/**
+ * Returns true if the model needs the beta header for 1M context.
+ * Opus 4.6, Sonnet 4.6, and Mythos have native 1M - no beta needed.
+ * Older Sonnet models (4, 4.5) require the context-1m beta header.
+ */
+function needsExtendedContextBeta(model: string): boolean {
+  if (model.includes('opus') || model.includes('mythos')) return false
+  if (model.includes('sonnet') && model.includes('4-6')) return false
+  return model.includes('sonnet')
+}
+
 export class AgentWorker {
   private sessions = new Map<string, SessionState>()
   private pendingUserInput = new Map<string, { resolve: (result: Record<string, unknown>) => void }>()
@@ -158,9 +171,8 @@ export class AgentWorker {
         ? `${BRAID_SYSTEM_PROMPT}\n\n${settings.systemPromptSuffix}${linkedSuffix}${mobileSuffix}`
         : `${BRAID_SYSTEM_PROMPT}${linkedSuffix}${mobileSuffix}`
 
-      // Enable 1M context window beta for compatible older models (Sonnet 4/4.5)
-      const needsBeta = extendedContext && !model.includes('opus') && !model.includes('mythos') && !(model.includes('sonnet') && model.includes('4-6')) && model.includes('sonnet')
-      const betas = needsBeta ? ['context-1m-2025-08-07' as const] : undefined
+      const betas = (extendedContext && needsExtendedContextBeta(model))
+        ? [CONTEXT_1M_BETA] : undefined
 
       const q = queryFn({
         prompt: promptParam as Parameters<typeof queryFn>[0]['prompt'],
@@ -351,9 +363,8 @@ export class AgentWorker {
             yield { type: 'user', message: { role: 'user', content } }
           })(buildUserContent(effectiveMessage, images))
         : effectiveMessage
-      // Enable 1M context window beta for compatible older models (Sonnet 4/4.5)
-      const needsBeta = state.extendedContext && !state.model.includes('opus') && !state.model.includes('mythos') && !(state.model.includes('sonnet') && state.model.includes('4-6')) && state.model.includes('sonnet')
-      const betas = needsBeta ? ['context-1m-2025-08-07' as const] : undefined
+      const betas = (state.extendedContext && needsExtendedContextBeta(state.model))
+        ? [CONTEXT_1M_BETA] : undefined
 
       const q = queryFn({
         prompt: promptParam as Parameters<typeof queryFn>[0]['prompt'],

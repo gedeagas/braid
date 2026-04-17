@@ -28,7 +28,7 @@
   "planMode": "Rencana",
   "planModeTooltip": "Mode rencana - agen membuat rencana dan menunggu persetujuan Anda sebelum mengeksekusi",
   "extendedContext": "1M Konteks",
-  "extendedContextTooltip": "Aktifkan jendela konteks 1M token (hanya model Sonnet)",
+  "extendedContextTooltip": "Aktifkan jendela konteks 1M token untuk model yang kompatibel",
   "attachImage": "Lampirkan gambar (atau seret & jatuhkan / tempel)",
   "imageLabel": "Gambar",
   "imageCount": "Gambar ({{count}})",
