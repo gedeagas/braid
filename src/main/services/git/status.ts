@@ -82,7 +82,7 @@ export async function getStatus(worktreePath: string): Promise<GitChangeInfo[]> 
         f.index === 'R' ? 'R' : null
       if (mapped) {
         const stat = stagedStats.get(file)
-        changes.push({ file, status: mapped, staged: true, additions: stat?.additions, deletions: stat?.deletions })
+        changes.push({ file, status: mapped, staged: true, ...stat })
       }
     }
 
@@ -94,7 +94,7 @@ export async function getStatus(worktreePath: string): Promise<GitChangeInfo[]> 
         f.working_dir === '?' ? '?' : null
       if (mapped) {
         const stat = unstagedStats.get(file)
-        changes.push({ file, status: mapped, staged: false, additions: stat?.additions, deletions: stat?.deletions })
+        changes.push({ file, status: mapped, staged: false, ...stat })
       }
     }
   }
