@@ -75,7 +75,7 @@ export interface SettingsSlice {
   experimentalCapture: boolean
   bottomTerminalEnabled: boolean
   experimentalNoVirtualization: boolean
-  magicKeyboard: boolean
+  magicTrackpad: boolean
 
   // Onboarding
   onboardingComplete: boolean
@@ -120,7 +120,7 @@ export interface SettingsSlice {
   setExperimentalCapture: (v: boolean) => void
   setBottomTerminalEnabled: (v: boolean) => void
   setExperimentalNoVirtualization: (v: boolean) => void
-  setMagicKeyboard: (v: boolean) => void
+  setMagicTrackpad: (v: boolean) => void
 }
 
 export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> = (set) => ({
@@ -181,7 +181,7 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   experimentalCapture: loadBool(SK.experimentalCapture, false),
   bottomTerminalEnabled: loadBool(SK.bottomTerminalEnabled, false),
   experimentalNoVirtualization: loadBool(SK.noVirtualization, true),
-  magicKeyboard: loadBool(SK.magicKeyboard, false),
+  magicTrackpad: loadBool(SK.magicTrackpad, false),
 
   onboardingComplete: loadBool(SK.onboardingComplete, false),
   featureTourComplete: loadBool(SK.featureTourComplete, false),
@@ -270,7 +270,7 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   setExperimentalCapture: (v) => { localStorage.setItem(SK.experimentalCapture, String(v)); set({ experimentalCapture: v }) },
   setBottomTerminalEnabled: (v) => { localStorage.setItem(SK.bottomTerminalEnabled, String(v)); set({ bottomTerminalEnabled: v }) },
   setExperimentalNoVirtualization: (v) => { localStorage.setItem(SK.noVirtualization, String(v)); set({ experimentalNoVirtualization: v }) },
-  setMagicKeyboard: (v) => { localStorage.setItem(SK.magicKeyboard, String(v)); set({ magicKeyboard: v }) },
+  setMagicTrackpad: (v) => { localStorage.setItem(SK.magicTrackpad, String(v)); set({ magicTrackpad: v }) },
   setOnboardingComplete: (v) => { localStorage.setItem(SK.onboardingComplete, String(v)); set({ onboardingComplete: v }) },
   setFeatureTourComplete: (v) => { localStorage.setItem(SK.featureTourComplete, String(v)); set({ featureTourComplete: v }) },
   setSimulatorTourComplete: (v) => { localStorage.setItem(SK.simulatorTourComplete, String(v)); set({ simulatorTourComplete: v }) },

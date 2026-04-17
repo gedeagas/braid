@@ -14,9 +14,9 @@ interface Feature {
 
 const FEATURES: Feature[] = [
   {
-    id: 'magicKeyboard',
-    labelKey: 'experimental.magicKeyboard',
-    hintKey: 'experimental.magicKeyboardHint',
+    id: 'magicTrackpad',
+    labelKey: 'experimental.magicTrackpad',
+    hintKey: 'experimental.magicTrackpadHint',
     preview: <SwipePreview />,
   },
 ]
@@ -25,8 +25,8 @@ export function SettingsExperimental() {
   const { t } = useTranslation('settings')
   const [selectedId, setSelectedId] = useState(FEATURES[0].id)
 
-  const magicKeyboard = useUIStore((s) => s.magicKeyboard)
-  const setMagicKeyboard = useUIStore((s) => s.setMagicKeyboard)
+  const magicTrackpad = useUIStore((s) => s.magicTrackpad)
+  const setMagicTrackpad = useUIStore((s) => s.setMagicTrackpad)
   const experimentalCapture = useUIStore((s) => s.experimentalCapture)
   const setExperimentalCapture = useUIStore((s) => s.setExperimentalCapture)
   const bottomTerminalEnabled = useUIStore((s) => s.bottomTerminalEnabled)
@@ -38,7 +38,7 @@ export function SettingsExperimental() {
 
   const toggleForFeature = (id: string): { checked: boolean; onChange: (v: boolean) => void } => {
     switch (id) {
-      case 'magicKeyboard': return { checked: magicKeyboard, onChange: setMagicKeyboard }
+      case 'magicTrackpad': return { checked: magicTrackpad, onChange: setMagicTrackpad }
       default: return { checked: false, onChange: () => {} }
     }
   }

@@ -384,8 +384,8 @@
   "experimental": {
     "hint": "Fitur dalam pengembangan. Mungkin tidak stabil atau berubah tanpa pemberitahuan.",
     "features": "Fitur eksperimental",
-    "magicKeyboard": "Magic Keyboard",
-    "magicKeyboardHint": "Geser horizontal dua jari pada trackpad untuk berpindah tab. Geser kiri untuk tab berikutnya, geser kanan untuk tab sebelumnya.",
+    "magicTrackpad": "Magic Trackpad",
+    "magicTrackpadHint": "Geser horizontal dua jari pada trackpad untuk berpindah tab. Geser kiri untuk tab berikutnya, geser kanan untuk tab sebelumnya.",
     "otherFlags": "Flag Lainnya"
   },
   "claudeSkills": {

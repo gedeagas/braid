@@ -108,7 +108,7 @@ export const SK = {
   experimentalCapture:        `${prefix}:experimentalCapture`,
   bottomTerminalEnabled:      `${prefix}:bottomTerminalEnabled`,
   noVirtualization:           `${prefix}:noVirtualization`,
-  magicKeyboard:              `${prefix}:magicKeyboard`,
+  magicTrackpad:              `${prefix}:magicTrackpad`,
   webAppsEnabled:             `${prefix}:webAppsEnabled`,
   embeddedApps:               `${prefix}:embeddedApps`,
   webAppLastUrls:             `${prefix}:webAppLastUrls`,

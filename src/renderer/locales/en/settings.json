@@ -384,8 +384,8 @@
   "experimental": {
     "hint": "Features in development. May be unstable or change without notice.",
     "features": "Experimental features",
-    "magicKeyboard": "Magic Keyboard",
-    "magicKeyboardHint": "Two-finger horizontal swipe on the trackpad to switch between tabs. Swipe left for the next tab, swipe right for the previous tab.",
+    "magicTrackpad": "Magic Trackpad",
+    "magicTrackpadHint": "Two-finger horizontal swipe on the trackpad to switch between tabs. Swipe left for the next tab, swipe right for the previous tab.",
     "otherFlags": "Other Flags"
   },
   "claudeSkills": {
