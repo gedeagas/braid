@@ -2,7 +2,8 @@
 // Session persistence — save/load sessions to/from disk via IPC
 // ---------------------------------------------------------------------------
 
-import type { AgentSession, Message, ModelId } from '@/types'
+import type { AgentSession, EffortLevel, Message, ModelId } from '@/types'
+import { DEFAULT_EFFORT } from '@/lib/constants'
 import * as ipc from '@/lib/ipc'
 import { sessionWorktreePaths, sessionLinkedPaths, lastActivePerWorktree } from './storage'
 
@@ -63,6 +64,7 @@ export async function hydratePersistedSessions(): Promise<{
       model: p.model as ModelId,
       thinkingEnabled: p.thinkingEnabled,
       extendedContext: (p as Record<string, unknown>).extendedContext as boolean ?? false,
+      effortLevel: (p as Record<string, unknown>).effortLevel as EffortLevel ?? DEFAULT_EFFORT,
       planModeEnabled: (p as Record<string, unknown>).planModeEnabled as boolean ?? false,
       messages: p.messages.filter(
         (m) => !(m.role === 'system' && typeof m.content === 'string' && m.content.startsWith('Error: Session process exited'))

@@ -47,6 +47,7 @@ export const createSessionLifecycleActions: StateCreator<
       model: useUIStore.getState().defaultModel,
       thinkingEnabled: useUIStore.getState().defaultThinking,
       extendedContext: useUIStore.getState().defaultExtendedContext,
+      effortLevel: useUIStore.getState().defaultEffortLevel,
       planModeEnabled: false,
       messages: [],
       activity: null,

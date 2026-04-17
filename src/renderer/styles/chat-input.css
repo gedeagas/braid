@@ -283,7 +283,8 @@
   white-space: nowrap;
 }
 
-.model-1m-badge {
+.model-1m-badge,
+.model-effort-badge {
   display: inline-flex;
   align-items: center;
   font-size: var(--text-2xs);
@@ -294,6 +295,47 @@
   color: var(--accent);
   margin-left: var(--space-2);
   line-height: 1.4;
+}
+
+.model-effort-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-6) var(--space-10);
+}
+
+.model-effort-label {
+  font-size: var(--text-md);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.model-effort-pills {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.model-effort-pill {
+  all: unset;
+  cursor: pointer;
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  padding: var(--space-2) var(--space-8);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  background: transparent;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.model-effort-pill:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.model-effort-pill--active {
+  background: var(--accent-tint-12);
+  color: var(--accent);
+  font-weight: var(--weight-semibold);
 }
 
 .chat-send-btn {

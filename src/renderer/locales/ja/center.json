@@ -29,6 +29,7 @@
   "planModeTooltip": "プランモード - エージェントが計画を作成し、実行前にあなたの承認を待ちます",
   "extendedContext": "1Mコンテキスト",
   "extendedContextTooltip": "対応モデルで1Mトークンコンテキストウィンドウを有効にする",
+  "effort": "エフォート",
   "attachImage": "画像を添付（ドラッグ＆ドロップ / ペースト可）",
   "imageLabel": "画像",
   "imageCount": "画像 ({{count}})",

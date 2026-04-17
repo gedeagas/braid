@@ -22,7 +22,7 @@ process.parentPort!.on('message', (e: { data: WorkerCommand }) => {
       worker.startSession(
         cmd.sessionId, cmd.worktreeId, cmd.projectName,
         cmd.worktreePath, cmd.prompt, cmd.model,
-        cmd.thinking, cmd.extendedContext, cmd.planMode, cmd.sessionName, cmd.settings,
+        cmd.thinking, cmd.extendedContext, cmd.effortLevel, cmd.planMode, cmd.sessionName, cmd.settings,
         cmd.images, cmd.additionalDirectories, cmd.linkedWorktreeContext,
         cmd.connectedDeviceId, cmd.mobileFramework
       )
@@ -30,7 +30,7 @@ process.parentPort!.on('message', (e: { data: WorkerCommand }) => {
     case 'sendMessage':
       worker.sendMessage(
         cmd.sessionId, cmd.message, cmd.sdkSessionId, cmd.cwd,
-        cmd.model, cmd.extendedContext, cmd.planMode, cmd.sessionName, cmd.settings,
+        cmd.model, cmd.extendedContext, cmd.effortLevel, cmd.planMode, cmd.sessionName, cmd.settings,
         cmd.images, cmd.additionalDirectories, cmd.linkedWorktreeContext,
         cmd.connectedDeviceId, cmd.mobileFramework
       )

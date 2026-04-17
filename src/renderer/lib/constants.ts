@@ -30,6 +30,36 @@ export function needsExtendedContextBeta(model: string): boolean {
   return model.includes('sonnet')
 }
 
+// ---------------------------------------------------------------------------
+// Effort levels
+// ---------------------------------------------------------------------------
+
+import type { EffortLevel } from '@/types'
+
+/** Default effort level (matches API default). */
+export const DEFAULT_EFFORT: EffortLevel = 'high'
+
+/** Ordered effort levels with short display labels. */
+export const EFFORT_LEVELS: readonly { id: EffortLevel; label: string }[] = [
+  { id: 'low', label: 'Low' },
+  { id: 'medium', label: 'Med' },
+  { id: 'high', label: 'High' },
+  { id: 'xhigh', label: 'XHigh' },
+  { id: 'max', label: 'Max' },
+]
+
+/** Returns the effort levels supported by a given model. */
+export function getEffortLevelsForModel(model: string): EffortLevel[] {
+  if (model.includes('opus') && model.includes('4-7')) return ['low', 'medium', 'high', 'xhigh', 'max']
+  if (model.includes('opus') || model.includes('sonnet')) return ['low', 'medium', 'high', 'max']
+  return [] // Haiku and others: effort not supported
+}
+
+/** Returns true if the model supports the effort parameter. */
+export function supportsEffort(model: string): boolean {
+  return getEffortLevelsForModel(model).length > 0
+}
+
 /** Format token count for display: <1000 raw, 1M for exactly 1_000_000, else "k" notation */
 export function formatTokens(n: number): string {
   if (n >= 1_000_000 && n % 1_000_000 === 0) return `${n / 1_000_000}M`

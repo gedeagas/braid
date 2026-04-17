@@ -1,10 +1,12 @@
 import { type StateCreator } from 'zustand'
-import type { ModelId, SettingsSection, ToastSize, ToastPosition, ToastDuration, TabDisplayMode } from '@/types'
+import type { ModelId, EffortLevel, SettingsSection, ToastSize, ToastPosition, ToastDuration, TabDisplayMode } from '@/types'
 import type { UIState } from './types'
 import { SK } from '@/lib/storageKeys'
+import { DEFAULT_EFFORT, EFFORT_LEVELS } from '@/lib/constants'
 import { loadStr, loadBool, loadInt, loadFloat } from './helpers'
 
-const VALID_MODEL_IDS: readonly string[] = ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5-20251001']
+const VALID_MODEL_IDS: readonly string[] = ['claude-opus-4-7', 'claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5-20251001']
+const VALID_EFFORT_LEVELS = new Set<string>(EFFORT_LEVELS.map((l) => l.id))
 const DEFAULT_MODEL: ModelId = 'claude-sonnet-4-6'
 
 const DEFAULT_DISCOVERY_PATTERNS = [
@@ -42,6 +44,7 @@ export interface SettingsSlice {
   defaultModel: ModelId
   defaultThinking: boolean
   defaultExtendedContext: boolean
+  defaultEffortLevel: EffortLevel
   apiKey: string | null
   systemPromptSuffix: string
   claudeCodeExecutablePath: string
@@ -95,6 +98,7 @@ export interface SettingsSlice {
   setDefaultModel: (model: ModelId) => void
   setDefaultThinking: (v: boolean) => void
   setDefaultExtendedContext: (v: boolean) => void
+  setDefaultEffortLevel: (level: EffortLevel) => void
   setApiKey: (key: string | null) => void
   setSystemPromptSuffix: (suffix: string) => void
   setClaudeCodeExecutablePath: (path: string) => void
@@ -132,6 +136,10 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   defaultModel: loadDefaultModel(),
   defaultThinking: loadBool(SK.defaultThinking, false),
   defaultExtendedContext: loadBool(SK.defaultExtendedContext, false),
+  defaultEffortLevel: (() => {
+    const v = loadStr(SK.defaultEffortLevel, DEFAULT_EFFORT)
+    return VALID_EFFORT_LEVELS.has(v) ? v as EffortLevel : DEFAULT_EFFORT
+  })(),
   apiKey: loadStr(SK.apiKey, '') || null,
   systemPromptSuffix: loadStr(SK.systemPromptSuffix, ''),
   claudeCodeExecutablePath: loadStr(SK.claudeCodeExecutablePath, ''),
@@ -206,6 +214,10 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   setDefaultExtendedContext: (v) => {
     localStorage.setItem(SK.defaultExtendedContext, String(v))
     set({ defaultExtendedContext: v })
+  },
+  setDefaultEffortLevel: (level) => {
+    localStorage.setItem(SK.defaultEffortLevel, level)
+    set({ defaultEffortLevel: level })
   },
   setApiKey: (key) => {
     if (key) localStorage.setItem(SK.apiKey, key)

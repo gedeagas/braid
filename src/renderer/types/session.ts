@@ -1,7 +1,8 @@
 // ─── Session ──────────────────────────────────────────────────────────────────
 
 export type SessionStatus = 'idle' | 'running' | 'waiting_input' | 'error' | 'inactive'
-export type ModelId = 'claude-sonnet-4-6' | 'claude-opus-4-6' | 'claude-haiku-4-5-20251001'
+export type ModelId = 'claude-opus-4-7' | 'claude-sonnet-4-6' | 'claude-opus-4-6' | 'claude-haiku-4-5-20251001'
+export type EffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 export type SettingsSection = string
 
 export interface PendingQuestion {
@@ -67,6 +68,7 @@ export interface AgentSession {
   model: ModelId
   thinkingEnabled: boolean
   extendedContext: boolean
+  effortLevel: EffortLevel
   planModeEnabled: boolean
   messages: Message[]
   activity: string | null // e.g. "Thinking...", "Running Bash", "Reading file"

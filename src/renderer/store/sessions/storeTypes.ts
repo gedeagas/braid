@@ -2,7 +2,7 @@
 // Store type definitions — shared between store.ts and action slice factories
 // ---------------------------------------------------------------------------
 
-import type { AgentSession, DiffComment, LinkedWorktree, ModelId, SnippetAttachment } from '@/types'
+import type { AgentSession, DiffComment, EffortLevel, LinkedWorktree, ModelId, SnippetAttachment } from '@/types'
 
 export interface QueuedMessage {
   text: string
@@ -38,6 +38,7 @@ export interface SessionsState {
   updateModel: (sessionId: string, model: ModelId) => void
   updateThinking: (sessionId: string, enabled: boolean) => void
   updateExtendedContext: (sessionId: string, enabled: boolean) => void
+  updateEffortLevel: (sessionId: string, level: EffortLevel) => void
   updatePlanMode: (sessionId: string, enabled: boolean) => void
   renameSession: (sessionId: string, name: string) => void
   reorderSessions: (worktreeId: string, fromIndex: number, toIndex: number) => void

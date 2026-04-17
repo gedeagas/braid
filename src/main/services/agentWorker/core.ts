@@ -123,6 +123,7 @@ export class AgentWorker {
     model: string,
     thinking: boolean,
     extendedContext: boolean,
+    effortLevel: string,
     planMode: boolean,
     sessionName: string = 'New Chat',
     settings: AgentSettings,
@@ -132,8 +133,8 @@ export class AgentWorker {
     connectedDeviceId?: string,
     mobileFramework?: string
   ): Promise<void> {
-    this.log(sessionId, 'startSession', { worktreePath, model, thinking, extendedContext, planMode, promptLen: prompt.length, imageCount: images?.length ?? 0, linkedDirs: additionalDirectories?.length ?? 0 })
-    console.log(`[Braid] startSession - model: ${model} | thinking: ${thinking} | extendedContext: ${extendedContext} | planMode: ${planMode}`)
+    this.log(sessionId, 'startSession', { worktreePath, model, thinking, extendedContext, effortLevel, planMode, promptLen: prompt.length, imageCount: images?.length ?? 0, linkedDirs: additionalDirectories?.length ?? 0 })
+    console.log(`[Braid] startSession - model: ${model} | thinking: ${thinking} | extendedContext: ${extendedContext} | effort: ${effortLevel} | planMode: ${planMode}`)
 
     let queryFn: typeof import('@anthropic-ai/claude-agent-sdk').query
     try {
@@ -145,7 +146,7 @@ export class AgentWorker {
 
     delete process.env.CLAUDECODE
     const abortController = new AbortController()
-    const state: SessionState = { abortController, cwd: worktreePath, model, extendedContext, sessionName, additionalDirectories, linkedWorktreeContext, initialLinkedContext: linkedWorktreeContext, connectedDeviceId, mobileFramework, worktreeId, projectName }
+    const state: SessionState = { abortController, cwd: worktreePath, model, extendedContext, effortLevel, sessionName, additionalDirectories, linkedWorktreeContext, initialLinkedContext: linkedWorktreeContext, connectedDeviceId, mobileFramework, worktreeId, projectName }
     this.sessions.set(sessionId, state)
     this.applyApiKey(settings)
 
@@ -173,6 +174,7 @@ export class AgentWorker {
 
       const betas = (extendedContext && needsExtendedContextBeta(model))
         ? [CONTEXT_1M_BETA] : undefined
+      const effort = effortLevel && effortLevel !== 'high' ? effortLevel : undefined
 
       const q = queryFn({
         prompt: promptParam as Parameters<typeof queryFn>[0]['prompt'],
@@ -190,6 +192,7 @@ export class AgentWorker {
           abortController,
           systemPrompt: { type: 'preset', preset: 'claude_code', append: systemAppend },
           stderr: (data: string) => { this.log(sessionId, 'stderr:', data.trim()) },
+          ...(effort ? { effort } : {}),
           ...(betas ? { betas } : {}),
           ...(mcpServers ? { mcpServers } : {}),
           ...(getCliPath(this.userCliPath) ? { pathToClaudeCodeExecutable: getCliPath(this.userCliPath) } : {}),
@@ -281,6 +284,7 @@ export class AgentWorker {
     cwd: string,
     model: string,
     extendedContext: boolean,
+    effortLevel: string,
     planMode: boolean,
     sessionName: string = 'New Chat',
     settings: AgentSettings,
@@ -293,12 +297,13 @@ export class AgentWorker {
     let state = this.sessions.get(sessionId)
     if (!state) {
       this.log(sessionId, 'Recovering lost session state from renderer')
-      state = { sdkSessionId, cwd, model, extendedContext, sessionName, additionalDirectories, linkedWorktreeContext, initialLinkedContext: undefined, connectedDeviceId, mobileFramework }
+      state = { sdkSessionId, cwd, model, extendedContext, effortLevel, sessionName, additionalDirectories, linkedWorktreeContext, initialLinkedContext: undefined, connectedDeviceId, mobileFramework }
       this.sessions.set(sessionId, state)
     } else {
       state.sessionName = sessionName
       state.model = model
       state.extendedContext = extendedContext
+      state.effortLevel = effortLevel
       state.additionalDirectories = additionalDirectories
       state.linkedWorktreeContext = linkedWorktreeContext
       state.connectedDeviceId = connectedDeviceId
@@ -307,7 +312,7 @@ export class AgentWorker {
 
     const resumeId = state.sdkSessionId ?? sdkSessionId
     this.log(sessionId, 'sendMessage', { sdkSessionId: resumeId, cwd: state.cwd, planMode, messageLen: message.length })
-    console.log(`[Braid] sendMessage — model: ${model} | planMode: ${planMode}`)
+    console.log(`[Braid] sendMessage - model: ${model} | effort: ${effortLevel} | planMode: ${planMode}`)
 
     if (!resumeId) {
       const err = 'No active SDK session to resume'
@@ -365,6 +370,7 @@ export class AgentWorker {
         : effectiveMessage
       const betas = (state.extendedContext && needsExtendedContextBeta(state.model))
         ? [CONTEXT_1M_BETA] : undefined
+      const effort = state.effortLevel && state.effortLevel !== 'high' ? state.effortLevel : undefined
 
       const q = queryFn({
         prompt: promptParam as Parameters<typeof queryFn>[0]['prompt'],
@@ -381,6 +387,7 @@ export class AgentWorker {
           plugins: loadPlugins(state.cwd),
           abortController,
           stderr: (data: string) => { this.log(sessionId, 'resume stderr:', data.trim()) },
+          ...(effort ? { effort } : {}),
           ...(betas ? { betas } : {}),
           ...(mcpServers ? { mcpServers } : {}),
           ...(getCliPath(this.userCliPath) ? { pathToClaudeCodeExecutable: getCliPath(this.userCliPath) } : {}),
@@ -426,14 +433,14 @@ export class AgentWorker {
       if (errMsg.includes('text content blocks must be non-empty')) {
         this.log(sessionId, 'Corrupt session history detected - falling back to fresh session')
         state.sdkSessionId = undefined
-        await this.startSession(sessionId, state.worktreeId ?? '', state.projectName ?? '', state.cwd, message, state.model, false, state.extendedContext ?? false, false, state.sessionName, settings, images, state.additionalDirectories, state.linkedWorktreeContext, state.connectedDeviceId, state.mobileFramework)
+        await this.startSession(sessionId, state.worktreeId ?? '', state.projectName ?? '', state.cwd, message, state.model, false, state.extendedContext ?? false, state.effortLevel ?? 'high', false, state.sessionName, settings, images, state.additionalDirectories, state.linkedWorktreeContext, state.connectedDeviceId, state.mobileFramework)
         return
       }
 
       if (errMsg.includes('No conversation found with session ID')) {
         this.log(sessionId, 'Stale session ID detected (conversation was never committed) - falling back to fresh session')
         state.sdkSessionId = undefined
-        await this.startSession(sessionId, state.worktreeId ?? '', state.projectName ?? '', state.cwd, message, state.model, false, state.extendedContext ?? false, false, state.sessionName, settings, images, state.additionalDirectories, state.linkedWorktreeContext, state.connectedDeviceId, state.mobileFramework)
+        await this.startSession(sessionId, state.worktreeId ?? '', state.projectName ?? '', state.cwd, message, state.model, false, state.extendedContext ?? false, state.effortLevel ?? 'high', false, state.sessionName, settings, images, state.additionalDirectories, state.linkedWorktreeContext, state.connectedDeviceId, state.mobileFramework)
         return
       }
 

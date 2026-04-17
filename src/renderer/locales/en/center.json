@@ -29,6 +29,7 @@
   "planModeTooltip": "Plan mode - the agent drafts a plan and waits for your approval before executing",
   "extendedContext": "1M Context",
   "extendedContextTooltip": "Enable 1M token context window for compatible models",
+  "effort": "Effort",
   "attachImage": "Attach image (or drag & drop / paste)",
   "imageLabel": "Image",
   "imageCount": "Image ({{count}})",

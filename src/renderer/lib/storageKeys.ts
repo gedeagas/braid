@@ -46,6 +46,7 @@ export const SK = {
   defaultModel:               `${prefix}:defaultModel`,
   defaultThinking:            `${prefix}:defaultThinking`,
   defaultExtendedContext:     `${prefix}:defaultExtendedContext`,
+  defaultEffortLevel:         `${prefix}:defaultEffortLevel`,
   apiKey:                     `${prefix}:apiKey`,
   systemPromptSuffix:         `${prefix}:systemPromptSuffix`,
   claudeCodeExecutablePath:   `${prefix}:claudeCodeExecutablePath`,
