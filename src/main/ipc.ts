@@ -14,7 +14,11 @@ import { sessionStorageService, PersistedSession } from './services/sessionStora
 import { filesService } from './services/files'
 import { simulatorService } from './services/simulator'
 import { detectScripts } from './services/scriptDetector'
-import { templatesService, TemplateKind, CreateTemplateArgs } from './services/templates'
+import {
+  templatesService,
+  TemplateKind,
+  CreateTemplateArgs,
+} from './services/templates'
 import { windowCaptureService } from './services/windowCapture'
 import { claudeConfigService, ClaudePermissions, ClaudeHookConfig, SkillDetail, McpServerEntry, McpServerConfig } from './services/claudeConfig'
 import { notesService } from './services/notes'
@@ -398,10 +402,11 @@ export function registerIpcHandlers(): void {
   // Scripts
   ipcMain.handle('scripts:detect', (_e, projectPath: string, forceRefresh?: boolean) => detectScripts(projectPath, forceRefresh))
 
-  // Templates — scaffold new projects from built-in starter templates
-  ipcMain.handle('template:create', (_e, kind: TemplateKind, args: CreateTemplateArgs) =>
+  // Templates - scaffold new projects from built-in starter templates
+  ipcMain.handle('templates:create', (_e, kind: TemplateKind, args: CreateTemplateArgs) =>
     templatesService.create(kind, args)
   )
+  ipcMain.handle('templates:cancel', () => templatesService.cancel())
 
   // Window Capture
   ipcMain.handle('windowCapture:getSources', () => windowCaptureService.getSources())

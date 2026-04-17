@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import * as ipc from '@/lib/ipc'
+import type { CreateTemplateFailureReason } from '@/lib/ipc'
 import { useTranslation } from 'react-i18next'
 import { Button, Spinner } from '@/components/ui'
 import { PROJECT_NAME_REGEX } from './types'
@@ -14,12 +15,42 @@ interface Props {
   onActionRef: React.MutableRefObject<(() => void) | null>
 }
 
+/** Map a typed failure reason from the main process to an i18n key. */
+function errorKeyFor(reason: CreateTemplateFailureReason): string | null {
+  switch (reason) {
+    case 'cancelled':
+      return null // user-initiated; no error surface
+    case 'invalid-name':
+      return 'quickStartNameInvalid'
+    case 'missing-parent':
+      return 'quickStartLocationEmpty'
+    case 'parent-not-directory':
+      return 'quickStartParentNotDirectory'
+    case 'tool-missing':
+      return 'quickStartNextjsToolMissing'
+    case 'timeout':
+      return 'quickStartNextjsTimeout'
+    case 'failed':
+    default:
+      return 'quickStartNextjsFailed'
+  }
+}
+
 export function QuickStartTab({ state, dispatch, existingPaths, addProject, onClose, onActionRef }: Props) {
   const { t } = useTranslation('sidebar')
 
   const handleBrowseLocation = async () => {
     const selected = await ipc.dialog.openDirectory()
     if (selected) dispatch({ type: 'setProjectLocation', value: selected })
+  }
+
+  const handleCancel = async () => {
+    // Fire-and-forget; the awaited create() call will resolve with reason='cancelled'.
+    try {
+      await ipc.templates.cancel()
+    } catch {
+      // Cancel is best-effort; if IPC fails we still let the pending promise resolve.
+    }
   }
 
   const handleCreate = async () => {
@@ -56,7 +87,13 @@ export function QuickStartTab({ state, dispatch, existingPaths, addProject, onCl
         // so we don't need ipc.git.initRepo for this template.
         const res = await ipc.templates.create('nextjs', { parentDir, projectName: name })
         if (!res.success) {
-          dispatch({ type: 'setError', error: t('quickStartNextjsFailed') })
+          // Log the raw stderr for devtools inspection; the UI shows a classified message.
+          if (res.stderr) {
+            // eslint-disable-next-line no-console
+            console.warn('[QuickStart] create-next-app stderr:', res.stderr)
+          }
+          const key = errorKeyFor(res.reason)
+          if (key) dispatch({ type: 'setError', error: t(key) })
           dispatch({ type: 'doneCreating' })
           return
         }
@@ -75,6 +112,8 @@ export function QuickStartTab({ state, dispatch, existingPaths, addProject, onCl
     onActionRef.current = handleCreate
     return () => { onActionRef.current = null }
   })
+
+  const isCreatingNextjs = state.creating && state.selectedTemplate === 'nextjs'
 
   return (
     <>
@@ -109,19 +148,23 @@ export function QuickStartTab({ state, dispatch, existingPaths, addProject, onCl
         <label>{t('quickStartTemplateLabel')}</label>
         <div className="template-grid">
           <button
+            type="button"
+            aria-pressed={state.selectedTemplate === 'empty'}
             className={`template-card${state.selectedTemplate === 'empty' ? ' template-card--selected' : ''}`}
             onClick={() => dispatch({ type: 'setTemplate', value: 'empty' })}
             disabled={state.creating}
           >
-            <span className="template-card__icon">📄</span>
+            <span className="template-card__icon" aria-hidden="true">📄</span>
             <span className="template-card__name">{t('quickStartTemplateEmpty')}</span>
           </button>
           <button
+            type="button"
+            aria-pressed={state.selectedTemplate === 'nextjs'}
             className={`template-card${state.selectedTemplate === 'nextjs' ? ' template-card--selected' : ''}`}
             onClick={() => dispatch({ type: 'setTemplate', value: 'nextjs' })}
             disabled={state.creating}
           >
-            <span className="template-card__icon">⚡</span>
+            <span className="template-card__icon" aria-hidden="true">⚡</span>
             <span className="template-card__name">{t('quickStartTemplateNextjs')}</span>
           </button>
         </div>
@@ -130,7 +173,14 @@ export function QuickStartTab({ state, dispatch, existingPaths, addProject, onCl
       {state.creating && (
         <div className="dialog-clone-progress">
           <Spinner size="sm" />
-          {state.selectedTemplate === 'nextjs' ? t('quickStartCreatingNextjs') : t('quickStartCreating')}
+          <span>
+            {state.selectedTemplate === 'nextjs' ? t('quickStartCreatingNextjs') : t('quickStartCreating')}
+          </span>
+          {isCreatingNextjs && (
+            <Button onClick={handleCancel}>
+              {t('cancel', { ns: 'common' })}
+            </Button>
+          )}
         </div>
       )}
     </>

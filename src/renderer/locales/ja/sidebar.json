@@ -108,5 +108,8 @@
   "quickStartLocationEmpty": "場所を選択してください",
   "quickStartPathExists": "その場所にはすでに同じ名前のフォルダが存在します",
   "quickStartCreateFailed": "プロジェクトの作成に失敗しました",
-  "quickStartNextjsFailed": "Next.js プロジェクトの作成に失敗しました。Node.js と npx がインストールされ、オンラインであることを確認してください。"
+  "quickStartNextjsFailed": "Next.js プロジェクトの作成に失敗しました。詳細はコンソールを確認してください。",
+  "quickStartNextjsToolMissing": "npx が見つかりませんでした。Node.js (npx を含む) をインストールしてから再試行してください。",
+  "quickStartNextjsTimeout": "スキャフォールディングが10分でタイムアウトしました。ネットワークを確認して再試行してください。",
+  "quickStartParentNotDirectory": "選択された場所はフォルダではないか、アクセスできません"
 }

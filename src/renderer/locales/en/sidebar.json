@@ -102,11 +102,14 @@
   "quickStartTemplateNextjs": "Next.js",
   "quickStartCreateButton": "Create",
   "quickStartCreating": "Creating project...",
-  "quickStartCreatingNextjs": "Creating Next.js project... this can take a minute",
+  "quickStartCreatingNextjs": "Creating Next.js project... this can take several minutes",
   "quickStartNameEmpty": "Please enter a project name",
   "quickStartNameInvalid": "Name must start with a letter or number and contain only letters, numbers, dots, hyphens, or underscores",
   "quickStartLocationEmpty": "Please select a location",
   "quickStartPathExists": "A folder with this name already exists at that location",
   "quickStartCreateFailed": "Failed to create project",
-  "quickStartNextjsFailed": "Failed to scaffold Next.js project. Check that Node.js and npx are installed and that you are online."
+  "quickStartNextjsFailed": "Failed to scaffold Next.js project. See the console for details.",
+  "quickStartNextjsToolMissing": "Could not find npx. Install Node.js (which includes npx) and try again.",
+  "quickStartNextjsTimeout": "Scaffolding timed out after 10 minutes. Check your network and try again.",
+  "quickStartParentNotDirectory": "The selected location is not a directory or could not be accessed"
 }

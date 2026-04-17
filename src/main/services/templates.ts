@@ -1,9 +1,8 @@
 import { execFile } from 'child_process'
+import { promises as fs } from 'fs'
 import { logger } from '../lib/logger'
-
-// Mirror of the renderer-side PROJECT_NAME_REGEX. Defined locally so this
-// service does not depend on anything under src/renderer.
-const PROJECT_NAME_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/
+import { enrichedEnv, waitForEnrichedEnv } from '../lib/enrichedEnv'
+import { PROJECT_NAME_REGEX } from '../../shared/projectName'
 
 export type TemplateKind = 'nextjs'
 
@@ -12,28 +11,103 @@ export interface CreateTemplateArgs {
   projectName: string
 }
 
-export interface CreateTemplateResult {
-  success: boolean
-  /** Populated on failure so the renderer can surface a useful message. */
-  stderr?: string
+/**
+ * Classified failure reasons. The renderer maps each to a specific i18n
+ * string so users see an actionable message instead of a generic "failed".
+ */
+export type CreateFailureReason =
+  | 'invalid-name'
+  | 'missing-parent'
+  | 'parent-not-directory'
+  | 'tool-missing'
+  | 'timeout'
+  | 'cancelled'
+  | 'failed'
+
+export type CreateTemplateResult =
+  | { success: true }
+  | { success: false; reason: CreateFailureReason; stderr?: string }
+
+/** 10 minutes - create-next-app may install hundreds of MB of deps. */
+export const CREATE_NEXT_APP_TIMEOUT_MS = 600_000
+
+/** Exported so tests can assert argv verbatim without duplicating literals. */
+export const CREATE_NEXT_APP_BIN = 'npx'
+export const CREATE_NEXT_APP_BASE_ARGS: readonly string[] = [
+  '--yes',
+  'create-next-app@latest',
+]
+export const CREATE_NEXT_APP_FLAGS: readonly string[] = [
+  '--ts',
+  '--app',
+  '--tailwind',
+  '--eslint',
+  '--src-dir',
+  '--import-alias', '@/*',
+  '--use-npm',
+  '--yes',
+]
+
+/**
+ * Single in-flight scaffold controller. The UI only exposes one scaffold at a
+ * time (one dialog, one button), so a single slot is sufficient and avoids
+ * leaking request-ID bookkeeping across IPC.
+ */
+let currentAbort: AbortController | null = null
+
+interface ExecFileLikeError extends Error {
+  code?: string | number
+  killed?: boolean
+  signal?: NodeJS.Signals | string | null
+}
+
+/** Map a child_process error into a typed failure reason. Exported for tests. */
+export function classifyExecError(
+  err: ExecFileLikeError,
+  stderr: string
+): { reason: CreateFailureReason; stderr?: string } {
+  // AbortController.abort() surfaces as AbortError / code ABORT_ERR.
+  if (err.name === 'AbortError' || err.code === 'ABORT_ERR') {
+    return { reason: 'cancelled' }
+  }
+  // execFile's `timeout` option kills the child with SIGTERM and sets killed=true.
+  if (err.killed === true || err.signal === 'SIGTERM' || err.code === 'ETIMEDOUT') {
+    return { reason: 'timeout' }
+  }
+  // npx itself missing on PATH (user has no Node) surfaces as ENOENT.
+  if (err.code === 'ENOENT') {
+    return { reason: 'tool-missing', stderr: stderr || err.message }
+  }
+  return { reason: 'failed', stderr: stderr || err.message }
 }
 
 /**
- * Run a scaffolder command in an interactive login shell so Homebrew, nvm, fnm,
- * and other PATH managers are visible. Mirrors the pattern used elsewhere in
- * ipc.ts (shell:checkTool, shell:installTool, agent:reAuth).
+ * Spawn `npx` directly via argv. No shell, no string composition.
+ * PATH comes from enrichedEnv() so Homebrew/nvm/fnm binaries are visible even
+ * when Electron was launched from Finder with a minimal PATH.
  */
-function runInLoginShell(command: string, cwd: string, timeoutMs: number): Promise<CreateTemplateResult> {
-  const userShell = process.env.SHELL || '/bin/zsh'
+function runNpx(args: string[], cwd: string, signal: AbortSignal): Promise<CreateTemplateResult> {
   return new Promise<CreateTemplateResult>((resolve) => {
     execFile(
-      userShell,
-      ['-l', '-c', command],
-      { cwd, timeout: timeoutMs, maxBuffer: 10 * 1024 * 1024 },
+      CREATE_NEXT_APP_BIN,
+      args,
+      {
+        cwd,
+        timeout: CREATE_NEXT_APP_TIMEOUT_MS,
+        maxBuffer: 10 * 1024 * 1024,
+        env: enrichedEnv(),
+        signal,
+      },
       (err, _stdout, stderr) => {
         if (err) {
-          logger.warn('[Templates] Scaffold command failed', { command, cwd, err: err.message, stderr })
-          resolve({ success: false, stderr: stderr || err.message })
+          const cls = classifyExecError(err as ExecFileLikeError, stderr ?? '')
+          logger.warn('[Templates] create-next-app failed', {
+            cwd,
+            args,
+            reason: cls.reason,
+            message: err.message,
+          })
+          resolve({ success: false, reason: cls.reason, stderr: cls.stderr })
           return
         }
         resolve({ success: true })
@@ -43,43 +117,79 @@ function runInLoginShell(command: string, cwd: string, timeoutMs: number): Promi
 }
 
 /**
- * Run `create-next-app` in the user's login shell against the npm registry.
- * `create-next-app` creates `<parentDir>/<projectName>` and runs `git init`
- * itself, so callers must not separately initialize a git repo.
+ * Run `create-next-app` to scaffold `<parentDir>/<projectName>`.
+ * `create-next-app` creates the directory AND runs `git init`, so callers
+ * must NOT separately initialize a git repo.
  */
-async function createNextAppTemplate(args: CreateTemplateArgs): Promise<CreateTemplateResult> {
-  if (!PROJECT_NAME_REGEX.test(args.projectName)) {
-    return { success: false, stderr: `Invalid project name: ${args.projectName}` }
+async function createNextAppTemplate(
+  args: CreateTemplateArgs,
+  signal: AbortSignal
+): Promise<CreateTemplateResult> {
+  if (!args.projectName || !PROJECT_NAME_REGEX.test(args.projectName)) {
+    return { success: false, reason: 'invalid-name' }
   }
   if (!args.parentDir) {
-    return { success: false, stderr: 'Parent directory is required' }
+    return { success: false, reason: 'missing-parent' }
   }
 
-  // Shell-quote the project name defensively even though the regex already
-  // restricts it to a safe subset.
-  const safeName = JSON.stringify(args.projectName)
-  const command =
-    `npx --yes create-next-app@latest ${safeName} ` +
-    `--ts --app --tailwind --eslint --src-dir ` +
-    `--import-alias "@/*" --use-npm --yes`
+  // Confirm parentDir exists and is a directory before we spawn. This turns
+  // a confusing post-hoc ENOENT from execFile into an actionable error.
+  try {
+    const st = await fs.stat(args.parentDir)
+    if (!st.isDirectory()) {
+      return { success: false, reason: 'parent-not-directory' }
+    }
+  } catch (e) {
+    logger.warn('[Templates] parentDir stat failed', {
+      parentDir: args.parentDir,
+      err: (e as Error).message,
+    })
+    return { success: false, reason: 'parent-not-directory' }
+  }
 
-  // create-next-app installs dependencies via npm; give it up to 10 minutes.
-  return runInLoginShell(command, args.parentDir, 600_000)
+  // Ensure the login-shell PATH probe has settled before invoking npx.
+  await waitForEnrichedEnv()
+
+  const npxArgs = [
+    ...CREATE_NEXT_APP_BASE_ARGS,
+    args.projectName,
+    ...CREATE_NEXT_APP_FLAGS,
+  ]
+
+  return runNpx(npxArgs, args.parentDir, signal)
 }
 
 export const templatesService = {
+  /** Scaffold a project from a built-in template. At most one runs at a time. */
   async create(kind: TemplateKind, args: CreateTemplateArgs): Promise<CreateTemplateResult> {
-    switch (kind) {
-      case 'nextjs':
-        return createNextAppTemplate(args)
-      default: {
-        const exhaustive: never = kind
-        return { success: false, stderr: `Unknown template kind: ${String(exhaustive)}` }
+    // Defensive: if a previous call is somehow still in-flight, abort it.
+    currentAbort?.abort()
+    const ctrl = new AbortController()
+    currentAbort = ctrl
+    try {
+      switch (kind) {
+        case 'nextjs':
+          return await createNextAppTemplate(args, ctrl.signal)
+        default: {
+          const exhaustive: never = kind
+          return {
+            success: false,
+            reason: 'failed',
+            stderr: `Unknown template kind: ${String(exhaustive)}`,
+          }
+        }
       }
+    } finally {
+      if (currentAbort === ctrl) currentAbort = null
     }
   },
-  // Exported for tests.
-  _createNextAppTemplate: createNextAppTemplate,
+  /** Abort the in-flight scaffold, if any. Returns true iff something was cancelled. */
+  cancel(): boolean {
+    if (!currentAbort) return false
+    currentAbort.abort()
+    currentAbort = null
+    return true
+  },
 }
 
 export type TemplatesService = typeof templatesService

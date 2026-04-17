@@ -108,5 +108,8 @@
   "quickStartLocationEmpty": "Silakan pilih lokasi",
   "quickStartPathExists": "Folder dengan nama ini sudah ada di lokasi tersebut",
   "quickStartCreateFailed": "Gagal membuat proyek",
-  "quickStartNextjsFailed": "Gagal membuat proyek Next.js. Pastikan Node.js dan npx sudah terpasang dan Anda sedang online."
+  "quickStartNextjsFailed": "Gagal membuat proyek Next.js. Lihat konsol untuk detailnya.",
+  "quickStartNextjsToolMissing": "npx tidak ditemukan. Pasang Node.js (yang menyertakan npx) lalu coba lagi.",
+  "quickStartNextjsTimeout": "Scaffolding melebihi batas waktu 10 menit. Periksa koneksi Anda lalu coba lagi.",
+  "quickStartParentNotDirectory": "Lokasi yang dipilih bukan folder atau tidak dapat diakses"
 }

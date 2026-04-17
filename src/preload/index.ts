@@ -158,10 +158,25 @@ const api = {
       ipcRenderer.invoke('scripts:detect', projectPath, forceRefresh) as Promise<Array<{ id: string; name: string; command: string; source: string }>>,
   },
 
-  // Templates — scaffold new projects from built-in starter templates
+  // Templates - scaffold new projects from built-in starter templates
   templates: {
     create: (kind: 'nextjs', args: { parentDir: string; projectName: string }) =>
-      ipcRenderer.invoke('template:create', kind, args) as Promise<{ success: boolean; stderr?: string }>,
+      ipcRenderer.invoke('templates:create', kind, args) as Promise<
+        | { success: true }
+        | {
+            success: false
+            reason:
+              | 'invalid-name'
+              | 'missing-parent'
+              | 'parent-not-directory'
+              | 'tool-missing'
+              | 'timeout'
+              | 'cancelled'
+              | 'failed'
+            stderr?: string
+          }
+      >,
+    cancel: () => ipcRenderer.invoke('templates:cancel') as Promise<boolean>,
   },
 
   // Window Capture

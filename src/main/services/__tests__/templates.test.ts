@@ -1,38 +1,111 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// Hoisted alongside vi.mock so the factory can reference it without TDZ errors.
+// Hoisted alongside vi.mock so the factories can reference them without TDZ errors.
 const mockExecFile = vi.hoisted(() => vi.fn())
+const mockStat = vi.hoisted(() => vi.fn())
+
 vi.mock('child_process', () => ({ execFile: mockExecFile }))
+
+vi.mock('fs', () => ({
+  promises: { stat: mockStat },
+}))
+
 vi.mock('../../lib/logger', () => ({
   logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }))
 
-type ExecFileCb = (err: Error | null, stdout: string, stderr: string) => void
+vi.mock('../../lib/enrichedEnv', () => ({
+  enrichedEnv: () => ({ PATH: '/mock/bin', NODE_ENV: 'test' }),
+  waitForEnrichedEnv: () => Promise.resolve(),
+}))
 
-/** Capture the arguments passed to execFile for a successful run. */
-function stubSuccess() {
+type ExecOpts = {
+  cwd?: string
+  timeout?: number
+  maxBuffer?: number
+  env?: NodeJS.ProcessEnv
+  signal?: AbortSignal
+}
+type ExecFileCb = (
+  err: (Error & { code?: string | number; killed?: boolean; signal?: string }) | null,
+  stdout: string,
+  stderr: string
+) => void
+
+function stubStatIsDirectory(isDir = true) {
+  mockStat.mockResolvedValue({ isDirectory: () => isDir })
+}
+
+function stubStatRejects() {
+  mockStat.mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }))
+}
+
+function stubExecSuccess() {
   mockExecFile.mockImplementation(
-    (_bin: string, _args: string[], _opts: object, cb: ExecFileCb) => cb(null, '', '')
+    (_bin: string, _args: string[], _opts: ExecOpts, cb: ExecFileCb) => cb(null, '', '')
   )
 }
 
-/** Capture the arguments passed to execFile and fail the call. */
-function stubFailure(stderr = 'scaffold failed') {
+function stubExecFailure(stderr = 'scaffold failed') {
   mockExecFile.mockImplementation(
-    (_bin: string, _args: string[], _opts: object, cb: ExecFileCb) =>
-      cb(new Error('non-zero exit'), '', stderr)
+    (_bin: string, _args: string[], _opts: ExecOpts, cb: ExecFileCb) =>
+      cb(Object.assign(new Error('non-zero exit'), { code: 1 }), '', stderr)
+  )
+}
+
+function stubExecTimeout() {
+  mockExecFile.mockImplementation(
+    (_bin: string, _args: string[], _opts: ExecOpts, cb: ExecFileCb) => {
+      const err = Object.assign(new Error('command timed out'), {
+        killed: true,
+        signal: 'SIGTERM' as const,
+      })
+      cb(err, '', '')
+    }
+  )
+}
+
+function stubExecToolMissing() {
+  mockExecFile.mockImplementation(
+    (_bin: string, _args: string[], _opts: ExecOpts, cb: ExecFileCb) => {
+      const err = Object.assign(new Error('spawn npx ENOENT'), { code: 'ENOENT' })
+      cb(err, '', '')
+    }
+  )
+}
+
+function stubExecAborted() {
+  mockExecFile.mockImplementation(
+    (_bin: string, _args: string[], opts: ExecOpts, cb: ExecFileCb) => {
+      // Simulate the child process being killed when the abort signal fires.
+      opts.signal?.addEventListener('abort', () => {
+        const err = Object.assign(new Error('The operation was aborted'), {
+          name: 'AbortError',
+          code: 'ABORT_ERR',
+        })
+        cb(err, '', '')
+      })
+    }
   )
 }
 
 describe('templatesService.create("nextjs")', () => {
   beforeEach(() => {
     vi.resetModules()
-    vi.resetAllMocks()
+    mockExecFile.mockReset()
+    mockStat.mockReset()
+    stubStatIsDirectory(true)
   })
 
-  it('invokes create-next-app with the expected flags, cwd, and timeout', async () => {
-    stubSuccess()
-    const { templatesService } = await import('../templates')
+  it('invokes npx via argv (no shell composition) with the expected flags, cwd, timeout, and enriched PATH', async () => {
+    stubExecSuccess()
+    const {
+      templatesService,
+      CREATE_NEXT_APP_BIN,
+      CREATE_NEXT_APP_BASE_ARGS,
+      CREATE_NEXT_APP_FLAGS,
+      CREATE_NEXT_APP_TIMEOUT_MS,
+    } = await import('../templates')
 
     const res = await templatesService.create('nextjs', {
       parentDir: '/tmp/projects',
@@ -40,30 +113,29 @@ describe('templatesService.create("nextjs")', () => {
     })
 
     expect(res).toEqual({ success: true })
+    expect(mockStat).toHaveBeenCalledWith('/tmp/projects')
     expect(mockExecFile).toHaveBeenCalledOnce()
 
     const [bin, args, opts] = mockExecFile.mock.calls[0]
-    // Runs inside an interactive login shell so PATH managers (nvm, brew) are available.
-    expect(typeof bin).toBe('string')
-    expect(args[0]).toBe('-l')
-    expect(args[1]).toBe('-c')
+    // Direct argv — the binary is `npx`, not a shell.
+    expect(bin).toBe(CREATE_NEXT_APP_BIN)
+    expect(bin).toBe('npx')
 
-    const command = args[2] as string
-    expect(command).toContain('npx --yes create-next-app@latest')
-    expect(command).toContain('"my-app"')
-    expect(command).toContain('--ts')
-    expect(command).toContain('--app')
-    expect(command).toContain('--tailwind')
-    expect(command).toContain('--eslint')
-    expect(command).toContain('--src-dir')
-    expect(command).toContain('--use-npm')
-    expect(command).toContain('--yes')
+    // Argv must contain the project name between base args and flags.
+    const expectedArgs = [...CREATE_NEXT_APP_BASE_ARGS, 'my-app', ...CREATE_NEXT_APP_FLAGS]
+    expect(args).toEqual(expectedArgs)
 
-    expect(opts).toMatchObject({ cwd: '/tmp/projects', timeout: 600_000 })
+    // Options include enriched env, timeout constant, cwd, and an AbortSignal.
+    expect(opts).toMatchObject({
+      cwd: '/tmp/projects',
+      timeout: CREATE_NEXT_APP_TIMEOUT_MS,
+    })
+    expect(opts.env?.PATH).toBe('/mock/bin')
+    expect(opts.signal).toBeInstanceOf(AbortSignal)
   })
 
-  it('propagates failure with stderr when create-next-app exits non-zero', async () => {
-    stubFailure('EACCES')
+  it('classifies non-zero exit as reason="failed" and preserves stderr', async () => {
+    stubExecFailure('install step failed')
     const { templatesService } = await import('../templates')
 
     const res = await templatesService.create('nextjs', {
@@ -72,10 +144,66 @@ describe('templatesService.create("nextjs")', () => {
     })
 
     expect(res.success).toBe(false)
-    expect(res.stderr).toBe('EACCES')
+    if (!res.success) {
+      expect(res.reason).toBe('failed')
+      expect(res.stderr).toBe('install step failed')
+    }
   })
 
-  it('rejects invalid project names without spawning a shell', async () => {
+  it('classifies timeout (killed + SIGTERM) as reason="timeout"', async () => {
+    stubExecTimeout()
+    const { templatesService } = await import('../templates')
+
+    const res = await templatesService.create('nextjs', {
+      parentDir: '/tmp/projects',
+      projectName: 'my-app',
+    })
+
+    expect(res.success).toBe(false)
+    if (!res.success) expect(res.reason).toBe('timeout')
+  })
+
+  it('classifies ENOENT (npx missing) as reason="tool-missing"', async () => {
+    stubExecToolMissing()
+    const { templatesService } = await import('../templates')
+
+    const res = await templatesService.create('nextjs', {
+      parentDir: '/tmp/projects',
+      projectName: 'my-app',
+    })
+
+    expect(res.success).toBe(false)
+    if (!res.success) expect(res.reason).toBe('tool-missing')
+  })
+
+  it('cancel() aborts the in-flight scaffold and surfaces reason="cancelled"', async () => {
+    stubExecAborted()
+    const { templatesService } = await import('../templates')
+
+    const pending = templatesService.create('nextjs', {
+      parentDir: '/tmp/projects',
+      projectName: 'my-app',
+    })
+
+    // Let the async chain (fs.stat + waitForEnrichedEnv + Promise construction) run before cancelling.
+    await Promise.resolve()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    const cancelled = templatesService.cancel()
+    expect(cancelled).toBe(true)
+
+    const res = await pending
+    expect(res.success).toBe(false)
+    if (!res.success) expect(res.reason).toBe('cancelled')
+  })
+
+  it('cancel() returns false when nothing is in-flight', async () => {
+    const { templatesService } = await import('../templates')
+    expect(templatesService.cancel()).toBe(false)
+  })
+
+  it('rejects invalid project names with reason="invalid-name" without spawning', async () => {
     const { templatesService } = await import('../templates')
 
     const res = await templatesService.create('nextjs', {
@@ -84,11 +212,11 @@ describe('templatesService.create("nextjs")', () => {
     })
 
     expect(res.success).toBe(false)
-    expect(res.stderr).toMatch(/Invalid project name/)
+    if (!res.success) expect(res.reason).toBe('invalid-name')
     expect(mockExecFile).not.toHaveBeenCalled()
   })
 
-  it('rejects missing parent directory without spawning a shell', async () => {
+  it('rejects missing parentDir with reason="missing-parent" without spawning', async () => {
     const { templatesService } = await import('../templates')
 
     const res = await templatesService.create('nextjs', {
@@ -97,7 +225,69 @@ describe('templatesService.create("nextjs")', () => {
     })
 
     expect(res.success).toBe(false)
-    expect(res.stderr).toMatch(/Parent directory/i)
+    if (!res.success) expect(res.reason).toBe('missing-parent')
     expect(mockExecFile).not.toHaveBeenCalled()
+  })
+
+  it('rejects parentDir that does not exist with reason="parent-not-directory" without spawning', async () => {
+    stubStatRejects()
+    const { templatesService } = await import('../templates')
+
+    const res = await templatesService.create('nextjs', {
+      parentDir: '/does/not/exist',
+      projectName: 'my-app',
+    })
+
+    expect(res.success).toBe(false)
+    if (!res.success) expect(res.reason).toBe('parent-not-directory')
+    expect(mockExecFile).not.toHaveBeenCalled()
+  })
+
+  it('rejects parentDir that is a file (not a directory) with reason="parent-not-directory"', async () => {
+    stubStatIsDirectory(false)
+    const { templatesService } = await import('../templates')
+
+    const res = await templatesService.create('nextjs', {
+      parentDir: '/tmp/not-a-dir.txt',
+      projectName: 'my-app',
+    })
+
+    expect(res.success).toBe(false)
+    if (!res.success) expect(res.reason).toBe('parent-not-directory')
+    expect(mockExecFile).not.toHaveBeenCalled()
+  })
+})
+
+describe('classifyExecError', () => {
+  it('maps AbortError to cancelled', async () => {
+    const { classifyExecError } = await import('../templates')
+    const err = Object.assign(new Error('aborted'), { name: 'AbortError', code: 'ABORT_ERR' })
+    expect(classifyExecError(err, '').reason).toBe('cancelled')
+  })
+
+  it('maps killed/SIGTERM to timeout', async () => {
+    const { classifyExecError } = await import('../templates')
+    const err = Object.assign(new Error('timed out'), { killed: true, signal: 'SIGTERM' })
+    expect(classifyExecError(err, '').reason).toBe('timeout')
+  })
+
+  it('maps ETIMEDOUT to timeout', async () => {
+    const { classifyExecError } = await import('../templates')
+    const err = Object.assign(new Error('timed out'), { code: 'ETIMEDOUT' })
+    expect(classifyExecError(err, '').reason).toBe('timeout')
+  })
+
+  it('maps ENOENT to tool-missing', async () => {
+    const { classifyExecError } = await import('../templates')
+    const err = Object.assign(new Error('spawn npx ENOENT'), { code: 'ENOENT' })
+    expect(classifyExecError(err, '').reason).toBe('tool-missing')
+  })
+
+  it('falls through to failed and surfaces stderr', async () => {
+    const { classifyExecError } = await import('../templates')
+    const err = Object.assign(new Error('nope'), { code: 42 })
+    const cls = classifyExecError(err, 'something broke')
+    expect(cls.reason).toBe('failed')
+    expect(cls.stderr).toBe('something broke')
   })
 })

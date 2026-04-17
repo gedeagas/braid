@@ -201,9 +201,23 @@ export const scripts = {
   detect: (projectPath: string, forceRefresh?: boolean) => api().scripts.detect(projectPath, forceRefresh) as Promise<import('@/types').RunCommand[]>,
 }
 
+export type CreateTemplateFailureReason =
+  | 'invalid-name'
+  | 'missing-parent'
+  | 'parent-not-directory'
+  | 'tool-missing'
+  | 'timeout'
+  | 'cancelled'
+  | 'failed'
+
+export type CreateTemplateResult =
+  | { success: true }
+  | { success: false; reason: CreateTemplateFailureReason; stderr?: string }
+
 export const templates = {
   create: (kind: 'nextjs', args: { parentDir: string; projectName: string }) =>
-    api().templates.create(kind, args) as Promise<{ success: boolean; stderr?: string }>,
+    api().templates.create(kind, args) as Promise<CreateTemplateResult>,
+  cancel: () => api().templates.cancel() as Promise<boolean>,
 }
 
 export const files = {
