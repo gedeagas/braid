@@ -17,7 +17,8 @@
     "apps": "アプリ",
     "jira": "Jira",
     "analytics": "アナリティクス",
-    "about": "このアプリについて"
+    "about": "このアプリについて",
+    "experimental": "実験的機能"
   },
   "groups": {
     "general": "一般",
@@ -25,6 +26,7 @@
     "claudeAgent": "Claude",
     "appearance": "外観",
     "integrations": "連携",
+    "experimental": "実験的",
     "projects": "プロジェクト"
   },
   "general": {
@@ -387,6 +389,14 @@
     "contributorsThanks": "Braidに貢献してくださったすべての方々に感謝します。",
     "createdBy": "Braidプロジェクト",
     "builtIn": "東京、日本にて開発"
+  },
+  "experimental": {
+    "hint": "開発中の機能です。不安定な場合や予告なく変更される場合があります。",
+    "features": "実験的機能",
+    "magicTrackpad": "マジックトラックパッド",
+    "magicTrackpadHint": "トラックパッドで2本指の水平スワイプでタブを切り替えます。左にスワイプで次のタブ、右にスワイプで前のタブに移動します。",
+    "otherFlags": "その他のフラグ",
+    "previewTab": "タブ {{n}}"
   },
   "claudeSkills": {
     "title": "スキル",

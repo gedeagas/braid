@@ -1,4 +1,4 @@
-import { memo, useCallback, lazy, Suspense } from 'react'
+import { memo, useCallback, useRef, lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SessionTabBar } from './SessionTabBar'
 import { ChatView } from './ChatView'
@@ -10,6 +10,8 @@ import { OpenInDropdown } from '@/components/shared/OpenInDropdown'
 import { IconSidebarRight, IconMessagePlus, IconPencil, IconArrowLeft } from '@/components/shared/icons'
 import { BottomTerminalStrip } from '@/components/shared/BottomTerminalStrip'
 import { Button, EmptyState, Spinner } from '@/components/ui'
+import { useSwipeNavigation } from '@/hooks/useSwipeNavigation'
+import { navigateTab } from '@/lib/tabNavigation'
 
 // Lazy-loaded: FileViewer pulls in Monaco editor + react-markdown
 const FileViewer = lazy(() => import('@/components/Right/FileViewer').then((m) => ({ default: m.FileViewer })))
@@ -33,6 +35,14 @@ export const CenterPanel = memo(function CenterPanel() {
   const createSession = useSessionsStore((s) => s.createSession)
   const sessionsLoaded = useSessionsStore((s) => s.sessionsLoaded)
 
+  const magicTrackpad = useUIStore((s) => s.magicTrackpad)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const noRef = useRef<HTMLDivElement>(null)
+  const handleSwipeNavigate = useCallback((direction: -1 | 1) => {
+    navigateTab(direction)
+  }, [])
+  useSwipeNavigation(magicTrackpad ? panelRef : noRef, handleSwipeNavigate)
+
   const changesOpen = useUIStore(selectChangesOpen)
   const showFile = activeCenterView?.type === 'file'
   const hasNoTabs = sessionsLoaded && sessions.length === 0 && openFilePaths.length === 0 && !changesOpen
@@ -48,7 +58,7 @@ export const CenterPanel = memo(function CenterPanel() {
   }, [setFileDirty])
 
   return (
-    <div className="center-panel" data-tour="chat-panel">
+    <div className="center-panel" data-tour="chat-panel" ref={panelRef}>
       <div
         className="drag-region drag-region--with-toggles"
         style={!sidebarPanelOpen ? { paddingLeft: 30 } : undefined}

@@ -17,7 +17,8 @@
     "apps": "Aplikasi",
     "jira": "Jira",
     "analytics": "Analitik",
-    "about": "Tentang"
+    "about": "Tentang",
+    "experimental": "Eksperimental"
   },
   "groups": {
     "general": "Umum",
@@ -25,6 +26,7 @@
     "claudeAgent": "Claude",
     "appearance": "Tampilan",
     "integrations": "Integrasi",
+    "experimental": "Eksperimental",
     "projects": "Proyek"
   },
   "general": {
@@ -387,6 +389,14 @@
     "contributorsThanks": "Terima kasih kepada semua orang yang telah berkontribusi pada Braid.",
     "createdBy": "Proyek Braid",
     "builtIn": "Dibangun di Tokyo, Jepang"
+  },
+  "experimental": {
+    "hint": "Fitur dalam pengembangan. Mungkin tidak stabil atau berubah tanpa pemberitahuan.",
+    "features": "Fitur eksperimental",
+    "magicTrackpad": "Magic Trackpad",
+    "magicTrackpadHint": "Geser horizontal dua jari pada trackpad untuk berpindah tab. Geser kiri untuk tab berikutnya, geser kanan untuk tab sebelumnya.",
+    "otherFlags": "Flag Lainnya",
+    "previewTab": "Tab {{n}}"
   },
   "claudeSkills": {
     "title": "Keahlian",
