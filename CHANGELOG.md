@@ -5,6 +5,25 @@ All notable changes to Braid are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [26.1.6] - 2026-04-17
+
+### Added
+
+- trackpad swipe navigation and project avatar toggle (#55)
+- add project avatar visibility toggle in settings (#54)
+- add extended (1M) context window support (#52)
+
+### Fixed
+
+- snippet card overflow and visual polish (#51)
+- fire toast/sound for AskUserQuestion and always bounce dock on waiting_input (#48)
+
+### Contributors
+
+Thanks to [@asaadam](https://github.com/asaadam), [@gedeagas](https://github.com/gedeagas) for their contributions to this release!
+
+---
+
 ## [26.1.5] - 2026-04-16
 
 ### Fixed
