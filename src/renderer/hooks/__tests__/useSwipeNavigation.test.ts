@@ -197,6 +197,25 @@ describe('useSwipeNavigation', () => {
     expect(onNavigate).not.toHaveBeenCalled()
   })
 
+  it('does not reject horizontal events after vertical interruption as decaying', () => {
+    const onNavigate = vi.fn()
+    const ref = { current: container }
+    renderHook(() => useSwipeNavigation(ref, onNavigate))
+
+    // Horizontal event sets lastAbsDeltaX
+    fireWheel(container, 20)
+
+    // Vertical event interrupts (fails horizontal ratio check)
+    fireWheel(container, 5, 30)
+
+    // New horizontal event should NOT be rejected as "decaying" against
+    // the stale lastAbsDeltaX from before the vertical event
+    fireWheel(container, 15)
+    fireWheel(container, 20)
+
+    expect(onNavigate).toHaveBeenCalledWith(1)
+  })
+
   it('skips events from horizontally scrollable children', () => {
     const onNavigate = vi.fn()
     const ref = { current: container }

@@ -386,7 +386,8 @@
     "features": "Fitur eksperimental",
     "magicTrackpad": "Magic Trackpad",
     "magicTrackpadHint": "Geser horizontal dua jari pada trackpad untuk berpindah tab. Geser kiri untuk tab berikutnya, geser kanan untuk tab sebelumnya.",
-    "otherFlags": "Flag Lainnya"
+    "otherFlags": "Flag Lainnya",
+    "previewTab": "Tab {{n}}"
   },
   "claudeSkills": {
     "title": "Keahlian",

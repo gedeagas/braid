@@ -49,19 +49,27 @@ export function SettingsExperimental() {
 
       {/* Feature list + detail layout */}
       <div className="experimental-layout">
-        <div className="experimental-feature-list" role="listbox" aria-label={t('experimental.features')}>
-          {FEATURES.map((f) => (
-            <button
-              key={f.id}
-              role="option"
-              aria-selected={selectedId === f.id}
-              className={`experimental-feature-item${selectedId === f.id ? ' experimental-feature-item--active' : ''}`}
-              onClick={() => setSelectedId(f.id)}
-            >
-              <span className="experimental-feature-name">{t(f.labelKey)}</span>
-              <Toggle {...toggleForFeature(f.id)} />
-            </button>
-          ))}
+        <div className="experimental-feature-list" aria-label={t('experimental.features')}>
+          {FEATURES.map((f) => {
+            const isSelected = selectedId === f.id
+            return (
+              <div
+                key={f.id}
+                className={`experimental-feature-item${isSelected ? ' experimental-feature-item--active' : ''}`}
+                onClick={() => setSelectedId(f.id)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedId(f.id) } }}
+                tabIndex={0}
+                role="button"
+                aria-pressed={isSelected}
+              >
+                <span className="experimental-feature-name">{t(f.labelKey)}</span>
+                {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+                <div onClick={(e) => e.stopPropagation()}>
+                  <Toggle {...toggleForFeature(f.id)} />
+                </div>
+              </div>
+            )
+          })}
         </div>
 
         <div className="experimental-detail">

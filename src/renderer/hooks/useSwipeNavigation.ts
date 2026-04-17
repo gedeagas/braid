@@ -77,6 +77,7 @@ export function useSwipeNavigation(
       // Only consider predominantly horizontal gestures
       if (absX < absY * HORIZONTAL_RATIO || absX < 2) {
         accumulatedX = 0
+        lastAbsDeltaX = 0
         return
       }
 

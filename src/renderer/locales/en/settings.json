@@ -386,7 +386,8 @@
     "features": "Experimental features",
     "magicTrackpad": "Magic Trackpad",
     "magicTrackpadHint": "Two-finger horizontal swipe on the trackpad to switch between tabs. Swipe left for the next tab, swipe right for the previous tab.",
-    "otherFlags": "Other Flags"
+    "otherFlags": "Other Flags",
+    "previewTab": "Tab {{n}}"
   },
   "claudeSkills": {
     "title": "Skills",

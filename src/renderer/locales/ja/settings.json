@@ -386,7 +386,8 @@
     "features": "実験的機能",
     "magicTrackpad": "マジックトラックパッド",
     "magicTrackpadHint": "トラックパッドで2本指の水平スワイプでタブを切り替えます。左にスワイプで次のタブ、右にスワイプで前のタブに移動します。",
-    "otherFlags": "その他のフラグ"
+    "otherFlags": "その他のフラグ",
+    "previewTab": "タブ {{n}}"
   },
   "claudeSkills": {
     "title": "スキル",
