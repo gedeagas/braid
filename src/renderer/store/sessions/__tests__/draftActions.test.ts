@@ -48,6 +48,7 @@ function makeState(overrides?: Partial<SessionsState>): SessionsState {
     addDraftSnippet: () => {},
     removeDraftSnippet: () => {},
     clearDraftSnippets: () => {},
+    setDraftSnippets: () => {},
     addDiffComment: () => {},
     updateDiffComment: () => {},
     removeDiffComment: () => {},
@@ -242,6 +243,44 @@ describe('clearDraftSnippets', () => {
       }
     })
     actions.clearDraftSnippets('sess-1')
+    expect(getState().draftSnippets['sess-2']).toHaveLength(1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// setDraftSnippets
+// ---------------------------------------------------------------------------
+
+describe('setDraftSnippets', () => {
+  it('replaces the entire snippet list in one write', () => {
+    const { actions, getState } = createActions({
+      draftSnippets: { 'sess-1': [makeSnippet('old')] }
+    })
+    actions.setDraftSnippets('sess-1', [makeSnippet('a'), makeSnippet('b')])
+    expect(getState().draftSnippets['sess-1']).toHaveLength(2)
+    expect(getState().draftSnippets['sess-1'][0].id).toBe('a')
+  })
+
+  it('removes the session key when given an empty array', () => {
+    const { actions, getState } = createActions({
+      draftSnippets: { 'sess-1': [makeSnippet('s1')] }
+    })
+    actions.setDraftSnippets('sess-1', [])
+    expect('sess-1' in getState().draftSnippets).toBe(false)
+  })
+
+  it('caps at 5 snippets', () => {
+    const { actions, getState } = createActions()
+    const six = [1, 2, 3, 4, 5, 6].map((n) => makeSnippet(String(n)))
+    actions.setDraftSnippets('sess-1', six)
+    expect(getState().draftSnippets['sess-1']).toHaveLength(5)
+  })
+
+  it('does not affect other sessions', () => {
+    const { actions, getState } = createActions({
+      draftSnippets: { 'sess-2': [makeSnippet('keep')] }
+    })
+    actions.setDraftSnippets('sess-1', [makeSnippet('new')])
     expect(getState().draftSnippets['sess-2']).toHaveLength(1)
   })
 })

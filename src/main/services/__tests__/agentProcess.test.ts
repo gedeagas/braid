@@ -201,4 +201,25 @@ describe('agentProcess entry point', () => {
     await flushMicrotasks()
     // No crash = success (no pending input to resolve)
   })
+
+  it('swallows EPIPE from postMessage and does not crash', async () => {
+    mockQuery.mockReturnValue(makeAsyncIterable([
+      { type: 'assistant', message: { content: [{ type: 'text', text: 'hello' }] } }
+    ]))
+
+    const epipe = Object.assign(new Error('write EPIPE'), { code: 'EPIPE' })
+    parentPort.postMessage = vi.fn(() => { throw epipe })
+
+    // If EPIPE is not swallowed, this would throw an unhandled exception and fail.
+    await expect(
+      new Promise<void>((resolve) => {
+        sendCommand({
+          type: 'startSession', sessionId: 's-epipe', worktreeId: 'wt-epipe', projectName: 'test',
+          worktreePath: '/tmp', prompt: 'hello', model: 'claude-sonnet-4-6', thinking: false,
+          planMode: false, sessionName: 'Test', settings: defaultSettings
+        })
+        setTimeout(resolve, 200)
+      })
+    ).resolves.toBeUndefined()
+  })
 })
