@@ -19,7 +19,7 @@ function makeStore(session: Partial<AgentSession> = {}) {
   const defaults: AgentSession = {
     id: 'sess-1', worktreeId: 'wt-1', name: 'New Chat', customName: false,
     status: 'idle', model: 'claude-sonnet-4-6', thinkingEnabled: false,
-    extendedContext: false, planModeEnabled: false, messages: [], activity: null,
+    extendedContext: false, effortLevel: 'high', planModeEnabled: false, messages: [], activity: null,
     runStartedAt: null, runCompletedAt: null, totalRunDurationMs: 0,
     tokenUsage: null, contextTokens: null, createdAt: Date.now()
   }
