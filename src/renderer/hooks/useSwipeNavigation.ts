@@ -28,9 +28,17 @@ function isInScrollableX(target: EventTarget | null, root: HTMLElement): boolean
  * Skips events that originate inside horizontally scrollable children
  * (tab bar, Monaco editor, terminal, etc.) so we don't steal their scroll.
  *
- * Cooldown is gesture-aware: after a navigation fires, all further events
- * are ignored until the gesture (including macOS momentum scrolling) fully
- * stops - i.e. no wheel events arrive for GESTURE_END_MS.
+ * Two layers of protection against macOS momentum double-triggers:
+ *
+ * 1. Gesture-aware cooldown: after navigation fires, all events are ignored
+ *    until no wheel events arrive for GESTURE_END_MS. The timer resets on
+ *    ANY wheel event (not just horizontal) so vertical/mixed momentum events
+ *    can't cause premature cooldown expiry.
+ *
+ * 2. Delta decay detection (inspired by Lethargy): momentum events have
+ *    monotonically decreasing |deltaX|. We reject events whose absolute
+ *    delta is significantly smaller than the previous one - these are
+ *    inertial, not real user input.
  */
 export function useSwipeNavigation(
   ref: RefObject<HTMLElement | null>,
@@ -46,10 +54,22 @@ export function useSwipeNavigation(
     let accumulatedX = 0
     let coolingDown = false
     let gestureEndTimer = 0
+    let lastAbsDeltaX = 0
 
     const handleWheel = (e: WheelEvent) => {
       // Ignore pinch-to-zoom (ctrlKey is set for trackpad pinch in Chromium)
       if (e.ctrlKey) return
+
+      // Reset gesture-end timer on EVERY wheel event - even vertical ones.
+      // Any wheel activity means the gesture (or its momentum tail) is still
+      // ongoing. This prevents the cooldown from expiring while mixed
+      // horizontal/vertical momentum events are still flowing.
+      window.clearTimeout(gestureEndTimer)
+      gestureEndTimer = window.setTimeout(() => {
+        accumulatedX = 0
+        coolingDown = false
+        lastAbsDeltaX = 0
+      }, GESTURE_END_MS)
 
       const absX = Math.abs(e.deltaX)
       const absY = Math.abs(e.deltaY)
@@ -63,16 +83,14 @@ export function useSwipeNavigation(
       // Don't hijack scroll inside horizontally scrollable children
       if (isInScrollableX(e.target, el)) return
 
-      // Every horizontal wheel event resets the gesture-end timer,
-      // even during cooldown. This keeps the cooldown alive as long
-      // as macOS momentum events are still arriving.
-      window.clearTimeout(gestureEndTimer)
-      gestureEndTimer = window.setTimeout(() => {
-        accumulatedX = 0
-        coolingDown = false
-      }, GESTURE_END_MS)
-
       if (coolingDown) return
+
+      // Delta decay detection: momentum events have decreasing |deltaX|.
+      // If the current delta dropped significantly from the previous one,
+      // we're in the inertia phase - skip it to avoid false triggers.
+      const isDeltaDecaying = lastAbsDeltaX > 0 && absX < lastAbsDeltaX * 0.5
+      lastAbsDeltaX = absX
+      if (isDeltaDecaying) return
 
       accumulatedX += e.deltaX
 

@@ -29,8 +29,8 @@ describe('useSwipeNavigation', () => {
     renderHook(() => useSwipeNavigation(ref, onNavigate))
 
     fireWheel(container, 20)
+    fireWheel(container, 25)
     fireWheel(container, 20)
-    fireWheel(container, 15)
 
     expect(onNavigate).toHaveBeenCalledWith(1)
   })
@@ -41,8 +41,8 @@ describe('useSwipeNavigation', () => {
     renderHook(() => useSwipeNavigation(ref, onNavigate))
 
     fireWheel(container, -20)
+    fireWheel(container, -25)
     fireWheel(container, -20)
-    fireWheel(container, -15)
 
     expect(onNavigate).toHaveBeenCalledWith(-1)
   })
@@ -89,7 +89,7 @@ describe('useSwipeNavigation', () => {
     fireWheel(container, 60)
     expect(onNavigate).toHaveBeenCalledTimes(1)
 
-    // Momentum events keep arriving - should stay in cooldown
+    // Decaying momentum events keep arriving - should stay in cooldown
     vi.advanceTimersByTime(100)
     fireWheel(container, 20)
     vi.advanceTimersByTime(100)
@@ -97,6 +97,33 @@ describe('useSwipeNavigation', () => {
     vi.advanceTimersByTime(100)
     fireWheel(container, 5)
 
+    expect(onNavigate).toHaveBeenCalledTimes(1)
+  })
+
+  it('vertical momentum events also extend cooldown', () => {
+    const onNavigate = vi.fn()
+    const ref = { current: container }
+    renderHook(() => useSwipeNavigation(ref, onNavigate))
+
+    // First swipe triggers
+    fireWheel(container, 60)
+    expect(onNavigate).toHaveBeenCalledTimes(1)
+
+    // Mixed vertical momentum events arrive - these should keep
+    // the cooldown alive even though they fail the horizontal check
+    vi.advanceTimersByTime(200)
+    fireWheel(container, 3, 15) // mostly vertical
+    vi.advanceTimersByTime(200)
+    fireWheel(container, 2, 10) // mostly vertical
+
+    // Not enough silence yet (only 200ms since last event, need 300)
+    vi.advanceTimersByTime(200)
+
+    // Even if horizontal events arrive now, cooldown hasn't ended
+    // because last wheel event was only 200ms ago
+    fireWheel(container, 60)
+    // This is still in cooldown since the vertical events kept resetting the timer
+    // and we haven't had 300ms of silence yet
     expect(onNavigate).toHaveBeenCalledTimes(1)
   })
 
@@ -112,10 +139,32 @@ describe('useSwipeNavigation', () => {
     // Silence long enough for gesture to end
     vi.advanceTimersByTime(GESTURE_END_MS + 50)
 
-    // New gesture triggers
-    fireWheel(container, 30)
+    // New gesture triggers (increasing deltas = real user input)
+    fireWheel(container, 25)
     fireWheel(container, 30)
     expect(onNavigate).toHaveBeenCalledTimes(2)
+  })
+
+  it('rejects decaying momentum deltas after cooldown expires', () => {
+    const onNavigate = vi.fn()
+    const ref = { current: container }
+    renderHook(() => useSwipeNavigation(ref, onNavigate))
+
+    // First gesture
+    fireWheel(container, 60)
+    expect(onNavigate).toHaveBeenCalledTimes(1)
+
+    // Full silence - cooldown ends
+    vi.advanceTimersByTime(GESTURE_END_MS + 50)
+
+    // Simulate a second swipe where deltas decay rapidly (momentum artifact)
+    // 30 -> 10 (dropped > 50%) - delta decay kicks in
+    fireWheel(container, 30)
+    fireWheel(container, 10) // rejected: 10 < 30 * 0.5
+    fireWheel(container, 5)  // rejected: 5 < 10 * 0.5
+
+    // Never reaches threshold because decaying events are rejected
+    expect(onNavigate).toHaveBeenCalledTimes(1)
   })
 
   it('resets accumulator after gesture pause', () => {
@@ -170,7 +219,7 @@ describe('useSwipeNavigation', () => {
     const plainChild = document.createElement('div')
     container.appendChild(plainChild)
 
-    fireWheel(plainChild, 30)
+    fireWheel(plainChild, 25)
     fireWheel(plainChild, 30)
 
     expect(onNavigate).toHaveBeenCalledWith(1)
