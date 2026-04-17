@@ -1,8 +1,8 @@
 /**
  * ChatHeader - bottom controls bar for the chat input area.
  *
- * Contains: model selector, stop button, thinking/plan-mode/1M-context toggles,
- * image attach button, and the send button.
+ * Contains: model selector (with 1M context toggle), stop button,
+ * thinking/plan-mode toggles, image attach button, and the send button.
  * Extracted from ChatView.tsx to keep that file under the 450-line limit.
  */
 import { useCallback } from 'react'
@@ -11,7 +11,6 @@ import type { ModelId, AgentSession } from '@/types'
 import type { ChatViewAction } from './ChatView'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { ModelSelector } from './ModelSelector'
-import { supportsExtendedContext } from '@/lib/constants'
 import {
   IconLightbulb, IconClipboardCheck, IconStop,
   IconImage, IconClock, IconArrowUp,
@@ -55,6 +54,10 @@ export function ChatHeader({
     updateModel(activeSession.id, modelId)
   }, [activeSession.id, updateModel])
 
+  const handleExtendedContextToggle = useCallback((enabled: boolean) => {
+    updateExtendedContext(activeSession.id, enabled)
+  }, [activeSession.id, updateExtendedContext])
+
   const handleStop = useCallback(() => {
     if (queuedMessage !== null) {
       setDraftInput(activeSession.id, queuedMessage.text)
@@ -69,10 +72,6 @@ export function ChatHeader({
     updateThinking(activeSession.id, !activeSession.thinkingEnabled)
   }, [activeSession.id, activeSession.thinkingEnabled, updateThinking])
 
-  const toggleExtendedContext = useCallback(() => {
-    updateExtendedContext(activeSession.id, !activeSession.extendedContext)
-  }, [activeSession.id, activeSession.extendedContext, updateExtendedContext])
-
   const togglePlanMode = useCallback(() => {
     updatePlanMode(activeSession.id, !activeSession.planModeEnabled)
   }, [activeSession.id, activeSession.planModeEnabled, updatePlanMode])
@@ -86,16 +85,16 @@ export function ChatHeader({
   }, [onAddImages])
 
   const isQueueMode = isRunning && (hasInput || attachedImages.length > 0)
-  const modelSupportsExtended = supportsExtendedContext(activeSession.model)
 
   return (
     <div className="chat-bottom-bar">
       <div className="chat-bottom-left">
-        {/* Model selector */}
+        {/* Model selector (includes 1M context toggle in dropdown) */}
         <ModelSelector
           currentModelId={activeSession.model}
           extendedContext={activeSession.extendedContext}
           onSelect={handleModelSelect}
+          onToggleExtendedContext={handleExtendedContextToggle}
         />
 
         {variant === 'default' && (
@@ -131,19 +130,6 @@ export function ChatHeader({
                 <span>{t('planMode')}</span>
               </button>
             </Tooltip>
-
-            {/* Extended context (1M) toggle - Sonnet models only */}
-            {modelSupportsExtended && (
-              <Tooltip content={t('extendedContextTooltip')}>
-                <button
-                  className={`chat-bottom-chip ${activeSession.extendedContext ? 'chip-active' : ''}`}
-                  onClick={toggleExtendedContext}
-                >
-                  <span className="chip-icon">1M</span>
-                  <span>{t('extendedContext')}</span>
-                </button>
-              </Tooltip>
-            )}
 
             {/* Image attach */}
             <Tooltip content={t('attachImage')}>

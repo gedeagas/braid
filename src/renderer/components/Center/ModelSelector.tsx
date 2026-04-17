@@ -1,10 +1,12 @@
 /**
  * ModelSelector - Reusable model picker chip + dropdown menu.
  * Self-contained: manages its own open/close state and keyboard navigation.
+ * Includes an inline 1M context toggle for compatible models.
  */
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Tooltip } from '@/components/shared/Tooltip'
+import { Toggle } from '@/components/shared/Toggle'
 import { IconSparkle, IconCheckmark, IconChevronDown } from '@/components/shared/icons'
 import { supportsExtendedContext } from '@/lib/constants'
 import type { ModelId } from '@/types'
@@ -20,11 +22,12 @@ interface ModelSelectorProps {
   /** Whether extended (1M) context is active */
   extendedContext?: boolean
   onSelect: (modelId: ModelId) => void
+  onToggleExtendedContext?: (enabled: boolean) => void
   /** Menu opens above the button (for bottom-anchored inputs) */
   above?: boolean
 }
 
-export function ModelSelector({ currentModelId, extendedContext, onSelect, above }: ModelSelectorProps) {
+export function ModelSelector({ currentModelId, extendedContext, onSelect, onToggleExtendedContext, above }: ModelSelectorProps) {
   const { t } = useTranslation('center')
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -32,6 +35,7 @@ export function ModelSelector({ currentModelId, extendedContext, onSelect, above
 
   const currentModel = MODELS.find((m) => m.id === currentModelId) ?? MODELS[0]
   const show1M = extendedContext && supportsExtendedContext(currentModelId)
+  const showToggle = supportsExtendedContext(currentModelId) && onToggleExtendedContext
 
   const toggle = useCallback(() => setIsOpen((v) => !v), [])
   const close = useCallback(() => setIsOpen(false), [])
@@ -105,6 +109,15 @@ export function ModelSelector({ currentModelId, extendedContext, onSelect, above
                 )}
               </button>
             ))}
+            {showToggle && (
+              <>
+                <div className="model-menu-divider" />
+                <div className="model-menu-toggle-row">
+                  <span className="model-menu-toggle-label">{t('extendedContext')}</span>
+                  <Toggle checked={!!extendedContext} onChange={onToggleExtendedContext} />
+                </div>
+              </>
+            )}
           </div>
         </>
       )}

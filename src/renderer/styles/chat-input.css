@@ -263,6 +263,26 @@
   color: var(--accent);
 }
 
+.model-menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: var(--space-4) var(--space-8);
+}
+
+.model-menu-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  padding: var(--space-6) var(--space-10);
+  font-size: var(--text-md);
+  color: var(--text-secondary);
+}
+
+.model-menu-toggle-label {
+  white-space: nowrap;
+}
+
 .model-1m-badge {
   display: inline-flex;
   align-items: center;
