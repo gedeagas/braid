@@ -68,6 +68,8 @@ export function SettingsAppearance() {
   const setStreamingAnimation = useUIStore((s) => s.setStreamingAnimation)
   const chatCompactMode = useUIStore((s) => s.chatCompactMode)
   const setChatCompactMode = useUIStore((s) => s.setChatCompactMode)
+  const projectAvatarVisible = useUIStore((s) => s.projectAvatarVisible)
+  const setProjectAvatarVisible = useUIStore((s) => s.setProjectAvatarVisible)
 
   const handleSelect = (theme: ThemePalette) => {
     setTheme(theme.id)
@@ -144,6 +146,14 @@ export function SettingsAppearance() {
         horizontal
       >
         <Toggle checked={chatCompactMode} onChange={setChatCompactMode} />
+      </FormField>
+
+      <FormField
+        label={t('appearance.projectAvatar')}
+        hint={t('appearance.projectAvatarHint')}
+        horizontal
+      >
+        <Toggle checked={projectAvatarVisible} onChange={setProjectAvatarVisible} />
       </FormField>
 
       {groupBuiltinThemes().map(({ group, themes }) => (

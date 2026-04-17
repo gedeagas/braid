@@ -63,7 +63,9 @@
     "streamingAnimation": "ストリーミングアニメーション",
     "streamingAnimationHint": "ストリーミング時にワードごとにアニメーション表示する",
     "chatCompactMode": "チャットコンパクトモード",
-    "chatCompactModeHint": "間隔とフォントサイズを縮小し、CLIのようなチャット表示にする"
+    "chatCompactModeHint": "間隔とフォントサイズを縮小し、CLIのようなチャット表示にする",
+    "projectAvatar": "プロジェクトアバター",
+    "projectAvatarHint": "サイドバーのプロジェクト名の横にアイコンを表示する"
   },
   "ai": {
     "defaultModel": "デフォルトモデル",

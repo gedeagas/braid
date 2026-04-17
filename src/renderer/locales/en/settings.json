@@ -63,7 +63,9 @@
     "streamingAnimation": "Streaming Animation",
     "streamingAnimationHint": "Animate words as they stream in",
     "chatCompactMode": "Chat Compact Mode",
-    "chatCompactModeHint": "Reduce spacing and font sizes for a denser, CLI-like chat display"
+    "chatCompactModeHint": "Reduce spacing and font sizes for a denser, CLI-like chat display",
+    "projectAvatar": "Project Avatar",
+    "projectAvatarHint": "Show project icon next to each project name in the sidebar"
   },
   "ai": {
     "defaultModel": "Default Model",
