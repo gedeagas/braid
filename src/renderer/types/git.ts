@@ -69,4 +69,6 @@ export interface GitChange {
   status: 'M' | 'A' | 'D' | '?' | 'R'
   staged: boolean
   diff?: string
+  additions?: number
+  deletions?: number
 }

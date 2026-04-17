@@ -21,10 +21,35 @@ export function invalidateTrackedFiles(worktreePath: string): void {
   trackedFilesCache.invalidate(worktreePath)
 }
 
+/** Parse `git diff --numstat` output into a file-keyed map. */
+function parseNumstat(raw: string): Map<string, { additions: number; deletions: number }> {
+  const map = new Map<string, { additions: number; deletions: number }>()
+  for (const line of raw.split('\n')) {
+    if (!line) continue
+    const parts = line.split('\t')
+    if (parts.length < 3) continue
+    const [add, del, file] = parts
+    // Binary files show '-' for both counts
+    if (add === '-' || del === '-') continue
+    map.set(file, { additions: parseInt(add, 10), deletions: parseInt(del, 10) })
+  }
+  return map
+}
+
 export async function getStatus(worktreePath: string): Promise<GitChangeInfo[]> {
   const git = await getValidGit(worktreePath)
   if (!git) return []
-  const status = await git.status()
+
+  // Fetch status and numstat in parallel
+  const [status, unstagedNumstat, stagedNumstat] = await Promise.all([
+    git.status(),
+    git.diff(['--numstat']).catch(() => ''),
+    git.diff(['--cached', '--numstat']).catch(() => ''),
+  ])
+
+  const unstagedStats = parseNumstat(unstagedNumstat)
+  const stagedStats = parseNumstat(stagedNumstat)
+
   const changes: GitChangeInfo[] = []
 
   for (const f of status.files) {
@@ -37,7 +62,10 @@ export async function getStatus(worktreePath: string): Promise<GitChangeInfo[]> 
         f.index === 'A' ? 'A' :
         f.index === 'D' ? 'D' :
         f.index === 'R' ? 'R' : null
-      if (mapped) changes.push({ file, status: mapped, staged: true })
+      if (mapped) {
+        const stat = stagedStats.get(file)
+        changes.push({ file, status: mapped, staged: true, additions: stat?.additions, deletions: stat?.deletions })
+      }
     }
 
     // Working directory (unstaged) status
@@ -46,7 +74,10 @@ export async function getStatus(worktreePath: string): Promise<GitChangeInfo[]> 
         f.working_dir === 'M' ? 'M' :
         f.working_dir === 'D' ? 'D' :
         f.working_dir === '?' ? '?' : null
-      if (mapped) changes.push({ file, status: mapped, staged: false })
+      if (mapped) {
+        const stat = unstagedStats.get(file)
+        changes.push({ file, status: mapped, staged: false, additions: stat?.additions, deletions: stat?.deletions })
+      }
     }
   }
 
