@@ -278,7 +278,7 @@
   gap: var(--space-4);
   flex-shrink: 0;
   font-family: var(--font-mono);
-  font-size: var(--text-2xs);
+  font-size: var(--text-base);
   font-weight: var(--weight-medium);
 }
 
@@ -296,7 +296,7 @@
   align-items: center;
   gap: var(--space-4);
   font-family: var(--font-mono);
-  font-size: var(--text-2xs);
+  font-size: var(--text-base);
   font-weight: var(--weight-medium);
   margin-left: var(--space-4);
 }
