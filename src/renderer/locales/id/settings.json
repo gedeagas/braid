@@ -63,7 +63,9 @@
     "streamingAnimation": "Animasi Streaming",
     "streamingAnimationHint": "Animasikan kata saat streaming masuk",
     "chatCompactMode": "Mode Kompak Chat",
-    "chatCompactModeHint": "Kurangi jarak dan ukuran font untuk tampilan chat yang lebih padat seperti CLI"
+    "chatCompactModeHint": "Kurangi jarak dan ukuran font untuk tampilan chat yang lebih padat seperti CLI",
+    "projectAvatar": "Avatar Proyek",
+    "projectAvatarHint": "Tampilkan ikon proyek di samping nama proyek di sidebar"
   },
   "ai": {
     "defaultModel": "Model Default",

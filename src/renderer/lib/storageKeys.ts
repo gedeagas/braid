@@ -81,6 +81,7 @@ export const SK = {
   skipDeleteWorktreeConfirm:  `${prefix}:skipDeleteWorktreeConfirm`,
   tabDisplayMode:             `${prefix}:tabDisplayMode`,
   chatCompactMode:            `${prefix}:chatCompactMode`,
+  projectAvatarVisible:       `${prefix}:projectAvatarVisible`,
 
   // ── i18n ───────────────────────────────────────────────────────────────
   language:                   `${prefix}:language`,
