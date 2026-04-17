@@ -41,3 +41,12 @@ Quick reference for all keyboard shortcuts in Braid.
 | Shortcut | Action |
 |---|---|
 | **Double-click tab** | Rename session or file tab |
+
+## Trackpad Gestures
+
+| Gesture | Action |
+|---|---|
+| **Two-finger swipe left** | Cycle to the next tab in the center panel |
+| **Two-finger swipe right** | Cycle to the previous tab in the center panel |
+
+Trackpad swipe navigation is an experimental feature. Enable it from **Settings > Experimental > Magic Trackpad**. It cycles through whatever is open in the center panel, such as sessions, files, and changes.

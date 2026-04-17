@@ -13,6 +13,7 @@ Open Settings with **Cmd+,** and select the **Appearance** tab to adjust zoom le
 |---|---|---|
 | **UI Zoom** | Scale the entire interface up or down. Use the **+** and **-** buttons to adjust in increments, or click **Reset** to return to 100%. | Range varies by display |
 | **Theme** | Pick a color theme for the app. | Default, Dark, Light, Accessibility, or any imported custom theme |
+| **Project Avatar** | Show the project icon next to each project name in the sidebar. Turn it off for a more compact, text-only sidebar. | On by default |
 | **Delete custom themes** | Remove any previously imported custom theme. Built-in themes cannot be deleted. | Available per custom theme |
 
 ## Built-in themes
