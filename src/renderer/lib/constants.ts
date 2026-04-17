@@ -5,7 +5,7 @@
 /** Default context window size in tokens (200k) */
 export const CONTEXT_WINDOW = 200_000
 
-/** Extended context window size in tokens (1M, Sonnet models only) */
+/** Extended context window size in tokens (1M, supported Sonnet/Opus/Mythos models) */
 export const EXTENDED_CONTEXT_WINDOW = 1_000_000
 
 /** Returns the effective context window for a given model + extendedContext flag. */

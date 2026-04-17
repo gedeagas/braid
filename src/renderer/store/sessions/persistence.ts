@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import type { AgentSession, EffortLevel, Message, ModelId } from '@/types'
-import { DEFAULT_EFFORT } from '@/lib/constants'
+import { DEFAULT_EFFORT, getEffortLevelsForModel } from '@/lib/constants'
 import * as ipc from '@/lib/ipc'
 import { sessionWorktreePaths, sessionLinkedPaths, lastActivePerWorktree } from './storage'
 
@@ -18,6 +18,14 @@ let _getSession: SessionGetter = () => undefined
 /** Wire up the sessions store getter. Called once by store.ts after create(). */
 export function bindSessionsStore(getter: SessionGetter): void {
   _getSession = getter
+}
+
+/** Normalize persisted effort level: coerce to DEFAULT_EFFORT if the model doesn't support it. */
+function normalizeEffort(model: string, persisted: EffortLevel | undefined): EffortLevel {
+  const level = persisted ?? DEFAULT_EFFORT
+  const supported = getEffortLevelsForModel(model)
+  if (supported.length === 0 || !supported.includes(level)) return DEFAULT_EFFORT
+  return level
 }
 
 /** Persist a session to disk (fire-and-forget) */
@@ -64,7 +72,7 @@ export async function hydratePersistedSessions(): Promise<{
       model: p.model as ModelId,
       thinkingEnabled: p.thinkingEnabled,
       extendedContext: ((p as Record<string, unknown>).extendedContext as boolean | undefined) ?? false,
-      effortLevel: ((p as Record<string, unknown>).effortLevel as EffortLevel | undefined) ?? DEFAULT_EFFORT,
+      effortLevel: normalizeEffort(p.model, (p as Record<string, unknown>).effortLevel as EffortLevel | undefined),
       planModeEnabled: ((p as Record<string, unknown>).planModeEnabled as boolean | undefined) ?? false,
       messages: p.messages.filter(
         (m) => !(m.role === 'system' && typeof m.content === 'string' && m.content.startsWith('Error: Session process exited'))

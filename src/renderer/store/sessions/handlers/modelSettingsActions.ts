@@ -35,7 +35,7 @@ export const createModelSettingsActions: StateCreator<
       const disableExtended = fresh.extendedContext && !supportsExtendedContext(model)
       // Auto-reset effort level when switching to a model that doesn't support the current level
       const supported = getEffortLevelsForModel(model)
-      const resetEffort = supported.length > 0 && !supported.includes(fresh.effortLevel) ? DEFAULT_EFFORT : fresh.effortLevel
+      const resetEffort = supported.length === 0 || !supported.includes(fresh.effortLevel) ? DEFAULT_EFFORT : fresh.effortLevel
       return { sessions: { ...s.sessions, [sessionId]: { ...fresh, model, ...(disableExtended ? { extendedContext: false } : {}), effortLevel: resetEffort } } }
     })
     persistSession(sessionId)
