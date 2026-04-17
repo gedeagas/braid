@@ -33,6 +33,26 @@ const DEBUG = true // Wire-level ACP protocol logging
 /** Hardcoded Gemini CLI configuration - the sole ACP provider. */
 const GEMINI_CONFIG = { command: 'gemini', args: ['--acp'] } as const
 
+/**
+ * System context prepended to the first prompt of every ACP session.
+ * Similar to BRAID_SYSTEM_PROMPT for Claude, but delivered as a prompt
+ * prefix since ACP has no systemInstructions API.
+ */
+const ACP_SYSTEM_CONTEXT = `
+<system-context>
+You are running inside Braid, a desktop app that orchestrates AI coding agents across multiple Git worktrees in parallel.
+
+Context:
+- Each chat session is scoped to a specific Git worktree (branch). You are one potentially-concurrent agent instance among several, each working on a different branch of the same project.
+- The user interacts with you through the Braid UI. You do not need to explain what Braid is.
+
+Behavioral guidelines:
+- Be concise. Avoid unnecessary preamble, summaries, or filler.
+- Prefer tools over asking. If you can look something up or run a command to get the answer, do it rather than asking the user.
+- Work autonomously. Make reasonable decisions and proceed without asking for confirmation on routine steps.
+</system-context>
+`.trim()
+
 function debug(...args: unknown[]): void {
   if (DEBUG) console.log('[ACP:debug]', ...args)
 }
@@ -80,10 +100,10 @@ export class AcpWorker {
     _thinking: boolean,
     _planMode: boolean,
     _sessionName: string = 'New Chat',
-    _settings: AgentSettings,
+    settings: AgentSettings,
     _images?: string[],
     _additionalDirectories?: string[],
-    _linkedWorktreeContext?: string,
+    linkedWorktreeContext?: string,
     _connectedDeviceId?: string,
     _mobileFramework?: string,
     backend?: AgentBackend,
@@ -192,16 +212,28 @@ export class AcpWorker {
         acpCurrentModeId,
       })
 
-      // Send the prompt. The ACP agent sends session/update notifications on
-      // stdout during processing, then the RPC response when done. Because both
-      // travel over the same pipe and are read sequentially by setupStdoutReader,
-      // all notifications written before the response are guaranteed to be
-      // dispatched (to clientHandlers.sessionUpdate) before the request resolves.
+      // Send the prompt. Prepend system context on the first message so the
+      // agent understands it's running inside Braid (ACP has no systemInstructions API).
+      // The ACP agent sends session/update notifications on stdout during processing,
+      // then the RPC response when done. Because both travel over the same pipe and
+      // are read sequentially by setupStdoutReader, all notifications written before
+      // the response are guaranteed to be dispatched before the request resolves.
       debug('>>> session/prompt')
       clientHandlers.resetTurn()
+
+      // Build the first-message context: Braid system context + user custom suffix + linked worktree
+      const contextParts = [ACP_SYSTEM_CONTEXT]
+      if (settings.systemPromptSuffix?.trim()) {
+        contextParts.push(settings.systemPromptSuffix.trim())
+      }
+      if (linkedWorktreeContext?.trim()) {
+        contextParts.push(`<linked-worktree-context>\n${linkedWorktreeContext.trim()}\n</linked-worktree-context>`)
+      }
+      contextParts.push(prompt)
+      const contextualPrompt = contextParts.join('\n\n')
       const promptResult = await rpcWithTimeout.request('session/prompt', {
         sessionId: session.acpSessionId,
-        prompt: [{ type: 'text', text: prompt }]
+        prompt: [{ type: 'text', text: contextualPrompt }]
       })
       debug('<<< session/prompt:', JSON.stringify(promptResult))
 
