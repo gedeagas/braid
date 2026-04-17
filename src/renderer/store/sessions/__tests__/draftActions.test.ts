@@ -36,6 +36,7 @@ function makeState(overrides?: Partial<SessionsState>): SessionsState {
     updateModel: () => {},
     updateThinking: () => {},
     updateExtendedContext: () => {},
+    updateEffortLevel: () => {},
     updatePlanMode: () => {},
     renameSession: () => {},
     reorderSessions: () => {},
