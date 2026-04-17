@@ -28,6 +28,21 @@ export type CreateTemplateResult =
   | { success: true }
   | { success: false; reason: CreateFailureReason; stderr?: string }
 
+export type LogStream = 'stdout' | 'stderr'
+export interface TemplateLogEntry {
+  stream: LogStream
+  /** Single trimmed line; caller is expected to render whitespace-preserved. */
+  line: string
+}
+
+export interface CreateTemplateOptions {
+  /**
+   * Called once per stdout/stderr line while the scaffold runs. Useful for
+   * surfacing progress in the UI. Calls are synchronous and main-process-only.
+   */
+  onLog?: (entry: TemplateLogEntry) => void
+}
+
 /** 10 minutes - create-next-app may install hundreds of MB of deps. */
 export const CREATE_NEXT_APP_TIMEOUT_MS = 600_000
 
@@ -82,13 +97,39 @@ export function classifyExecError(
 }
 
 /**
+ * Returns a chunk handler that splits incoming bytes into lines and invokes
+ * `onLine` once per complete line. Handles CRLF, carries partial tail across
+ * chunks. Exported for tests.
+ */
+export function createLineSplitter(onLine: (line: string) => void): (chunk: Buffer | string) => void {
+  let buf = ''
+  return (chunk) => {
+    buf += typeof chunk === 'string' ? chunk : chunk.toString('utf8')
+    let idx: number
+    while ((idx = buf.indexOf('\n')) !== -1) {
+      const line = buf.slice(0, idx).replace(/\r$/, '')
+      buf = buf.slice(idx + 1)
+      if (line.trim().length > 0) onLine(line)
+    }
+  }
+}
+
+/**
  * Spawn `npx` directly via argv. No shell, no string composition.
  * PATH comes from enrichedEnv() so Homebrew/nvm/fnm binaries are visible even
  * when Electron was launched from Finder with a minimal PATH.
+ *
+ * `execFile(..., cb)` returns a ChildProcess whose stdout/stderr we tap for
+ * line-by-line progress streaming via `onLog`.
  */
-function runNpx(args: string[], cwd: string, signal: AbortSignal): Promise<CreateTemplateResult> {
+function runNpx(
+  args: string[],
+  cwd: string,
+  signal: AbortSignal,
+  onLog?: (entry: TemplateLogEntry) => void
+): Promise<CreateTemplateResult> {
   return new Promise<CreateTemplateResult>((resolve) => {
-    execFile(
+    const child = execFile(
       CREATE_NEXT_APP_BIN,
       args,
       {
@@ -113,6 +154,15 @@ function runNpx(args: string[], cwd: string, signal: AbortSignal): Promise<Creat
         resolve({ success: true })
       }
     )
+
+    // Tap stdout/stderr for progress lines. `child` and its streams may be
+    // undefined under some test mocks; guard accordingly.
+    if (onLog && child) {
+      const stdoutSplitter = createLineSplitter((line) => onLog({ stream: 'stdout', line }))
+      const stderrSplitter = createLineSplitter((line) => onLog({ stream: 'stderr', line }))
+      child.stdout?.on('data', stdoutSplitter)
+      child.stderr?.on('data', stderrSplitter)
+    }
   })
 }
 
@@ -123,7 +173,8 @@ function runNpx(args: string[], cwd: string, signal: AbortSignal): Promise<Creat
  */
 async function createNextAppTemplate(
   args: CreateTemplateArgs,
-  signal: AbortSignal
+  signal: AbortSignal,
+  onLog?: (entry: TemplateLogEntry) => void
 ): Promise<CreateTemplateResult> {
   if (!args.projectName || !PROJECT_NAME_REGEX.test(args.projectName)) {
     return { success: false, reason: 'invalid-name' }
@@ -156,12 +207,16 @@ async function createNextAppTemplate(
     ...CREATE_NEXT_APP_FLAGS,
   ]
 
-  return runNpx(npxArgs, args.parentDir, signal)
+  return runNpx(npxArgs, args.parentDir, signal, onLog)
 }
 
 export const templatesService = {
   /** Scaffold a project from a built-in template. At most one runs at a time. */
-  async create(kind: TemplateKind, args: CreateTemplateArgs): Promise<CreateTemplateResult> {
+  async create(
+    kind: TemplateKind,
+    args: CreateTemplateArgs,
+    opts: CreateTemplateOptions = {}
+  ): Promise<CreateTemplateResult> {
     // Defensive: if a previous call is somehow still in-flight, abort it.
     currentAbort?.abort()
     const ctrl = new AbortController()
@@ -169,7 +224,7 @@ export const templatesService = {
     try {
       switch (kind) {
         case 'nextjs':
-          return await createNextAppTemplate(args, ctrl.signal)
+          return await createNextAppTemplate(args, ctrl.signal, opts.onLog)
         default: {
           const exhaustive: never = kind
           return {

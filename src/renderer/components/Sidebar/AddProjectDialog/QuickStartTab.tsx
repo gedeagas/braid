@@ -1,8 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as ipc from '@/lib/ipc'
 import type { CreateTemplateFailureReason } from '@/lib/ipc'
 import { useTranslation } from 'react-i18next'
 import { Button, Spinner } from '@/components/ui'
+import { IconFile, IconBolt } from '@/components/shared/icons'
 import { PROJECT_NAME_REGEX } from './types'
 import type { State, Action } from './types'
 
@@ -14,6 +15,9 @@ interface Props {
   onClose: () => void
   onActionRef: React.MutableRefObject<(() => void) | null>
 }
+
+/** Cap to bound memory + DOM size; 200 lines is plenty of context. */
+const MAX_LOG_LINES = 200
 
 /** Map a typed failure reason from the main process to an i18n key. */
 function errorKeyFor(reason: CreateTemplateFailureReason): string | null {
@@ -38,6 +42,38 @@ function errorKeyFor(reason: CreateTemplateFailureReason): string | null {
 
 export function QuickStartTab({ state, dispatch, existingPaths, addProject, onClose, onActionRef }: Props) {
   const { t } = useTranslation('sidebar')
+
+  // Rolling buffer of the most recent scaffold log lines. Cleared when not creating.
+  const [logLines, setLogLines] = useState<string[]>([])
+  const logContainerRef = useRef<HTMLDivElement>(null)
+
+  // Subscribe to scaffold log lines only while a Next.js scaffold is running.
+  useEffect(() => {
+    if (!state.creating || state.selectedTemplate !== 'nextjs') {
+      setLogLines([])
+      return
+    }
+    const unsub = ipc.templates.onLog((entry) => {
+      if (!entry.line.trim()) return
+      setLogLines((prev) => {
+        const next = prev.length >= MAX_LOG_LINES
+          ? prev.slice(prev.length - MAX_LOG_LINES + 1).concat(entry.line)
+          : prev.concat(entry.line)
+        return next
+      })
+    })
+    return () => {
+      unsub()
+      setLogLines([])
+    }
+  }, [state.creating, state.selectedTemplate])
+
+  // Auto-scroll to the bottom whenever new lines arrive so the user sees
+  // the freshest output without needing to scroll manually.
+  useEffect(() => {
+    const el = logContainerRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [logLines])
 
   const handleBrowseLocation = async () => {
     const selected = await ipc.dialog.openDirectory()
@@ -154,8 +190,13 @@ export function QuickStartTab({ state, dispatch, existingPaths, addProject, onCl
             onClick={() => dispatch({ type: 'setTemplate', value: 'empty' })}
             disabled={state.creating}
           >
-            <span className="template-card__icon" aria-hidden="true">📄</span>
-            <span className="template-card__name">{t('quickStartTemplateEmpty')}</span>
+            <span className="template-card__header">
+              <span className="template-card__icon" aria-hidden="true">
+                <IconFile size={20} />
+              </span>
+              <span className="template-card__name">{t('quickStartTemplateEmpty')}</span>
+            </span>
+            <span className="template-card__desc">{t('quickStartTemplateEmptyDesc')}</span>
           </button>
           <button
             type="button"
@@ -164,24 +205,58 @@ export function QuickStartTab({ state, dispatch, existingPaths, addProject, onCl
             onClick={() => dispatch({ type: 'setTemplate', value: 'nextjs' })}
             disabled={state.creating}
           >
-            <span className="template-card__icon" aria-hidden="true">⚡</span>
-            <span className="template-card__name">{t('quickStartTemplateNextjs')}</span>
+            <span className="template-card__header">
+              <span className="template-card__icon" aria-hidden="true">
+                <IconBolt size={20} />
+              </span>
+              <span className="template-card__name">{t('quickStartTemplateNextjs')}</span>
+            </span>
+            <span className="template-card__desc">{t('quickStartTemplateNextjsDesc')}</span>
+            <span className="template-card__chips" aria-hidden="true">
+              <span className="template-card__chip">{t('quickStartStackTypeScript')}</span>
+              <span className="template-card__chip">{t('quickStartStackAppRouter')}</span>
+              <span className="template-card__chip">{t('quickStartStackTailwind')}</span>
+              <span className="template-card__chip">{t('quickStartStackESLint')}</span>
+              <span className="template-card__chip">{t('quickStartStackSrcDir')}</span>
+            </span>
           </button>
         </div>
       </div>
 
       {state.creating && (
-        <div className="dialog-clone-progress">
-          <Spinner size="sm" />
-          <span>
-            {state.selectedTemplate === 'nextjs' ? t('quickStartCreatingNextjs') : t('quickStartCreating')}
-          </span>
-          {isCreatingNextjs && (
-            <Button onClick={handleCancel}>
-              {t('cancel', { ns: 'common' })}
-            </Button>
+        <>
+          <div className="dialog-clone-progress">
+            <Spinner size="sm" />
+            <span>
+              {state.selectedTemplate === 'nextjs' ? t('quickStartCreatingNextjs') : t('quickStartCreating')}
+            </span>
+            {isCreatingNextjs && (
+              <Button onClick={handleCancel}>
+                {t('cancel', { ns: 'common' })}
+              </Button>
+            )}
+          </div>
+          {isCreatingNextjs && logLines.length > 0 && (
+            // Visual-only progress log. No aria-live: the npm install stream
+            // would spam screen readers. The "Creating..." label above is the
+            // real status announcement for assistive tech.
+            <div
+              ref={logContainerRef}
+              className="dialog-scaffold-log"
+              aria-hidden="true"
+            >
+              {logLines.map((line, i) => (
+                <div
+                  key={`${i}-${line.slice(0, 16)}`}
+                  className="dialog-scaffold-log__line"
+                  title={line}
+                >
+                  {line}
+                </div>
+              ))}
+            </div>
           )}
-        </div>
+        </>
       )}
     </>
   )

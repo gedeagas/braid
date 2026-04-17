@@ -177,6 +177,20 @@ const api = {
           }
       >,
     cancel: () => ipcRenderer.invoke('templates:cancel') as Promise<boolean>,
+    /**
+     * Subscribe to per-line stdout/stderr from the active scaffold.
+     * Returns an unsubscribe function.
+     */
+    onLog: (handler: (entry: { stream: 'stdout' | 'stderr'; line: string }) => void) => {
+      const listener = (
+        _: Electron.IpcRendererEvent,
+        entry: { stream: 'stdout' | 'stderr'; line: string }
+      ) => handler(entry)
+      ipcRenderer.on('templates:log', listener)
+      return () => {
+        ipcRenderer.off('templates:log', listener)
+      }
+    },
   },
 
   // Window Capture

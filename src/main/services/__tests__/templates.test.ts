@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { EventEmitter } from 'events'
 
 // Hoisted alongside vi.mock so the factories can reference them without TDZ errors.
 const mockExecFile = vi.hoisted(() => vi.fn())
@@ -40,16 +41,31 @@ function stubStatRejects() {
   mockStat.mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }))
 }
 
+/**
+ * Returns a ChildProcess-like stub with EventEmitter stdout/stderr so
+ * templates.ts can attach .on('data', ...) for log streaming.
+ */
+function makeFakeChild() {
+  const stdout = new EventEmitter()
+  const stderr = new EventEmitter()
+  return { stdout, stderr } as { stdout: EventEmitter; stderr: EventEmitter }
+}
+
 function stubExecSuccess() {
   mockExecFile.mockImplementation(
-    (_bin: string, _args: string[], _opts: ExecOpts, cb: ExecFileCb) => cb(null, '', '')
+    (_bin: string, _args: string[], _opts: ExecOpts, cb: ExecFileCb) => {
+      cb(null, '', '')
+      return makeFakeChild()
+    }
   )
 }
 
 function stubExecFailure(stderr = 'scaffold failed') {
   mockExecFile.mockImplementation(
-    (_bin: string, _args: string[], _opts: ExecOpts, cb: ExecFileCb) =>
+    (_bin: string, _args: string[], _opts: ExecOpts, cb: ExecFileCb) => {
       cb(Object.assign(new Error('non-zero exit'), { code: 1 }), '', stderr)
+      return makeFakeChild()
+    }
   )
 }
 
@@ -61,6 +77,7 @@ function stubExecTimeout() {
         signal: 'SIGTERM' as const,
       })
       cb(err, '', '')
+      return makeFakeChild()
     }
   )
 }
@@ -70,6 +87,7 @@ function stubExecToolMissing() {
     (_bin: string, _args: string[], _opts: ExecOpts, cb: ExecFileCb) => {
       const err = Object.assign(new Error('spawn npx ENOENT'), { code: 'ENOENT' })
       cb(err, '', '')
+      return makeFakeChild()
     }
   )
 }
@@ -85,8 +103,36 @@ function stubExecAborted() {
         })
         cb(err, '', '')
       })
+      return makeFakeChild()
     }
   )
+}
+
+/**
+ * Streaming-friendly stub: returns a child with stdout/stderr emitters and
+ * gives the caller control over when the callback fires. Used to verify that
+ * onLog receives line-split events from stdout/stderr before completion.
+ */
+function stubExecStreaming() {
+  const emitters: { stdout: EventEmitter; stderr: EventEmitter } = {
+    stdout: new EventEmitter(),
+    stderr: new EventEmitter(),
+  }
+  let finish: ((err?: Error) => void) | null = null
+  mockExecFile.mockImplementation(
+    (_bin: string, _args: string[], _opts: ExecOpts, cb: ExecFileCb) => {
+      finish = (err) => {
+        if (err) cb(err as Error & { code?: string }, '', '')
+        else cb(null, '', '')
+      }
+      return emitters
+    }
+  )
+  return {
+    stdout: emitters.stdout,
+    stderr: emitters.stderr,
+    finish: (err?: Error) => finish?.(err),
+  }
 }
 
 describe('templatesService.create("nextjs")', () => {
@@ -255,6 +301,115 @@ describe('templatesService.create("nextjs")', () => {
     expect(res.success).toBe(false)
     if (!res.success) expect(res.reason).toBe('parent-not-directory')
     expect(mockExecFile).not.toHaveBeenCalled()
+  })
+})
+
+describe('templatesService streaming progress', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    mockExecFile.mockReset()
+    mockStat.mockReset()
+    stubStatIsDirectory(true)
+  })
+
+  it('forwards stdout/stderr lines to onLog as line-split entries', async () => {
+    const h = stubExecStreaming()
+    const { templatesService } = await import('../templates')
+
+    const onLog = vi.fn()
+    const pending = templatesService.create(
+      'nextjs',
+      { parentDir: '/tmp/projects', projectName: 'my-app' },
+      { onLog }
+    )
+
+    // Let fs.stat + waitForEnrichedEnv settle so runNpx has attached listeners.
+    await Promise.resolve()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    // Emit two stdout lines (second one arrives in two chunks split on the newline).
+    h.stdout.emit('data', Buffer.from('Creating a new Next.js app in /tmp/projects/my-app.\n'))
+    h.stdout.emit('data', Buffer.from('Installing dependencies:'))
+    h.stdout.emit('data', Buffer.from('\r\n'))
+    h.stderr.emit('data', Buffer.from('npm warn deprecated\n'))
+
+    h.finish()
+    const res = await pending
+    expect(res).toEqual({ success: true })
+
+    expect(onLog).toHaveBeenCalledTimes(3)
+    expect(onLog).toHaveBeenNthCalledWith(1, {
+      stream: 'stdout',
+      line: 'Creating a new Next.js app in /tmp/projects/my-app.',
+    })
+    expect(onLog).toHaveBeenNthCalledWith(2, {
+      stream: 'stdout',
+      line: 'Installing dependencies:',
+    })
+    expect(onLog).toHaveBeenNthCalledWith(3, {
+      stream: 'stderr',
+      line: 'npm warn deprecated',
+    })
+  })
+
+  it('suppresses blank/whitespace-only lines', async () => {
+    const h = stubExecStreaming()
+    const { templatesService } = await import('../templates')
+
+    const onLog = vi.fn()
+    const pending = templatesService.create(
+      'nextjs',
+      { parentDir: '/tmp/projects', projectName: 'my-app' },
+      { onLog }
+    )
+    await Promise.resolve()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    h.stdout.emit('data', Buffer.from('\n\n   \nreal line\n\n'))
+    h.finish()
+    await pending
+
+    expect(onLog).toHaveBeenCalledOnce()
+    expect(onLog).toHaveBeenCalledWith({ stream: 'stdout', line: 'real line' })
+  })
+})
+
+describe('createLineSplitter', () => {
+  it('splits on LF and invokes callback per line', async () => {
+    const { createLineSplitter } = await import('../templates')
+    const lines: string[] = []
+    const feed = createLineSplitter((l) => lines.push(l))
+    feed(Buffer.from('a\nb\nc'))
+    feed(Buffer.from('\n'))
+    expect(lines).toEqual(['a', 'b', 'c'])
+  })
+
+  it('carries a partial tail across chunks', async () => {
+    const { createLineSplitter } = await import('../templates')
+    const lines: string[] = []
+    const feed = createLineSplitter((l) => lines.push(l))
+    feed('install')
+    feed('ing deps')
+    feed(Buffer.from('...\ndone\n'))
+    expect(lines).toEqual(['installing deps...', 'done'])
+  })
+
+  it('strips trailing CR from CRLF line endings', async () => {
+    const { createLineSplitter } = await import('../templates')
+    const lines: string[] = []
+    const feed = createLineSplitter((l) => lines.push(l))
+    feed(Buffer.from('one\r\ntwo\r\n'))
+    expect(lines).toEqual(['one', 'two'])
+  })
+
+  it('drops whitespace-only lines', async () => {
+    const { createLineSplitter } = await import('../templates')
+    const lines: string[] = []
+    const feed = createLineSplitter((l) => lines.push(l))
+    feed(Buffer.from('   \n\t\nhello\n'))
+    expect(lines).toEqual(['hello'])
   })
 })
 

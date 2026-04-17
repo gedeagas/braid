@@ -13,6 +13,13 @@ export default defineConfig({
         },
       },
       {
+        test: {
+          name: 'shared',
+          include: ['src/shared/**/__tests__/**/*.test.ts'],
+          environment: 'node',
+        },
+      },
+      {
         plugins: [react()],
         resolve: {
           alias: { '@': resolve(__dirname, 'src/renderer') },

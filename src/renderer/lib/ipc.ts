@@ -214,10 +214,15 @@ export type CreateTemplateResult =
   | { success: true }
   | { success: false; reason: CreateTemplateFailureReason; stderr?: string }
 
+export type TemplateLogEntry = { stream: 'stdout' | 'stderr'; line: string }
+
 export const templates = {
   create: (kind: 'nextjs', args: { parentDir: string; projectName: string }) =>
     api().templates.create(kind, args) as Promise<CreateTemplateResult>,
   cancel: () => api().templates.cancel() as Promise<boolean>,
+  /** Subscribe to per-line stdout/stderr from the active scaffold. Returns unsubscribe. */
+  onLog: (handler: (entry: TemplateLogEntry) => void): (() => void) =>
+    (api().templates.onLog as (h: (e: TemplateLogEntry) => void) => () => void)(handler),
 }
 
 export const files = {

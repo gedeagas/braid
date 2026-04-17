@@ -402,9 +402,14 @@ export function registerIpcHandlers(): void {
   // Scripts
   ipcMain.handle('scripts:detect', (_e, projectPath: string, forceRefresh?: boolean) => detectScripts(projectPath, forceRefresh))
 
-  // Templates - scaffold new projects from built-in starter templates
-  ipcMain.handle('templates:create', (_e, kind: TemplateKind, args: CreateTemplateArgs) =>
-    templatesService.create(kind, args)
+  // Templates - scaffold new projects from built-in starter templates.
+  // Progress lines are pushed to the invoking renderer via 'templates:log'.
+  ipcMain.handle('templates:create', (e, kind: TemplateKind, args: CreateTemplateArgs) =>
+    templatesService.create(kind, args, {
+      onLog: (entry) => {
+        if (!e.sender.isDestroyed()) e.sender.send('templates:log', entry)
+      },
+    })
   )
   ipcMain.handle('templates:cancel', () => templatesService.cancel())
 
