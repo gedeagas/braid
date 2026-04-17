@@ -12,6 +12,7 @@ import {
   loadPlugins,
   BRAID_SYSTEM_PROMPT,
   MOBILE_SYSTEM_PROMPT,
+  OPUS_NOISE_REDUCTION_PROMPT,
   frameworkPrompt,
   buildUserContent
 } from '../agentUtils'
@@ -189,9 +190,10 @@ export class AgentWorker {
         ? `\n\nLinked worktrees (you have full read/write access):\n${linkedWorktreeContext}`
         : ''
       const mobileSuffix = connectedDeviceId ? `\n\n${MOBILE_SYSTEM_PROMPT}${frameworkPrompt(mobileFramework)}` : ''
+      const opusSuffix = model.includes('opus-4-7') ? `\n\n${OPUS_NOISE_REDUCTION_PROMPT}` : ''
       const systemAppend = settings.systemPromptSuffix
-        ? `${BRAID_SYSTEM_PROMPT}\n\n${settings.systemPromptSuffix}${linkedSuffix}${mobileSuffix}`
-        : `${BRAID_SYSTEM_PROMPT}${linkedSuffix}${mobileSuffix}`
+        ? `${BRAID_SYSTEM_PROMPT}\n\n${settings.systemPromptSuffix}${linkedSuffix}${mobileSuffix}${opusSuffix}`
+        : `${BRAID_SYSTEM_PROMPT}${linkedSuffix}${mobileSuffix}${opusSuffix}`
 
       const betas = (extendedContext && needsExtendedContextBeta(model))
         ? [CONTEXT_1M_BETA] : undefined
