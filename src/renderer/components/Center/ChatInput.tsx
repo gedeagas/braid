@@ -20,6 +20,7 @@ import { ToolPermissionPrompt } from './ToolPermissionPrompt'
 import { AuthErrorPrompt } from './AuthErrorPrompt'
 import { ElicitationPrompt } from './ElicitationPrompt'
 import type { AgentSession, SlashCommand, SnippetAttachment } from '@/types'
+import { parseSnippets, stripAttachmentBlocks } from './diffCommentUtils'
 import type { AttachedFile } from '@/types'
 import { IconArrowDown, IconClose } from '@/components/shared/icons'
 import { flash } from '@/store/flash'
@@ -36,6 +37,7 @@ const MAX_SNIPPET_SIZE = 100_000
 const MAX_SNIPPETS = 5
 const SNIPPET_LINE_THRESHOLD = 10
 const SNIPPET_CHAR_THRESHOLD = 500
+const generateSnippetId = () => `snippet-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
 const MAX_DRAFT_INPUT = 50_000
 const CONTEXT_WARN_THRESHOLD = 0.75
 const CONTEXT_CRITICAL_THRESHOLD = 0.90
@@ -88,6 +90,7 @@ export function ChatInput({
   const answerElicitation = useSessionsStore((s) => s.answerElicitation)
   const addDraftSnippet = useSessionsStore((s) => s.addDraftSnippet)
   const removeDraftSnippet = useSessionsStore((s) => s.removeDraftSnippet)
+  const setDraftSnippets = useSessionsStore((s) => s.setDraftSnippets)
 
   const queuedMessage = useSessionsStore((s) => s.queuedMessages[activeSession.id] ?? null)
 
@@ -97,9 +100,10 @@ export function ChatInput({
   } = mention
 
   // ─── Message history navigation ──────────────────────────────────────────
-  const historyIndexRef = useRef(-1) // -1 = not browsing history
-  const savedDraftRef = useRef('')   // draft saved before entering history
-  const lastEscapeRef = useRef(0)    // timestamp of last Escape — for double-Esc detection
+  const historyIndexRef = useRef(-1)                            // -1 = not browsing history
+  const savedDraftRef = useRef('')                              // draft text saved before entering history
+  const savedDraftSnippetsRef = useRef<SnippetAttachment[]>([]) // draft snippet chips saved before entering history
+  const lastEscapeRef = useRef(0)                               // timestamp of last Escape — for double-Esc detection
 
   const userMessages = useMemo(
     () => activeSession.messages
@@ -119,6 +123,7 @@ export function ChatInput({
   useEffect(() => {
     historyIndexRef.current = -1
     savedDraftRef.current = ''
+    savedDraftSnippetsRef.current = []
     lastEscapeRef.current = 0
   }, [activeSession.id])
 
@@ -167,7 +172,7 @@ export function ChatInput({
           const lines = text.split('\n')
           const firstLine = (lines.find((l) => l.trim()) ?? '').slice(0, 80)
           addDraftSnippet(activeSession.id, {
-            id: `snippet-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            id: generateSnippetId(),
             content: text,
             firstLine: file.name ? `${file.name}: ${firstLine}` : firstLine,
             lineCount: lines.length,
@@ -190,7 +195,7 @@ export function ChatInput({
       const lines = text.split('\n')
       const firstLine = (lines.find((l) => l.trim()) ?? '').slice(0, 80)
       addDraftSnippet(activeSession.id, {
-        id: `snippet-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        id: generateSnippetId(),
         content: text, firstLine, lineCount: lines.length, charCount: text.length,
       })
       return
@@ -225,9 +230,18 @@ export function ChatInput({
   }, [activeSession.id, setDraftInput, dispatch, textareaRef])
 
   const restoreEntry = useCallback((entry: { text: string; images: string[] }) => {
-    setDraftInput(activeSession.id, entry.text)
+    // Re-inflate <snippet> blocks as chips so raw XML doesn't appear in the textarea.
+    const chips = parseSnippets(entry.text).map((p) => ({
+      id: generateSnippetId(),
+      content: p.content,
+      firstLine: p.firstLine.slice(0, 80),
+      lineCount: p.lines,
+      charCount: p.content.length,
+    }))
+    setDraftSnippets(activeSession.id, chips)
+    setDraftInput(activeSession.id, stripAttachmentBlocks(entry.text))
     dispatch({ type: 'SET_IMAGES', images: entry.images })
-  }, [activeSession.id, setDraftInput, dispatch])
+  }, [activeSession.id, setDraftInput, setDraftSnippets, dispatch])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (handleMentionKeyDown(e)) return
@@ -266,6 +280,7 @@ export function ChatInput({
       e.preventDefault()
       if (historyIndexRef.current === -1) {
         savedDraftRef.current = input
+        savedDraftSnippetsRef.current = snippets
         historyIndexRef.current = userMessages.length - 1
       } else if (historyIndexRef.current > 0) {
         historyIndexRef.current--
@@ -280,13 +295,15 @@ export function ChatInput({
         restoreEntry(userMessages[historyIndexRef.current])
       } else {
         historyIndexRef.current = -1
-        restoreEntry({ text: savedDraftRef.current, images: [] })
+        setDraftSnippets(activeSession.id, savedDraftSnippetsRef.current)
+        setDraftInput(activeSession.id, savedDraftRef.current)
+        dispatch({ type: 'SET_IMAGES', images: [] })
       }
       return
     }
 
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend() }
-  }, [handleMentionKeyDown, showSlash, mention.showMention, slashCommands, slashFilter, slashIndex, handleSlashSelect, dispatch, onSend, isRunning, stopSession, activeSession.id, userMessages, input, restoreEntry])
+  }, [handleMentionKeyDown, showSlash, mention.showMention, slashCommands, slashFilter, slashIndex, handleSlashSelect, dispatch, onSend, isRunning, stopSession, activeSession.id, userMessages, input, snippets, setDraftInput, setDraftSnippets, restoreEntry])
 
   // ─── Queue editing ─────────────────────────────────────────────────────────
 

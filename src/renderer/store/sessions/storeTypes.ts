@@ -50,6 +50,7 @@ export interface SessionsState {
   addDraftSnippet: (sessionId: string, snippet: SnippetAttachment) => void
   removeDraftSnippet: (sessionId: string, snippetId: string) => void
   clearDraftSnippets: (sessionId: string) => void
+  setDraftSnippets: (sessionId: string, snippets: SnippetAttachment[]) => void
   addDiffComment: (sessionId: string, comment: DiffComment) => void
   updateDiffComment: (sessionId: string, commentId: string, text: string) => void
   removeDiffComment: (sessionId: string, commentId: string) => void

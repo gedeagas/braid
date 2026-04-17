@@ -19,6 +19,7 @@ export const createDraftActions: StateCreator<
     | 'addDraftSnippet'
     | 'removeDraftSnippet'
     | 'clearDraftSnippets'
+    | 'setDraftSnippets'
     | 'addDiffComment'
     | 'updateDiffComment'
     | 'removeDiffComment'
@@ -106,6 +107,18 @@ export const createDraftActions: StateCreator<
     set((s) => {
       const { [sessionId]: _, ...rest } = s.draftSnippets
       return { draftSnippets: rest }
+    })
+  },
+
+  setDraftSnippets: (sessionId, snippets) => {
+    set((s) => {
+      const next = { ...s.draftSnippets }
+      if (snippets.length === 0) {
+        delete next[sessionId]
+      } else {
+        next[sessionId] = snippets.slice(0, 5)
+      }
+      return { draftSnippets: next }
     })
   },
 
