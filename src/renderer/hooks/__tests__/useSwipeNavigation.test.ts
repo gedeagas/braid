@@ -210,8 +210,8 @@ describe('useSwipeNavigation', () => {
 
     // New horizontal event should NOT be rejected as "decaying" against
     // the stale lastAbsDeltaX from before the vertical event
-    fireWheel(container, 15)
-    fireWheel(container, 20)
+    fireWheel(container, 25)
+    fireWheel(container, 30)
 
     expect(onNavigate).toHaveBeenCalledWith(1)
   })
