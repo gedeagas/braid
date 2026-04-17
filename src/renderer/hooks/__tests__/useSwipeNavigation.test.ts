@@ -1,0 +1,129 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { renderHook } from '@testing-library/react'
+import { useSwipeNavigation } from '../useSwipeNavigation'
+
+function fireWheel(el: HTMLElement, deltaX: number, deltaY = 0, ctrlKey = false) {
+  el.dispatchEvent(new WheelEvent('wheel', { deltaX, deltaY, ctrlKey, bubbles: true }))
+}
+
+describe('useSwipeNavigation', () => {
+  let container: HTMLDivElement
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    container = document.createElement('div')
+    document.body.appendChild(container)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    document.body.removeChild(container)
+  })
+
+  it('navigates forward on rightward swipe exceeding threshold', () => {
+    const onNavigate = vi.fn()
+    const ref = { current: container }
+    renderHook(() => useSwipeNavigation(ref, onNavigate))
+
+    fireWheel(container, 20)
+    fireWheel(container, 20)
+    fireWheel(container, 15)
+
+    expect(onNavigate).toHaveBeenCalledWith(1)
+  })
+
+  it('navigates backward on leftward swipe exceeding threshold', () => {
+    const onNavigate = vi.fn()
+    const ref = { current: container }
+    renderHook(() => useSwipeNavigation(ref, onNavigate))
+
+    fireWheel(container, -20)
+    fireWheel(container, -20)
+    fireWheel(container, -15)
+
+    expect(onNavigate).toHaveBeenCalledWith(-1)
+  })
+
+  it('does not navigate for small deltas below threshold', () => {
+    const onNavigate = vi.fn()
+    const ref = { current: container }
+    renderHook(() => useSwipeNavigation(ref, onNavigate))
+
+    fireWheel(container, 10)
+    fireWheel(container, 10)
+
+    expect(onNavigate).not.toHaveBeenCalled()
+  })
+
+  it('ignores predominantly vertical gestures', () => {
+    const onNavigate = vi.fn()
+    const ref = { current: container }
+    renderHook(() => useSwipeNavigation(ref, onNavigate))
+
+    // deltaY is large relative to deltaX, fails horizontal ratio check
+    fireWheel(container, 30, 30)
+    fireWheel(container, 30, 30)
+
+    expect(onNavigate).not.toHaveBeenCalled()
+  })
+
+  it('ignores pinch-to-zoom (ctrlKey)', () => {
+    const onNavigate = vi.fn()
+    const ref = { current: container }
+    renderHook(() => useSwipeNavigation(ref, onNavigate))
+
+    fireWheel(container, 60, 0, true)
+
+    expect(onNavigate).not.toHaveBeenCalled()
+  })
+
+  it('enforces cooldown after navigation', () => {
+    const onNavigate = vi.fn()
+    const ref = { current: container }
+    renderHook(() => useSwipeNavigation(ref, onNavigate))
+
+    // First swipe triggers
+    fireWheel(container, 60)
+    expect(onNavigate).toHaveBeenCalledTimes(1)
+
+    // Immediate second swipe is blocked by cooldown
+    fireWheel(container, 60)
+    expect(onNavigate).toHaveBeenCalledTimes(1)
+
+    // After cooldown expires, new swipe triggers
+    vi.advanceTimersByTime(400)
+    fireWheel(container, 30)
+    fireWheel(container, 30)
+    expect(onNavigate).toHaveBeenCalledTimes(2)
+  })
+
+  it('resets accumulator after gesture pause', () => {
+    const onNavigate = vi.fn()
+    const ref = { current: container }
+    renderHook(() => useSwipeNavigation(ref, onNavigate))
+
+    // Partial swipe (30 < 50 threshold)
+    fireWheel(container, 30)
+
+    // Pause exceeds reset timer (200ms)
+    vi.advanceTimersByTime(300)
+
+    // New partial swipe should not combine with previous
+    fireWheel(container, 30)
+
+    expect(onNavigate).not.toHaveBeenCalled()
+  })
+
+  it('ignores tiny deltaX values (noise)', () => {
+    const onNavigate = vi.fn()
+    const ref = { current: container }
+    renderHook(() => useSwipeNavigation(ref, onNavigate))
+
+    // deltaX < 2 is filtered out
+    for (let i = 0; i < 100; i++) {
+      fireWheel(container, 1)
+    }
+
+    expect(onNavigate).not.toHaveBeenCalled()
+  })
+})
