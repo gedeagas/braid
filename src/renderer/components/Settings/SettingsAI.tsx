@@ -1,17 +1,12 @@
-import { useReducer } from 'react'
+import { useReducer, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/store/ui'
 import { flash } from '@/store/flash'
 import { dialog, claudeCli } from '@/lib/ipc'
-import { SegmentedControl } from '@/components/shared/SegmentedControl'
 import { Toggle } from '@/components/shared/Toggle'
-import type { ModelId } from '@/types'
-
-const MODELS: { value: ModelId; label: string }[] = [
-  { value: 'claude-sonnet-4-6', label: 'Sonnet 4.6' },
-  { value: 'claude-opus-4-6', label: 'Opus 4.6' },
-  { value: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5' },
-]
+import { MODELS } from '@/components/Center/ModelSelector'
+import { getEffortLevelsForModel, EFFORT_LEVELS, DEFAULT_EFFORT, supportsEffort } from '@/lib/constants'
+import type { ModelId, EffortLevel } from '@/types'
 
 /**
  * Text-input + useReducer pattern for settings with multiple draft fields.
@@ -53,12 +48,17 @@ export function SettingsAI() {
   const setDefaultModel = useUIStore((s) => s.setDefaultModel)
   const defaultExtendedContext = useUIStore((s) => s.defaultExtendedContext)
   const setDefaultExtendedContext = useUIStore((s) => s.setDefaultExtendedContext)
+  const defaultEffortLevel = useUIStore((s) => s.defaultEffortLevel)
+  const setDefaultEffortLevel = useUIStore((s) => s.setDefaultEffortLevel)
   const apiKey = useUIStore((s) => s.apiKey)
   const setApiKey = useUIStore((s) => s.setApiKey)
   const systemPromptSuffix = useUIStore((s) => s.systemPromptSuffix)
   const setSystemPromptSuffix = useUIStore((s) => s.setSystemPromptSuffix)
   const claudeCodeExecutablePath = useUIStore((s) => s.claudeCodeExecutablePath)
   const setClaudeCodeExecutablePath = useUIStore((s) => s.setClaudeCodeExecutablePath)
+
+  const effortSupported = supportsEffort(defaultModel)
+  const supportedLevels = useMemo(() => getEffortLevelsForModel(defaultModel), [defaultModel])
 
   const [state, dispatch] = useReducer(reducer, {
     showKey: false,
@@ -95,11 +95,15 @@ export function SettingsAI() {
     <div className="settings-section">
       <div className="settings-field settings-field--row">
         <label className="settings-label">{t('ai.defaultModel')}</label>
-        <SegmentedControl
-          options={MODELS.map(({ value, label }) => ({ value, label }))}
+        <select
+          className="settings-select"
           value={defaultModel}
-          onChange={(v) => setDefaultModel(v as ModelId)}
-        />
+          onChange={(e) => setDefaultModel(e.target.value as ModelId)}
+        >
+          {MODELS.map((m) => (
+            <option key={m.id} value={m.id}>{m.label}</option>
+          ))}
+        </select>
       </div>
 
       <div className="settings-field settings-field--row">
@@ -112,6 +116,26 @@ export function SettingsAI() {
           onChange={setDefaultExtendedContext}
         />
       </div>
+
+      {effortSupported && (
+        <div className="settings-field settings-field--row">
+          <div>
+            <label className="settings-label">{t('ai.defaultEffort')}</label>
+            <span className="settings-hint">{t('ai.defaultEffortHint')}</span>
+          </div>
+          <div className="model-effort-pills">
+            {EFFORT_LEVELS.filter((l) => supportedLevels.includes(l.id)).map((l) => (
+              <button
+                key={l.id}
+                className={`model-effort-pill${l.id === defaultEffortLevel ? ' model-effort-pill--active' : ''}`}
+                onClick={() => setDefaultEffortLevel(l.id)}
+              >
+                {t(`ai.effort_${l.id}`, l.label)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="settings-field">
         <label className="settings-label">{t('ai.systemPrompt')}</label>
