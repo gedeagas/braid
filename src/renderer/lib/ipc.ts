@@ -201,6 +201,18 @@ export const scripts = {
   detect: (projectPath: string, forceRefresh?: boolean) => api().scripts.detect(projectPath, forceRefresh) as Promise<import('@/types').RunCommand[]>,
 }
 
+export type { CreateFailureReason as CreateTemplateFailureReason, CreateTemplateResult, TemplateLogEntry } from '@shared/templates'
+import type { TemplateKind, CreateTemplateArgs, CreateTemplateResult, TemplateLogEntry } from '@shared/templates'
+
+export const templates = {
+  create: (kind: TemplateKind, args: CreateTemplateArgs) =>
+    api().templates.create(kind, args) as Promise<CreateTemplateResult>,
+  cancel: () => api().templates.cancel() as Promise<boolean>,
+  /** Subscribe to per-line stdout/stderr from the active scaffold. Returns unsubscribe. */
+  onLog: (handler: (entry: TemplateLogEntry) => void): (() => void) =>
+    (api().templates.onLog as (h: (e: TemplateLogEntry) => void) => () => void)(handler),
+}
+
 export const files = {
   getIgnored: (worktreePath: string, patterns?: string[]) => api().files.getIgnored(worktreePath, patterns),
   getFileInfo: (worktreePath: string, paths: string[]) => api().files.getFileInfo(worktreePath, paths),

@@ -131,5 +131,5 @@ export function extractRepoSlug(normalizedUrl: string): string {
   return normalizedUrl
 }
 
-/** Validate a project name for filesystem safety. */
-export const PROJECT_NAME_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/
+/** Validate a project name for filesystem safety. Source of truth: src/shared/projectName.ts */
+export { PROJECT_NAME_REGEX } from '@shared/projectName'

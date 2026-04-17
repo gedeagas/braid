@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer, webFrame } from 'electron'
+import type { TemplateKind, CreateTemplateArgs, CreateTemplateResult, TemplateLogEntry } from '../shared/templates'
 
 const api = {
   // Storage
@@ -156,6 +157,24 @@ const api = {
   scripts: {
     detect: (projectPath: string, forceRefresh?: boolean) =>
       ipcRenderer.invoke('scripts:detect', projectPath, forceRefresh) as Promise<Array<{ id: string; name: string; command: string; source: string }>>,
+  },
+
+  // Templates - scaffold new projects from built-in starter templates
+  templates: {
+    create: (kind: TemplateKind, args: CreateTemplateArgs) =>
+      ipcRenderer.invoke('templates:create', kind, args) as Promise<CreateTemplateResult>,
+    cancel: () => ipcRenderer.invoke('templates:cancel') as Promise<boolean>,
+    /**
+     * Subscribe to per-line stdout/stderr from the active scaffold.
+     * Returns an unsubscribe function.
+     */
+    onLog: (handler: (entry: TemplateLogEntry) => void) => {
+      const listener = (_: Electron.IpcRendererEvent, entry: TemplateLogEntry) => handler(entry)
+      ipcRenderer.on('templates:log', listener)
+      return () => {
+        ipcRenderer.off('templates:log', listener)
+      }
+    },
   },
 
   // Window Capture

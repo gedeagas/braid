@@ -17,6 +17,9 @@
     "paths": {
       "@/*": [
         "src/renderer/*"
+      ],
+      "@shared/*": [
+        "src/shared/*"
       ]
     }
   },
@@ -24,6 +27,7 @@
     "src/renderer/**/*.ts",
     "src/renderer/**/*.tsx",
     "src/renderer/locales/**/*.json",
+    "src/shared/**/*.ts",
     "package.json"
   ]
 }
