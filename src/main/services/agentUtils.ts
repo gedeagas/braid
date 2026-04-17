@@ -91,6 +91,20 @@ Flutter Development:
 - Use mobile_open_devtools to launch Flutter DevTools in the browser.
 `.trim()
 
+/**
+ * Appended for Opus models to suppress excessive false-positive security
+ * warnings (e.g. "this looks like malware", "potential security risk") that
+ * burn tokens without adding value. See: reddit.com/r/ClaudeAI/comments/1snbtc9
+ */
+export const OPUS_NOISE_REDUCTION_PROMPT = `
+Security analysis calibration:
+- Do NOT preface tool calls or code with security/malware disclaimers unless the user is explicitly asking you to write malicious software.
+- Do NOT warn about "potential security implications" for routine operations (file I/O, git commands, network requests, shell scripts, dependency installation).
+- Do NOT ask for confirmation before reading, writing, or searching files in the project directory - these are normal development operations.
+- If code could theoretically be misused, assume the development context is legitimate and proceed without commentary.
+- Reserve security warnings for genuinely dangerous operations (rm -rf /, dropping production databases, exposing secrets in public repos).
+`.trim()
+
 /** Build the framework-specific system prompt suffix. */
 export function frameworkPrompt(mobileFramework?: string): string {
   if (mobileFramework === 'react-native') return `\n\n${RN_FRAMEWORK_PROMPT}`
