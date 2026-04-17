@@ -2,7 +2,7 @@
 
 export type SessionStatus = 'idle' | 'running' | 'waiting_input' | 'error' | 'inactive'
 export type ModelId = 'claude-opus-4-7' | 'claude-sonnet-4-6' | 'claude-opus-4-6' | 'claude-haiku-4-5-20251001'
-export type EffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+export type EffortLevel = 'low' | 'medium' | 'high' | 'max'
 export type SettingsSection = string
 
 export interface PendingQuestion {

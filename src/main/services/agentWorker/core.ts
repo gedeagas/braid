@@ -35,6 +35,25 @@ function needsExtendedContextBeta(model: string): boolean {
   return model.includes('sonnet')
 }
 
+/**
+ * The SDK throws a generic "Claude Code process exited with code N" when the
+ * underlying CLI dies. The actionable reason is in stderr (e.g. invalid
+ * --effort value, Claude.ai subscriber limits). Merge the last few stderr
+ * lines into the message so the renderer can show a useful error.
+ */
+export function enrichExitError(rawMessage: string, stderrBuffer: string): string {
+  if (!/process exited with code/i.test(rawMessage)) return rawMessage
+  const trimmed = stderrBuffer.trim()
+  if (!trimmed) return rawMessage
+  // Strip "Error:" prefix from each stderr line - the renderer adds its own.
+  const lastLines = trimmed
+    .split('\n')
+    .slice(-3)
+    .map((line) => line.replace(/^\s*Error:\s*/i, ''))
+    .join('\n')
+  return `${lastLines} (${rawMessage})`
+}
+
 export class AgentWorker {
   private sessions = new Map<string, SessionState>()
   private pendingUserInput = new Map<string, { resolve: (result: Record<string, unknown>) => void }>()
@@ -150,6 +169,8 @@ export class AgentWorker {
     this.sessions.set(sessionId, state)
     this.applyApiKey(settings)
 
+    let stderrBuffer = ''
+
     try {
       this.log(sessionId, 'Creating query...')
 
@@ -176,6 +197,13 @@ export class AgentWorker {
         ? [CONTEXT_1M_BETA] : undefined
       const effort = effortLevel && effortLevel !== 'high' ? effortLevel : undefined
 
+      const captureStderr = (data: string): void => {
+        const trimmed = data.trim()
+        if (!trimmed) return
+        stderrBuffer = (stderrBuffer + '\n' + trimmed).slice(-2000)
+        this.log(sessionId, 'stderr:', trimmed)
+      }
+
       const q = queryFn({
         prompt: promptParam as Parameters<typeof queryFn>[0]['prompt'],
         options: {
@@ -191,7 +219,7 @@ export class AgentWorker {
           plugins: loadPlugins(worktreePath),
           abortController,
           systemPrompt: { type: 'preset', preset: 'claude_code', append: systemAppend },
-          stderr: (data: string) => { this.log(sessionId, 'stderr:', data.trim()) },
+          stderr: captureStderr,
           ...(effort ? { effort } : {}),
           ...(betas ? { betas } : {}),
           ...(mcpServers ? { mcpServers } : {}),
@@ -266,9 +294,10 @@ export class AgentWorker {
         this.emit({ type: 'done', sessionId })
         return
       }
-      const message = err instanceof Error ? err.message : String(err)
-      this.log(sessionId, 'ERROR:', message)
+      const rawMessage = err instanceof Error ? err.message : String(err)
+      this.log(sessionId, 'ERROR:', rawMessage)
       if (err instanceof Error && err.stack) this.log(sessionId, 'Stack:', err.stack)
+      const message = enrichExitError(rawMessage, stderrBuffer)
       const errorKind = classifyError(message)
       this.emit({
         type: 'error', sessionId, message, errorKind,
@@ -334,6 +363,8 @@ export class AgentWorker {
     const abortController = new AbortController()
     state.abortController = abortController
 
+    let stderrBuffer = ''
+
     try {
       // Re-inject all MCP servers on resume (user-configured + Braid + mobile)
       const braidEmit = (e: BraidAction): void => { this.emit({ ...e, sessionId }) }
@@ -372,6 +403,13 @@ export class AgentWorker {
         ? [CONTEXT_1M_BETA] : undefined
       const effort = state.effortLevel && state.effortLevel !== 'high' ? state.effortLevel : undefined
 
+      const captureStderr = (data: string): void => {
+        const trimmed = data.trim()
+        if (!trimmed) return
+        stderrBuffer = (stderrBuffer + '\n' + trimmed).slice(-2000)
+        this.log(sessionId, 'resume stderr:', trimmed)
+      }
+
       const q = queryFn({
         prompt: promptParam as Parameters<typeof queryFn>[0]['prompt'],
         options: {
@@ -386,7 +424,7 @@ export class AgentWorker {
           settingSources: ['user', 'project', 'local'],
           plugins: loadPlugins(state.cwd),
           abortController,
-          stderr: (data: string) => { this.log(sessionId, 'resume stderr:', data.trim()) },
+          stderr: captureStderr,
           ...(effort ? { effort } : {}),
           ...(betas ? { betas } : {}),
           ...(mcpServers ? { mcpServers } : {}),
@@ -426,9 +464,10 @@ export class AgentWorker {
         this.emit({ type: 'done', sessionId })
         return
       }
-      const errMsg = err instanceof Error ? err.message : String(err)
-      this.log(sessionId, 'RESUME ERROR:', errMsg)
+      const rawErrMsg = err instanceof Error ? err.message : String(err)
+      this.log(sessionId, 'RESUME ERROR:', rawErrMsg)
       if (err instanceof Error && err.stack) this.log(sessionId, 'Stack:', err.stack)
+      const errMsg = enrichExitError(rawErrMsg, stderrBuffer)
 
       if (errMsg.includes('text content blocks must be non-empty')) {
         this.log(sessionId, 'Corrupt session history detected - falling back to fresh session')

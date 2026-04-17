@@ -44,13 +44,11 @@ export const EFFORT_LEVELS: readonly { id: EffortLevel; label: string }[] = [
   { id: 'low', label: 'Low' },
   { id: 'medium', label: 'Med' },
   { id: 'high', label: 'High' },
-  { id: 'xhigh', label: 'XHigh' },
   { id: 'max', label: 'Max' },
 ]
 
 /** Returns the effort levels supported by a given model. */
 export function getEffortLevelsForModel(model: string): EffortLevel[] {
-  if (model.includes('opus') && model.includes('4-7')) return ['low', 'medium', 'high', 'xhigh', 'max']
   if (model.includes('opus') || model.includes('sonnet')) return ['low', 'medium', 'high', 'max']
   return [] // Haiku and others: effort not supported
 }
