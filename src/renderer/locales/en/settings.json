@@ -17,7 +17,8 @@
     "apps": "Apps",
     "jira": "Jira",
     "analytics": "Analytics",
-    "about": "About"
+    "about": "About",
+    "experimental": "Experimental"
   },
   "groups": {
     "general": "General",
@@ -25,6 +26,7 @@
     "claudeAgent": "Claude",
     "appearance": "Appearance",
     "integrations": "Integrations",
+    "experimental": "Experimental",
     "projects": "Projects"
   },
   "general": {
@@ -378,6 +380,13 @@
     "contributorsThanks": "Thanks to all the people who have contributed to Braid.",
     "createdBy": "The Braid Project",
     "builtIn": "Built in Tokyo, Japan"
+  },
+  "experimental": {
+    "hint": "Features in development. May be unstable or change without notice.",
+    "features": "Experimental features",
+    "magicKeyboard": "Magic Keyboard",
+    "magicKeyboardHint": "Two-finger horizontal swipe on the trackpad to switch between tabs. Swipe left for the next tab, swipe right for the previous tab.",
+    "otherFlags": "Other Flags"
   },
   "claudeSkills": {
     "title": "Skills",

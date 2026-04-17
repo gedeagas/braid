@@ -44,6 +44,7 @@
 @import './settings-mcp.css';
 @import './settings-notifications.css';
 @import './settings-about.css';
+@import './settings-experimental.css';
 @import './mission-control.css';
 @import './toasts.css';
 @import './flash-toasts.css';

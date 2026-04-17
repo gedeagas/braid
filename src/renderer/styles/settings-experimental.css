@@ -1,0 +1,198 @@
+/* ── Experimental settings page ──────────────────────────────────────── */
+
+.experimental-layout {
+  display: flex;
+  gap: var(--space-16);
+  margin-top: var(--space-12);
+  min-height: 220px;
+}
+
+.experimental-feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 200px;
+  max-width: 240px;
+  flex-shrink: 0;
+}
+
+.experimental-feature-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--duration-fast), border-color var(--duration-fast);
+  text-align: left;
+}
+
+.experimental-feature-item:hover {
+  background: var(--bg-hover);
+}
+
+.experimental-feature-item--active {
+  background: var(--bg-active);
+  border-color: var(--border-active);
+}
+
+.experimental-feature-name {
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.experimental-detail {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  min-width: 0;
+}
+
+.experimental-preview {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  background: var(--bg-sunken);
+}
+
+.experimental-detail-hint {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ── Swipe gesture preview animation ────────────────────────────────── */
+
+.swipe-preview {
+  display: flex;
+  flex-direction: column;
+  height: 180px;
+  user-select: none;
+}
+
+/* Mini tab bar */
+.swipe-preview-tabs {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-8);
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+.swipe-preview-tab {
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  color: var(--text-tertiary);
+  padding: var(--space-4) var(--space-12);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  flex: 1;
+  text-align: center;
+  transition: color var(--duration-normal);
+}
+
+.swipe-preview-tab--active {
+  color: var(--text-primary);
+}
+
+/* Sliding underline indicator */
+.swipe-preview-indicator {
+  position: absolute;
+  bottom: 0;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+  /* Start at tab 2 (33.33% from left, 33.33% wide) */
+  left: 33.33%;
+  width: 33.33%;
+  animation: swipe-indicator 4s ease-in-out infinite;
+}
+
+@keyframes swipe-indicator {
+  0%, 10%  { left: 33.33%; } /* Resting on tab 2 */
+  25%, 40% { left: 66.66%; } /* Slide to tab 3 */
+  55%, 70% { left: 0%;      } /* Slide all the way to tab 1 */
+  85%, 100% { left: 33.33%; } /* Back to tab 2 */
+}
+
+/* Content area */
+.swipe-preview-content {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Two finger dots */
+.swipe-preview-fingers {
+  display: flex;
+  gap: 10px;
+  animation: swipe-fingers 4s ease-in-out infinite;
+  z-index: 1;
+}
+
+.swipe-preview-finger {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  opacity: 0.8;
+  animation: swipe-finger-pulse 4s ease-in-out infinite;
+}
+
+@keyframes swipe-fingers {
+  0%, 8%   { transform: translateX(0);     opacity: 0; }
+  12%      { transform: translateX(0);     opacity: 1; }
+  25%      { transform: translateX(40px);  opacity: 1; }
+  30%      { transform: translateX(40px);  opacity: 0; }
+  45%      { transform: translateX(0);     opacity: 0; }
+  50%      { transform: translateX(0);     opacity: 1; }
+  70%      { transform: translateX(-60px); opacity: 1; }
+  75%      { transform: translateX(-60px); opacity: 0; }
+  80%, 100% { transform: translateX(0);    opacity: 0; }
+}
+
+@keyframes swipe-finger-pulse {
+  0%, 8%   { transform: scale(0.8); }
+  12%      { transform: scale(1); }
+  25%      { transform: scale(1); }
+  30%      { transform: scale(0.8); }
+  45%      { transform: scale(0.8); }
+  50%      { transform: scale(1); }
+  70%      { transform: scale(1); }
+  75%      { transform: scale(0.8); }
+  100%     { transform: scale(0.8); }
+}
+
+/* Trail showing swipe direction */
+.swipe-preview-trail {
+  position: absolute;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+  opacity: 0;
+  animation: swipe-trail 4s ease-in-out infinite;
+}
+
+@keyframes swipe-trail {
+  0%, 10%  { width: 0; left: 50%; opacity: 0; }
+  12%      { width: 0; left: 50%; opacity: 0.3; }
+  25%      { width: 60px; left: 50%; opacity: 0.15; }
+  30%      { width: 60px; left: 50%; opacity: 0; }
+  48%      { width: 0; left: 50%; opacity: 0; }
+  50%      { width: 0; left: 50%; opacity: 0.3; }
+  70%      { width: 80px; left: calc(50% - 80px); opacity: 0.15; }
+  75%      { width: 80px; left: calc(50% - 80px); opacity: 0; }
+  100%     { opacity: 0; }
+}

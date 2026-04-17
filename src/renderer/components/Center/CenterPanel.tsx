@@ -35,11 +35,13 @@ export const CenterPanel = memo(function CenterPanel() {
   const createSession = useSessionsStore((s) => s.createSession)
   const sessionsLoaded = useSessionsStore((s) => s.sessionsLoaded)
 
+  const magicKeyboard = useUIStore((s) => s.magicKeyboard)
   const panelRef = useRef<HTMLDivElement>(null)
+  const noRef = useRef<HTMLDivElement>(null)
   const handleSwipeNavigate = useCallback((direction: -1 | 1) => {
     navigateTab(direction)
   }, [])
-  useSwipeNavigation(panelRef, handleSwipeNavigate)
+  useSwipeNavigation(magicKeyboard ? panelRef : noRef, handleSwipeNavigate)
 
   const changesOpen = useUIStore(selectChangesOpen)
   const showFile = activeCenterView?.type === 'file'
