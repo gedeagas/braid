@@ -63,9 +63,9 @@ export async function hydratePersistedSessions(): Promise<{
       status: (p.status === 'running' || p.status === 'waiting_input' || p.status === 'error') ? 'idle' : p.status as AgentSession['status'],
       model: p.model as ModelId,
       thinkingEnabled: p.thinkingEnabled,
-      extendedContext: (p as Record<string, unknown>).extendedContext as boolean ?? false,
-      effortLevel: (p as Record<string, unknown>).effortLevel as EffortLevel ?? DEFAULT_EFFORT,
-      planModeEnabled: (p as Record<string, unknown>).planModeEnabled as boolean ?? false,
+      extendedContext: ((p as Record<string, unknown>).extendedContext as boolean | undefined) ?? false,
+      effortLevel: ((p as Record<string, unknown>).effortLevel as EffortLevel | undefined) ?? DEFAULT_EFFORT,
+      planModeEnabled: ((p as Record<string, unknown>).planModeEnabled as boolean | undefined) ?? false,
       messages: p.messages.filter(
         (m) => !(m.role === 'system' && typeof m.content === 'string' && m.content.startsWith('Error: Session process exited'))
       ),

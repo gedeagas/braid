@@ -42,9 +42,7 @@ export function ModelSelector({ currentModelId, extendedContext, effortLevel, on
   const showToggle = supportsExtendedContext(currentModelId) && onToggleExtendedContext
   const supportedEffort = useMemo(() => getEffortLevelsForModel(currentModelId), [currentModelId])
   const showEffort = supportedEffort.length > 0 && onChangeEffortLevel
-  const effortLabel = effortLevel && effortLevel !== DEFAULT_EFFORT
-    ? EFFORT_LEVELS.find((l) => l.id === effortLevel)?.label
-    : null
+  const effortBadge = effortLevel && effortLevel !== DEFAULT_EFFORT ? effortLevel : null
 
   const toggle = useCallback(() => setIsOpen((v) => !v), [])
   const close = useCallback(() => setIsOpen(false), [])
@@ -90,7 +88,7 @@ export function ModelSelector({ currentModelId, extendedContext, effortLevel, on
           <span className="chip-icon"><IconSparkle /></span>
           <span>{currentModel.label}</span>
           {show1M && <span className="model-1m-badge">1M</span>}
-          {effortLabel && <span className="model-effort-badge">{effortLabel}</span>}
+          {effortBadge && <span className="model-effort-badge">{t(`effort_${effortBadge}`, effortBadge)}</span>}
           <IconChevronDown size={10} style={{ opacity: 0.5 }} />
         </button>
       </Tooltip>
@@ -140,7 +138,7 @@ export function ModelSelector({ currentModelId, extendedContext, effortLevel, on
                         className={`model-effort-pill${l.id === (effortLevel ?? DEFAULT_EFFORT) ? ' model-effort-pill--active' : ''}`}
                         onClick={() => onChangeEffortLevel!(l.id)}
                       >
-                        {l.label}
+                        {t(`effort_${l.id}`, l.label)}
                       </button>
                     ))}
                   </div>

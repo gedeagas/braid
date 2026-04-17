@@ -109,6 +109,6 @@ export function createNotificationDeps(): NotificationDeps {
     getProjectCount: () => useProjectsStore.getState().projects.length,
     addToast: (toast) => useToastsStore.getState().addToast(toast),
     desktopNotify: (sessionId, type, name) =>
-      ipc.agent.notify(sessionId, type as 'done' | 'error' | 'waiting_input', name)
+      ipc.agent.notify(sessionId, type, name)
   }
 }
