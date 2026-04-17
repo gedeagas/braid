@@ -5,6 +5,25 @@ All notable changes to Braid are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [26.1.7] - 2026-04-17
+
+### Added
+
+- show per-file diff stats (additions/deletions) in changes panel (#59)
+- add Next.js template scaffolding with live validation (#58)
+- chat input keyboard shortcuts, EPIPE hardening, Opus noise reduction (#57)
+- chat input keyboard shortcuts, EPIPE hardening, snippet history restore (#50)
+
+### Fixed
+
+- remove xhigh level and improve error context (#56)
+
+### Contributors
+
+Thanks to [@gedeagas](https://github.com/gedeagas), [@hanifnr](https://github.com/hanifnr) for their contributions to this release!
+
+---
+
 ## [26.1.6] - 2026-04-17
 
 ### Added
