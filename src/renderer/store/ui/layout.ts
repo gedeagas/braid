@@ -116,6 +116,7 @@ export interface LayoutSlice {
   skipDeleteWorktreeConfirm: boolean
   newlyAddedWorktreeId: string | null
   missionControlActive: boolean
+  projectAvatarVisible: boolean
   sidebarPanelOpen: boolean
   rightPanelVisible: boolean
   sidebarWidth: number
@@ -145,6 +146,7 @@ export interface LayoutSlice {
   setSkipDeleteWorktreeConfirm: (skip: boolean) => void
   setNewlyAddedWorktreeId: (id: string | null) => void
   prependWorktreeToOrder: (projectId: string, worktreeId: string) => void
+  setProjectAvatarVisible: (visible: boolean) => void
   toggleMissionControl: () => void
   setMissionControlActive: (active: boolean) => void
   toggleSidebar: () => void
@@ -199,6 +201,7 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
   activeCenterViewByWorktree: {},
   skipDeleteWorktreeConfirm: localStorage.getItem(SK.skipDeleteWorktreeConfirm) === 'true',
   newlyAddedWorktreeId: null,
+  projectAvatarVisible: loadBool(SK.projectAvatarVisible, true),
   missionControlActive: loadBool(SK.missionControlActive, false),
   sidebarPanelOpen: (() => {
     const saved = localStorage.getItem(SK.sidebarPanelOpen)
@@ -451,6 +454,11 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
     orders[projectId] = [worktreeId, ...current.filter((id) => id !== worktreeId)]
     saveWorktreeOrders(orders)
     set({ worktreeOrders: orders, newlyAddedWorktreeId: worktreeId })
+  },
+
+  setProjectAvatarVisible: (visible) => {
+    localStorage.setItem(SK.projectAvatarVisible, String(visible))
+    set({ projectAvatarVisible: visible })
   },
 
   toggleMissionControl: () => {

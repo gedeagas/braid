@@ -100,6 +100,7 @@ function ProjectGroupRow({
 }: ProjectGroupRowProps) {
   const isExpanded = useUIStore((s) => s.expandedProjects.has(project.id))
   const toggleProject = useUIStore((s) => s.toggleProject)
+  const projectAvatarVisible = useUIStore((s) => s.projectAvatarVisible)
   const pinnedWorktrees = useUIStore((s) => s.pinnedWorktrees)
   const worktreeOrders = useUIStore((s) => s.worktreeOrders)
   const reorderWorktreesById = useUIStore((s) => s.reorderWorktreesById)
@@ -197,7 +198,7 @@ function ProjectGroupRow({
         }}
       >
         <span className={`project-chevron ${isExpanded ? 'expanded' : ''}`}>&#9654;</span>
-        <ProjectAvatar name={project.name} avatarUrl={project.avatarUrl} />
+        {projectAvatarVisible && <ProjectAvatar name={project.name} avatarUrl={project.avatarUrl} />}
         <span className="project-name">{project.name}</span>
 
         {!isExpanded && notifyStatus && (
