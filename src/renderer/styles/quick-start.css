@@ -116,3 +116,84 @@
   border-color: var(--accent-tint-22);
   background: transparent;
 }
+
+/* ── Live name validation feedback ───────────────────────────────────────── */
+
+.quick-start-feedback {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 18px;
+  margin-top: var(--space-4);
+  font-size: var(--text-base);
+  line-height: 1.3;
+}
+
+/* Reserve the row height even when empty so the layout doesn't jump. */
+.quick-start-feedback--none::before {
+  content: '';
+  display: block;
+  height: 14px;
+}
+
+.quick-start-feedback--error {
+  color: var(--red, #e5484d);
+}
+
+.quick-start-feedback--checking {
+  color: var(--text-tertiary);
+}
+
+.quick-start-feedback--ok {
+  color: var(--green, #30a46c);
+}
+
+.quick-start-feedback__icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--green, #30a46c);
+}
+
+.quick-start-feedback__pulse {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: currentColor;
+  opacity: 0.7;
+  animation: quick-start-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes quick-start-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50%      { opacity: 0.85; transform: scale(1.05); }
+}
+
+/* ── Path preview (shown when name + location resolve to a full path) ─── */
+
+.quick-start-path-preview {
+  margin-top: var(--space-4);
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-6);
+  font-size: var(--text-base);
+  color: var(--text-tertiary);
+}
+
+.quick-start-path-preview__label {
+  flex-shrink: 0;
+}
+
+.quick-start-path-preview__value {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1px var(--space-4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}

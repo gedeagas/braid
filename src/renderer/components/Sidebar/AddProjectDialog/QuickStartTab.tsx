@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import * as ipc from '@/lib/ipc'
 import type { CreateTemplateFailureReason } from '@/lib/ipc'
 import { useTranslation } from 'react-i18next'
 import { Button, Spinner } from '@/components/ui'
-import { IconFile, IconBolt } from '@/components/shared/icons'
-import { PROJECT_NAME_REGEX } from './types'
+import { IconFile, IconBolt, IconCheckmark } from '@/components/shared/icons'
+import { validateProjectName } from '@shared/projectName'
+import type { ProjectNameIssue } from '@shared/projectName'
 import type { State, Action } from './types'
 
 interface Props {
@@ -18,6 +19,9 @@ interface Props {
 
 /** Cap to bound memory + DOM size; 200 lines is plenty of context. */
 const MAX_LOG_LINES = 200
+
+/** Debounce for the async path-exists check, ms. */
+const PATH_CHECK_DEBOUNCE_MS = 300
 
 /** Map a typed failure reason from the main process to an i18n key. */
 function errorKeyFor(reason: CreateTemplateFailureReason): string | null {
@@ -40,12 +44,77 @@ function errorKeyFor(reason: CreateTemplateFailureReason): string | null {
   }
 }
 
+/** Async path-existence status. */
+type PathStatus = 'idle' | 'checking' | 'exists' | 'available'
+
+/** Join a parent dir and a child name into a normalized POSIX path preview. */
+function joinPath(parentDir: string, name: string): string {
+  return `${parentDir.replace(/\/+$/, '')}/${name}`
+}
+
 export function QuickStartTab({ state, dispatch, existingPaths, addProject, onClose, onActionRef }: Props) {
   const { t } = useTranslation('sidebar')
 
   // Rolling buffer of the most recent scaffold log lines. Cleared when not creating.
   const [logLines, setLogLines] = useState<string[]>([])
   const logContainerRef = useRef<HTMLDivElement>(null)
+
+  // Async path-exists result; synchronous name validation is derived via useMemo.
+  const [pathStatus, setPathStatus] = useState<PathStatus>('idle')
+
+  // Trimmed inputs drive all validation so trailing spaces don't desync the UI.
+  const trimmedName = state.projectName.trim()
+  const trimmedLocation = state.projectLocation.trim()
+
+  // Synchronous validation: pure, so it's cheap to run on every render.
+  const nameIssue = useMemo<ProjectNameIssue | null>(
+    () => (trimmedName === '' ? null : validateProjectName(trimmedName)),
+    [trimmedName],
+  )
+
+  const fullPath = useMemo(
+    () => (trimmedLocation && trimmedName ? joinPath(trimmedLocation, trimmedName) : ''),
+    [trimmedLocation, trimmedName],
+  )
+
+  // Monotonic sequence to discard stale async pathExists results when the
+  // user types faster than the debounce or the filesystem replies.
+  const checkSeqRef = useRef(0)
+
+  // Debounced async pathExists check. Runs only when the name is otherwise
+  // valid and a location is set; otherwise the UI shows the sync error.
+  useEffect(() => {
+    const hasLocation = trimmedLocation !== ''
+    const nameOk = trimmedName !== '' && nameIssue === null
+    if (!hasLocation || !nameOk) {
+      checkSeqRef.current++ // invalidate any in-flight check
+      setPathStatus('idle')
+      return
+    }
+    // Collision with an already-added project is synchronous; surface it first.
+    if (existingPaths.has(fullPath)) {
+      checkSeqRef.current++
+      setPathStatus('exists')
+      return
+    }
+    setPathStatus('checking')
+    const seq = ++checkSeqRef.current
+    const timer = setTimeout(async () => {
+      let exists = false
+      try {
+        exists = await ipc.files.pathExists(fullPath)
+      } catch {
+        // On IPC error, degrade to 'available' — the submit-time check is
+        // authoritative. We don't want a transient failure to block the user.
+        exists = false
+      }
+      if (seq !== checkSeqRef.current) return // stale
+      setPathStatus(exists ? 'exists' : 'available')
+    }, PATH_CHECK_DEBOUNCE_MS)
+    return () => {
+      clearTimeout(timer)
+    }
+  }, [fullPath, trimmedLocation, trimmedName, nameIssue, existingPaths])
 
   // Subscribe to scaffold log lines only while a Next.js scaffold is running.
   useEffect(() => {
@@ -68,8 +137,7 @@ export function QuickStartTab({ state, dispatch, existingPaths, addProject, onCl
     }
   }, [state.creating, state.selectedTemplate])
 
-  // Auto-scroll to the bottom whenever new lines arrive so the user sees
-  // the freshest output without needing to scroll manually.
+  // Auto-scroll to the bottom whenever new lines arrive.
   useEffect(() => {
     const el = logContainerRef.current
     if (el) el.scrollTop = el.scrollHeight
@@ -81,49 +149,40 @@ export function QuickStartTab({ state, dispatch, existingPaths, addProject, onCl
   }
 
   const handleCancel = async () => {
-    // Fire-and-forget; the awaited create() call will resolve with reason='cancelled'.
     try {
       await ipc.templates.cancel()
     } catch {
-      // Cancel is best-effort; if IPC fails we still let the pending promise resolve.
+      // best-effort
     }
   }
 
   const handleCreate = async () => {
-    const name = state.projectName.trim()
-    if (!name) {
-      dispatch({ type: 'setError', error: t('quickStartNameEmpty') })
+    // Final submit-time guard. The live feedback already prevents this path
+    // for the common cases, but we re-check defensively (user may submit via
+    // Enter before live state catches up, and path could appear between
+    // debounce and click).
+    if (nameIssue !== null) {
+      dispatch({ type: 'setError', error: issueMessage(nameIssue) })
       return
     }
-    if (!PROJECT_NAME_REGEX.test(name)) {
-      dispatch({ type: 'setError', error: t('quickStartNameInvalid') })
-      return
-    }
-    const location = state.projectLocation.trim()
-    if (!location) {
+    if (trimmedLocation === '') {
       dispatch({ type: 'setError', error: t('quickStartLocationEmpty') })
       return
     }
-    const parentDir = location.replace(/\/+$/, '')
-    const fullPath = `${parentDir}/${name}`
     const exists = await ipc.files.pathExists(fullPath)
-    if (exists) {
+    if (exists || existingPaths.has(fullPath)) {
       dispatch({ type: 'setError', error: t('quickStartPathExists') })
-      return
-    }
-    if (existingPaths.has(fullPath)) {
-      dispatch({ type: 'setError', error: t('projectAlreadyAdded') })
       return
     }
 
     dispatch({ type: 'startCreating' })
     try {
       if (state.selectedTemplate === 'nextjs') {
-        // create-next-app scaffolds the project dir AND runs `git init`,
-        // so we don't need ipc.git.initRepo for this template.
-        const res = await ipc.templates.create('nextjs', { parentDir, projectName: name })
+        const res = await ipc.templates.create('nextjs', {
+          parentDir: trimmedLocation.replace(/\/+$/, ''),
+          projectName: trimmedName,
+        })
         if (!res.success) {
-          // Log the raw stderr for devtools inspection; the UI shows a classified message.
           if (res.stderr) {
             // eslint-disable-next-line no-console
             console.warn('[QuickStart] create-next-app stderr:', res.stderr)
@@ -144,6 +203,34 @@ export function QuickStartTab({ state, dispatch, existingPaths, addProject, onCl
     }
   }
 
+  /** Translate a synchronous name-issue into a localized string. */
+  function issueMessage(issue: ProjectNameIssue): string {
+    switch (issue.reason) {
+      case 'empty':
+        return t('quickStartNameEmpty')
+      case 'too-long':
+        return t('quickStartNameTooLong')
+      case 'starts-with-dot':
+        return t('quickStartNameStartsWithDot')
+      case 'starts-with-underscore':
+        return t('quickStartNameStartsWithUnderscore')
+      case 'starts-with-hyphen':
+        return t('quickStartNameStartsWithHyphen')
+      case 'uppercase':
+        return t('quickStartNameUppercase')
+      case 'has-space':
+        return t('quickStartNameHasSpace')
+      case 'invalid-chars':
+        return issue.detail
+          ? t('quickStartNameInvalidChar', { char: issue.detail })
+          : t('quickStartNameInvalidCharsGeneric')
+      case 'reserved':
+        return t('quickStartNameReserved', { name: issue.detail ?? '' })
+      default:
+        return t('quickStartNameInvalid')
+    }
+  }
+
   useEffect(() => {
     onActionRef.current = handleCreate
     return () => { onActionRef.current = null }
@@ -151,18 +238,67 @@ export function QuickStartTab({ state, dispatch, existingPaths, addProject, onCl
 
   const isCreatingNextjs = state.creating && state.selectedTemplate === 'nextjs'
 
+  // What to render under the name input. Order: sync error > path collision
+  // > async check in flight > success. Empty input shows nothing.
+  type Feedback =
+    | { kind: 'none' }
+    | { kind: 'error'; text: string }
+    | { kind: 'checking'; text: string }
+    | { kind: 'ok'; text: string }
+
+  const feedback: Feedback = (() => {
+    if (trimmedName === '') return { kind: 'none' }
+    if (nameIssue !== null) return { kind: 'error', text: issueMessage(nameIssue) }
+    if (pathStatus === 'exists') return { kind: 'error', text: t('quickStartPathExists') }
+    if (pathStatus === 'checking') return { kind: 'checking', text: t('quickStartNameChecking') }
+    if (pathStatus === 'available') return { kind: 'ok', text: t('quickStartNameAvailable') }
+    return { kind: 'none' }
+  })()
+
+  const nameFieldId = 'quick-start-name'
+  const nameFeedbackId = 'quick-start-name-feedback'
+  const showPreview = nameIssue === null && trimmedName !== '' && trimmedLocation !== ''
+
   return (
     <>
       <div className="dialog-field">
-        <label>{t('quickStartNameLabel')}</label>
+        <label htmlFor={nameFieldId}>{t('quickStartNameLabel')}</label>
         <input
+          id={nameFieldId}
           value={state.projectName}
           onChange={(e) => dispatch({ type: 'setProjectName', value: e.target.value })}
           onKeyDown={(e) => { if (e.key === 'Enter' && !state.creating) handleCreate() }}
           placeholder={t('quickStartNamePlaceholder')}
           disabled={state.creating}
           autoFocus
+          autoComplete="off"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          aria-invalid={feedback.kind === 'error'}
+          aria-describedby={feedback.kind !== 'none' ? nameFeedbackId : undefined}
         />
+        {/*
+          Live validation feedback. role="status" + aria-live="polite" means
+          screen readers announce changes without interrupting, and only after
+          the user has typed something (we render nothing for empty input).
+        */}
+        <div
+          id={nameFeedbackId}
+          className={`quick-start-feedback quick-start-feedback--${feedback.kind}`}
+          role="status"
+          aria-live="polite"
+        >
+          {feedback.kind === 'checking' && (
+            <span className="quick-start-feedback__pulse" aria-hidden="true" />
+          )}
+          {feedback.kind === 'ok' && (
+            <span className="quick-start-feedback__icon" aria-hidden="true">
+              <IconCheckmark size={12} />
+            </span>
+          )}
+          {feedback.kind !== 'none' && <span>{feedback.text}</span>}
+        </div>
       </div>
 
       <div className="dialog-field">
@@ -178,6 +314,12 @@ export function QuickStartTab({ state, dispatch, existingPaths, addProject, onCl
             {t('browse', { ns: 'common' })}
           </Button>
         </div>
+        {showPreview && (
+          <div className="quick-start-path-preview">
+            <span className="quick-start-path-preview__label">{t('quickStartPathPreviewLabel')}</span>
+            <code className="quick-start-path-preview__value" title={fullPath}>{fullPath}</code>
+          </div>
+        )}
       </div>
 
       <div className="dialog-field">
@@ -237,9 +379,6 @@ export function QuickStartTab({ state, dispatch, existingPaths, addProject, onCl
             )}
           </div>
           {isCreatingNextjs && logLines.length > 0 && (
-            // Visual-only progress log. No aria-live: the npm install stream
-            // would spam screen readers. The "Creating..." label above is the
-            // real status announcement for assistive tech.
             <div
               ref={logContainerRef}
               className="dialog-scaffold-log"
