@@ -82,6 +82,7 @@ export interface AgentSession {
   pendingPlanApproval?: PendingPlanApproval
   pendingToolPermission?: PendingToolPermission
   pendingAuthError?: PendingAuthError
+  pendingNetworkError?: boolean
   pendingElicitation?: PendingElicitation
   slashCommands?: SlashCommand[]
   linkedWorktrees?: LinkedWorktree[]

@@ -48,6 +48,7 @@
 @import './mission-control.css';
 @import './toasts.css';
 @import './flash-toasts.css';
+@import './offline-banner.css';
 @import './update-dialog.css';
 @import './shortcuts.css';
 @import './quick-open.css';

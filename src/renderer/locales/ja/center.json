@@ -313,5 +313,11 @@
   "turnStats.input": "入力",
   "turnStats.output": "出力",
   "turnStats.cacheRead": "キャッシュ読取",
-  "turnStats.cacheWrite": "キャッシュ書込"
+  "turnStats.cacheWrite": "キャッシュ書込",
+
+  "offlineHint": "オフラインです",
+  "offlineSendDisabled": "オフライン中はメッセージを送信できません",
+  "networkError": "接続が切断されました",
+  "networkErrorMessage": "インターネット接続を確認してから再試行してください。",
+  "networkRetry": "再試行"
 }

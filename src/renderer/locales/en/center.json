@@ -330,5 +330,11 @@
   "turnStats.input": "Input",
   "turnStats.output": "Output",
   "turnStats.cacheRead": "Cache read",
-  "turnStats.cacheWrite": "Cache write"
+  "turnStats.cacheWrite": "Cache write",
+
+  "offlineHint": "You're offline",
+  "offlineSendDisabled": "Can't send messages while offline",
+  "networkError": "Connection lost",
+  "networkErrorMessage": "Check your internet connection and try again.",
+  "networkRetry": "Retry"
 }

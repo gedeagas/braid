@@ -18,7 +18,7 @@ import { usePrCacheStore, type PrStatus } from '@/store/prCache'
 import { useProjectsStore } from '@/store/projects'
 import { IconRefresh } from '@/components/shared/icons'
 import { DEFAULT_PR_PROMPT } from '@/lib/prPrompt'
-import { isOnline, onOnline } from '@/lib/online'
+import { isOnline, onOnline, useOnlineStatus } from '@/lib/online'
 import { JiraSection } from './JiraSection'
 import { PushErrorPanel } from './PushErrorPanel'
 import {
@@ -132,6 +132,7 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
 
   const lastOwnFetchRef = useRef(0)
   const { t } = useTranslation('right')
+  const online = useOnlineStatus()
 
   // Current upstream tracking branch used as the sync-status base branch
   const upstream = useProjectsStore((s) => {
@@ -407,8 +408,10 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
 
       {lastUpdated && (
         <div className="checks-footer">
-          <span className="checks-last-updated">
-            {t('updatedAt', { time: lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) })}
+          <span className={`checks-last-updated${!online ? ' checks-last-updated--stale' : ''}`}>
+            {!online
+              ? t('cachedData', { ns: 'common' })
+              : t('updatedAt', { time: lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) })}
           </span>
         </div>
       )}

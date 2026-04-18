@@ -310,5 +310,6 @@
   "openIn": "Open",
   "copyPath": "Copy path",
   "revealInFinder": "Reveal in Finder",
-  "openInApp": "Open in {{app}}"
+  "openInApp": "Open in {{app}}",
+  "offlineDisabled": "Unavailable while offline"
 }

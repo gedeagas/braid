@@ -310,5 +310,6 @@
   "openIn": "開く",
   "copyPath": "パスをコピー",
   "revealInFinder": "Finderで表示",
-  "openInApp": "{{app}}で開く"
+  "openInApp": "{{app}}で開く",
+  "offlineDisabled": "オフライン中は利用できません"
 }

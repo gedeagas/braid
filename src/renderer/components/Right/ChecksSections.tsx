@@ -16,6 +16,7 @@ import {
   IconCheckCircle, IconXCircleStatus, IconSkipCircle, IconSpinner, IconDeployment,
 } from '@/components/shared/icons'
 import { SectionHeader, StatusDot } from '@/components/ui'
+import { useOnlineStatus } from '@/lib/online'
 import { JiraSection } from './JiraSection'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -121,6 +122,7 @@ export function GitStatusSection({
   markingReady: boolean; onMarkReady: () => void
 }) {
   const { t } = useTranslation('right')
+  const online = useOnlineStatus()
 
   const rows: Array<{
     label: string
@@ -132,7 +134,7 @@ export function GitStatusSection({
     label: pr.isDraft ? t('prIsDraft') : t('readyForReview'),
     state: pr.isDraft ? 'pending' : 'success',
     action: pr.isDraft
-      ? { label: markingReady ? t('markingReady') : t('markReady'), onClick: onMarkReady, variant: 'primary', disabled: markingReady }
+      ? { label: markingReady ? t('markingReady') : t('markReady'), onClick: onMarkReady, variant: 'primary', disabled: !online || markingReady }
       : undefined,
   })
 
@@ -148,7 +150,7 @@ export function GitStatusSection({
     rows.push({
       label: t('commitsBehind', { count: sync.behindCount, baseBranch: sync.baseBranch ?? 'main' }),
       state: 'pending',
-      action: { label: pulling ? t('pulling') : t('pull'), onClick: onPull, disabled: pulling },
+      action: { label: pulling ? t('pulling') : t('pull'), onClick: onPull, disabled: !online || pulling },
     })
   }
 
@@ -156,7 +158,7 @@ export function GitStatusSection({
     rows.push({
       label: t('commitsAhead', { count: sync.aheadCount, baseBranch: sync.baseBranch ?? 'main' }),
       state: 'pending',
-      action: { label: pushing ? t('pushing') : t('push'), onClick: onPush, disabled: pushing },
+      action: { label: pushing ? t('pushing') : t('push'), onClick: onPush, disabled: !online || pushing },
     })
   }
 
@@ -338,6 +340,7 @@ export function ChecksNoPr({ creatingPr, onCreatePr, jiraResult }: {
   jiraResult: JiraResult | null | 'error'
 }) {
   const { t } = useTranslation('right')
+  const online = useOnlineStatus()
   return (
     <div className="checks-view">
       <div className="checks-body">
@@ -348,7 +351,7 @@ export function ChecksNoPr({ creatingPr, onCreatePr, jiraResult }: {
             label={creatingPr ? t('creatingPr') : t('createPr')}
             onClick={onCreatePr}
             variant="primary"
-            disabled={creatingPr}
+            disabled={!online || creatingPr}
           />
         </div>
         <JiraSection result={jiraResult} />

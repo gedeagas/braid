@@ -11,7 +11,7 @@ import { PushBanner } from './PushBanner'
 import { ChangeFileList } from './ChangeFileList'
 import { useChangesActions } from './useChangesActions'
 import { useUIStore } from '@/store/ui'
-import { isOnline, onOnline } from '@/lib/online'
+import { isOnline, onOnline, useOnlineStatus } from '@/lib/online'
 
 interface Props {
   worktreePath: string
@@ -19,6 +19,7 @@ interface Props {
 
 export function ChangesView({ worktreePath }: Props) {
   const { t } = useTranslation('right')
+  const online = useOnlineStatus()
   const [state, dispatch] = useReducer(changesReducer, initialState, (base) => ({
     ...base,
     ...restoreCommitDraft(worktreePath),
@@ -110,11 +111,11 @@ export function ChangesView({ worktreePath }: Props) {
         </span>
         <div className="panel-toolbar-actions">
           {showPullBtn && (
-            <Tooltip content={t('pullNoUpstream')} position="bottom" disabled={!noUpstream}>
+            <Tooltip content={!online ? t('offlineDisabled') : t('pullNoUpstream')} position="bottom" disabled={online && !noUpstream}>
               <button
                 className={pullBtnClass}
                 onClick={actions.handlePull}
-                disabled={state.pullState === 'pulling' || state.pullState === 'success' || noUpstream}
+                disabled={!online || state.pullState === 'pulling' || state.pullState === 'success' || noUpstream}
               >
                 {pullLabel}
               </button>

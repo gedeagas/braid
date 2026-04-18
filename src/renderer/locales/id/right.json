@@ -310,5 +310,6 @@
   "openIn": "Buka",
   "copyPath": "Salin jalur",
   "revealInFinder": "Tampilkan di Finder",
-  "openInApp": "Buka di {{app}}"
+  "openInApp": "Buka di {{app}}",
+  "offlineDisabled": "Tidak tersedia saat offline"
 }

@@ -26,6 +26,7 @@ import { Spinner } from '@/components/ui'
 import { flash } from '@/store/flash'
 import { useTranslation } from 'react-i18next'
 import { useMentionAutocomplete } from './useMentionAutocomplete'
+import { useOnlineStatus } from '@/lib/online'
 import { BranchBar } from './BranchBar'
 
 const DiffReviewView = lazy(() => import('./DiffReviewView').then((m) => ({ default: m.DiffReviewView })))
@@ -146,6 +147,7 @@ export function ChatView({ worktreePath = '' }: ChatViewProps) {
   )
 
   const { t } = useTranslation('center')
+  const online = useOnlineStatus()
 
   const setDraftInputForMention = useCallback((value: string) => {
     if (activeSession) setDraftInput(activeSession.id, value)
@@ -376,7 +378,8 @@ export function ChatView({ worktreePath = '' }: ChatViewProps) {
     )
   }
 
-  const canSend = (input.trim().length > 0 || attachedImages.length > 0 || mention.attachedFiles.length > 0 || diffCommentCount > 0) &&
+  const canSend = online &&
+    (input.trim().length > 0 || attachedImages.length > 0 || mention.attachedFiles.length > 0 || diffCommentCount > 0) &&
     !(isRunning && queuedMessage !== null) && !isWaitingInput
 
   return (
