@@ -103,7 +103,7 @@ export function initAgentEventListener(): () => void {
         store.getState().setActiveSession(sessionId)
 
         // Keep in sync with ModelId in types/index.ts
-        const validModels: string[] = ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5-20251001']
+        const validModels: string[] = ['claude-opus-4-7', 'claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5-20251001']
         if (model && validModels.includes(model)) {
           store.getState().updateModel(newId, model as ModelId)
         }
