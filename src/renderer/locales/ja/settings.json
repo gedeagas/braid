@@ -39,6 +39,8 @@
     "experimentalCapture": "ウィンドウキャプチャタブ",
     "bottomTerminal": "ボトムターミナルストリップ",
     "bottomTerminalHint": "ターミナルをすべてのパネルの下に移動し、ウィンドウ全幅に表示します。",
+    "bigTerminal": "ビッグターミナルモード",
+    "bigTerminalHint": "⌘⇧T でセンターパネルにフルターミナルを開きます。タブと履歴は再起動時に復元されます。",
     "noVirtualization": "仮想化なしチャットリスト",
     "noVirtualizationHint": "Virtuosoの代わりにすべてのメッセージをスクロール可能なdivに描画します。ツールグループ展開時のスクロールのガタつきを修正する可能性があります。",
     "replayTour": "機能ツアーを再生",

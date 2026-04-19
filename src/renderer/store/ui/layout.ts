@@ -8,6 +8,7 @@ export type CenterView =
   | { type: 'session'; sessionId: string }
   | { type: 'file'; path: string }
   | { type: 'changes' }
+  | { type: 'terminal'; terminalId: string }
 
 export type ToolMessageStyle = 'funny' | 'boring'
 export type ActivityIndicatorStyle = 'spinner' | 'dots' | 'waveform'
@@ -257,6 +258,8 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
       tabOrder: restoredTabOrder,
       dirtyFilePaths: new Set(),
     })
+    // Hydrate persisted big terminal tabs for the target worktree (idempotent)
+    get().restoreBigTerminalsForWorktree(worktreeId)
     // Close any active web app via the apps slice's own action
     // (avoids cross-slice mutation of activeWebAppId)
     get().closeWebApp()

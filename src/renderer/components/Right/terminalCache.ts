@@ -43,11 +43,22 @@ export function nextTabId(): string {
 
 let globalPtyRoutingInitialized = false
 
+/** External PTY finder — lets other caches (e.g. bigTerminalCache) participate in routing. */
+export type PtyFinder = (ptyId: string) => { term: Terminal } | undefined
+const finders: PtyFinder[] = []
+export function registerPtyFinder(finder: PtyFinder): void {
+  finders.push(finder)
+}
+
 /** Search all cached terminals across all worktrees to find a tab by ptyId */
-function findTabByPtyId(ptyId: string): TermTab | undefined {
+function findTabByPtyId(ptyId: string): { term: Terminal } | undefined {
   for (const cached of terminalCache.values()) {
     const tab = cached.tabs.find((t) => t.ptyId === ptyId)
     if (tab) return tab
+  }
+  for (const finder of finders) {
+    const found = finder(ptyId)
+    if (found) return found
   }
   return undefined
 }

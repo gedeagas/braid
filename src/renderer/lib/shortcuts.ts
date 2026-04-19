@@ -24,6 +24,7 @@ export const SHORTCUTS: ShortcutDef[] = [
 
   // Navigation
   { id: 'newChatTab', symbols: ['⌘', 'T'], category: 'navigation' },
+  { id: 'newBigTerminal', symbols: ['⌘', '⇧', 'T'], category: 'navigation' },
   { id: 'closeTab', symbols: ['⌘', 'W'], category: 'navigation' },
   { id: 'previousTab', symbols: ['⌘', '⇧', '['], category: 'navigation' },
   { id: 'nextTab', symbols: ['⌘', '⇧', ']'], category: 'navigation' },

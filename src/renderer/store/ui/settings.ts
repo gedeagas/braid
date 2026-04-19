@@ -80,6 +80,7 @@ export interface SettingsSlice {
   bottomTerminalEnabled: boolean
   experimentalNoVirtualization: boolean
   magicTrackpad: boolean
+  bigTerminalEnabled: boolean
 
   // Onboarding
   onboardingComplete: boolean
@@ -127,6 +128,7 @@ export interface SettingsSlice {
   setBottomTerminalEnabled: (v: boolean) => void
   setExperimentalNoVirtualization: (v: boolean) => void
   setMagicTrackpad: (v: boolean) => void
+  setBigTerminalEnabled: (v: boolean) => void
 }
 
 export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> = (set) => ({
@@ -193,6 +195,7 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   bottomTerminalEnabled: loadBool(SK.bottomTerminalEnabled, false),
   experimentalNoVirtualization: loadBool(SK.noVirtualization, true),
   magicTrackpad: loadBool(SK.magicTrackpad, false),
+  bigTerminalEnabled: loadBool(SK.bigTerminalEnabled, false),
 
   onboardingComplete: loadBool(SK.onboardingComplete, false),
   featureTourComplete: loadBool(SK.featureTourComplete, false),
@@ -290,6 +293,7 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   setBottomTerminalEnabled: (v) => { localStorage.setItem(SK.bottomTerminalEnabled, String(v)); set({ bottomTerminalEnabled: v }) },
   setExperimentalNoVirtualization: (v) => { localStorage.setItem(SK.noVirtualization, String(v)); set({ experimentalNoVirtualization: v }) },
   setMagicTrackpad: (v) => { localStorage.setItem(SK.magicTrackpad, String(v)); set({ magicTrackpad: v }) },
+  setBigTerminalEnabled: (v) => { localStorage.setItem(SK.bigTerminalEnabled, String(v)); set({ bigTerminalEnabled: v }) },
   setOnboardingComplete: (v) => { localStorage.setItem(SK.onboardingComplete, String(v)); set({ onboardingComplete: v }) },
   setFeatureTourComplete: (v) => { localStorage.setItem(SK.featureTourComplete, String(v)); set({ featureTourComplete: v }) },
   setSimulatorTourComplete: (v) => { localStorage.setItem(SK.simulatorTourComplete, String(v)); set({ simulatorTourComplete: v }) },

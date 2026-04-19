@@ -39,6 +39,8 @@
     "experimentalCapture": "Tab Tangkap Jendela",
     "bottomTerminal": "Strip terminal bawah",
     "bottomTerminalHint": "Memindahkan terminal ke bawah semua panel sehingga mencakup lebar jendela penuh.",
+    "bigTerminal": "Mode Terminal Besar",
+    "bigTerminalHint": "Jalankan terminal penuh di panel tengah dengan ⌘⇧T. Tab dan riwayat dipulihkan saat restart.",
     "noVirtualization": "Daftar chat tanpa virtualisasi",
     "noVirtualizationHint": "Merender semua pesan dalam div scrollable biasa pengganti Virtuoso. Dapat memperbaiki scroll yang tersendat pada grup tool yang besar.",
     "replayTour": "Putar Ulang Tur Fitur",
