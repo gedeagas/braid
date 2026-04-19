@@ -56,6 +56,8 @@
   "sessionTabs": "Tab sesi dan file",
   "unsavedChanges": "Perubahan belum disimpan",
   "newChat": "Chat Baru",
+  "newBigTerminal": "Terminal Baru",
+  "bigTerminalDisabledHint": "Aktifkan Big Terminal Mode di Pengaturan → Eksperimental",
   "newChatDefault": "Chat Baru",
   "modelTooltip": "Pilih model",
   "defaultModelPin": "Atur sebagai default",

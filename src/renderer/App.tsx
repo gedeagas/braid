@@ -26,6 +26,8 @@ import { UpdateDialog } from '@/components/shared/UpdateDialog'
 import { useAutoUpdate } from '@/hooks/useAutoUpdate'
 import { initUpdateListeners } from '@/store/updater'
 import { getUnifiedTabs, activateTab, navigateTab, activateTabByIndex } from '@/lib/tabNavigation'
+import { flash } from '@/store/flash'
+import { disposeBigTerminal } from '@/components/Center/bigTerminalCache'
 
 export default function App() {
   const autoUpdate = useAutoUpdate()
@@ -169,6 +171,17 @@ export default function App() {
         setActiveCenterView({ type: 'session', sessionId })
       },
 
+      newBigTerminal: () => {
+        const ui = useUIStore.getState()
+        if (!ui.bigTerminalEnabled) {
+          flash('info', i18n.t('bigTerminalDisabledHint', { ns: 'center' }))
+          return
+        }
+        if (!ui.selectedWorktreeId) return
+        const id = ui.createBigTerminal(ui.selectedWorktreeId)
+        ui.setActiveCenterView({ type: 'terminal', terminalId: id })
+      },
+
       closeCurrentTab: () => {
         const ui = useUIStore.getState()
         const wtId = ui.selectedWorktreeId ?? ''
@@ -178,6 +191,7 @@ export default function App() {
         if (acv?.type === 'session') activeKey = `s:${acv.sessionId}`
         else if (acv?.type === 'file') activeKey = `f:${acv.path}`
         else if (acv?.type === 'changes') activeKey = 'changes'
+        else if (acv?.type === 'terminal') activeKey = `t:${acv.terminalId}`
 
         if (!activeKey) {
           appWindow.closeWindow()
@@ -204,6 +218,10 @@ export default function App() {
           ui.closeFile(activeKey.slice(2))
         } else if (activeKey === 'changes') {
           ui.closeChanges()
+        } else if (activeKey.startsWith('t:')) {
+          const terminalId = activeKey.slice(2)
+          disposeBigTerminal(terminalId)
+          if (ui.selectedWorktreeId) ui.closeBigTerminal(ui.selectedWorktreeId, terminalId)
         }
 
         // Navigate to adjacent tab (or close window if none remain)

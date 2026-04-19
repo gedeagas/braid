@@ -3,18 +3,18 @@ import { useTranslation } from 'react-i18next'
 import { useSessionsStore, useSessionsForWorktree, getLastActiveForWorktree } from '@/store/sessions'
 import { useUIStore, selectChangesOpen, selectActiveCenterView } from '@/store/ui'
 import { useProjectsStore } from '@/store/projects'
-import { FileIcon } from '@react-symbols/icons/utils'
 import { useDragScroll } from '@/hooks/useDragScroll'
 import { useTabReorder } from '@/hooks/useTabReorder'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { ContextMenu, type ContextMenuItem } from '@/components/shared/ContextMenu'
-import { IconDiff } from '@/components/shared/icons'
+import { IconTerminal } from '@/components/shared/icons'
 import type { AgentSession } from '@/types'
 import { getSessionTitle } from '@/lib/sessionTitle'
-
-function getFileName(path: string): string {
-  return path.split('/').pop() ?? path
-}
+import { disposeBigTerminal } from './bigTerminalCache'
+import { SessionTab } from './SessionTab'
+import { TerminalTab } from './TerminalTab'
+import { FileTab } from './FileTab'
+import { ChangesTab } from './ChangesTab'
 
 interface TabBarLocal {
   editingId: string | null
@@ -46,6 +46,26 @@ export function SessionTabBar() {
   const tabOrder = useUIStore((s) => s.tabOrder)
   const setTabOrder = useUIStore((s) => s.setTabOrder)
 
+  // Big terminal tabs — raw-data select, transform with useMemo (useShallow-safe).
+  const bigTerminalsRaw = useUIStore((s) => s.bigTerminalsByWorktree)
+  const bigTerminals = useMemo(
+    () => (selectedWorktreeId ? (bigTerminalsRaw[selectedWorktreeId] ?? []) : []),
+    [bigTerminalsRaw, selectedWorktreeId]
+  )
+  const createBigTerminal = useUIStore((s) => s.createBigTerminal)
+  const closeBigTerminalAction = useUIStore((s) => s.closeBigTerminal)
+  const renameBigTerminal = useUIStore((s) => s.renameBigTerminal)
+  const bigTerminalEnabled = useUIStore((s) => s.bigTerminalEnabled)
+
+  const closeTerminalFully = useCallback(
+    (terminalId: string) => {
+      if (!selectedWorktreeId) return
+      disposeBigTerminal(terminalId)
+      closeBigTerminalAction(selectedWorktreeId, terminalId)
+    },
+    [selectedWorktreeId, closeBigTerminalAction]
+  )
+
   const [local, setLocal] = useReducer(
     (s: TabBarLocal, a: Partial<TabBarLocal>) => ({ ...s, ...a }),
     { editingId: null, editValue: '', menu: null } as TabBarLocal
@@ -63,23 +83,21 @@ export function SessionTabBar() {
     el.scrollLeft += e.deltaY || e.deltaX
   }, [])
 
-  // ── Unified tab order ─────────────────────────────────────────────────────
-  // Reconcile persisted order with live sessions + files.
-  // Keys: `s:${sessionId}` for sessions, `f:${filePath}` for files.
-  // New entries not yet in the stored order are appended at the end;
-  // stale entries (closed session/file) are dropped.
+  // Unified tab order: reconciles persisted tabOrder with live sessions/files/changes/terminals.
+  // New keys are appended; stale keys dropped. Keys: s:<id>, f:<path>, changes, t:<id>.
   const unifiedTabs = useMemo(() => {
     const sessionKeys = sessions.map((s) => `s:${s.id}`)
     const fileKeys = openFilePaths.map((p) => `f:${p}`)
     const changesKeys = changesOpen ? ['changes'] : []
-    const allValid = new Set([...sessionKeys, ...fileKeys, ...changesKeys])
+    const terminalKeys = bigTerminals.map((bt) => `t:${bt.id}`)
+    const all = [...sessionKeys, ...fileKeys, ...changesKeys, ...terminalKeys]
+    const allValid = new Set(all)
     const valid = tabOrder.filter((k) => allValid.has(k))
-    const newEntries = [...sessionKeys, ...fileKeys, ...changesKeys].filter((k) => !valid.includes(k))
+    const newEntries = all.filter((k) => !valid.includes(k))
     return [...valid, ...newEntries]
-  }, [tabOrder, sessions, openFilePaths, changesOpen])
+  }, [tabOrder, sessions, openFilePaths, changesOpen, bigTerminals])
 
-  // Persist the reconciled order whenever it diverges from the stored tabOrder.
-  // This handles session/file creation and deletion without extra bookkeeping.
+  // Persist reconciled order whenever it diverges.
   useEffect(() => {
     if (selectedWorktreeId && JSON.stringify(unifiedTabs) !== JSON.stringify(tabOrder)) {
       setTabOrder(unifiedTabs)
@@ -100,7 +118,7 @@ export function SessionTabBar() {
   const { dragKey, overKey, onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd } =
     useTabReorder(unifiedTabs, handleReorder)
 
-  // Auto-switch activeSessionId when worktree changes — restore last active tab
+  // Auto-switch activeSessionId on worktree change — restore last active tab
   useEffect(() => {
     if (!selectedWorktreeId || sessions.length === 0) return
     const activeInWorktree = sessions.some((s) => s.id === activeSessionId)
@@ -108,9 +126,6 @@ export function SessionTabBar() {
       const lastActive = getLastActiveForWorktree(selectedWorktreeId)
       const target = sessions.find((s) => s.id === lastActive) ?? sessions[0]
       setActiveSession(target.id)
-      // Sync per-worktree center view so the tab indicator matches.
-      // Read fresh to avoid adding activeCenterView to deps (would cause
-      // unnecessary re-runs on every tab click).
       const currentView = useUIStore.getState().activeCenterViewByWorktree[selectedWorktreeId] ?? null
       if (!currentView || currentView.type === 'session') {
         setActiveCenterView({ type: 'session', sessionId: target.id })
@@ -141,19 +156,6 @@ export function SessionTabBar() {
     setLocal({ editingId: null })
   }, [])
 
-  const handleRenameKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        e.preventDefault()
-        commitRename()
-      } else if (e.key === 'Escape') {
-        e.preventDefault()
-        cancelRename()
-      }
-    },
-    [commitRename, cancelRename]
-  )
-
   const handleSessionTabClick = useCallback(
     (sessionId: string) => {
       setActiveSession(sessionId)
@@ -177,9 +179,11 @@ export function SessionTabBar() {
         closeFile(key.slice(2))
       } else if (key === 'changes') {
         closeChanges()
+      } else if (key.startsWith('t:')) {
+        closeTerminalFully(key.slice(2))
       }
     },
-    [sessions, closeSession, closeFile, closeChanges, t]
+    [sessions, closeSession, closeFile, closeChanges, closeTerminalFully, t]
   )
 
   // Close multiple tabs — batches active-session confirmation into one dialog
@@ -198,9 +202,10 @@ export function SessionTabBar() {
         if (key.startsWith('s:')) closeSession(key.slice(2))
         else if (key.startsWith('f:')) closeFile(key.slice(2))
         else if (key === 'changes') closeChanges()
+        else if (key.startsWith('t:')) closeTerminalFully(key.slice(2))
       }
     },
-    [sessions, closeSession, closeFile, closeChanges, t]
+    [sessions, closeSession, closeFile, closeChanges, closeTerminalFully, t]
   )
 
   // Keyboard-accessible tab close — Delete key closes the focused tab.
@@ -275,56 +280,35 @@ export function SessionTabBar() {
             : session.status === 'waiting_input' ? ' tab--waiting'
             : session.status === 'error' ? ' tab--error'
             : ''
-
           return (
-            <button
+            <SessionTab
               key={key}
-              role="tab"
-              aria-selected={isActive}
-              className={`tab${isActive ? ' active' : ''}${isDraggedOver ? ' tab--drop-target' : ''}${isDragSource ? ' tab--dragging' : ''}${statusClass}`}
-              draggable={!isEditing}
-              onDragStart={onDragStart(key)}
-              onDragOver={onDragOver(key)}
+              tabKey={key}
+              session={session}
+              displayTitle={displayTitle}
+              isActive={isActive}
+              isEditing={isEditing}
+              isDragSource={isDragSource}
+              isDraggedOver={isDraggedOver}
+              statusClass={statusClass}
+              editValue={local.editValue}
+              inputRef={inputRef}
+              closeActiveSessionTitle={t('closeActiveSessionTitle')}
+              closeActiveSessionMessageFn={(status) => t('closeActiveSessionMessage', { status })}
+              onDragStart={onDragStart}
+              onDragOver={onDragOver}
               onDragLeave={onDragLeave}
-              onDrop={onDrop(key)}
+              onDrop={onDrop}
               onDragEnd={onDragEnd}
-              onClick={() => !isEditing && handleSessionTabClick(session.id)}
-              onKeyDown={(e) => handleTabKeyDown(e, key)}
-              onContextMenu={(e) => handleTabContextMenu(e, key)}
-            >
-              {isEditing ? (
-                <input
-                  ref={inputRef}
-                  className="tab-rename-input"
-                  value={local.editValue}
-                  placeholder={displayTitle}
-                  onChange={(e) => setLocal({ editValue: e.target.value })}
-                  onKeyDown={handleRenameKeyDown}
-                  onBlur={commitRename}
-                  onClick={(e) => e.stopPropagation()}
-                />
-              ) : (
-                <Tooltip content={displayTitle} position="bottom" delay={600}>
-                  <span className="tab-text" onDoubleClick={(e) => startRename(e, session)}>
-                    {displayTitle}
-                  </span>
-                </Tooltip>
-              )}
-              <span
-                className="tab-close"
-                aria-hidden="true"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (session.status !== 'idle' && session.status !== 'inactive') {
-                    const msg = `${t('closeActiveSessionTitle')}\n\n${t('closeActiveSessionMessage', { status: session.status })}`
-                    if (!window.confirm(msg)) return
-                  }
-                  closeSession(session.id)
-                }}
-              >
-                ×
-              </span>
-            </button>
+              onActivate={() => handleSessionTabClick(session.id)}
+              onKeyDown={handleTabKeyDown}
+              onContextMenu={handleTabContextMenu}
+              onClose={() => closeSession(session.id)}
+              onStartEdit={(e) => startRename(e, session)}
+              onEditValueChange={(v) => setLocal({ editValue: v })}
+              onCommitEdit={commitRename}
+              onCancelEdit={cancelRename}
+            />
           )
         }
 
@@ -333,45 +317,26 @@ export function SessionTabBar() {
           const filePath = key.slice(2)
           if (!openFilePaths.includes(filePath)) return null
           const isActive = activeCenterView?.type === 'file' && activeCenterView.path === filePath
-          const isDirty = dirtyFilePaths.has(filePath)
-          const name = getFileName(filePath)
-
           return (
-            <button
+            <FileTab
               key={key}
-              role="tab"
-              aria-selected={isActive}
-              className={`tab tab-file${isActive ? ' active' : ''}${isDraggedOver ? ' tab--drop-target' : ''}${isDragSource ? ' tab--dragging' : ''}`}
-              draggable
-              onDragStart={onDragStart(key)}
-              onDragOver={onDragOver(key)}
+              tabKey={key}
+              filePath={filePath}
+              isActive={isActive}
+              isDirty={dirtyFilePaths.has(filePath)}
+              isDragSource={isDragSource}
+              isDraggedOver={isDraggedOver}
+              unsavedLabel={t('unsavedChanges')}
+              onDragStart={onDragStart}
+              onDragOver={onDragOver}
               onDragLeave={onDragLeave}
-              onDrop={onDrop(key)}
+              onDrop={onDrop}
               onDragEnd={onDragEnd}
-              onClick={() => setActiveCenterView({ type: 'file', path: filePath })}
-              onKeyDown={(e) => handleTabKeyDown(e, key)}
-              onContextMenu={(e) => handleTabContextMenu(e, key)}
-            >
-              <Tooltip content={filePath} position="bottom" delay={600}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'inherit' }}>
-                  <span className="tab-file-icon">
-                    <FileIcon fileName={name} autoAssign width={14} height={14} />
-                  </span>
-                  <span className="tab-text">{name}</span>
-                </span>
-              </Tooltip>
-              {isDirty && <span className="tab-dirty" aria-label={t('unsavedChanges')}>●</span>}
-              <span
-                className="tab-close"
-                aria-hidden="true"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  closeFile(filePath)
-                }}
-              >
-                ×
-              </span>
-            </button>
+              onActivate={() => setActiveCenterView({ type: 'file', path: filePath })}
+              onKeyDown={handleTabKeyDown}
+              onContextMenu={handleTabContextMenu}
+              onClose={() => closeFile(filePath)}
+            />
           )
         }
 
@@ -379,40 +344,84 @@ export function SessionTabBar() {
         if (key === 'changes') {
           const isActive = activeCenterView?.type === 'changes'
           return (
-            <button
+            <ChangesTab
               key={key}
-              role="tab"
-              aria-selected={isActive}
-              className={`tab tab-diff${isActive ? ' active' : ''}${isDraggedOver ? ' tab--drop-target' : ''}${isDragSource ? ' tab--dragging' : ''}`}
-              draggable
-              onDragStart={onDragStart(key)}
-              onDragOver={onDragOver(key)}
+              tabKey={key}
+              label={t('diffReviewTab')}
+              isActive={isActive}
+              isDragSource={isDragSource}
+              isDraggedOver={isDraggedOver}
+              onDragStart={onDragStart}
+              onDragOver={onDragOver}
               onDragLeave={onDragLeave}
-              onDrop={onDrop(key)}
+              onDrop={onDrop}
               onDragEnd={onDragEnd}
-              onClick={() => setActiveCenterView({ type: 'changes' })}
-              onKeyDown={(e) => handleTabKeyDown(e, key)}
-              onContextMenu={(e) => handleTabContextMenu(e, key)}
-            >
-              <Tooltip content={t('diffReviewTab')} position="bottom" delay={600}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-                  <IconDiff size={12} />
-                  <span className="tab-text">{t('diffReviewTab')}</span>
-                </span>
-              </Tooltip>
-              <span
-                className="tab-close"
-                aria-hidden="true"
-                onClick={(e) => { e.stopPropagation(); closeChanges() }}
-              >
-                ×
-              </span>
-            </button>
+              onActivate={() => setActiveCenterView({ type: 'changes' })}
+              onKeyDown={handleTabKeyDown}
+              onContextMenu={handleTabContextMenu}
+              onClose={() => closeChanges()}
+            />
+          )
+        }
+
+        // ── Big terminal tab ─────────────────────────────────────────────
+        if (key.startsWith('t:')) {
+          const terminalId = key.slice(2)
+          const tab = bigTerminals.find((bt) => bt.id === terminalId)
+          if (!tab) return null
+          const isActive =
+            activeCenterView?.type === 'terminal' && activeCenterView.terminalId === terminalId
+          const isEditing = local.editingId === `t:${terminalId}`
+          return (
+            <TerminalTab
+              key={key}
+              tab={tab}
+              tabKey={key}
+              isActive={isActive}
+              isEditing={isEditing}
+              isDragSource={isDragSource}
+              isDraggedOver={isDraggedOver}
+              editValue={local.editValue}
+              inputRef={inputRef}
+              onDragStart={onDragStart}
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop}
+              onDragEnd={onDragEnd}
+              onActivate={() => setActiveCenterView({ type: 'terminal', terminalId })}
+              onKeyDown={handleTabKeyDown}
+              onContextMenu={handleTabContextMenu}
+              onClose={() => closeTerminalFully(terminalId)}
+              onStartEdit={() => setLocal({ editValue: tab.label, editingId: `t:${terminalId}` })}
+              onEditValueChange={(v) => setLocal({ editValue: v })}
+              onCommitEdit={() => {
+                if (selectedWorktreeId) renameBigTerminal(selectedWorktreeId, terminalId, local.editValue)
+                setLocal({ editingId: null })
+              }}
+              onCancelEdit={() => setLocal({ editingId: null })}
+            />
           )
         }
 
         return null
       })}
+
+      {bigTerminalEnabled && (
+        <Tooltip content={t('newBigTerminal')} position="bottom">
+          <button
+            className="tab tab--add tab--add-terminal"
+            aria-label={t('newBigTerminal')}
+            onClick={() => {
+              if (!selectedWorktreeId) return
+              const id = createBigTerminal(selectedWorktreeId)
+              setActiveCenterView({ type: 'terminal', terminalId: id })
+            }}
+          >
+            <IconTerminal size={12} />
+            <span>+</span>
+          </button>
+        </Tooltip>
+      )}
 
       <Tooltip content={t('newChat')} position="bottom">
         <button

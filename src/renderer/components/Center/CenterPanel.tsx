@@ -2,6 +2,7 @@ import { memo, useCallback, useRef, lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SessionTabBar } from './SessionTabBar'
 import { ChatView } from './ChatView'
+import { BigTerminalView } from './BigTerminalView'
 import { useUIStore, selectChangesOpen, selectActiveCenterView } from '@/store/ui'
 import { useProjectsStore } from '@/store/projects'
 import { useSessionsStore, useSessionsForWorktree } from '@/store/sessions'
@@ -45,7 +46,9 @@ export const CenterPanel = memo(function CenterPanel() {
 
   const changesOpen = useUIStore(selectChangesOpen)
   const showFile = activeCenterView?.type === 'file'
-  const hasNoTabs = sessionsLoaded && sessions.length === 0 && openFilePaths.length === 0 && !changesOpen
+  const showTerminal = activeCenterView?.type === 'terminal'
+  const bigTerminals = useUIStore((s) => selectedWorktreeId ? (s.bigTerminalsByWorktree[selectedWorktreeId] ?? []) : [])
+  const hasNoTabs = sessionsLoaded && sessions.length === 0 && openFilePaths.length === 0 && !changesOpen && bigTerminals.length === 0
 
   const handleNewChat = useCallback(() => {
     if (!selectedWorktreeId || !worktree) return
@@ -94,6 +97,11 @@ export const CenterPanel = memo(function CenterPanel() {
                   onDirtyChange={handleDirtyChange}
                 />
               </Suspense>
+            ) : showTerminal ? (
+              <BigTerminalView
+                terminalId={activeCenterView.terminalId}
+                worktreePath={worktree?.path ?? ''}
+              />
             ) : (
               <ChatView worktreePath={worktree?.path ?? ''} />
             )}

@@ -11,9 +11,11 @@ export function getUnifiedTabs(): string[] {
   const fileKeys = ui.openFilePaths.map((p: string) => `f:${p}`)
   const changesOpen = ui.changesOpenByWorktree[wtId] ?? false
   const changesKeys = changesOpen ? ['changes'] : []
-  const allValid = new Set([...sessionKeys, ...fileKeys, ...changesKeys])
+  const terminalKeys = (ui.bigTerminalsByWorktree[wtId] ?? []).map((bt) => `t:${bt.id}`)
+  const all = [...sessionKeys, ...fileKeys, ...changesKeys, ...terminalKeys]
+  const allValid = new Set(all)
   const valid = ui.tabOrder.filter((k: string) => allValid.has(k))
-  const newEntries = [...sessionKeys, ...fileKeys, ...changesKeys].filter((k) => !valid.includes(k))
+  const newEntries = all.filter((k) => !valid.includes(k))
   return [...valid, ...newEntries]
 }
 
@@ -24,6 +26,7 @@ export function getActiveTabKey(): string | null {
   if (acv?.type === 'session') return `s:${acv.sessionId}`
   if (acv?.type === 'file') return `f:${acv.path}`
   if (acv?.type === 'changes') return 'changes'
+  if (acv?.type === 'terminal') return `t:${acv.terminalId}`
   return null
 }
 
@@ -36,6 +39,8 @@ export function activateTab(key: string): void {
     useUIStore.getState().setActiveCenterView({ type: 'file', path: key.slice(2) })
   } else if (key === 'changes') {
     useUIStore.getState().setActiveCenterView({ type: 'changes' })
+  } else if (key.startsWith('t:')) {
+    useUIStore.getState().setActiveCenterView({ type: 'terminal', terminalId: key.slice(2) })
   }
 }
 

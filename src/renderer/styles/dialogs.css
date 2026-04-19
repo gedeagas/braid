@@ -558,6 +558,15 @@
   overflow: hidden;
 }
 
+/* Big terminal — full center-panel terminal */
+.big-terminal-container {
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-8);
+  overflow: hidden;
+  background: var(--bg);
+}
+
 /* xterm.js scrollbar theming — override the hardcoded #000 background */
 .xterm .xterm-viewport::-webkit-scrollbar {
   width: 8px;
