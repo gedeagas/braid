@@ -122,6 +122,7 @@ export interface LayoutSlice {
   sidebarWidth: number
   rightPanelWidth: number
   changesCounts: Record<string, number>
+  diffRevisionByWorktree: Record<string, number>
 
   selectWorktree: (projectId: string, worktreeId: string) => void
   toggleProject: (projectId: string) => void
@@ -156,6 +157,8 @@ export interface LayoutSlice {
   setRightPanelWidth: (width: number) => void
   persistRightPanelWidth: () => void
   setChangesCount: (worktreePath: string, count: number) => void
+  bumpDiffRevision: (worktreePath: string) => void
+  cleanupWorktreeState: (worktreeId: string, worktreePath: string) => void
 }
 
 export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (set, get) => ({
@@ -212,6 +215,7 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
   sidebarWidth: loadInt(SK.sidebarWidth, 290),
   rightPanelWidth: loadInt(SK.rightPanelWidth, 400),
   changesCounts: {},
+  diffRevisionByWorktree: {},
 
   selectWorktree: (projectId, worktreeId) => {
     const expanded = new Set(get().expandedProjects)
@@ -558,6 +562,32 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
     const prev = get().changesCounts[worktreePath]
     if (prev === count) return
     set({ changesCounts: { ...get().changesCounts, [worktreePath]: count } })
+  },
+
+  bumpDiffRevision: (worktreePath) => {
+    const current = get().diffRevisionByWorktree[worktreePath] ?? 0
+    set({ diffRevisionByWorktree: { ...get().diffRevisionByWorktree, [worktreePath]: current + 1 } })
+  },
+
+  cleanupWorktreeState: (worktreeId, worktreePath) => {
+    // Prune all per-worktree maps to avoid leaking entries after worktree deletion.
+    // Some maps key by worktreeId, others by worktreePath - clean both consistently.
+    const omit = <V,>(obj: Record<string, V>, key: string): Record<string, V> => {
+      if (!(key in obj)) return obj
+      const { [key]: _, ...rest } = obj
+      return rest
+    }
+    const s = get()
+    set({
+      changesOpenByWorktree: omit(s.changesOpenByWorktree, worktreeId),
+      selectedDiffFileByWorktree: omit(s.selectedDiffFileByWorktree, worktreeId),
+      activeCenterViewByWorktree: omit(s.activeCenterViewByWorktree, worktreeId),
+      changesCounts: omit(s.changesCounts, worktreePath),
+      diffRevisionByWorktree: omit(s.diffRevisionByWorktree, worktreePath),
+    })
+    // Also clear persisted per-worktree localStorage entries
+    try { localStorage.removeItem(SK.openFilePathsPrefix + worktreeId) } catch {}
+    try { localStorage.removeItem(SK.tabOrderPrefix + worktreeId) } catch {}
   },
 })
 

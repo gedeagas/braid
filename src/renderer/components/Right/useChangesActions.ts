@@ -51,6 +51,7 @@ export function useChangesActions(
       const status = await ipc.git.getStatus(worktreePath) as GitChange[]
       dispatch({ type: 'SET_CHANGES', changes: status })
       useUIStore.getState().setChangesCount(worktreePath, status.length)
+      useUIStore.getState().bumpDiffRevision(worktreePath)
     } catch (err) {
       const { cache } = usePrCacheStore.getState()
       const st = cache[worktreePath]?.data?.state
