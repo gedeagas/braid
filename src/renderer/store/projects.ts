@@ -356,6 +356,9 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
       }
     }
 
+    // Prune per-worktree state from the UI store (and persisted localStorage entries)
+    ui.cleanupWorktreeState(worktreeId, worktree.path)
+
     // Optimistically remove from UI immediately
     set({
       projects: get().projects.map((p) =>
