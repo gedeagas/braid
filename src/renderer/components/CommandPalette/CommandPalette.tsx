@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/store/ui'
 import { useSessionsStore } from '@/store/sessions'
 import { useProjectsStore } from '@/store/projects'
-import { SHORTCUTS, SHORTCUT_CATEGORIES } from '@/lib/shortcuts'
+import { SHORTCUTS } from '@/lib/shortcuts'
 import type { ShortcutCategory } from '@/lib/shortcuts'
 import { navigateTab, getUnifiedTabs, activateTab } from '@/lib/tabNavigation'
 import { ShortcutBadge } from '@/components/Shortcuts/ShortcutBadge'
@@ -88,7 +88,6 @@ export function CommandPalette() {
   const [state, dispatch] = useReducer(reducer, { filter: '', highlightedIndex: 0 })
 
   const inputRef = useRef<HTMLInputElement>(null)
-  const listRef = useRef<HTMLDivElement>(null)
   const itemRefs = useRef<(HTMLDivElement | null)[]>([])
 
   // Build command registry
@@ -254,10 +253,6 @@ export function CommandPalette() {
   // Trim stale refs
   itemRefs.current.length = displayItems.length
 
-  // Track section headers
-  let lastCategory = ''
-  let flatIndex = -1
-
   const activeDescendantId = displayItems[state.highlightedIndex]
     ? `cmd-palette-item-${state.highlightedIndex}`
     : undefined
@@ -284,15 +279,13 @@ export function CommandPalette() {
           />
         </div>
 
-        <div className="cmd-palette-list" ref={listRef} id="cmd-palette-listbox" role="listbox" aria-label={t('commandPalette')}>
+        <div className="cmd-palette-list" id="cmd-palette-listbox" role="listbox" aria-label={t('commandPalette')}>
           {displayItems.length === 0 ? (
             <div className="cmd-palette-empty">{t('commandPaletteNoResults', { query: state.filter })}</div>
           ) : (
-            displayItems.map((cmd) => {
-              flatIndex++
-              const i = flatIndex
-              const showHeader = !isFiltered && cmd.category !== lastCategory
-              if (!isFiltered) lastCategory = cmd.category
+            displayItems.map((cmd, i) => {
+              const prevCategory = i > 0 ? displayItems[i - 1].category : null
+              const showHeader = !isFiltered && cmd.category !== prevCategory
               const label = t(cmd.id)
               const symbols = shortcutMap.get(cmd.id)
               const isHighlighted = i === state.highlightedIndex
