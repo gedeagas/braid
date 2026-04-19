@@ -356,9 +356,6 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
       }
     }
 
-    // Prune per-worktree state from the UI store (and persisted localStorage entries)
-    ui.cleanupWorktreeState(worktreeId, worktree.path)
-
     // Optimistically remove from UI immediately
     set({
       projects: get().projects.map((p) =>
@@ -372,10 +369,16 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
       await ipc.git.removeWorktree(project.path, worktree.path)
     } catch (err) {
       console.error('[Projects] removeWorktree failed:', err)
-      // Revert by refreshing actual state from disk
+      // Revert by refreshing actual state from disk. Per-worktree UI state
+      // (open tabs, selected file, localStorage) is preserved because the
+      // cleanup below only runs after the IPC call succeeds.
       await get().refreshWorktrees(projectId)
       return
     }
+
+    // IPC succeeded - now safe to prune per-worktree UI state and localStorage.
+    // Doing this before the IPC would cause permanent state loss on git failure.
+    ui.cleanupWorktreeState(worktreeId, worktree.path)
 
     // Sync with actual git state
     await get().refreshWorktrees(projectId)
