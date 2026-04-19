@@ -15,6 +15,7 @@ import i18n from '@/lib/i18n'
 import { SettingsOverlay } from '@/components/Settings/SettingsOverlay'
 import { ShortcutsModal } from '@/components/Shortcuts/ShortcutsModal'
 import { QuickOpen } from '@/components/QuickOpen/QuickOpen'
+import { CommandPalette } from '@/components/CommandPalette/CommandPalette'
 import { MissionControl } from '@/components/MissionControl/MissionControl'
 import { WebAppOverlay } from '@/components/Center/WebAppOverlay'
 import { ToastContainer } from '@/components/shared/ToastContainer'
@@ -226,6 +227,7 @@ export default function App() {
         window.dispatchEvent(new CustomEvent('braid:focusChat'))
       },
       quickOpen: () => useUIStore.getState().openQuickOpen(),
+      openCommandPalette: () => useUIStore.getState().openCommandPalette(),
       saveFile: () => {
         const wtId = useUIStore.getState().selectedWorktreeId ?? ''
         const acv = useUIStore.getState().activeCenterViewByWorktree[wtId] ?? null
@@ -282,6 +284,7 @@ export default function App() {
       <SettingsOverlay />
       <ShortcutsModal />
       <QuickOpen />
+      <CommandPalette />
       <ToastContainer />
       <FlashToastContainer />
       <UpdateDialog

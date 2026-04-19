@@ -1,0 +1,172 @@
+/* ── Command Palette — spotlight-style command runner ───────────────────────── */
+
+.cmd-palette-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-backdrop, rgba(0, 0, 0, 0.45));
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 15vh;
+  z-index: var(--z-modal);
+  animation: cmd-palette-backdrop 0.12s ease-out;
+}
+
+@keyframes cmd-palette-backdrop {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.cmd-palette-panel {
+  width: 90%;
+  max-width: 640px;
+  max-height: 520px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-elevation-2xl);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: cmd-palette-slide 0.15s ease-out;
+}
+
+@keyframes cmd-palette-slide {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Search bar ──────────────────────────────────────────────────────────── */
+
+.cmd-palette-search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+  padding: var(--space-12) var(--space-16);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.cmd-palette-search-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.cmd-palette-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: var(--text-xl);
+  font-family: inherit;
+  outline: none;
+}
+
+.cmd-palette-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* ── Results list ────────────────────────────────────────────────────────── */
+
+.cmd-palette-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4) 0;
+}
+
+.cmd-palette-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.cmd-palette-list::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: var(--radius-xs);
+}
+
+/* ── Section headers ─────────────────────────────────────────────────────── */
+
+.cmd-palette-section-header {
+  padding: var(--space-6) var(--space-16) var(--space-4);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  user-select: none;
+}
+
+/* ── Command item ────────────────────────────────────────────────────────── */
+
+.cmd-palette-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-8) var(--space-16);
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition: background var(--duration-instant);
+}
+
+.cmd-palette-item:hover {
+  background: var(--bg-hover);
+}
+
+.cmd-palette-item--highlighted {
+  background: var(--bg-hover);
+  border-left-color: var(--accent);
+}
+
+.cmd-palette-item-label {
+  color: var(--text-primary);
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.cmd-palette-item--highlighted .cmd-palette-item-label {
+  color: var(--accent-hover);
+}
+
+.cmd-palette-item-shortcut {
+  flex-shrink: 0;
+  margin-left: var(--space-12);
+}
+
+.cmd-palette-match {
+  color: var(--text-primary);
+  background: var(--accent-tint-18);
+  border-radius: var(--radius-xs);
+  padding: 0 1px;
+  font-weight: var(--weight-bold);
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+
+.cmd-palette-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-5) var(--space-16) var(--space-6);
+  border-top: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.cmd-palette-footer-dot {
+  opacity: 0.4;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+
+.cmd-palette-empty {
+  padding: var(--space-24) var(--space-16);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--text-md);
+}
