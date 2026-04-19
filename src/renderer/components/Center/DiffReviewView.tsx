@@ -22,7 +22,7 @@ import { isBinaryFile, isGitBinaryDiff } from '@/lib/binaryFile'
 import { useShikiHighlight } from '@/hooks/useShikiHighlight'
 import * as ipc from '@/lib/ipc'
 import type { DiffComment } from '@/types'
-import type { GitStatusCode } from '@/store/ui'
+import { useUIStore, type GitStatusCode } from '@/store/ui'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -61,6 +61,9 @@ export function DiffReviewView({ filePath, worktreePath, fileStatus = 'M', fileS
     () => (filePath ? state.comments.filter((c) => c.file === filePath) : []),
     [state.comments, filePath],
   )
+
+  // Subscribe to diff revision so we re-fetch when changes are detected (e.g. new stage/unstage)
+  const diffRevision = useUIStore((s) => s.diffRevisionByWorktree[worktreePath] ?? 0)
 
   useEffect(() => { onCommentsChange(state.comments) }, [state.comments, onCommentsChange])
   useEffect(() => { onRegisterClear?.(() => dispatch({ type: 'CLEAR_COMMENTS' })) }, [onRegisterClear])
@@ -102,7 +105,7 @@ export function DiffReviewView({ filePath, worktreePath, fileStatus = 'M', fileS
     }
     load()
     return () => { cancelled = true }
-  }, [worktreePath, filePath, fileStatus, fileStaged])
+  }, [worktreePath, filePath, fileStatus, fileStaged, diffRevision])
 
   // ─── Gap expansion ─────────────────────────────────────────────────────────
 

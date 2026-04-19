@@ -122,6 +122,7 @@ export interface LayoutSlice {
   sidebarWidth: number
   rightPanelWidth: number
   changesCounts: Record<string, number>
+  diffRevisionByWorktree: Record<string, number>
 
   selectWorktree: (projectId: string, worktreeId: string) => void
   toggleProject: (projectId: string) => void
@@ -156,6 +157,7 @@ export interface LayoutSlice {
   setRightPanelWidth: (width: number) => void
   persistRightPanelWidth: () => void
   setChangesCount: (worktreePath: string, count: number) => void
+  bumpDiffRevision: (worktreePath: string) => void
 }
 
 export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (set, get) => ({
@@ -212,6 +214,7 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
   sidebarWidth: loadInt(SK.sidebarWidth, 290),
   rightPanelWidth: loadInt(SK.rightPanelWidth, 400),
   changesCounts: {},
+  diffRevisionByWorktree: {},
 
   selectWorktree: (projectId, worktreeId) => {
     const expanded = new Set(get().expandedProjects)
@@ -558,6 +561,11 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
     const prev = get().changesCounts[worktreePath]
     if (prev === count) return
     set({ changesCounts: { ...get().changesCounts, [worktreePath]: count } })
+  },
+
+  bumpDiffRevision: (worktreePath) => {
+    const current = get().diffRevisionByWorktree[worktreePath] ?? 0
+    set({ diffRevisionByWorktree: { ...get().diffRevisionByWorktree, [worktreePath]: current + 1 } })
   },
 })
 
