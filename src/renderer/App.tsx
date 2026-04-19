@@ -11,7 +11,6 @@ import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { applyTheme } from '@/themes/apply'
 import { findTheme, builtinThemes } from '@/themes/palettes'
 import { settings, appWindow, dock } from '@/lib/ipc'
-import i18n from '@/lib/i18n'
 import { SettingsOverlay } from '@/components/Settings/SettingsOverlay'
 import { ShortcutsModal } from '@/components/Shortcuts/ShortcutsModal'
 import { QuickOpen } from '@/components/QuickOpen/QuickOpen'
@@ -26,7 +25,7 @@ import { SimulatorTour } from '@/components/Onboarding/SimulatorTour'
 import { UpdateDialog } from '@/components/shared/UpdateDialog'
 import { useAutoUpdate } from '@/hooks/useAutoUpdate'
 import { initUpdateListeners } from '@/store/updater'
-import { getUnifiedTabs, activateTab, navigateTab, activateTabByIndex } from '@/lib/tabNavigation'
+import * as actions from '@/lib/appActions'
 
 export default function App() {
   const autoUpdate = useAutoUpdate()
@@ -140,106 +139,34 @@ export default function App() {
     }
   }, [loadProjects, loadPersistedSessions])
 
-  // Listen for menu actions from Electron application menu
+  // Listen for menu actions from Electron application menu.
+  // Action implementations live in `@/lib/appActions` so they can be shared
+  // between the Electron menu (here) and the Command Palette UI.
   useEffect(() => {
     const menuActions: Record<string, () => void> = {
-      openSettings: () => useUIStore.getState().openSettings(),
-      openAbout: () => useUIStore.getState().openSettings('about'),
-      openShortcuts: () => useUIStore.getState().openShortcuts(),
-      toggleSidebar: () => useUIStore.getState().toggleSidebar(),
-      toggleRightPanel: () => useUIStore.getState().toggleRightPanel(),
-      toggleMissionControl: () => useUIStore.getState().toggleMissionControl(),
-      zoomIn: () => {
-        const { uiZoom, setUIZoom } = useUIStore.getState()
-        setUIZoom(uiZoom + 0.1)
-      },
-      zoomOut: () => {
-        const { uiZoom, setUIZoom } = useUIStore.getState()
-        setUIZoom(uiZoom - 0.1)
-      },
-      zoomReset: () => useUIStore.getState().setUIZoom(1.0),
-
-      // ── Tab management ──────────────────────────────────────────────
-      newChatTab: () => {
-        const { selectedWorktreeId, selectedProjectId, setActiveCenterView } = useUIStore.getState()
-        if (!selectedWorktreeId || !selectedProjectId) return
-        const project = useProjectsStore.getState().projects.find((p) => p.id === selectedProjectId)
-        const worktree = project?.worktrees.find((w) => w.id === selectedWorktreeId)
-        if (!worktree) return
-        const sessionId = useSessionsStore.getState().createSession(selectedWorktreeId, worktree.path)
-        setActiveCenterView({ type: 'session', sessionId })
-      },
-
-      closeCurrentTab: () => {
-        const ui = useUIStore.getState()
-        const wtId = ui.selectedWorktreeId ?? ''
-        const acv = ui.activeCenterViewByWorktree[wtId] ?? null
-
-        let activeKey: string | null = null
-        if (acv?.type === 'session') activeKey = `s:${acv.sessionId}`
-        else if (acv?.type === 'file') activeKey = `f:${acv.path}`
-        else if (acv?.type === 'changes') activeKey = 'changes'
-
-        if (!activeKey) {
-          appWindow.closeWindow()
-          return
-        }
-
-        // Determine adjacent tab to activate after close
-        const tabs = getUnifiedTabs()
-        const closingIndex = tabs.indexOf(activeKey)
-        const adjacentKey = closingIndex >= 0
-          ? tabs[closingIndex + 1] ?? tabs[closingIndex - 1] ?? null
-          : null
-
-        if (activeKey.startsWith('s:')) {
-          const sid = activeKey.slice(2)
-          const session = useSessionsStore.getState().sessions[sid]
-          if (session && session.status !== 'idle' && session.status !== 'inactive') {
-            const title = i18n.t('closeActiveSessionTitle', { ns: 'center' })
-            const msg = i18n.t('closeActiveSessionMessage', { ns: 'center', status: session.status })
-            if (!window.confirm(`${title}\n\n${msg}`)) return
-          }
-          useSessionsStore.getState().closeSession(sid)
-        } else if (activeKey.startsWith('f:')) {
-          ui.closeFile(activeKey.slice(2))
-        } else if (activeKey === 'changes') {
-          ui.closeChanges()
-        }
-
-        // Navigate to adjacent tab (or close window if none remain)
-        if (adjacentKey) {
-          activateTab(adjacentKey)
-        }
-      },
-
-      previousTab: () => navigateTab(-1),
-      nextTab: () => navigateTab(1),
-
-      // ── Toggle terminal ─────────────────────────────────────────────
-      toggleTerminal: () => {
-        const { bottomTerminalEnabled, setBottomTerminalEnabled } = useUIStore.getState()
-        setBottomTerminalEnabled(!bottomTerminalEnabled)
-      },
-
-      // ── Focus / Save ────────────────────────────────────────────────
-      focusChat: () => {
-        window.dispatchEvent(new CustomEvent('braid:focusChat'))
-      },
-      quickOpen: () => useUIStore.getState().openQuickOpen(),
-      openCommandPalette: () => useUIStore.getState().openCommandPalette(),
-      saveFile: () => {
-        const wtId = useUIStore.getState().selectedWorktreeId ?? ''
-        const acv = useUIStore.getState().activeCenterViewByWorktree[wtId] ?? null
-        if (acv?.type === 'file') {
-          window.dispatchEvent(new CustomEvent('braid:saveFile'))
-        }
-      },
+      openSettings: actions.openSettings,
+      openAbout: actions.openAbout,
+      openShortcuts: actions.openShortcuts,
+      openCommandPalette: actions.openCommandPalette,
+      toggleSidebar: actions.toggleSidebar,
+      toggleRightPanel: actions.toggleRightPanel,
+      toggleMissionControl: actions.toggleMissionControl,
+      toggleTerminal: actions.toggleTerminal,
+      zoomIn: actions.zoomIn,
+      zoomOut: actions.zoomOut,
+      zoomReset: actions.zoomReset,
+      newChatTab: actions.newChatTab,
+      closeCurrentTab: actions.closeCurrentTab,
+      previousTab: actions.previousTab,
+      nextTab: actions.nextTab,
+      focusChat: actions.focusChat,
+      quickOpen: actions.openQuickOpen,
+      saveFile: actions.saveFile,
     }
 
     // ⌘1-9: jump to tab by index (⌘9 always goes to last tab)
     for (let i = 1; i <= 9; i++) {
-      menuActions[`goToTab${i}`] = () => activateTabByIndex(i)
+      menuActions[`goToTab${i}`] = () => actions.goToTab(i)
     }
 
     return window.api.menu.onAction((action: string) => menuActions[action]?.())

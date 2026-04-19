@@ -2,14 +2,11 @@ import { useReducer, useCallback, useRef, useEffect, useMemo, type ReactNode } f
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/store/ui'
-import { useSessionsStore } from '@/store/sessions'
-import { useProjectsStore } from '@/store/projects'
 import { SHORTCUTS } from '@/lib/shortcuts'
 import type { ShortcutCategory } from '@/lib/shortcuts'
-import { navigateTab, getUnifiedTabs, activateTab } from '@/lib/tabNavigation'
+import * as actions from '@/lib/appActions'
 import { ShortcutBadge } from '@/components/Shortcuts/ShortcutBadge'
 import { IconSearch } from '@/components/shared/icons'
-import i18n from '@/lib/i18n'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -90,94 +87,31 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null)
   const itemRefs = useRef<(HTMLDivElement | null)[]>([])
 
-  // Build command registry
+  // Build command registry. All execute() handlers delegate to shared
+  // action functions in `@/lib/appActions` so behavior stays in sync with
+  // the Electron menu handlers in App.tsx.
   const commands = useMemo<CommandDef[]>(() => [
     // General
-    { id: 'openSettings', category: 'general', execute: () => useUIStore.getState().openSettings() },
-    { id: 'showShortcuts', category: 'general', execute: () => useUIStore.getState().openShortcuts() },
-    { id: 'toggleMissionControl', category: 'general', execute: () => useUIStore.getState().toggleMissionControl() },
+    { id: 'openSettings', category: 'general', execute: actions.openSettings },
+    { id: 'showShortcuts', category: 'general', execute: actions.openShortcuts },
+    { id: 'toggleMissionControl', category: 'general', execute: actions.toggleMissionControl },
 
     // View
-    { id: 'toggleSidebar', category: 'view', execute: () => useUIStore.getState().toggleSidebar() },
-    { id: 'toggleRightPanel', category: 'view', execute: () => useUIStore.getState().toggleRightPanel() },
-    {
-      id: 'toggleTerminal', category: 'view', execute: () => {
-        const { bottomTerminalEnabled, setBottomTerminalEnabled } = useUIStore.getState()
-        setBottomTerminalEnabled(!bottomTerminalEnabled)
-      },
-    },
-    {
-      id: 'zoomIn', category: 'view', execute: () => {
-        const { uiZoom, setUIZoom } = useUIStore.getState()
-        setUIZoom(uiZoom + 0.1)
-      },
-    },
-    {
-      id: 'zoomOut', category: 'view', execute: () => {
-        const { uiZoom, setUIZoom } = useUIStore.getState()
-        setUIZoom(uiZoom - 0.1)
-      },
-    },
-    { id: 'zoomReset', category: 'view', execute: () => useUIStore.getState().setUIZoom(1.0) },
+    { id: 'toggleSidebar', category: 'view', execute: actions.toggleSidebar },
+    { id: 'toggleRightPanel', category: 'view', execute: actions.toggleRightPanel },
+    { id: 'toggleTerminal', category: 'view', execute: actions.toggleTerminal },
+    { id: 'zoomIn', category: 'view', execute: actions.zoomIn },
+    { id: 'zoomOut', category: 'view', execute: actions.zoomOut },
+    { id: 'zoomReset', category: 'view', execute: actions.zoomReset },
 
     // Navigation
-    {
-      id: 'newChatTab', category: 'navigation', execute: () => {
-        const { selectedWorktreeId, selectedProjectId, setActiveCenterView } = useUIStore.getState()
-        if (!selectedWorktreeId || !selectedProjectId) return
-        const project = useProjectsStore.getState().projects.find((p) => p.id === selectedProjectId)
-        const worktree = project?.worktrees.find((w) => w.id === selectedWorktreeId)
-        if (!worktree) return
-        const sessionId = useSessionsStore.getState().createSession(selectedWorktreeId, worktree.path)
-        setActiveCenterView({ type: 'session', sessionId })
-      },
-    },
-    {
-      id: 'closeTab', category: 'navigation', execute: () => {
-        const ui = useUIStore.getState()
-        const wtId = ui.selectedWorktreeId ?? ''
-        const acv = ui.activeCenterViewByWorktree[wtId] ?? null
-        let activeKey: string | null = null
-        if (acv?.type === 'session') activeKey = `s:${acv.sessionId}`
-        else if (acv?.type === 'file') activeKey = `f:${acv.path}`
-        else if (acv?.type === 'changes') activeKey = 'changes'
-        if (!activeKey) return
-
-        const tabs = getUnifiedTabs()
-        const closingIndex = tabs.indexOf(activeKey)
-        const adjacentKey = closingIndex >= 0
-          ? tabs[closingIndex + 1] ?? tabs[closingIndex - 1] ?? null
-          : null
-
-        if (activeKey.startsWith('s:')) {
-          const sid = activeKey.slice(2)
-          const session = useSessionsStore.getState().sessions[sid]
-          if (session && session.status !== 'idle' && session.status !== 'inactive') {
-            const title = i18n.t('closeActiveSessionTitle', { ns: 'center' })
-            const msg = i18n.t('closeActiveSessionMessage', { ns: 'center', status: session.status })
-            if (!window.confirm(`${title}\n\n${msg}`)) return
-          }
-          useSessionsStore.getState().closeSession(sid)
-        } else if (activeKey.startsWith('f:')) {
-          ui.closeFile(activeKey.slice(2))
-        } else if (activeKey === 'changes') {
-          ui.closeChanges()
-        }
-
-        if (adjacentKey) activateTab(adjacentKey)
-      },
-    },
-    { id: 'previousTab', category: 'navigation', execute: () => navigateTab(-1) },
-    { id: 'nextTab', category: 'navigation', execute: () => navigateTab(1) },
-    { id: 'quickOpen', category: 'navigation', execute: () => useUIStore.getState().openQuickOpen() },
-    { id: 'focusChat', category: 'navigation', execute: () => window.dispatchEvent(new CustomEvent('braid:focusChat')) },
-    {
-      id: 'saveFile', category: 'navigation', execute: () => {
-        const wtId = useUIStore.getState().selectedWorktreeId ?? ''
-        const acv = useUIStore.getState().activeCenterViewByWorktree[wtId] ?? null
-        if (acv?.type === 'file') window.dispatchEvent(new CustomEvent('braid:saveFile'))
-      },
-    },
+    { id: 'newChatTab', category: 'navigation', execute: actions.newChatTab },
+    { id: 'closeTab', category: 'navigation', execute: actions.closeCurrentTab },
+    { id: 'previousTab', category: 'navigation', execute: actions.previousTab },
+    { id: 'nextTab', category: 'navigation', execute: actions.nextTab },
+    { id: 'quickOpen', category: 'navigation', execute: actions.openQuickOpen },
+    { id: 'focusChat', category: 'navigation', execute: actions.focusChat },
+    { id: 'saveFile', category: 'navigation', execute: actions.saveFile },
   ], [])
 
   // Filter and sort commands
