@@ -120,7 +120,13 @@ const api = {
       const handler = (_event: Electron.IpcRendererEvent, id: string, exitCode: number) => callback(id, exitCode)
       ipcRenderer.on('pty:exit', handler)
       return () => ipcRenderer.removeListener('pty:exit', handler)
-    }
+    },
+    registerBigTerminal: (ptyId: string, terminalId: string) =>
+      ipcRenderer.send('pty:registerBigTerminal', ptyId, terminalId),
+    readScrollback: (terminalId: string) =>
+      ipcRenderer.invoke('pty:readScrollback', terminalId) as Promise<string>,
+    deleteScrollback: (terminalId: string) =>
+      ipcRenderer.send('pty:deleteScrollback', terminalId),
   },
 
   // Simulator

@@ -156,6 +156,7 @@ export default function App() {
       zoomOut: actions.zoomOut,
       zoomReset: actions.zoomReset,
       newChatTab: actions.newChatTab,
+      newBigTerminal: actions.newBigTerminal,
       closeCurrentTab: actions.closeCurrentTab,
       previousTab: actions.previousTab,
       nextTab: actions.nextTab,

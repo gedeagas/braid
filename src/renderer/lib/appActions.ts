@@ -15,6 +15,8 @@ import { useUIStore } from '@/store/ui'
 import { useSessionsStore } from '@/store/sessions'
 import { useProjectsStore } from '@/store/projects'
 import { navigateTab, getUnifiedTabs, activateTab, activateTabByIndex } from '@/lib/tabNavigation'
+import { disposeBigTerminal } from '@/components/Center/bigTerminalCache'
+import { flash } from '@/store/flash'
 import i18n from '@/lib/i18n'
 import { appWindow } from '@/lib/ipc'
 
@@ -87,6 +89,17 @@ export function newChatTab(): void {
   setActiveCenterView({ type: 'session', sessionId })
 }
 
+export function newBigTerminal(): void {
+  const ui = useUIStore.getState()
+  if (!ui.bigTerminalEnabled) {
+    flash('info', i18n.t('bigTerminalDisabledHint', { ns: 'center' }))
+    return
+  }
+  if (!ui.selectedWorktreeId) return
+  const id = ui.createBigTerminal(ui.selectedWorktreeId)
+  ui.setActiveCenterView({ type: 'terminal', terminalId: id })
+}
+
 /**
  * Close the currently active tab in the center panel.
  * For active sessions, prompts for confirmation before closing.
@@ -101,6 +114,7 @@ export function closeCurrentTab(): void {
   if (acv?.type === 'session') activeKey = `s:${acv.sessionId}`
   else if (acv?.type === 'file') activeKey = `f:${acv.path}`
   else if (acv?.type === 'changes') activeKey = 'changes'
+  else if (acv?.type === 'terminal') activeKey = `t:${acv.terminalId}`
 
   if (!activeKey) {
     appWindow.closeWindow()
@@ -127,6 +141,10 @@ export function closeCurrentTab(): void {
     ui.closeFile(activeKey.slice(2))
   } else if (activeKey === 'changes') {
     ui.closeChanges()
+  } else if (activeKey.startsWith('t:')) {
+    const terminalId = activeKey.slice(2)
+    disposeBigTerminal(terminalId)
+    if (ui.selectedWorktreeId) ui.closeBigTerminal(ui.selectedWorktreeId, terminalId)
   }
 
   if (adjacentKey) activateTab(adjacentKey)

@@ -39,6 +39,8 @@
     "experimentalCapture": "Window Capture tab",
     "bottomTerminal": "Bottom terminal strip",
     "bottomTerminalHint": "Moves the terminal below all panels so it spans the full window width.",
+    "bigTerminal": "Big Terminal Mode",
+    "bigTerminalHint": "Run a full terminal in the center panel with ⌘⇧T. Tabs and history are restored on restart.",
     "noVirtualization": "No-virtualization chat list",
     "noVirtualizationHint": "Renders all messages in a plain scrollable div instead of Virtuoso. May fix scroll jank with expanded tool groups.",
     "replayTour": "Replay Feature Tour",

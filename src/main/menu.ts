@@ -140,6 +140,11 @@ export function createAppMenu(mainWindow: BrowserWindow): void {
           click: () => sendAction(mainWindow, 'newChatTab')
         },
         {
+          label: 'New Big Terminal',
+          accelerator: 'CmdOrCtrl+Shift+T',
+          click: () => sendAction(mainWindow, 'newBigTerminal')
+        },
+        {
           label: 'Close Tab',
           accelerator: 'CmdOrCtrl+W',
           click: () => sendAction(mainWindow, 'closeCurrentTab')

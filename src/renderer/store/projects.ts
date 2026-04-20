@@ -5,6 +5,7 @@ import { useUIStore } from './ui'
 import { useSessionsStore } from './sessions'
 import { cleanupSetupPanel } from '@/components/Right/SetupPanel'
 import { cleanupTerminals } from '@/components/Right/TabbedTerminal'
+import { disposeBigTerminals } from '@/components/Center/bigTerminalCache'
 import { SK } from '@/lib/storageKeys'
 
 export function createDefaultProjectSettings(): ProjectSettings {
@@ -340,6 +341,12 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     // Clean up terminal instances for this worktree (PTYs + xterm instances)
     cleanupTerminals(worktree.path)
     cleanupSetupPanel(worktree.path)
+
+    // Clean up big terminals: dispose xterm + PTY, delete scrollback files, drop localStorage entry.
+    const uiSnapshot = useUIStore.getState()
+    const bigTerminalIds = (uiSnapshot.bigTerminalsByWorktree[worktreeId] ?? []).map((bt) => bt.id)
+    disposeBigTerminals(bigTerminalIds)
+    uiSnapshot.clearBigTerminalsForWorktree(worktreeId)
 
     // Cascade-delete all sessions tied to this worktree (memory + disk)
     useSessionsStore.getState().closeSessionsByWorktree(worktreeId)

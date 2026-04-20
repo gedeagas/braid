@@ -33,6 +33,8 @@ export function SettingsExperimental() {
   const setBottomTerminalEnabled = useUIStore((s) => s.setBottomTerminalEnabled)
   const experimentalNoVirtualization = useUIStore((s) => s.experimentalNoVirtualization)
   const setExperimentalNoVirtualization = useUIStore((s) => s.setExperimentalNoVirtualization)
+  const bigTerminalEnabled = useUIStore((s) => s.bigTerminalEnabled)
+  const setBigTerminalEnabled = useUIStore((s) => s.setBigTerminalEnabled)
 
   const selected = FEATURES.find((f) => f.id === selectedId) ?? FEATURES[0]
 
@@ -94,6 +96,10 @@ export function SettingsExperimental() {
 
         <FormField label={t('general.bottomTerminal')} hint={t('general.bottomTerminalHint')} horizontal>
           <Toggle checked={bottomTerminalEnabled} onChange={setBottomTerminalEnabled} />
+        </FormField>
+
+        <FormField label={t('general.bigTerminal')} hint={t('general.bigTerminalHint')} horizontal>
+          <Toggle checked={bigTerminalEnabled} onChange={setBigTerminalEnabled} />
         </FormField>
 
         <FormField label={t('general.noVirtualization')} hint={t('general.noVirtualizationHint')} horizontal>
