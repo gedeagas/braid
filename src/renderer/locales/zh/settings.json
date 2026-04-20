@@ -46,6 +46,9 @@
     "noVirtualizationHint": "使用普通可滚动 div 渲染所有消息，而非 Virtuoso。可能修复展开工具组时的滚动卡顿。",
     "rollbackHistory": "回退聊天历史",
     "rollbackHistoryHint": "在用户消息上添加回退按钮。点击后截断聊天历史到该点，并通过 git 快照恢复 worktree 文件。",
+    "outputCompression": "输出压缩 (RTK)",
+    "outputCompressionHint": "通过压缩 Bash 输出减少约 80% 的 token 使用量。首次启用时下载小型二进制文件。",
+    "outputCompressionInstalling": "正在安装 RTK...",
     "replayTour": "重播功能引导",
     "replayTourHint": "再次浏览 Braid 的主要功能"
   },

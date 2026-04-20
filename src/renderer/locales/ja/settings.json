@@ -46,6 +46,9 @@
     "noVirtualizationHint": "Virtuosoの代わりにすべてのメッセージをスクロール可能なdivに描画します。ツールグループ展開時のスクロールのガタつきを修正する可能性があります。",
     "rollbackHistory": "チャット履歴の巻き戻し",
     "rollbackHistoryHint": "ユーザーメッセージに巻き戻しボタンを追加します。クリックするとチャット履歴をその時点まで切り詰め、gitスナップショットでワークツリーのファイルを復元します。",
+    "outputCompression": "出力圧縮 (RTK)",
+    "outputCompressionHint": "Bash出力を圧縮してトークン使用量を約80%削減します。初回有効化時に小さなバイナリをダウンロードします。",
+    "outputCompressionInstalling": "RTKをインストール中...",
     "replayTour": "機能ツアーを再生",
     "replayTourHint": "Braidの主な機能をもう一度確認します"
   },

@@ -46,6 +46,9 @@
     "noVirtualizationHint": "Merender semua pesan dalam div scrollable biasa pengganti Virtuoso. Dapat memperbaiki scroll yang tersendat pada grup tool yang besar.",
     "rollbackHistory": "Rollback riwayat chat",
     "rollbackHistoryHint": "Menambahkan tombol rewind pada pesan pengguna. Menekannya akan memotong riwayat chat hingga titik tersebut dan memulihkan file worktree melalui snapshot git.",
+    "outputCompression": "Kompresi Output (RTK)",
+    "outputCompressionHint": "Mengurangi penggunaan token ~80% dengan mengompresi output Bash. Mengunduh binary kecil saat pertama kali diaktifkan.",
+    "outputCompressionInstalling": "Menginstal RTK...",
     "replayTour": "Putar Ulang Tur Fitur",
     "replayTourHint": "Telusuri fitur utama Braid sekali lagi"
   },
