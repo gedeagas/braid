@@ -56,7 +56,7 @@
   "sessionTabs": "会话和文件标签页",
   "unsavedChanges": "未保存的更改",
   "newChat": "新建聊天",
-  "newBigTerminal": "新建终端",
+  "newBigTerminal": "新建大终端",
   "newTabTooltip": "新建标签页",
   "bigTerminalDisabledHint": "在设置 → 实验性功能中启用大终端模式",
   "newChatDefault": "新建聊天",
