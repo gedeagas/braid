@@ -46,6 +46,9 @@
     "noVirtualizationHint": "Renders all messages in a plain scrollable div instead of Virtuoso. May fix scroll jank with expanded tool groups.",
     "rollbackHistory": "Rollback chat history",
     "rollbackHistoryHint": "Adds a rewind button to user messages. Clicking it truncates chat history to that point and restores the worktree's files via git snapshot.",
+    "outputCompression": "Output Compression (RTK)",
+    "outputCompressionHint": "Reduces token usage by ~80% by compressing Bash output. Downloads a small binary on first enable.",
+    "outputCompressionInstalling": "Installing RTK...",
     "replayTour": "Replay Feature Tour",
     "replayTourHint": "Walk through the main features of Braid again"
   },
