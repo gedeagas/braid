@@ -61,7 +61,6 @@ export function initAgentEventListener(): () => void {
         break
       case 'rate_limit_event': {
         const info = ev.rate_limit_info as Record<string, unknown> | undefined
-        console.log('[RateLimit] event received:', info)
         if (!info) break
         // The SDK only populates `utilization` when usage is meaningful (typically >= ~25%).
         // When absent, store status only so the UI can show a green "all clear" dot.

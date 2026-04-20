@@ -10,9 +10,6 @@ interface RateLimitBarsProps {
   sessionId: string
 }
 
-// Load cached data once at module init (not on every render)
-const cachedRateLimits = loadRateLimits()
-
 function getBarColor(utilization: number): string {
   if (utilization >= 0.80) return 'var(--red)'
   if (utilization >= 0.60) return 'var(--amber)'
@@ -38,11 +35,14 @@ export function RateLimitBars({ sessionId }: RateLimitBarsProps) {
     useShallow((s) => s.sessions[sessionId]?.rateLimits ?? null)
   )
 
-  // Use live data from store, fall back to localStorage cache
-  const effectiveLimits = rateLimits ?? cachedRateLimits
+  // Merge live store data with localStorage cache so both windows show even if
+  // the store only has one. Store data takes precedence over stale cache entries.
+  const effectiveLimits = useMemo(() => ({
+    ...(loadRateLimits() ?? {}),
+    ...(rateLimits ?? {})
+  }), [rateLimits])
 
   const { fiveHour, sevenDay } = useMemo(() => {
-    if (!effectiveLimits) return { fiveHour: null, sevenDay: null }
     const fiveHour = effectiveLimits['five_hour'] ?? null
     const sevenDay = effectiveLimits['seven_day']
       ?? effectiveLimits['seven_day_opus']
@@ -76,19 +76,26 @@ function RateLimitRow({ label, info, t }: {
   t: (k: string, opts?: Record<string, unknown>) => string
 }) {
   // When utilization is null, the SDK hasn't reported a percentage yet.
-  // Show a status dot based on the status field instead of a bar.
+  // Show a status indicator based on the status field instead of a percentage bar.
   if (info.utilization === null) {
     const statusColor = getStatusColor(info.status)
+    const isOk = info.status === 'allowed'
+    const bgColor = info.status === 'rejected' ? 'var(--red-tint-15)'
+      : info.status === 'allowed_warning' ? 'var(--amber-tint-15)'
+      : 'var(--green-tint-15)'
+
     return (
       <div className="rate-limit-row">
         <span className="rate-limit-label">{label}</span>
-        <div className="rate-limit-track" style={{ background: 'var(--green-tint-15)' }}>
+        <div className="rate-limit-track" style={{ background: bgColor }}>
           <div
             className="rate-limit-fill rate-limit-fill--low"
             style={{ background: statusColor }}
           />
         </div>
-        <span className="rate-limit-percent rate-limit-percent--ok">OK</span>
+        <span className={`rate-limit-percent ${isOk ? 'rate-limit-percent--ok' : ''}`}>
+          {isOk ? 'OK' : '!'}
+        </span>
       </div>
     )
   }
