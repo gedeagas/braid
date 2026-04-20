@@ -737,6 +737,16 @@
   background: none;
 }
 
+.turn-actions-btn--disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.turn-actions-btn--disabled:hover {
+  color: var(--text-muted);
+  background: none;
+}
+
 .turn-actions-duration {
   font-size: var(--text-lg);
   color: var(--text-muted);
