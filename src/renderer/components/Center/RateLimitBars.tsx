@@ -23,6 +23,22 @@ function getStatusColor(status: string): string {
   return 'var(--green)'
 }
 
+/** Label keys per rate limit type */
+const LABEL_KEY: Record<string, string> = {
+  five_hour: 'rateLimitFiveHour',
+  seven_day: 'rateLimitSevenDay',
+  seven_day_opus: 'rateLimitSevenDayOpus',
+  seven_day_sonnet: 'rateLimitSevenDaySonnet',
+}
+
+/** Display order priority (lower = shown first) */
+const TYPE_ORDER: Record<string, number> = {
+  five_hour: 0,
+  seven_day: 1,
+  seven_day_opus: 2,
+  seven_day_sonnet: 3,
+}
+
 export function RateLimitBars() {
   const { t } = useTranslation('center')
 
@@ -30,28 +46,36 @@ export function RateLimitBars() {
     useShallow((s) => s.limits)
   )
 
-  const { fiveHour, sevenDay } = useMemo(() => {
-    const fiveHour = limits['five_hour'] ?? null
-    const sevenDay = limits['seven_day']
-      ?? limits['seven_day_opus']
-      ?? limits['seven_day_sonnet']
-      ?? null
-    return { fiveHour, sevenDay }
-  }, [limits])
+  const rows = useMemo(() => {
+    const result: { label: string; info: RateLimitInfo }[] = []
 
-  if (!fiveHour && !sevenDay) return null
+    // Collect all known rate limit types that have data
+    for (const [key, info] of Object.entries(limits)) {
+      const labelKey = LABEL_KEY[key]
+      if (!labelKey) continue // skip unknown types
+      result.push({ label: t(labelKey), info })
+    }
+
+    // Sort by display order
+    result.sort((a, b) => {
+      const orderA = TYPE_ORDER[a.info.rateLimitType] ?? 99
+      const orderB = TYPE_ORDER[b.info.rateLimitType] ?? 99
+      return orderA - orderB
+    })
+
+    return result
+  }, [limits, t])
+
+  if (rows.length === 0) return null
 
   return (
     <Tooltip content={t('rateLimitHeader')} position="top">
       <span className="rate-limit-bars">
         <span className="rate-limit-title">{t('rateLimitTitle')}</span>
         <span className="rate-limit-tracks">
-          {fiveHour && (
-            <RateLimitRow label={t('rateLimitFiveHour')} info={fiveHour} t={t} />
-          )}
-          {sevenDay && (
-            <RateLimitRow label={t('rateLimitSevenDay')} info={sevenDay} t={t} />
-          )}
+          {rows.map((row) => (
+            <RateLimitRow key={row.info.rateLimitType} label={row.label} info={row.info} t={t} />
+          ))}
         </span>
       </span>
     </Tooltip>

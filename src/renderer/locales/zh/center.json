@@ -347,6 +347,8 @@
   "rateLimitHeader": "您的订阅计划的 Claude 使用限制",
   "rateLimitFiveHour": "5时",
   "rateLimitSevenDay": "7天",
+  "rateLimitSevenDayOpus": "7天·Op",
+  "rateLimitSevenDaySonnet": "7天·So",
   "rateLimitTooltip": "{{label}}滚动窗口: 已使用{{percent}}%",
   "rateLimitStatusOk": "{{label}}滚动窗口: 在限制范围内",
   "rateLimitOk": "正常",

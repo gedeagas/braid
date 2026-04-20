@@ -64,7 +64,8 @@ export function initAgentEventListener(): () => void {
         if (!info) break
         // The SDK only populates `utilization` when usage is meaningful (typically >= ~25%).
         // When absent, store status only so the UI can show a green "all clear" dot.
-        const rateLimitType = (info.rateLimitType as string) ?? 'unknown'
+        // rateLimitType is optional in the SDK — default to 'five_hour' (the most common window).
+        const rateLimitType = (info.rateLimitType as string) ?? 'five_hour'
         const utilization = typeof info.utilization === 'number' ? info.utilization : null
         const rawStatus = info.status as string | undefined
         const VALID_STATUSES = new Set(['allowed', 'allowed_warning', 'rejected'])

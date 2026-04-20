@@ -2,8 +2,8 @@
 .rate-limit-bars {
   display: flex;
   align-items: center;
-  gap: var(--space-8);
-  padding: var(--space-4) var(--space-12);
+  gap: var(--space-6);
+  padding: var(--space-4) var(--space-8);
   flex-shrink: 0;
   border-radius: var(--radius-lg);
   background: var(--bg-tertiary);
@@ -23,8 +23,8 @@
 .rate-limit-tracks {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  min-width: 90px;
+  gap: 3px;
+  min-width: 64px;
 }
 
 .rate-limit-row {
@@ -45,10 +45,10 @@
 
 .rate-limit-track {
   flex: 1;
-  height: 6px;
+  height: 5px;
   border-radius: var(--radius-pill);
   overflow: hidden;
-  min-width: 56px;
+  min-width: 36px;
 }
 
 .rate-limit-fill {

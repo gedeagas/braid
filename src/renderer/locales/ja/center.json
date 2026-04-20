@@ -330,6 +330,8 @@
   "rateLimitHeader": "サブスクリプションのClaude使用制限",
   "rateLimitFiveHour": "5時",
   "rateLimitSevenDay": "7日",
+  "rateLimitSevenDayOpus": "7日·Op",
+  "rateLimitSevenDaySonnet": "7日·So",
   "rateLimitTooltip": "{{label}}ローリング: {{percent}}%使用済み",
   "rateLimitStatusOk": "{{label}}ローリング: 制限内",
   "rateLimitOk": "OK",
