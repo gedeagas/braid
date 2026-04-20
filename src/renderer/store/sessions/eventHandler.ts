@@ -13,7 +13,7 @@ import { handleStreamEvent, handleToolProgress, handleResult } from './handlers/
 import { updateSession } from './stateUtils'
 import { flash } from '@/store/flash'
 import { useProjectsStore } from '@/store/projects'
-import { saveRateLimitEntry } from '@/lib/rateLimitCache'
+import { useRateLimitsStore } from '@/store/rateLimits'
 import type { ModelId } from '@/types'
 
 export function initAgentEventListener(): () => void {
@@ -74,14 +74,8 @@ export function initAgentEventListener(): () => void {
           isUsingOverage: info.isUsingOverage as boolean | undefined,
           updatedAt: Date.now()
         }
-        updateSession(store, sessionId, (current) => ({
-          rateLimits: {
-            ...(current.rateLimits ?? {}),
-            [rateLimitType]: entry
-          }
-        }))
-        // Persist to localStorage with TTL matching the rate limit window
-        saveRateLimitEntry(entry)
+        // Update global store (account-wide, not per-session) so all UI reacts
+        useRateLimitsStore.getState().update(entry)
         break
       }
       case 'elicitation_complete': {

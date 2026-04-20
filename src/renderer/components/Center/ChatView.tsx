@@ -460,7 +460,7 @@ export function ChatView({ worktreePath = '' }: ChatViewProps) {
       {!isChangesMode && (
         <div className="chat-input-footer">
           <BranchBar />
-          {activeSession && <RateLimitBars sessionId={activeSession.id} />}
+          <RateLimitBars />
         </div>
       )}
     </>

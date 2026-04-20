@@ -93,8 +93,6 @@ export interface AgentSession {
    * Cleared after the IPC send succeeds. Preserved on failure so a retry can reuse it.
    */
   pendingResumeAt?: string
-  /** Rate limit utilization from SDK rate_limit_event, keyed by rateLimitType */
-  rateLimits?: Record<string, RateLimitInfo>
 }
 
 export type ContentBlock =

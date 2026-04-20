@@ -1,14 +1,9 @@
 import { useMemo } from 'react'
 import { useShallow } from 'zustand/shallow'
-import { useSessionsStore } from '@/store/sessions'
+import { useRateLimitsStore } from '@/store/rateLimits'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { useTranslation } from 'react-i18next'
-import { loadRateLimits } from '@/lib/rateLimitCache'
 import type { RateLimitInfo } from '@/types'
-
-interface RateLimitBarsProps {
-  sessionId: string
-}
 
 function getBarColor(utilization: number): string {
   if (utilization >= 0.80) return 'var(--red)'
@@ -28,28 +23,21 @@ function getStatusColor(status: string): string {
   return 'var(--green)'
 }
 
-export function RateLimitBars({ sessionId }: RateLimitBarsProps) {
+export function RateLimitBars() {
   const { t } = useTranslation('center')
 
-  const rateLimits = useSessionsStore(
-    useShallow((s) => s.sessions[sessionId]?.rateLimits ?? null)
+  const limits = useRateLimitsStore(
+    useShallow((s) => s.limits)
   )
 
-  // Merge live store data with localStorage cache so both windows show even if
-  // the store only has one. Store data takes precedence over stale cache entries.
-  const effectiveLimits = useMemo(() => ({
-    ...(loadRateLimits() ?? {}),
-    ...(rateLimits ?? {})
-  }), [rateLimits])
-
   const { fiveHour, sevenDay } = useMemo(() => {
-    const fiveHour = effectiveLimits['five_hour'] ?? null
-    const sevenDay = effectiveLimits['seven_day']
-      ?? effectiveLimits['seven_day_opus']
-      ?? effectiveLimits['seven_day_sonnet']
+    const fiveHour = limits['five_hour'] ?? null
+    const sevenDay = limits['seven_day']
+      ?? limits['seven_day_opus']
+      ?? limits['seven_day_sonnet']
       ?? null
     return { fiveHour, sevenDay }
-  }, [effectiveLimits])
+  }, [limits])
 
   if (!fiveHour && !sevenDay) return null
 
@@ -59,10 +47,10 @@ export function RateLimitBars({ sessionId }: RateLimitBarsProps) {
         <span className="rate-limit-title">{t('rateLimitTitle')}</span>
         <div className="rate-limit-tracks">
           {fiveHour && (
-            <RateLimitRow label={t('rateLimitFiveHour')} info={fiveHour} t={t} />
+            <RateLimitRow label={t('rateLimitFiveHour')} info={fiveHour} />
           )}
           {sevenDay && (
-            <RateLimitRow label={t('rateLimitSevenDay')} info={sevenDay} t={t} />
+            <RateLimitRow label={t('rateLimitSevenDay')} info={sevenDay} />
           )}
         </div>
       </div>
@@ -70,11 +58,7 @@ export function RateLimitBars({ sessionId }: RateLimitBarsProps) {
   )
 }
 
-function RateLimitRow({ label, info, t }: {
-  label: string
-  info: RateLimitInfo
-  t: (k: string, opts?: Record<string, unknown>) => string
-}) {
+function RateLimitRow({ label, info }: { label: string; info: RateLimitInfo }) {
   // When utilization is null, the SDK hasn't reported a percentage yet.
   // Show a status indicator based on the status field instead of a percentage bar.
   if (info.utilization === null) {
