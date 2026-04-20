@@ -114,6 +114,7 @@ export default function App() {
         notifyOnWaitingInput: state.notifyOnWaitingInput,
         notificationSound: state.notificationSound,
         bypassPermissions: state.bypassPermissions,
+        outputCompression: state.outputCompression,
       }).catch((e: unknown) => console.error('[Braid] Failed to sync settings:', e))
     }
     syncSettings()

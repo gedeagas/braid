@@ -4,6 +4,7 @@ import { useUIStore } from '@/store/ui'
 import { Toggle } from '@/components/shared/Toggle'
 import { Card, FormField } from '@/components/ui'
 import { SwipePreview } from './SwipePreview'
+import * as ipc from '@/lib/ipc'
 
 interface Feature {
   id: string
@@ -37,6 +38,9 @@ export function SettingsExperimental() {
   const setBigTerminalEnabled = useUIStore((s) => s.setBigTerminalEnabled)
   const rollbackHistory = useUIStore((s) => s.rollbackHistory)
   const setRollbackHistory = useUIStore((s) => s.setRollbackHistory)
+  const outputCompression = useUIStore((s) => s.outputCompression)
+  const setOutputCompression = useUIStore((s) => s.setOutputCompression)
+  const [rtkInstalling, setRtkInstalling] = useState(false)
 
   const selected = FEATURES.find((f) => f.id === selectedId) ?? FEATURES[0]
 

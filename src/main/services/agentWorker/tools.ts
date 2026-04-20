@@ -2,6 +2,7 @@ import { claudeConfigService } from '../claudeConfig'
 import { matchesRuleList } from '../agentPermissions'
 import { USER_INPUT_TOOLS, BRAID_SYSTEM_PROMPT, loadPlugins } from '../agentUtils'
 import { getCliPath } from '../claudePath'
+import { wrapWithRtk } from '../rtk'
 import type { SlashCommand, WorkerEvent } from '../agentTypes'
 
 type EmitFn = (event: WorkerEvent) => void
@@ -14,7 +15,19 @@ export function createCanUseTool(
   emit: EmitFn,
   pendingUserInput: PendingInputMap,
   log: (sessionId: string, ...args: unknown[]) => void,
+  rtkBinaryPath?: string | null,
 ) {
+  // Helper: apply RTK wrapping to Bash commands when enabled
+  const maybeWrapRtk = (
+    toolName: string,
+    inp: Record<string, unknown>,
+  ): Record<string, unknown> => {
+    if (rtkBinaryPath && toolName === 'Bash' && typeof inp.command === 'string') {
+      return { ...inp, command: wrapWithRtk(rtkBinaryPath, inp.command) }
+    }
+    return inp
+  }
+
   return (
     toolName: string,
     input: Record<string, unknown>,
@@ -59,7 +72,7 @@ export function createCanUseTool(
       const allAllow = [...globalAllow, ...projectAllow]
       if (allAllow.length > 0 && matchesRuleList(toolName, input, allAllow)) {
         log(sessionId, `canUseTool: auto-allowed by rules — ${toolName}`)
-        return Promise.resolve({ behavior: 'allow' as const, updatedInput: input })
+        return Promise.resolve({ behavior: 'allow' as const, updatedInput: maybeWrapRtk(toolName, input) })
       }
     } catch (err) {
       log(sessionId, 'canUseTool: allow list check failed:', err)
@@ -67,7 +80,7 @@ export function createCanUseTool(
 
     // ── 4. Bypass mode — auto-allow everything else ─────────────────────
     if (bypassPermissions) {
-      return Promise.resolve({ behavior: 'allow' as const, updatedInput: input })
+      return Promise.resolve({ behavior: 'allow' as const, updatedInput: maybeWrapRtk(toolName, input) })
     }
 
     // ── 5. Confirmation required — ask the user ─────────────────────────
@@ -86,7 +99,13 @@ export function createCanUseTool(
     return new Promise((resolve, reject) => {
       if (signal.aborted) { reject(new Error('Aborted')); return }
       pendingUserInput.set(sessionId, {
-        resolve: (result) => resolve(result as { behavior: string; updatedInput?: Record<string, unknown> })
+        resolve: (result) => {
+          const r = result as { behavior: string; updatedInput?: Record<string, unknown> }
+          if (r.behavior === 'allow' && r.updatedInput) {
+            r.updatedInput = maybeWrapRtk(toolName, r.updatedInput)
+          }
+          resolve(r)
+        }
       })
       signal.addEventListener('abort', () => {
         pendingUserInput.delete(sessionId)

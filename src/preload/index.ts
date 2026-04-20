@@ -432,6 +432,12 @@ const api = {
     getWorktreeStoragePath: () => ipcRenderer.invoke('settings:getWorktreeStoragePath'),
     getSystemPromptSuffix: () => ipcRenderer.invoke('settings:getSystemPromptSuffix'),
   },
+
+  // RTK (output compression)
+  rtk: {
+    install: () => ipcRenderer.invoke('rtk:install') as Promise<string>,
+    status: () => ipcRenderer.invoke('rtk:status') as Promise<{ installed: boolean; version: string | null; path: string | null }>,
+  },
 }
 
 export type ElectronAPI = typeof api

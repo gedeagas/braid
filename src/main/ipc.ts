@@ -24,6 +24,7 @@ import { jiraService } from './services/jira'
 import { githubAuthService } from './services/githubAuth'
 import { resolveCliPath } from './services/claudePath'
 import { downloadUpdate, installUpdate, checkForUpdates } from './services/autoUpdate'
+import { rtkService } from './services/rtk'
 
 // In-process settings cache — renderer pushes values here so main-process
 // services (agent.ts, pty.ts) can read them synchronously.
@@ -39,6 +40,8 @@ export const mainSettings = {
   notificationSound: true,
   /** When true, all non-denied tools run without a confirmation prompt. */
   bypassPermissions: true,
+  /** When true, Bash tool output is compressed via RTK binary. */
+  outputCompression: false,
 }
 
 export function registerIpcHandlers(): void {
@@ -477,6 +480,10 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('settings:getTerminalShell', () => mainSettings.terminalShell)
   ipcMain.handle('settings:getWorktreeStoragePath', () => mainSettings.worktreeStoragePath)
   ipcMain.handle('settings:getSystemPromptSuffix', () => mainSettings.systemPromptSuffix)
+
+  // RTK (output compression)
+  ipcMain.handle('rtk:install', () => rtkService.ensureInstalled())
+  ipcMain.handle('rtk:status', () => rtkService.getStatus())
 
   // Claude Config
   ipcMain.handle('claudeConfig:getPermissions', () => claudeConfigService.getPermissions())

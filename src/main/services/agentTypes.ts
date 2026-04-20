@@ -41,6 +41,8 @@ export interface AgentSettings {
    * and ask the user to allow or deny before executing.
    */
   bypassPermissions: boolean
+  /** When true, Bash tool output is compressed via RTK binary. */
+  outputCompression: boolean
 }
 
 /**

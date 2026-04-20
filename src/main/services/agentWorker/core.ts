@@ -21,6 +21,7 @@ import { prepareMcpServers } from './mcp'
 import type { BraidAction } from '../braidMcp'
 import { createCanUseTool, fetchSlashCommands } from './tools'
 import { classifyError, classifyAuthType } from './errorClassifier'
+import { rtkService } from '../rtk'
 import type { SessionState, SlashCommand, WorkerEvent, AgentSettings } from '../agentTypes'
 
 const CONTEXT_1M_BETA = 'context-1m-2025-08-07' as const
@@ -212,7 +213,7 @@ export class AgentWorker {
           cwd: worktreePath,
           additionalDirectories: additionalDirectories?.length ? additionalDirectories : undefined,
           model,
-          canUseTool: createCanUseTool(sessionId, worktreePath, settings.bypassPermissions, this.emit, this.pendingUserInput, this.log.bind(this)),
+          canUseTool: createCanUseTool(sessionId, worktreePath, settings.bypassPermissions, this.emit, this.pendingUserInput, this.log.bind(this), settings.outputCompression ? rtkService.getBinaryPath() : null),
           onElicitation: this.createOnElicitation(sessionId),
           includePartialMessages: true,
           maxThinkingTokens: thinking ? undefined : 0,
@@ -422,7 +423,7 @@ export class AgentWorker {
           model: state.model,
           resume: resumeId,
           ...(resumeSessionAt ? { resumeSessionAt } : {}),
-          canUseTool: createCanUseTool(sessionId, state.cwd, settings.bypassPermissions, this.emit, this.pendingUserInput, this.log.bind(this)),
+          canUseTool: createCanUseTool(sessionId, state.cwd, settings.bypassPermissions, this.emit, this.pendingUserInput, this.log.bind(this), settings.outputCompression ? rtkService.getBinaryPath() : null),
           onElicitation: this.createOnElicitation(sessionId),
           includePartialMessages: true,
           permissionMode: planMode ? 'plan' : undefined,

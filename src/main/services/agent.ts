@@ -239,6 +239,7 @@ class AgentCoordinator {
       systemPromptSuffix: mainSettings.systemPromptSuffix,
       claudeCodeExecutablePath: mainSettings.claudeCodeExecutablePath,
       bypassPermissions: mainSettings.bypassPermissions,
+      outputCompression: mainSettings.outputCompression,
     }
   }
 

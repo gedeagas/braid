@@ -297,6 +297,11 @@ export const settings = {
   getSystemPromptSuffix: () => api().settings.getSystemPromptSuffix(),
 }
 
+export const rtk = {
+  install: () => api().rtk.install(),
+  status: () => api().rtk.status(),
+}
+
 export const notes = {
   load: (worktreeId: string) => api().notes.load(worktreeId),
   save: (worktreeId: string, content: string) => api().notes.save(worktreeId, content),
