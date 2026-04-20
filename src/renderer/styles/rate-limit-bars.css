@@ -2,16 +2,16 @@
 .rate-limit-bars {
   display: flex;
   align-items: center;
-  gap: var(--space-6);
-  padding: var(--space-2) var(--space-8);
+  gap: var(--space-8);
+  padding: var(--space-4) var(--space-12);
   flex-shrink: 0;
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   background: var(--bg-tertiary);
   cursor: default;
 }
 
 .rate-limit-title {
-  font-size: var(--text-2xs);
+  font-size: var(--text-xs);
   color: var(--text-tertiary);
   font-weight: var(--weight-semibold);
   text-transform: uppercase;
@@ -23,32 +23,32 @@
 .rate-limit-tracks {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  min-width: 70px;
+  gap: var(--space-4);
+  min-width: 90px;
 }
 
 .rate-limit-row {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-6);
 }
 
 .rate-limit-label {
-  font-size: var(--text-2xs);
+  font-size: var(--text-xs);
   color: var(--text-muted);
   font-weight: var(--weight-medium);
   white-space: nowrap;
-  min-width: 16px;
+  min-width: 18px;
   text-align: right;
   user-select: none;
 }
 
 .rate-limit-track {
   flex: 1;
-  height: 4px;
+  height: 6px;
   border-radius: var(--radius-pill);
   overflow: hidden;
-  min-width: 40px;
+  min-width: 56px;
 }
 
 .rate-limit-fill {
@@ -65,10 +65,10 @@
 }
 
 .rate-limit-percent {
-  font-size: var(--text-2xs);
+  font-size: var(--text-xs);
   color: var(--text-muted);
   font-weight: var(--weight-normal);
-  min-width: 20px;
+  min-width: 24px;
   text-align: right;
   font-variant-numeric: tabular-nums;
   user-select: none;
