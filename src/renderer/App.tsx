@@ -115,6 +115,7 @@ export default function App() {
         notificationSound: state.notificationSound,
         bypassPermissions: state.bypassPermissions,
         outputCompression: state.outputCompression,
+        rtkDebug: state.rtkDebug,
       }).catch((e: unknown) => console.error('[Braid] Failed to sync settings:', e))
     }
     syncSettings()

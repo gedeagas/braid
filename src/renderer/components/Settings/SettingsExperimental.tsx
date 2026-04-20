@@ -40,6 +40,8 @@ export function SettingsExperimental() {
   const setRollbackHistory = useUIStore((s) => s.setRollbackHistory)
   const outputCompression = useUIStore((s) => s.outputCompression)
   const setOutputCompression = useUIStore((s) => s.setOutputCompression)
+  const rtkDebug = useUIStore((s) => s.rtkDebug)
+  const setRtkDebug = useUIStore((s) => s.setRtkDebug)
   const [rtkInstalling, setRtkInstalling] = useState(false)
   const [rtkProgress, setRtkProgress] = useState(0) // 0-100
   const cleanupRef = useRef<(() => void) | null>(null)
@@ -150,6 +152,12 @@ export function SettingsExperimental() {
             }}
           />
         </FormField>
+
+        {outputCompression && (
+          <FormField label={t('general.rtkDebug')} hint={t('general.rtkDebugHint')} horizontal>
+            <Toggle checked={rtkDebug} onChange={setRtkDebug} />
+          </FormField>
+        )}
       </Card>
     </div>
   )

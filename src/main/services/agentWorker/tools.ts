@@ -2,7 +2,8 @@ import { claudeConfigService } from '../claudeConfig'
 import { matchesRuleList } from '../agentPermissions'
 import { USER_INPUT_TOOLS, BRAID_SYSTEM_PROMPT, loadPlugins } from '../agentUtils'
 import { getCliPath } from '../claudePath'
-import { wrapWithRtk } from '../rtk'
+import { rewriteCommand } from '../rtk'
+import { logger } from '../../lib/logger'
 import type { SlashCommand, WorkerEvent } from '../agentTypes'
 
 type EmitFn = (event: WorkerEvent) => void
@@ -16,14 +17,28 @@ export function createCanUseTool(
   pendingUserInput: PendingInputMap,
   log: (sessionId: string, ...args: unknown[]) => void,
   rtkBinaryPath?: string | null,
+  rtkDebug = false,
 ) {
-  // Helper: apply RTK wrapping to Bash commands when enabled
+  // Helper: apply RTK rewrite to Bash commands when enabled.
+  // Delegates to `rtk rewrite <cmd>` which is the single source of truth.
+  // Also resolves bare `rtk` commands to the full binary path since
+  // ~/Braid/binaries/rtk isn't in PATH.
   const maybeWrapRtk = (
     toolName: string,
     inp: Record<string, unknown>,
   ): Record<string, unknown> => {
     if (rtkBinaryPath && toolName === 'Bash' && typeof inp.command === 'string') {
-      return { ...inp, command: wrapWithRtk(rtkBinaryPath, inp.command) }
+      const trimmed = inp.command.trim()
+      // Resolve bare `rtk` meta-commands (rtk gain, rtk discover, etc.) to full path
+      if (trimmed === 'rtk' || trimmed.startsWith('rtk ')) {
+        const resolved = rtkBinaryPath + trimmed.slice(3)
+        if (rtkDebug) logger.info(`[RTK] resolve path: "${inp.command}" -> "${resolved}"`)
+        return { ...inp, command: resolved }
+      }
+      const result = rewriteCommand(rtkBinaryPath, inp.command, rtkDebug)
+      if (result.rewritten) {
+        return { ...inp, command: result.command }
+      }
     }
     return inp
   }

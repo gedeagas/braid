@@ -90,7 +90,7 @@ import { claudeConfigService } from '../claudeConfig'
 import { gitService } from '../git'
 import fs from 'fs'
 
-const defaultSettings: AgentSettings = { apiKey: null, systemPromptSuffix: '', claudeCodeExecutablePath: '', bypassPermissions: true, outputCompression: false }
+const defaultSettings: AgentSettings = { apiKey: null, systemPromptSuffix: '', claudeCodeExecutablePath: '', bypassPermissions: true, outputCompression: false, rtkDebug: false }
 
 // ═══════════════════════════════════════════════════════════════════════
 // Group A: Pure functions (no mocks needed)
@@ -752,7 +752,7 @@ describe('AgentWorker', () => {
       mockQuery.mockReturnValue(makeAsyncIterable([]))
       await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'high', false, 'Chat', {
         apiKey: 'sk-test-key',
-        systemPromptSuffix: '', claudeCodeExecutablePath: '', bypassPermissions: true, outputCompression: false
+        systemPromptSuffix: '', claudeCodeExecutablePath: '', bypassPermissions: true, outputCompression: false, rtkDebug: false
       })
       expect(process.env.ANTHROPIC_API_KEY).toBe('sk-test-key')
       // Cleanup

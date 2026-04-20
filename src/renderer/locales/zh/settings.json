@@ -49,6 +49,8 @@
     "outputCompression": "输出压缩 (RTK)",
     "outputCompressionHint": "通过压缩 Bash 输出减少约 80% 的 token 使用量。首次启用时下载小型二进制文件。",
     "outputCompressionInstalling": "正在安装 RTK...",
+    "rtkDebug": "RTK 调试日志",
+    "rtkDebugHint": "将每次重写决定记录到主进程日志中。通过 View > Toggle Developer Tools > Console 查看。",
     "replayTour": "重播功能引导",
     "replayTourHint": "再次浏览 Braid 的主要功能"
   },

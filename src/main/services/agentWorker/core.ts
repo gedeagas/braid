@@ -21,7 +21,7 @@ import { prepareMcpServers } from './mcp'
 import type { BraidAction } from '../braidMcp'
 import { createCanUseTool, fetchSlashCommands } from './tools'
 import { classifyError, classifyAuthType } from './errorClassifier'
-import { rtkService } from '../rtk'
+import { rtkService, RTK_AWARENESS_PROMPT } from '../rtk'
 import type { SessionState, SlashCommand, WorkerEvent, AgentSettings } from '../agentTypes'
 
 const CONTEXT_1M_BETA = 'context-1m-2025-08-07' as const
@@ -192,9 +192,10 @@ export class AgentWorker {
         : ''
       const mobileSuffix = connectedDeviceId ? `\n\n${MOBILE_SYSTEM_PROMPT}${frameworkPrompt(mobileFramework)}` : ''
       const opusSuffix = model.includes('opus-4-7') ? `\n\n${OPUS_NOISE_REDUCTION_PROMPT}` : ''
+      const rtkSuffix = settings.outputCompression ? `\n\n${RTK_AWARENESS_PROMPT}` : ''
       const systemAppend = settings.systemPromptSuffix
-        ? `${BRAID_SYSTEM_PROMPT}\n\n${settings.systemPromptSuffix}${linkedSuffix}${mobileSuffix}${opusSuffix}`
-        : `${BRAID_SYSTEM_PROMPT}${linkedSuffix}${mobileSuffix}${opusSuffix}`
+        ? `${BRAID_SYSTEM_PROMPT}\n\n${settings.systemPromptSuffix}${linkedSuffix}${mobileSuffix}${opusSuffix}${rtkSuffix}`
+        : `${BRAID_SYSTEM_PROMPT}${linkedSuffix}${mobileSuffix}${opusSuffix}${rtkSuffix}`
 
       const betas = (extendedContext && needsExtendedContextBeta(model))
         ? [CONTEXT_1M_BETA] : undefined
@@ -213,7 +214,7 @@ export class AgentWorker {
           cwd: worktreePath,
           additionalDirectories: additionalDirectories?.length ? additionalDirectories : undefined,
           model,
-          canUseTool: createCanUseTool(sessionId, worktreePath, settings.bypassPermissions, this.emit, this.pendingUserInput, this.log.bind(this), settings.outputCompression ? rtkService.getBinaryPath() : null),
+          canUseTool: createCanUseTool(sessionId, worktreePath, settings.bypassPermissions, this.emit, this.pendingUserInput, this.log.bind(this), settings.outputCompression ? rtkService.getBinaryPath() : null, settings.rtkDebug),
           onElicitation: this.createOnElicitation(sessionId),
           includePartialMessages: true,
           maxThinkingTokens: thinking ? undefined : 0,
@@ -423,7 +424,7 @@ export class AgentWorker {
           model: state.model,
           resume: resumeId,
           ...(resumeSessionAt ? { resumeSessionAt } : {}),
-          canUseTool: createCanUseTool(sessionId, state.cwd, settings.bypassPermissions, this.emit, this.pendingUserInput, this.log.bind(this), settings.outputCompression ? rtkService.getBinaryPath() : null),
+          canUseTool: createCanUseTool(sessionId, state.cwd, settings.bypassPermissions, this.emit, this.pendingUserInput, this.log.bind(this), settings.outputCompression ? rtkService.getBinaryPath() : null, settings.rtkDebug),
           onElicitation: this.createOnElicitation(sessionId),
           includePartialMessages: true,
           permissionMode: planMode ? 'plan' : undefined,

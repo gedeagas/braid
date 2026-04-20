@@ -62,7 +62,7 @@ vi.mock('fs', async () => {
 
 import { gitService } from '../git'
 
-const defaultSettings: AgentSettings = { apiKey: null, systemPromptSuffix: '', claudeCodeExecutablePath: '', bypassPermissions: true, outputCompression: false }
+const defaultSettings: AgentSettings = { apiKey: null, systemPromptSuffix: '', claudeCodeExecutablePath: '', bypassPermissions: true, outputCompression: false, rtkDebug: false }
 
 /**
  * Simulate the UtilityProcess environment by mocking process.parentPort

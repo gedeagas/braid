@@ -120,6 +120,7 @@ export const SK = {
   bigTerminalTabsPrefix:      `${prefix}:bigTerminalTabs:`,
   rollbackHistory:            `${prefix}:rollbackHistory`,
   outputCompression:          `${prefix}:outputCompression`,
+  rtkDebug:                   `${prefix}:rtkDebug`,
   webAppsEnabled:             `${prefix}:webAppsEnabled`,
   embeddedApps:               `${prefix}:embeddedApps`,
   webAppLastUrls:             `${prefix}:webAppLastUrls`,

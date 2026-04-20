@@ -49,6 +49,8 @@
     "outputCompression": "Kompresi Output (RTK)",
     "outputCompressionHint": "Mengurangi penggunaan token ~80% dengan mengompresi output Bash. Mengunduh binary kecil saat pertama kali diaktifkan.",
     "outputCompressionInstalling": "Menginstal RTK...",
+    "rtkDebug": "Log Debug RTK",
+    "rtkDebugHint": "Mencatat setiap keputusan rewrite ke log proses utama. Periksa View > Toggle Developer Tools > Console.",
     "replayTour": "Putar Ulang Tur Fitur",
     "replayTourHint": "Telusuri fitur utama Braid sekali lagi"
   },

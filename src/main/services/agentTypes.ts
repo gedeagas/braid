@@ -43,6 +43,8 @@ export interface AgentSettings {
   bypassPermissions: boolean
   /** When true, Bash tool output is compressed via RTK binary. */
   outputCompression: boolean
+  /** When true, RTK rewrite decisions are logged for debugging. */
+  rtkDebug: boolean
 }
 
 /**

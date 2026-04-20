@@ -240,6 +240,7 @@ class AgentCoordinator {
       claudeCodeExecutablePath: mainSettings.claudeCodeExecutablePath,
       bypassPermissions: mainSettings.bypassPermissions,
       outputCompression: mainSettings.outputCompression,
+      rtkDebug: mainSettings.rtkDebug,
     }
   }
 

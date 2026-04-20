@@ -49,6 +49,8 @@
     "outputCompression": "出力圧縮 (RTK)",
     "outputCompressionHint": "Bash出力を圧縮してトークン使用量を約80%削減します。初回有効化時に小さなバイナリをダウンロードします。",
     "outputCompressionInstalling": "RTKをインストール中...",
+    "rtkDebug": "RTKデバッグログ",
+    "rtkDebugHint": "すべてのリライト判定をメインプロセスログに記録します。表示 > 開発者ツールの切り替え > コンソールで確認できます。",
     "replayTour": "機能ツアーを再生",
     "replayTourHint": "Braidの主な機能をもう一度確認します"
   },

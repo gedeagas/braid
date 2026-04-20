@@ -42,6 +42,8 @@ export const mainSettings = {
   bypassPermissions: true,
   /** When true, Bash tool output is compressed via RTK binary. */
   outputCompression: false,
+  /** When true, RTK rewrite decisions are logged for debugging. */
+  rtkDebug: false,
 }
 
 export function registerIpcHandlers(): void {
@@ -533,6 +535,7 @@ export function registerIpcHandlers(): void {
         claudeCodeExecutablePath: mainSettings.claudeCodeExecutablePath,
         bypassPermissions: mainSettings.bypassPermissions,
         outputCompression: mainSettings.outputCompression,
+        rtkDebug: mainSettings.rtkDebug,
       },
       (url) => shell.openExternal(url)
     )

@@ -49,6 +49,8 @@
     "outputCompression": "Output Compression (RTK)",
     "outputCompressionHint": "Reduces token usage by ~80% by compressing Bash output. Downloads a small binary on first enable.",
     "outputCompressionInstalling": "Installing RTK...",
+    "rtkDebug": "RTK Debug Logging",
+    "rtkDebugHint": "Logs every rewrite decision to the main process log. Check View > Toggle Developer Tools > Console.",
     "replayTour": "Replay Feature Tour",
     "replayTourHint": "Walk through the main features of Braid again"
   },
