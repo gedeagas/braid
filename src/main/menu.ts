@@ -98,6 +98,11 @@ export function createAppMenu(mainWindow: BrowserWindow): void {
           accelerator: 'CmdOrCtrl+P',
           click: () => sendAction(mainWindow, 'quickOpen')
         },
+        {
+          label: 'Command Palette',
+          accelerator: 'CmdOrCtrl+K',
+          click: () => sendAction(mainWindow, 'openCommandPalette')
+        },
         { type: 'separator' },
         {
           label: 'Zoom In',

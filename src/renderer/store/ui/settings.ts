@@ -39,6 +39,7 @@ export interface SettingsSlice {
   settingsSection: SettingsSection
   shortcutsOpen: boolean
   quickOpenOpen: boolean
+  commandPaletteOpen: boolean
 
   // AI
   defaultModel: ModelId
@@ -97,6 +98,8 @@ export interface SettingsSlice {
   closeShortcuts: () => void
   openQuickOpen: () => void
   closeQuickOpen: () => void
+  openCommandPalette: () => void
+  closeCommandPalette: () => void
   setDefaultModel: (model: ModelId) => void
   setDefaultThinking: (v: boolean) => void
   setDefaultExtendedContext: (v: boolean) => void
@@ -136,6 +139,7 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   settingsSection: 'general',
   shortcutsOpen: false,
   quickOpenOpen: false,
+  commandPaletteOpen: false,
 
   defaultModel: loadDefaultModel(),
   defaultThinking: loadBool(SK.defaultThinking, false),
@@ -208,6 +212,8 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   closeShortcuts: () => set({ shortcutsOpen: false }),
   openQuickOpen: () => set({ quickOpenOpen: true }),
   closeQuickOpen: () => set({ quickOpenOpen: false }),
+  openCommandPalette: () => set({ commandPaletteOpen: true }),
+  closeCommandPalette: () => set({ commandPaletteOpen: false }),
 
   setDefaultModel: (model) => {
     localStorage.setItem(SK.defaultModel, model)

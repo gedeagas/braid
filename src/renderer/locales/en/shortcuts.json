@@ -24,6 +24,10 @@
   "quickOpen": "Quick Open File",
   "focusChat": "Focus Chat Input",
   "saveFile": "Save File",
+  "commandPalette": "Command Palette",
+  "commandPaletteSearch": "Type a command...",
+  "commandPaletteRun": "run",
+  "commandPaletteNoResults": "No commands matching \"{{query}}\"",
   "noResults": "No shortcuts matching \"{{query}}\"",
   "empty": "No shortcuts"
 }
