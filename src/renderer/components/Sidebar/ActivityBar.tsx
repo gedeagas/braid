@@ -39,17 +39,17 @@ export const ActivityBar = memo(function ActivityBar() {
   const toggleSidebar = useUIStore((s) => s.toggleSidebar)
   const toggleMissionControl = useUIStore((s) => s.toggleMissionControl)
   const openSettings = useUIStore((s) => s.openSettings)
-  const updaterState = useUpdaterStore((s) => s.state)
+  const dismissedUpdate = useUpdaterStore(
+    (s) => (s.state.status === 'available' || s.state.status === 'ready') && s.state.dismissed
+  )
+  const updaterStatus = useUpdaterStore((s) => s.state.status)
+  const updaterVersion = useUpdaterStore((s) => ('version' in s.state ? s.state.version : undefined))
   const updaterDispatch = useUpdaterStore((s) => s.dispatch)
 
-  const dismissedUpdate =
-    (updaterState.status === 'available' || updaterState.status === 'ready') &&
-    updaterState.dismissed
-
   const updateTooltip = dismissedUpdate
-    ? updaterState.status === 'ready'
-      ? t('updateReady', { version: updaterState.version })
-      : t('updateAvailable', { version: updaterState.version })
+    ? updaterStatus === 'ready'
+      ? t('updateReady', { version: updaterVersion })
+      : t('updateAvailable', { version: updaterVersion })
     : ''
 
   return (
