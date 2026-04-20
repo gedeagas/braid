@@ -47,10 +47,10 @@ export function RateLimitBars() {
         <span className="rate-limit-title">{t('rateLimitTitle')}</span>
         <span className="rate-limit-tracks">
           {fiveHour && (
-            <RateLimitRow label={t('rateLimitFiveHour')} info={fiveHour} />
+            <RateLimitRow label={t('rateLimitFiveHour')} info={fiveHour} t={t} />
           )}
           {sevenDay && (
-            <RateLimitRow label={t('rateLimitSevenDay')} info={sevenDay} />
+            <RateLimitRow label={t('rateLimitSevenDay')} info={sevenDay} t={t} />
           )}
         </span>
       </span>
@@ -58,7 +58,7 @@ export function RateLimitBars() {
   )
 }
 
-function RateLimitRow({ label, info }: { label: string; info: RateLimitInfo }) {
+function RateLimitRow({ label, info, t }: { label: string; info: RateLimitInfo; t: (k: string) => string }) {
   // When utilization is null, the SDK hasn't reported a percentage yet.
   // Show a status indicator based on the status field instead of a percentage bar.
   if (info.utilization === null) {
@@ -78,7 +78,7 @@ function RateLimitRow({ label, info }: { label: string; info: RateLimitInfo }) {
           />
         </span>
         <span className={`rate-limit-percent ${isOk ? 'rate-limit-percent--ok' : ''}`}>
-          {isOk ? 'OK' : '!'}
+          {isOk ? t('rateLimitOk') : t('rateLimitWarning')}
         </span>
       </span>
     )

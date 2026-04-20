@@ -348,5 +348,7 @@
   "rateLimitFiveHour": "5时",
   "rateLimitSevenDay": "7天",
   "rateLimitTooltip": "{{label}}滚动窗口: 已使用{{percent}}%",
-  "rateLimitStatusOk": "{{label}}滚动窗口: 在限制范围内"
+  "rateLimitStatusOk": "{{label}}滚动窗口: 在限制范围内",
+  "rateLimitOk": "正常",
+  "rateLimitWarning": "!"
 }

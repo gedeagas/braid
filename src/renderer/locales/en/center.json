@@ -348,5 +348,7 @@
   "rateLimitFiveHour": "5h",
   "rateLimitSevenDay": "7d",
   "rateLimitTooltip": "{{label}} rolling window: {{percent}}% used",
-  "rateLimitStatusOk": "{{label}} rolling window: well within limits"
+  "rateLimitStatusOk": "{{label}} rolling window: well within limits",
+  "rateLimitOk": "OK",
+  "rateLimitWarning": "!"
 }

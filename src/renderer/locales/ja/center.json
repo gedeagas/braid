@@ -331,5 +331,7 @@
   "rateLimitFiveHour": "5時",
   "rateLimitSevenDay": "7日",
   "rateLimitTooltip": "{{label}}ローリング: {{percent}}%使用済み",
-  "rateLimitStatusOk": "{{label}}ローリング: 制限内"
+  "rateLimitStatusOk": "{{label}}ローリング: 制限内",
+  "rateLimitOk": "OK",
+  "rateLimitWarning": "!"
 }

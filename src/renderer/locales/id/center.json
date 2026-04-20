@@ -330,5 +330,7 @@
   "rateLimitFiveHour": "5j",
   "rateLimitSevenDay": "7h",
   "rateLimitTooltip": "Jendela bergulir {{label}}: {{percent}}% digunakan",
-  "rateLimitStatusOk": "Jendela bergulir {{label}}: dalam batas"
+  "rateLimitStatusOk": "Jendela bergulir {{label}}: dalam batas",
+  "rateLimitOk": "OK",
+  "rateLimitWarning": "!"
 }
