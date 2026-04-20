@@ -115,6 +115,25 @@ export function SettingsExperimental() {
         <FormField label={t('general.rollbackHistory')} hint={t('general.rollbackHistoryHint')} horizontal>
           <Toggle checked={rollbackHistory} onChange={setRollbackHistory} />
         </FormField>
+
+        <FormField
+          label={t('general.outputCompression')}
+          hint={rtkInstalling ? t('general.outputCompressionInstalling') : t('general.outputCompressionHint')}
+          horizontal
+        >
+          <Toggle
+            checked={outputCompression}
+            onChange={(v) => {
+              setOutputCompression(v)
+              if (v && !rtkInstalling) {
+                setRtkInstalling(true)
+                ipc.rtk.install()
+                  .catch((e) => console.error('[RTK] Install failed:', e))
+                  .finally(() => setRtkInstalling(false))
+              }
+            }}
+          />
+        </FormField>
       </Card>
     </div>
   )
