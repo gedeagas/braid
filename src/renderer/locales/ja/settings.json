@@ -16,6 +16,7 @@
     "claudeSkills": "スキル",
     "apps": "アプリ",
     "jira": "Jira",
+    "linear": "Linear",
     "analytics": "アナリティクス",
     "about": "このアプリについて",
     "experimental": "実験的機能"
@@ -339,6 +340,19 @@
     "baseUrlHint": "AtlassianサイトのURL（例: https://yourcompany.atlassian.net）。空白の場合はjira-cli設定から自動検出されます。",
     "save": "保存",
     "saved": "保存済み"
+  },
+  "linear": {
+    "description": "個人APIキーを使用してLinearに接続します。ブランチ名から関連イシューを表示し、ワークツリー作成時にイシュー検索を有効にします。",
+    "apiKeyLabel": "APIキー",
+    "apiKeyPlaceholder": "lin_api_...",
+    "apiKeyHint": "linear.app/settings/api から取得した個人APIキー",
+    "save": "保存",
+    "saved": "保存済み",
+    "testConnection": "接続テスト",
+    "statusTesting": "テスト中...",
+    "statusConnected": "接続済み",
+    "statusFailed": "接続失敗",
+    "getApiKey": "APIキーを取得"
   },
   "analytics": {
     "overview": "概要",

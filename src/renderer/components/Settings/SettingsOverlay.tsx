@@ -20,6 +20,7 @@ import { SettingsClaudeMcp } from './SettingsClaudeMcp'
 import { SettingsClaudeSkills } from './SettingsClaudeSkills'
 import { SettingsApps } from './SettingsApps'
 import { SettingsJira } from './SettingsJira'
+import { SettingsLinear } from './SettingsLinear'
 import { SettingsAnalytics } from './SettingsAnalytics'
 import { SettingsAbout } from './SettingsAbout'
 import { SettingsExperimental } from './SettingsExperimental'
@@ -50,6 +51,7 @@ const sectionMap: Record<string, React.ReactNode> = {
   claudeSkills: <SettingsClaudeSkills />,
   apps: <SettingsApps />,
   jira: <SettingsJira />,
+  linear: <SettingsLinear />,
   analytics: <SettingsAnalytics />,
   about: <SettingsAbout />,
   experimental: <SettingsExperimental />,

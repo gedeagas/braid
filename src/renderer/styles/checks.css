@@ -432,3 +432,56 @@
   font-size: var(--text-sm);
   flex-shrink: 0;
 }
+
+/* ─── Linear section ─────────────────────────────────────────────────────────*/
+
+/* Shared: used by LinearSection (right panel) AND AddWorktreeDialog (sidebar) */
+.linear-issue-key {
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Shared: used by LinearSection (right panel) AND AddWorktreeDialog (sidebar) */
+.linear-status-badge {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  padding: var(--space-2) var(--space-7);
+  border-radius: var(--radius-lg);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.linear-status-badge--new {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.linear-status-badge--indeterminate {
+  background: var(--amber-tint-15, rgba(230, 162, 60, 0.15));
+  color: var(--amber);
+  border: 1px solid var(--amber-tint-30, rgba(230, 162, 60, 0.3));
+}
+
+.linear-status-badge--done {
+  background: var(--green-tint-15);
+  color: var(--green);
+  border: 1px solid var(--green-tint-30, rgba(63, 185, 80, 0.3));
+}
+
+.linear-warn-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-3) var(--space-14) var(--space-5) 30px;
+  font-size: var(--text-base);
+  color: var(--amber);
+}
+
+.linear-warn-icon {
+  font-size: var(--text-sm);
+  flex-shrink: 0;
+}

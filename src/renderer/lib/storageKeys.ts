@@ -105,6 +105,7 @@ export const SK = {
 
   // ── Settings — Integrations ────────────────────────────────────────────
   jiraBaseUrl:                `${prefix}:jiraBaseUrl`,
+  linearApiKey:               `${prefix}:linearApiKey`,
 
   // ── Experimental / Web apps ────────────────────────────────────────────
   experimentalCapture:        `${prefix}:experimentalCapture`,

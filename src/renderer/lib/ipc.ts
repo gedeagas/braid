@@ -305,6 +305,17 @@ export const jira = {
     api().jira.getIssueByKey(key, overrideBaseUrl) as Promise<import('@/types').JiraIssue | null>,
 }
 
+export const linear = {
+  isAvailable: (apiKey: string) =>
+    api().linear.isAvailable(apiKey) as Promise<boolean>,
+  validateApiKey: (apiKey: string) =>
+    api().linear.validateApiKey(apiKey) as Promise<boolean>,
+  getIssuesForBranch: (worktreePath: string, apiKey: string) =>
+    api().linear.getIssuesForBranch(worktreePath, apiKey) as Promise<import('@/types').LinearResult>,
+  getIssueByKey: (key: string, apiKey: string) =>
+    api().linear.getIssueByKey(key, apiKey) as Promise<import('@/types').LinearIssue | null>,
+}
+
 export const lsp = {
   detectServers: (projectPath: string, userConfigs: import('@/types').LspServerConfig[]) =>
     api().lsp.detectServers(projectPath, userConfigs) as Promise<import('@/types').LspDetectedServer[]>,

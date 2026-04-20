@@ -21,6 +21,7 @@ import { claudeConfigService, ClaudePermissions, ClaudeHookConfig, SkillDetail, 
 import { notesService } from './services/notes'
 import { lspService, LspServerConfig } from './services/lsp'
 import { jiraService } from './services/jira'
+import { linearService } from './services/linear'
 import { githubAuthService } from './services/githubAuth'
 import { resolveCliPath } from './services/claudePath'
 import { downloadUpdate, installUpdate, checkForUpdates } from './services/autoUpdate'
@@ -214,6 +215,20 @@ export function registerIpcHandlers(): void {
   )
   ipcMain.handle('jira:getIssueByKey', (_e, key: string, overrideBaseUrl?: string) =>
     jiraService.getIssueByKey(key, overrideBaseUrl)
+  )
+
+  // Linear (requires API key in settings)
+  ipcMain.handle('linear:isAvailable', (_e, apiKey: string) =>
+    linearService.isAvailable(apiKey)
+  )
+  ipcMain.handle('linear:validateApiKey', (_e, apiKey: string) =>
+    linearService.validateApiKey(apiKey)
+  )
+  ipcMain.handle('linear:getIssuesForBranch', (_e, worktreePath: string, apiKey: string) =>
+    linearService.getIssuesForBranch(worktreePath, apiKey)
+  )
+  ipcMain.handle('linear:getIssueByKey', (_e, key: string, apiKey: string) =>
+    linearService.getIssueByKey(key, apiKey)
   )
 
   // Sessions

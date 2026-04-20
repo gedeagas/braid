@@ -58,6 +58,7 @@ export interface SettingsSlice {
   prPrompt: string
   mergeConflictPrompt: string
   jiraBaseUrl: string
+  linearApiKey: string
 
   // Notifications
   notifyOnDone: boolean
@@ -111,6 +112,7 @@ export interface SettingsSlice {
   setPrPrompt: (prompt: string) => void
   setMergeConflictPrompt: (prompt: string) => void
   setJiraBaseUrl: (url: string) => void
+  setLinearApiKey: (key: string) => void
   setNotifyOnDone: (v: boolean) => void
   setNotifyOnError: (v: boolean) => void
   setNotifyOnWaitingInput: (v: boolean) => void
@@ -157,6 +159,7 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   prPrompt: loadStr(SK.prPrompt, ''),
   mergeConflictPrompt: loadStr(SK.mergeConflictPrompt, ''),
   jiraBaseUrl: loadStr(SK.jiraBaseUrl, ''),
+  linearApiKey: loadStr(SK.linearApiKey, ''),
 
   notifyOnDone: loadBool(SK.notifyOnDone, true),
   notifyOnError: loadBool(SK.notifyOnError, true),
@@ -268,6 +271,11 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   setJiraBaseUrl: (url) => {
     localStorage.setItem(SK.jiraBaseUrl, url)
     set({ jiraBaseUrl: url })
+  },
+  setLinearApiKey: (key) => {
+    if (key) localStorage.setItem(SK.linearApiKey, key)
+    else localStorage.removeItem(SK.linearApiKey)
+    set({ linearApiKey: key })
   },
 
   setNotifyOnDone: (v) => { localStorage.setItem(SK.notifyOnDone, String(v)); set({ notifyOnDone: v }) },

@@ -10,13 +10,14 @@
 import React from 'react'
 import * as ipc from '@/lib/ipc'
 import { useUIStore } from '@/store/ui'
-import type { JiraResult } from '@/types'
+import type { JiraResult, LinearResult } from '@/types'
 import { useTranslation } from 'react-i18next'
 import {
   IconCheckCircle, IconXCircleStatus, IconSkipCircle, IconSpinner, IconDeployment,
 } from '@/components/shared/icons'
 import { SectionHeader, StatusDot } from '@/components/ui'
 import { JiraSection } from './JiraSection'
+import { LinearSection } from './LinearSection'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -332,10 +333,11 @@ export function ChecksViewSkeleton() {
   )
 }
 
-export function ChecksNoPr({ creatingPr, onCreatePr, jiraResult }: {
+export function ChecksNoPr({ creatingPr, onCreatePr, jiraResult, linearResult }: {
   creatingPr: boolean
   onCreatePr: () => void
   jiraResult: JiraResult | null | 'error'
+  linearResult: LinearResult | null | 'error'
 }) {
   const { t } = useTranslation('right')
   return (
@@ -352,6 +354,7 @@ export function ChecksNoPr({ creatingPr, onCreatePr, jiraResult }: {
           />
         </div>
         <JiraSection result={jiraResult} />
+        <LinearSection result={linearResult} />
       </div>
     </div>
   )

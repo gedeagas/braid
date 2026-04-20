@@ -35,6 +35,7 @@
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.2.112",
     "@floating-ui/react": "^0.27.19",
+    "@linear/sdk": "^82.0.0",
     "@mobilenext/mobilecli": "^0.1.62",
     "@modelcontextprotocol/sdk": "^1.28.0",
     "@monaco-editor/react": "^4.7.0",

@@ -11,7 +11,7 @@ import * as ipc from '@/lib/ipc'
 import { cleanIpcError } from '@/lib/ipc'
 import { useSessionsStore } from '@/store/sessions'
 import { useUIStore } from '@/store/ui'
-import type { JiraResult } from '@/types'
+import type { JiraResult, LinearResult } from '@/types'
 import { flash } from '@/store/flash'
 import { useTranslation } from 'react-i18next'
 import { usePrCacheStore, type PrStatus } from '@/store/prCache'
@@ -20,6 +20,7 @@ import { IconRefresh } from '@/components/shared/icons'
 import { DEFAULT_PR_PROMPT } from '@/lib/prPrompt'
 import { isOnline, onOnline } from '@/lib/online'
 import { JiraSection } from './JiraSection'
+import { LinearSection } from './LinearSection'
 import { PushErrorPanel } from './PushErrorPanel'
 import {
   type CheckRun, type Deployment, type GitSyncStatus,
@@ -47,6 +48,7 @@ interface ChecksSnapshot {
   deployments: Deployment[]
   sync: GitSyncStatus | null
   jiraResult: JiraResult | null | 'error'
+  linearResult: LinearResult | null | 'error'
   lastUpdated: Date
 }
 
@@ -60,6 +62,7 @@ interface ChecksViewState {
   deployments: Deployment[]
   sync: GitSyncStatus | null
   jiraResult: JiraResult | null | 'error'
+  linearResult: LinearResult | null | 'error'
   loading: boolean
   lastUpdated: Date | null
   fixingCheck: string | null
@@ -73,7 +76,7 @@ interface ChecksViewState {
 }
 
 type ChecksAction =
-  | { type: 'LOAD_DONE'; pr: PrStatus | null; checks: CheckRun[]; deployments: Deployment[]; sync: GitSyncStatus | null; jiraResult: JiraResult | null | 'error'; lastUpdated: Date }
+  | { type: 'LOAD_DONE'; pr: PrStatus | null; checks: CheckRun[]; deployments: Deployment[]; sync: GitSyncStatus | null; jiraResult: JiraResult | null | 'error'; linearResult: LinearResult | null | 'error'; lastUpdated: Date }
   | { type: 'LOAD_ERROR' }
   | { type: 'SET_FIXING_CHECK'; name: string | null }
   | { type: 'SET_OPENING_LOG'; name: string | null }
@@ -89,7 +92,7 @@ function checksViewReducer(state: ChecksViewState, action: ChecksAction): Checks
     case 'LOAD_DONE': return {
       ...state, loading: false,
       pr: action.pr, checks: action.checks, deployments: action.deployments,
-      sync: action.sync, jiraResult: action.jiraResult, lastUpdated: action.lastUpdated,
+      sync: action.sync, jiraResult: action.jiraResult, linearResult: action.linearResult, lastUpdated: action.lastUpdated,
     }
     case 'LOAD_ERROR': return { ...state, loading: false }
     case 'SET_FIXING_CHECK': return { ...state, fixingCheck: action.name }
@@ -114,6 +117,7 @@ function buildInitialState(worktreePath: string): ChecksViewState {
     deployments: snapshot?.deployments ?? [],
     sync: snapshot?.sync ?? null,
     jiraResult: snapshot?.jiraResult ?? null,
+    linearResult: snapshot?.linearResult ?? null,
     loading: !hasCachedData,
     lastUpdated: snapshot?.lastUpdated ?? null,
     fixingCheck: null, openingLog: null,
@@ -126,7 +130,7 @@ function buildInitialState(worktreePath: string): ChecksViewState {
 export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props) {
   const [state, dispatch] = useReducer(checksViewReducer, worktreePath, buildInitialState)
   const {
-    pr, checks, deployments, sync, jiraResult, loading, lastUpdated,
+    pr, checks, deployments, sync, jiraResult, linearResult, loading, lastUpdated,
     fixingCheck, openingLog, creatingPr, refreshing, pulling, pushing, pushError, markingReady,
   } = state
 
@@ -143,6 +147,7 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
   })
 
   const jiraBaseUrl = useUIStore((s) => s.jiraBaseUrl)
+  const linearApiKey = useUIStore((s) => s.linearApiKey)
   const createSession = useSessionsStore((s) => s.createSession)
   const sendMessage = useSessionsStore((s) => s.sendMessage)
   const setActiveSession = useSessionsStore((s) => s.setActiveSession)
@@ -153,10 +158,14 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
 
   const load = useCallback(async (forceRefresh?: boolean) => {
     try {
-      const [prResult, jiraFetch] = await Promise.all([
+      const [prResult, jiraFetch, linearFetch] = await Promise.all([
         ipc.github.getPrStatus(worktreePath, forceRefresh) as Promise<PrStatus | null>,
         (ipc.jira.getIssuesForBranch(worktreePath, jiraBaseUrl || undefined) as Promise<JiraResult>)
           .catch((): 'error' => 'error'),
+        linearApiKey
+          ? (ipc.linear.getIssuesForBranch(worktreePath, linearApiKey) as Promise<LinearResult>)
+              .catch((): 'error' => 'error')
+          : Promise.resolve<LinearResult>({ available: false, issues: [] }),
       ])
 
       // Keep the sidebar prCache in sync — no need to wait for its 90s poll.
@@ -186,14 +195,14 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
       }
 
       const now2 = new Date()
-      dispatch({ type: 'LOAD_DONE', pr: prResult, checks: latestChecks, deployments: latestDeployments, sync: latestSync, jiraResult: jiraFetch, lastUpdated: now2 })
-      checksCache.set(worktreePath, { pr: prResult, checks: latestChecks, deployments: latestDeployments, sync: latestSync, jiraResult: jiraFetch, lastUpdated: now2 })
+      dispatch({ type: 'LOAD_DONE', pr: prResult, checks: latestChecks, deployments: latestDeployments, sync: latestSync, jiraResult: jiraFetch, linearResult: linearFetch, lastUpdated: now2 })
+      checksCache.set(worktreePath, { pr: prResult, checks: latestChecks, deployments: latestDeployments, sync: latestSync, jiraResult: jiraFetch, linearResult: linearFetch, lastUpdated: now2 })
     } catch (err) {
       const st = usePrCacheStore.getState().cache[worktreePath]?.data?.state
       if (st !== 'MERGED' && st !== 'CLOSED') flash('error', cleanIpcError(err, t('loadChecksError')))
       dispatch({ type: 'LOAD_ERROR' })
     }
-  }, [worktreePath, upstream, jiraBaseUrl, t])
+  }, [worktreePath, upstream, jiraBaseUrl, linearApiKey, t])
 
   // ─── Action handlers ───────────────────────────────────────────────────────
 
@@ -315,7 +324,7 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
 
   if (loading) return <ChecksViewSkeleton />
 
-  if (!pr) return <ChecksNoPr creatingPr={creatingPr} onCreatePr={createPrWithAI} jiraResult={jiraResult} />
+  if (!pr) return <ChecksNoPr creatingPr={creatingPr} onCreatePr={createPrWithAI} jiraResult={jiraResult} linearResult={linearResult} />
 
   const openPrUrl = () => {
     if (pr.url) ipc.shell.openExternal(pr.url)
@@ -348,6 +357,7 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
 
       <div className="checks-body">
         <JiraSection result={jiraResult} prState={pr.state} />
+        <LinearSection result={linearResult} prState={pr.state} />
 
         {sync && pr.state === 'OPEN' && (
           <GitStatusSection
