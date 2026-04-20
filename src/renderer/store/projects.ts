@@ -5,6 +5,7 @@ import { useUIStore } from './ui'
 import { useSessionsStore } from './sessions'
 import { cleanupSetupPanel } from '@/components/Right/SetupPanel'
 import { cleanupTerminals } from '@/components/Right/TabbedTerminal'
+import { disposeBigTerminals } from '@/components/Center/bigTerminalCache'
 import { SK } from '@/lib/storageKeys'
 
 export function createDefaultProjectSettings(): ProjectSettings {
@@ -341,6 +342,12 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     cleanupTerminals(worktree.path)
     cleanupSetupPanel(worktree.path)
 
+    // Clean up big terminals: dispose xterm + PTY, delete scrollback files, drop localStorage entry.
+    const uiSnapshot = useUIStore.getState()
+    const bigTerminalIds = (uiSnapshot.bigTerminalsByWorktree[worktreeId] ?? []).map((bt) => bt.id)
+    disposeBigTerminals(bigTerminalIds)
+    uiSnapshot.clearBigTerminalsForWorktree(worktreeId)
+
     // Cascade-delete all sessions tied to this worktree (memory + disk)
     useSessionsStore.getState().closeSessionsByWorktree(worktreeId)
     // Remove stable ID from registry so a re-created branch gets a fresh ID
@@ -369,10 +376,16 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
       await ipc.git.removeWorktree(project.path, worktree.path)
     } catch (err) {
       console.error('[Projects] removeWorktree failed:', err)
-      // Revert by refreshing actual state from disk
+      // Revert by refreshing actual state from disk. Per-worktree UI state
+      // (open tabs, selected file, localStorage) is preserved because the
+      // cleanup below only runs after the IPC call succeeds.
       await get().refreshWorktrees(projectId)
       return
     }
+
+    // IPC succeeded - now safe to prune per-worktree UI state and localStorage.
+    // Doing this before the IPC would cause permanent state loss on git failure.
+    ui.cleanupWorktreeState(worktreeId, worktree.path)
 
     // Sync with actual git state
     await get().refreshWorktrees(projectId)

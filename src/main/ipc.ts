@@ -169,6 +169,10 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('pty:kill', (_e, id: string) => ptyService.kill(id))
   ipcMain.handle('pty:runScript', (_e, cwd: string, command: string) => ptyService.runScript(cwd, command))
   ipcMain.handle('pty:readTerminalOutput', (_e, worktreePath: string) => ptyService.readTerminalOutput(worktreePath))
+  ipcMain.on('pty:registerBigTerminal', (_e, ptyId: string, terminalId: string) =>
+    ptyService.registerBigTerminal(ptyId, terminalId))
+  ipcMain.handle('pty:readScrollback', (_e, terminalId: string) => ptyService.readScrollback(terminalId))
+  ipcMain.on('pty:deleteScrollback', (_e, terminalId: string) => ptyService.deleteScrollback(terminalId))
 
   // GitHub
   ipcMain.handle('github:getPrStatus', (_e, worktreePath: string, forceRefresh?: boolean) =>

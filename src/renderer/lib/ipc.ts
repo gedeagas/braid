@@ -112,7 +112,10 @@ export const pty = {
   runScript: (cwd: string, command: string) => api().pty.runScript(cwd, command),
   readTerminalOutput: (worktreePath: string) => api().pty.readTerminalOutput(worktreePath),
   onData: (callback: (id: string, data: string) => void) => api().pty.onData(callback),
-  onExit: (callback: (id: string, exitCode: number) => void) => api().pty.onExit(callback)
+  onExit: (callback: (id: string, exitCode: number) => void) => api().pty.onExit(callback),
+  registerBigTerminal: (ptyId: string, terminalId: string) => api().pty.registerBigTerminal(ptyId, terminalId),
+  readScrollback: (terminalId: string) => api().pty.readScrollback(terminalId) as Promise<string>,
+  deleteScrollback: (terminalId: string) => api().pty.deleteScrollback(terminalId),
 }
 
 export const simulator = {

@@ -39,6 +39,7 @@ export interface SettingsSlice {
   settingsSection: SettingsSection
   shortcutsOpen: boolean
   quickOpenOpen: boolean
+  commandPaletteOpen: boolean
 
   // AI
   defaultModel: ModelId
@@ -80,6 +81,7 @@ export interface SettingsSlice {
   bottomTerminalEnabled: boolean
   experimentalNoVirtualization: boolean
   magicTrackpad: boolean
+  bigTerminalEnabled: boolean
   rollbackHistory: boolean
 
   // Onboarding
@@ -97,6 +99,8 @@ export interface SettingsSlice {
   closeShortcuts: () => void
   openQuickOpen: () => void
   closeQuickOpen: () => void
+  openCommandPalette: () => void
+  closeCommandPalette: () => void
   setDefaultModel: (model: ModelId) => void
   setDefaultThinking: (v: boolean) => void
   setDefaultExtendedContext: (v: boolean) => void
@@ -128,6 +132,7 @@ export interface SettingsSlice {
   setBottomTerminalEnabled: (v: boolean) => void
   setExperimentalNoVirtualization: (v: boolean) => void
   setMagicTrackpad: (v: boolean) => void
+  setBigTerminalEnabled: (v: boolean) => void
   setRollbackHistory: (v: boolean) => void
 }
 
@@ -136,6 +141,7 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   settingsSection: 'general',
   shortcutsOpen: false,
   quickOpenOpen: false,
+  commandPaletteOpen: false,
 
   defaultModel: loadDefaultModel(),
   defaultThinking: loadBool(SK.defaultThinking, false),
@@ -195,6 +201,7 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   bottomTerminalEnabled: loadBool(SK.bottomTerminalEnabled, false),
   experimentalNoVirtualization: loadBool(SK.noVirtualization, true),
   magicTrackpad: loadBool(SK.magicTrackpad, false),
+  bigTerminalEnabled: loadBool(SK.bigTerminalEnabled, false),
   rollbackHistory: loadBool(SK.rollbackHistory, false),
 
   onboardingComplete: loadBool(SK.onboardingComplete, false),
@@ -208,6 +215,8 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   closeShortcuts: () => set({ shortcutsOpen: false }),
   openQuickOpen: () => set({ quickOpenOpen: true }),
   closeQuickOpen: () => set({ quickOpenOpen: false }),
+  openCommandPalette: () => set({ commandPaletteOpen: true }),
+  closeCommandPalette: () => set({ commandPaletteOpen: false }),
 
   setDefaultModel: (model) => {
     localStorage.setItem(SK.defaultModel, model)
@@ -293,6 +302,7 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   setBottomTerminalEnabled: (v) => { localStorage.setItem(SK.bottomTerminalEnabled, String(v)); set({ bottomTerminalEnabled: v }) },
   setExperimentalNoVirtualization: (v) => { localStorage.setItem(SK.noVirtualization, String(v)); set({ experimentalNoVirtualization: v }) },
   setMagicTrackpad: (v) => { localStorage.setItem(SK.magicTrackpad, String(v)); set({ magicTrackpad: v }) },
+  setBigTerminalEnabled: (v) => { localStorage.setItem(SK.bigTerminalEnabled, String(v)); set({ bigTerminalEnabled: v }) },
   setRollbackHistory: (v) => { localStorage.setItem(SK.rollbackHistory, String(v)); set({ rollbackHistory: v }) },
   setOnboardingComplete: (v) => { localStorage.setItem(SK.onboardingComplete, String(v)); set({ onboardingComplete: v }) },
   setFeatureTourComplete: (v) => { localStorage.setItem(SK.featureTourComplete, String(v)); set({ featureTourComplete: v }) },

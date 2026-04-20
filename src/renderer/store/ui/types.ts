@@ -8,7 +8,8 @@
 import type { ThemeSlice } from './theme'
 import type { LayoutSlice } from './layout'
 import type { TerminalSlice } from './terminal'
+import type { TerminalsSlice } from './terminals'
 import type { SettingsSlice } from './settings'
 import type { AppsSlice } from './apps'
 
-export type UIState = ThemeSlice & LayoutSlice & TerminalSlice & SettingsSlice & AppsSlice
+export type UIState = ThemeSlice & LayoutSlice & TerminalSlice & TerminalsSlice & SettingsSlice & AppsSlice

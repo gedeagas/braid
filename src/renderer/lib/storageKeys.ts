@@ -111,6 +111,9 @@ export const SK = {
   bottomTerminalEnabled:      `${prefix}:bottomTerminalEnabled`,
   noVirtualization:           `${prefix}:noVirtualization`,
   magicTrackpad:              `${prefix}:magicTrackpad`,
+  bigTerminalEnabled:         `${prefix}:bigTerminalEnabled`,
+  /** Prefix — append worktreeId to get the full key, e.g. SK.bigTerminalTabsPrefix + worktreeId */
+  bigTerminalTabsPrefix:      `${prefix}:bigTerminalTabs:`,
   rollbackHistory:            `${prefix}:rollbackHistory`,
   webAppsEnabled:             `${prefix}:webAppsEnabled`,
   embeddedApps:               `${prefix}:embeddedApps`,

@@ -16,6 +16,7 @@
   "zoomReset": "ズームをリセット",
   "toggleTerminal": "ターミナルの切り替え",
   "newChatTab": "新しいチャットタブ",
+  "newBigTerminal": "新しいビッグターミナル",
   "closeTab": "現在のタブを閉じる",
   "previousTab": "前のタブ",
   "nextTab": "次のタブ",
@@ -23,6 +24,10 @@
   "quickOpen": "ファイルを開く",
   "focusChat": "チャット入力にフォーカス",
   "saveFile": "ファイルを保存",
+  "commandPalette": "コマンドパレット",
+  "commandPaletteSearch": "コマンドを入力...",
+  "commandPaletteRun": "実行",
+  "commandPaletteNoResults": "「{{query}}」に一致するコマンドはありません",
   "noResults": "「{{query}}」に一致するショートカットはありません",
   "empty": "ショートカットはありません"
 }

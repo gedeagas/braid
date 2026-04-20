@@ -22,7 +22,7 @@ import { isBinaryFile, isGitBinaryDiff } from '@/lib/binaryFile'
 import { useShikiHighlight } from '@/hooks/useShikiHighlight'
 import * as ipc from '@/lib/ipc'
 import type { DiffComment } from '@/types'
-import type { GitStatusCode } from '@/store/ui'
+import { useUIStore, type GitStatusCode } from '@/store/ui'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -62,6 +62,16 @@ export function DiffReviewView({ filePath, worktreePath, fileStatus = 'M', fileS
     [state.comments, filePath],
   )
 
+  // Subscribe to diff revision so we re-fetch when changes are detected (e.g. new stage/unstage)
+  const diffRevision = useUIStore((s) => s.diffRevisionByWorktree[worktreePath] ?? 0)
+
+  // Refs used by the fetch effect to detect "silent reloads" (poll-driven refreshes
+  // for the same file selection) so we can skip the LOADING flicker and avoid
+  // dispatching LOADED when the diff content is unchanged.
+  const prevSelectionKeyRef = useRef<string | null>(null)
+  const currentDiffRef = useRef<string>('')
+  useEffect(() => { currentDiffRef.current = state.diff }, [state.diff])
+
   useEffect(() => { onCommentsChange(state.comments) }, [state.comments, onCommentsChange])
   useEffect(() => { onRegisterClear?.(() => dispatch({ type: 'CLEAR_COMMENTS' })) }, [onRegisterClear])
 
@@ -70,8 +80,16 @@ export function DiffReviewView({ filePath, worktreePath, fileStatus = 'M', fileS
   useEffect(() => {
     if (!worktreePath || !filePath) return
     let cancelled = false
+
+    // A "silent reload" is when only diffRevision changed - i.e. the same file is
+    // still selected but the changes panel detected new git state. In that case
+    // we keep the existing diff visible while fetching, avoiding a 10s UI flicker.
+    const selectionKey = `${worktreePath}|${filePath}|${fileStatus}|${fileStaged}`
+    const isSilentReload = prevSelectionKeyRef.current === selectionKey
+    prevSelectionKeyRef.current = selectionKey
+
     async function load() {
-      dispatch({ type: 'LOADING' })
+      if (!isSilentReload) dispatch({ type: 'LOADING' })
 
       // Detect binary by extension before attempting a text read
       if (isBinaryFile(filePath!)) {
@@ -89,6 +107,10 @@ export function DiffReviewView({ filePath, worktreePath, fileStatus = 'M', fileS
           return
         }
 
+        // Skip dispatch on silent reloads when content is byte-identical to current.
+        // Avoids re-parse, re-render, and Shiki re-highlight churn on the 10s poll.
+        if (isSilentReload && raw === currentDiffRef.current) return
+
         const hunks = parseDiff(raw)
         let add = 0, del = 0
         for (const line of raw.split('\n')) {
@@ -102,7 +124,7 @@ export function DiffReviewView({ filePath, worktreePath, fileStatus = 'M', fileS
     }
     load()
     return () => { cancelled = true }
-  }, [worktreePath, filePath, fileStatus, fileStaged])
+  }, [worktreePath, filePath, fileStatus, fileStaged, diffRevision])
 
   // ─── Gap expansion ─────────────────────────────────────────────────────────
 
