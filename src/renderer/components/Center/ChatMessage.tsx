@@ -9,7 +9,7 @@ import { ToolCallGroup } from './ToolCallGroup'
 import { StreamingMarkdown } from './StreamingMarkdown'
 import { parseMentions } from './mentionHighlight'
 import { ImageLightbox } from './ImageLightbox'
-import { IconPrBranch, IconChevronRight, IconChevronDown, IconCodeBrackets, IconFile, IconCopy, IconCheckmark, IconTerminal, IconRewind } from '@/components/shared/icons'
+import { IconPrBranch, IconChevronRight, IconChevronDown, IconCodeBrackets, IconFile, IconCopy, IconCheckmark, IconTerminal, IconUndo } from '@/components/shared/icons'
 import { TurnFooter } from './TurnFooter'
 import { Dialog, Button } from '@/components/ui'
 import { parseDiffComments, parseSnippets, parseTerminalBlocks, stripAttachmentBlocks } from './diffCommentUtils'
@@ -54,7 +54,7 @@ function AssistantCopyButton({ text }: { text: string }) {
   )
 }
 
-/** Rewind-to-here button shown on user messages when the experimental flag is enabled. */
+/** Rewind-to-here button shown below user messages when the experimental flag is enabled. */
 function RollbackButton({ messageId }: { messageId: string }) {
   const { t } = useTranslation('center')
   const [open, setOpen] = useState(false)
@@ -89,32 +89,37 @@ function RollbackButton({ messageId }: { messageId: string }) {
 
   return (
     <>
-      <button
-        className="chat-msg-rewind-btn"
-        onClick={handleClick}
-        title={canRollback ? t('rollback.button') : t('rollback.disabledBusy')}
-        disabled={!canRollback}
-        aria-label={t('rollback.button')}
-      >
-        <IconRewind size={13} />
-      </button>
-      <Dialog
-        isOpen={open}
-        onClose={() => { if (!busy) setOpen(false) }}
-        title={t('rollback.confirmTitle')}
-        actions={
-          <>
-            <Button onClick={() => setOpen(false)} disabled={busy}>
-              {t('rollback.cancel')}
-            </Button>
-            <Button variant="danger" onClick={handleConfirm} loading={busy}>
-              {t('rollback.confirm')}
-            </Button>
-          </>
-        }
-      >
-        <p>{t('rollback.confirmBody')}</p>
-      </Dialog>
+      <div className="turn-actions">
+        <button
+          className={`turn-actions-btn${!canRollback ? ' turn-actions-btn--disabled' : ''}`}
+          onClick={handleClick}
+          title={canRollback ? t('rollback.button') : t('rollback.disabledBusy')}
+          disabled={!canRollback}
+          aria-label={t('rollback.button')}
+        >
+          <IconUndo size={14} />
+        </button>
+      </div>
+      {createPortal(
+        <Dialog
+          isOpen={open}
+          onClose={() => { if (!busy) setOpen(false) }}
+          title={t('rollback.confirmTitle')}
+          actions={
+            <>
+              <Button onClick={() => setOpen(false)} disabled={busy}>
+                {t('rollback.cancel')}
+              </Button>
+              <Button variant="danger" onClick={handleConfirm} loading={busy}>
+                {t('rollback.confirm')}
+              </Button>
+            </>
+          }
+        >
+          <p>{t('rollback.confirmBody')}</p>
+        </Dialog>,
+        document.body
+      )}
     </>
   )
 }
@@ -287,7 +292,6 @@ export const ChatMessage = memo(function ChatMessage({ message }: Props) {
 
     return (
       <div className="chat-msg chat-msg-user">
-        {showRollback && <RollbackButton messageId={message.id} />}
         {message.images && message.images.length > 0 && (
           <div className="chat-msg-user-images">
             {message.images.map((uri, i) => (
@@ -307,6 +311,7 @@ export const ChatMessage = memo(function ChatMessage({ message }: Props) {
         {displayContent && (
           <div className="chat-msg-user-bubble">{renderWithMentions(displayContent)}</div>
         )}
+        {showRollback && <RollbackButton messageId={message.id} />}
         {lightboxSrc && (
           <ImageLightbox src={lightboxSrc} alt="Image preview" onClose={closeLightbox} />
         )}
