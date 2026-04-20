@@ -51,6 +51,18 @@ export interface RtkRewriteResult {
  *
  * Falls back to simple prefix if `rtk rewrite` is unavailable (version < 0.23.0).
  */
+/**
+ * Resolve bare `rtk` prefix in rewrite output to the full binary path.
+ * The `rtk rewrite` subcommand outputs commands like "rtk git status"
+ * but ~/Braid/binaries/rtk/ isn't in PATH, so we need the absolute path.
+ */
+function resolveRtkInOutput(rtkPath: string, output: string): string {
+  if (output === 'rtk' || output.startsWith('rtk ')) {
+    return rtkPath + output.slice(3)
+  }
+  return output
+}
+
 export function rewriteCommand(rtkPath: string, command: string, debug = false): RtkRewriteResult {
   try {
     const result = execFileSync(rtkPath, ['rewrite', command], {
@@ -60,10 +72,11 @@ export function rewriteCommand(rtkPath: string, command: string, debug = false):
     // Exit code 0 - rewrite found
     const rewritten = result.trim()
     if (rewritten && rewritten !== command) {
+      const resolved = resolveRtkInOutput(rtkPath, rewritten)
       if (debug) {
-        logger.info(`[RTK] rewrite: "${command}" -> "${rewritten}"`)
+        logger.info(`[RTK] rewrite: "${command}" -> "${resolved}"`)
       }
-      return { rewritten: true, command: rewritten }
+      return { rewritten: true, command: resolved }
     }
     return { rewritten: false, command }
   } catch (err: unknown) {
@@ -80,8 +93,9 @@ export function rewriteCommand(rtkPath: string, command: string, debug = false):
         // since Braid has its own permission model, just use the rewrite)
         const stdout = (err as { stdout?: string }).stdout?.trim()
         if (stdout) {
-          if (debug) logger.info(`[RTK] ask-rewrite: "${command}" -> "${stdout}"`)
-          return { rewritten: true, command: stdout }
+          const resolved = resolveRtkInOutput(rtkPath, stdout)
+          if (debug) logger.info(`[RTK] ask-rewrite: "${command}" -> "${resolved}"`)
+          return { rewritten: true, command: resolved }
         }
         return { rewritten: false, command }
       }

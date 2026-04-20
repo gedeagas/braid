@@ -35,10 +35,10 @@ describe('RTK service', () => {
   describe('rewriteCommand', () => {
     const rtkPath = '/Users/test/Braid/binaries/rtk/rtk'
 
-    it('returns rewritten command when rtk rewrite exits 0 with different output', () => {
+    it('returns rewritten command with full path when rtk rewrite exits 0', () => {
       mockExecFileSync.mockReturnValue('rtk git status\n')
       const result = rewriteCommand(rtkPath, 'git status')
-      expect(result).toEqual({ rewritten: true, command: 'rtk git status' })
+      expect(result).toEqual({ rewritten: true, command: `${rtkPath} git status` })
       expect(mockExecFileSync).toHaveBeenCalledWith(rtkPath, ['rewrite', 'git status'], expect.any(Object))
     })
 
@@ -64,13 +64,13 @@ describe('RTK service', () => {
       expect(result).toEqual({ rewritten: false, command: 'rm -rf /' })
     })
 
-    it('returns rewritten command on exit code 3 (ask rule) with stdout', () => {
+    it('returns rewritten command with full path on exit code 3 (ask rule)', () => {
       const err = new Error('exit 3') as Error & { status: number; stdout: string }
       err.status = 3
       err.stdout = 'rtk npm install\n'
       mockExecFileSync.mockImplementation(() => { throw err })
       const result = rewriteCommand(rtkPath, 'npm install')
-      expect(result).toEqual({ rewritten: true, command: 'rtk npm install' })
+      expect(result).toEqual({ rewritten: true, command: `${rtkPath} npm install` })
     })
 
     it('returns unchanged on exit code 3 with no stdout', () => {
@@ -126,7 +126,7 @@ describe('RTK service', () => {
       mockExecFileSync.mockReturnValue('rtk git status\n')
       // Should not throw - just verifies debug path executes without error
       const result = rewriteCommand(rtkPath, 'git status', true)
-      expect(result.rewritten).toBe(true)
+      expect(result).toEqual({ rewritten: true, command: `${rtkPath} git status` })
     })
   })
 })
