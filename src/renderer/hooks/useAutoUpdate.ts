@@ -89,10 +89,23 @@ if (import.meta.env.DEV) {
       version: '99.0.0',
       releaseNotes: '- Simulated update\n- For testing the full flow',
     })
-    console.log('[updater:sim] Showing available dialog. Call __simulateUpdate() again to continue.')
+    console.log('[updater:sim] Showing available dialog. Click "Download" to continue, or "Later" to dismiss.')
 
-    await sleep(3000)
-    dispatch({ type: 'startDownload' })
+    // Wait for the user to click Download (startDownload action moves state to 'downloading')
+    const MAX_WAIT_MS = 60_000
+    const POLL_MS = 200
+    let waited = 0
+    while (waited < MAX_WAIT_MS) {
+      await sleep(POLL_MS)
+      waited += POLL_MS
+      const s = useUpdaterStore.getState().state
+      if (s.status === 'downloading') break
+      // User dismissed — stop here so the activity bar button appears
+      if (s.status === 'available' && s.dismissed) {
+        console.log('[updater:sim] Dismissed — activity bar update button should now be visible.')
+        return
+      }
+    }
 
     for (let i = 0; i <= 100; i += 10) {
       dispatch({ type: 'progress', percent: i })

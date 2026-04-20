@@ -35,6 +35,7 @@ type UpdateAction =
   | { type: 'ready'; version: string }
   | { type: 'error'; message: string }
   | { type: 'dismiss' }
+  | { type: 'undismiss' }
   | { type: 'startDownload' }
   | { type: 'retry' }
   | { type: 'check' }
@@ -42,13 +43,19 @@ type UpdateAction =
 
 function updateReducer(state: UpdateState, action: UpdateAction): UpdateState {
   switch (action.type) {
-    case 'available':
+    case 'available': {
+      // Keep dismissed=true if the user already skipped this exact version
+      const alreadyDismissed =
+        state.status === 'available' &&
+        state.dismissed &&
+        state.version === action.version
       return {
         status: 'available',
         version: action.version,
         releaseNotes: action.releaseNotes,
-        dismissed: false,
+        dismissed: alreadyDismissed,
       }
+    }
     case 'startDownload':
       if (state.status !== 'available') return state
       return {
@@ -68,6 +75,10 @@ function updateReducer(state: UpdateState, action: UpdateAction): UpdateState {
       if (state.status === 'available') return { ...state, dismissed: true }
       if (state.status === 'ready') return { ...state, dismissed: true }
       if (state.status === 'error') return { status: 'idle' }
+      return state
+    case 'undismiss':
+      if (state.status === 'available') return { ...state, dismissed: false }
+      if (state.status === 'ready') return { ...state, dismissed: false }
       return state
     case 'retry':
       return { status: 'idle' }

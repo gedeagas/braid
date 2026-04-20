@@ -130,5 +130,7 @@
   "quickStartNextjsFailed": "Failed to scaffold Next.js project. See the console for details.",
   "quickStartNextjsToolMissing": "Could not find npx. Install Node.js (which includes npx) and try again.",
   "quickStartNextjsTimeout": "Scaffolding timed out after 10 minutes. Check your network and try again.",
-  "quickStartParentNotDirectory": "The selected location is not a directory or could not be accessed"
+  "quickStartParentNotDirectory": "The selected location is not a directory or could not be accessed",
+  "updateAvailable": "Update available — v{{version}}",
+  "updateReady": "Restart to update — v{{version}}"
 }

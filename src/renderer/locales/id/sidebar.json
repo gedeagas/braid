@@ -130,5 +130,7 @@
   "quickStartNextjsFailed": "Gagal membuat proyek Next.js. Lihat konsol untuk detailnya.",
   "quickStartNextjsToolMissing": "npx tidak ditemukan. Pasang Node.js (yang menyertakan npx) lalu coba lagi.",
   "quickStartNextjsTimeout": "Scaffolding melebihi batas waktu 10 menit. Periksa koneksi Anda lalu coba lagi.",
-  "quickStartParentNotDirectory": "Lokasi yang dipilih bukan folder atau tidak dapat diakses"
+  "quickStartParentNotDirectory": "Lokasi yang dipilih bukan folder atau tidak dapat diakses",
+  "updateAvailable": "Pembaruan tersedia — v{{version}}",
+  "updateReady": "Mulai ulang untuk memperbarui — v{{version}}"
 }
