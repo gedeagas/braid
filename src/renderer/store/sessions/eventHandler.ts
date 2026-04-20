@@ -66,12 +66,17 @@ export function initAgentEventListener(): () => void {
         // When absent, store status only so the UI can show a green "all clear" dot.
         const rateLimitType = (info.rateLimitType as string) ?? 'unknown'
         const utilization = typeof info.utilization === 'number' ? info.utilization : null
+        const rawStatus = info.status as string | undefined
+        const VALID_STATUSES = new Set(['allowed', 'allowed_warning', 'rejected'])
+        const status = (rawStatus && VALID_STATUSES.has(rawStatus)
+          ? rawStatus
+          : 'allowed') as 'allowed' | 'allowed_warning' | 'rejected'
         const entry = {
           rateLimitType,
           utilization,
-          status: ((info.status as string) ?? 'allowed') as 'allowed' | 'allowed_warning' | 'rejected',
-          resetsAt: info.resetsAt as number | undefined,
-          isUsingOverage: info.isUsingOverage as boolean | undefined,
+          status,
+          resetsAt: typeof info.resetsAt === 'number' ? info.resetsAt : undefined,
+          isUsingOverage: typeof info.isUsingOverage === 'boolean' ? info.isUsingOverage : undefined,
           updatedAt: Date.now()
         }
         // Update global store (account-wide, not per-session) so all UI reacts

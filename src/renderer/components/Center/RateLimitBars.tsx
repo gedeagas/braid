@@ -43,17 +43,17 @@ export function RateLimitBars() {
 
   return (
     <Tooltip content={t('rateLimitHeader')} position="top">
-      <div className="rate-limit-bars">
+      <span className="rate-limit-bars">
         <span className="rate-limit-title">{t('rateLimitTitle')}</span>
-        <div className="rate-limit-tracks">
+        <span className="rate-limit-tracks">
           {fiveHour && (
             <RateLimitRow label={t('rateLimitFiveHour')} info={fiveHour} />
           )}
           {sevenDay && (
             <RateLimitRow label={t('rateLimitSevenDay')} info={sevenDay} />
           )}
-        </div>
-      </div>
+        </span>
+      </span>
     </Tooltip>
   )
 }
@@ -69,18 +69,18 @@ function RateLimitRow({ label, info }: { label: string; info: RateLimitInfo }) {
       : 'var(--green-tint-15)'
 
     return (
-      <div className="rate-limit-row">
+      <span className="rate-limit-row">
         <span className="rate-limit-label">{label}</span>
-        <div className="rate-limit-track" style={{ background: bgColor }}>
-          <div
+        <span className="rate-limit-track" style={{ background: bgColor }}>
+          <span
             className="rate-limit-fill rate-limit-fill--low"
             style={{ background: statusColor }}
           />
-        </div>
+        </span>
         <span className={`rate-limit-percent ${isOk ? 'rate-limit-percent--ok' : ''}`}>
           {isOk ? 'OK' : '!'}
         </span>
-      </div>
+      </span>
     )
   }
 
@@ -89,15 +89,15 @@ function RateLimitRow({ label, info }: { label: string; info: RateLimitInfo }) {
   const bgColor = getBarBgColor(info.utilization)
 
   return (
-    <div className="rate-limit-row">
+    <span className="rate-limit-row">
       <span className="rate-limit-label">{label}</span>
-      <div className="rate-limit-track" style={{ background: bgColor }}>
-        <div
+      <span className="rate-limit-track" style={{ background: bgColor }}>
+        <span
           className="rate-limit-fill"
           style={{ width: `${percent}%`, background: barColor }}
         />
-      </div>
+      </span>
       <span className="rate-limit-percent">{percent}%</span>
-    </div>
+    </span>
   )
 }

@@ -42,22 +42,30 @@ export function loadRateLimits(): Record<string, RateLimitInfo> | null {
     const cached: CachedRateLimits = JSON.parse(raw)
     const now = Date.now()
     const result: Record<string, RateLimitInfo> = {}
+    const pruned: CachedRateLimits = {}
     let hasValid = false
+    let hasExpired = false
 
     for (const [key, entry] of Object.entries(cached)) {
       if (now < entry.expiresAt) {
         result[key] = entry.data
+        pruned[key] = entry
         hasValid = true
+      } else {
+        hasExpired = true
       }
     }
 
-    // Clean up expired entries from storage
-    if (!hasValid) {
-      localStorage.removeItem(SK.rateLimits)
-      return null
+    // Persist pruned data back to storage so expired entries don't accumulate
+    if (hasExpired) {
+      if (hasValid) {
+        localStorage.setItem(SK.rateLimits, JSON.stringify(pruned))
+      } else {
+        localStorage.removeItem(SK.rateLimits)
+      }
     }
 
-    return result
+    return hasValid ? result : null
   } catch {
     return null
   }
