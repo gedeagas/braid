@@ -43,6 +43,8 @@
     "bigTerminalHint": "Run a full terminal in the center panel with ⌘⇧T. Tabs and history are restored on restart.",
     "noVirtualization": "No-virtualization chat list",
     "noVirtualizationHint": "Renders all messages in a plain scrollable div instead of Virtuoso. May fix scroll jank with expanded tool groups.",
+    "rollbackHistory": "Rollback chat history",
+    "rollbackHistoryHint": "Adds a rewind button to user messages. Clicking it truncates chat history to that point and restores the worktree's files via git snapshot.",
     "replayTour": "Replay Feature Tour",
     "replayTourHint": "Walk through the main features of Braid again"
   },

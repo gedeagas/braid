@@ -82,6 +82,7 @@ export interface SettingsSlice {
   experimentalNoVirtualization: boolean
   magicTrackpad: boolean
   bigTerminalEnabled: boolean
+  rollbackHistory: boolean
 
   // Onboarding
   onboardingComplete: boolean
@@ -132,6 +133,7 @@ export interface SettingsSlice {
   setExperimentalNoVirtualization: (v: boolean) => void
   setMagicTrackpad: (v: boolean) => void
   setBigTerminalEnabled: (v: boolean) => void
+  setRollbackHistory: (v: boolean) => void
 }
 
 export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> = (set) => ({
@@ -200,6 +202,7 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   experimentalNoVirtualization: loadBool(SK.noVirtualization, true),
   magicTrackpad: loadBool(SK.magicTrackpad, false),
   bigTerminalEnabled: loadBool(SK.bigTerminalEnabled, false),
+  rollbackHistory: loadBool(SK.rollbackHistory, false),
 
   onboardingComplete: loadBool(SK.onboardingComplete, false),
   featureTourComplete: loadBool(SK.featureTourComplete, false),
@@ -300,6 +303,7 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   setExperimentalNoVirtualization: (v) => { localStorage.setItem(SK.noVirtualization, String(v)); set({ experimentalNoVirtualization: v }) },
   setMagicTrackpad: (v) => { localStorage.setItem(SK.magicTrackpad, String(v)); set({ magicTrackpad: v }) },
   setBigTerminalEnabled: (v) => { localStorage.setItem(SK.bigTerminalEnabled, String(v)); set({ bigTerminalEnabled: v }) },
+  setRollbackHistory: (v) => { localStorage.setItem(SK.rollbackHistory, String(v)); set({ rollbackHistory: v }) },
   setOnboardingComplete: (v) => { localStorage.setItem(SK.onboardingComplete, String(v)); set({ onboardingComplete: v }) },
   setFeatureTourComplete: (v) => { localStorage.setItem(SK.featureTourComplete, String(v)); set({ featureTourComplete: v }) },
   setSimulatorTourComplete: (v) => { localStorage.setItem(SK.simulatorTourComplete, String(v)); set({ simulatorTourComplete: v }) },

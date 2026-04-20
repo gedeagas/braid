@@ -317,7 +317,8 @@ class AgentCoordinator {
     additionalDirectories?: string[],
     linkedWorktreeContext?: string,
     connectedDeviceId?: string,
-    mobileFramework?: string
+    mobileFramework?: string,
+    resumeSessionAt?: string
   ): Promise<void> {
     const meta = this.sessionMeta.get(sessionId)
     if (meta) {
@@ -335,7 +336,8 @@ class AgentCoordinator {
     this.postCommand(sessionId, {
       type: 'sendMessage', sessionId, message, sdkSessionId, cwd, model,
       extendedContext, effortLevel, planMode, sessionName, settings: this.getAgentSettings(), images,
-      additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework
+      additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework,
+      resumeSessionAt
     })
   }
 

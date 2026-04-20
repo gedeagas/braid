@@ -114,6 +114,15 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  position: relative;
+}
+
+/* Experimental warning inside rollback confirmation dialog */
+.rollback-experimental-warning {
+  font-size: var(--text-base);
+  color: var(--amber);
+  margin-top: var(--space-8);
+  margin-bottom: 0;
 }
 
 .chat-msg-user-bubble {
@@ -733,6 +742,16 @@
 
 .turn-actions-btn--copied:hover {
   color: var(--green);
+  background: none;
+}
+
+.turn-actions-btn--disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.turn-actions-btn--disabled:hover {
+  color: var(--text-muted);
   background: none;
 }
 

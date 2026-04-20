@@ -97,7 +97,6 @@ export const IconRefresh = ({ size = 14, ...p }: IconProps) => (
 export const IconGrid = ({ size = 14, ...p }: IconProps) => (
   <svg {...strokeIcon(size, p)}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
 )
-
 // ─── Extracted from components ───────────────────────────────────────────────
 
 export const IconArrowLeft = ({ size = 14, ...p }: IconProps) => (

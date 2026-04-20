@@ -323,7 +323,9 @@ export class AgentWorker {
     additionalDirectories?: string[],
     linkedWorktreeContext?: string,
     connectedDeviceId?: string,
-    mobileFramework?: string
+    mobileFramework?: string,
+    /** Pass-through to SDK: replay history only up to (and including) this assistant message uuid. */
+    resumeSessionAt?: string
   ): Promise<void> {
     let state = this.sessions.get(sessionId)
     if (!state) {
@@ -419,6 +421,7 @@ export class AgentWorker {
           additionalDirectories: state.additionalDirectories?.length ? state.additionalDirectories : undefined,
           model: state.model,
           resume: resumeId,
+          ...(resumeSessionAt ? { resumeSessionAt } : {}),
           canUseTool: createCanUseTool(sessionId, state.cwd, settings.bypassPermissions, this.emit, this.pendingUserInput, this.log.bind(this)),
           onElicitation: this.createOnElicitation(sessionId),
           includePartialMessages: true,

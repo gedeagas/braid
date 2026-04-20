@@ -114,6 +114,7 @@ export const SK = {
   bigTerminalEnabled:         `${prefix}:bigTerminalEnabled`,
   /** Prefix — append worktreeId to get the full key, e.g. SK.bigTerminalTabsPrefix + worktreeId */
   bigTerminalTabsPrefix:      `${prefix}:bigTerminalTabs:`,
+  rollbackHistory:            `${prefix}:rollbackHistory`,
   webAppsEnabled:             `${prefix}:webAppsEnabled`,
   embeddedApps:               `${prefix}:embeddedApps`,
   webAppLastUrls:             `${prefix}:webAppLastUrls`,

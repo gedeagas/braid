@@ -87,6 +87,12 @@ export interface AgentSession {
   linkedWorktrees?: LinkedWorktree[]
   /** When set, the mobile-device MCP server is injected into this session. */
   connectedDeviceId?: string
+  /**
+   * Set after a rollback. The next sendMessage call will pass this value to the SDK as
+   * `resumeSessionAt`, so the SDK replays history only up to (and including) this UUID.
+   * Cleared after the IPC send succeeds. Preserved on failure so a retry can reuse it.
+   */
+  pendingResumeAt?: string
 }
 
 export type ContentBlock =
@@ -103,6 +109,10 @@ export interface TurnUsage {
 
 export interface Message {
   id: string
+  /** SDK-assigned message UUID (from SDKAssistantMessage/SDKUserMessage.uuid). Used as anchor for rollback via resumeSessionAt. */
+  sdkUuid?: string
+  /** Git commit SHA of a snapshot taken just before this user turn was sent. Set only on user messages. */
+  snapshotSha?: string
   role: 'user' | 'assistant' | 'system'
   content: string
   images?: string[] // base64 data URIs for user-attached images

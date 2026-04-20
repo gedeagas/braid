@@ -35,6 +35,8 @@ export function SettingsExperimental() {
   const setExperimentalNoVirtualization = useUIStore((s) => s.setExperimentalNoVirtualization)
   const bigTerminalEnabled = useUIStore((s) => s.bigTerminalEnabled)
   const setBigTerminalEnabled = useUIStore((s) => s.setBigTerminalEnabled)
+  const rollbackHistory = useUIStore((s) => s.rollbackHistory)
+  const setRollbackHistory = useUIStore((s) => s.setRollbackHistory)
 
   const selected = FEATURES.find((f) => f.id === selectedId) ?? FEATURES[0]
 
@@ -104,6 +106,10 @@ export function SettingsExperimental() {
 
         <FormField label={t('general.noVirtualization')} hint={t('general.noVirtualizationHint')} horizontal>
           <Toggle checked={experimentalNoVirtualization} onChange={setExperimentalNoVirtualization} />
+        </FormField>
+
+        <FormField label={t('general.rollbackHistory')} hint={t('general.rollbackHistoryHint')} horizontal>
+          <Toggle checked={rollbackHistory} onChange={setRollbackHistory} />
         </FormField>
       </Card>
     </div>

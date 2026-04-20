@@ -73,4 +73,11 @@ export interface SessionsState {
   dismissAuthError: (sessionId: string) => void
   /** Respond to an MCP elicitation (OAuth auth or form input). */
   answerElicitation: (sessionId: string, result: { action: 'accept' | 'decline' | 'cancel'; content?: Record<string, unknown> }) => void
+  /**
+   * Experimental: rollback chat history to a specific user message.
+   * Truncates messages at the target, restores worktree files from that
+   * message's git snapshot, and sets pendingResumeAt so the next sendMessage
+   * passes resumeSessionAt to the SDK (resuming from the prior assistant turn).
+   */
+  rollbackToUserMessage: (sessionId: string, targetMessageId: string) => Promise<void>
 }

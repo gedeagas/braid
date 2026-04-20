@@ -72,14 +72,18 @@ const api = {
       ipcRenderer.invoke('git:isRepoRoot', repoPath) as Promise<boolean>,
     findChildRepos: (parentPath: string) =>
       ipcRenderer.invoke('git:findChildRepos', parentPath) as Promise<string[]>,
+    createSnapshot: (worktreePath: string) =>
+      ipcRenderer.invoke('git:createSnapshot', worktreePath) as Promise<string>,
+    restoreSnapshot: (worktreePath: string, snapSha: string) =>
+      ipcRenderer.invoke('git:restoreSnapshot', worktreePath, snapSha) as Promise<void>,
   },
 
   // Agent
   agent: {
     startSession: (sessionId: string, worktreeId: string, worktreePath: string, prompt: string, model: string, thinking: boolean, extendedContext: boolean, effortLevel: string, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string) =>
       ipcRenderer.invoke('agent:startSession', sessionId, worktreeId, worktreePath, prompt, model, thinking, extendedContext, effortLevel, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework),
-    sendMessage: (sessionId: string, message: string, sdkSessionId: string, cwd: string, model: string, extendedContext: boolean, effortLevel: string, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string) =>
-      ipcRenderer.invoke('agent:sendMessage', sessionId, message, sdkSessionId, cwd, model, extendedContext, effortLevel, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework),
+    sendMessage: (sessionId: string, message: string, sdkSessionId: string, cwd: string, model: string, extendedContext: boolean, effortLevel: string, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string, resumeSessionAt?: string) =>
+      ipcRenderer.invoke('agent:sendMessage', sessionId, message, sdkSessionId, cwd, model, extendedContext, effortLevel, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework, resumeSessionAt),
     updateSessionName: (sessionId: string, name: string) =>
       ipcRenderer.invoke('agent:updateSessionName', sessionId, name),
     notify: (sessionId: string, type: 'done' | 'error' | 'waiting_input', sessionName?: string, errorMessage?: string, reason?: 'question' | 'plan_approval') =>
