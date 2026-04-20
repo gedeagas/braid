@@ -1,4 +1,4 @@
-import { useReducer, useEffect } from 'react'
+import { useReducer, useEffect, useRef } from 'react'
 import type { Worktree, SessionStatus } from '@/types'
 import { StatusDot } from './StatusDot'
 import { PrIcon } from './PrIcon'
@@ -17,6 +17,8 @@ interface Props {
   dragOverId: string | null
   draggingId: string | null
   isNew?: boolean
+  isFocused?: boolean
+  onRegisterRef?: (el: HTMLElement | null) => void
 }
 
 type RowState = { menu: { x: number; y: number } | null; showDeleteConfirm: boolean; dontAskAgain: boolean }
@@ -37,7 +39,7 @@ function rowReducer(state: RowState, action: RowAction): RowState {
   }
 }
 
-export function WorktreeRow({ worktree, dragOverId, draggingId, isNew }: Props) {
+export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused, onRegisterRef }: Props) {
   const selectedWorktreeId = useUIStore((s) => s.selectedWorktreeId)
   const selectWorktree = useUIStore((s) => s.selectWorktree)
   const setMissionControlActive = useUIStore((s) => s.setMissionControlActive)
@@ -50,6 +52,15 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew }: Props) 
   const { t } = useTranslation('sidebar')
 
   const clearNewlyAdded = useUIStore((s) => s.setNewlyAddedWorktreeId)
+
+  const rowRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = rowRef.current
+    if (!onRegisterRef) return
+    onRegisterRef(el)
+    return () => onRegisterRef(null)
+  }, [onRegisterRef])
 
   const isSelected = selectedWorktreeId === worktree.id
   const isPinned = pinnedWorktrees.has(worktree.id)
@@ -102,12 +113,14 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew }: Props) 
   return (
     <>
       <div
+        ref={rowRef}
         className={[
           'worktree-row',
           isSelected ? 'selected' : '',
           isDragging ? 'worktree-row--dragging' : '',
           isDropTarget ? 'worktree-row--drop-target' : '',
-          isNew ? 'worktree-row--new' : ''
+          isNew ? 'worktree-row--new' : '',
+          isFocused ? 'worktree-row--keyboard-focused' : ''
         ]
           .filter(Boolean)
           .join(' ')}
@@ -121,6 +134,7 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew }: Props) 
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
+            e.stopPropagation()
             selectWorktree(worktree.projectId, worktree.id)
           } else if ((e.key === 'Delete' || (e.key === 'Backspace' && e.metaKey)) && !worktree.isMain && e.currentTarget === e.target) {
             e.preventDefault()
