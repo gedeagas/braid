@@ -16,6 +16,7 @@
     "claudeSkills": "Skills",
     "apps": "Apps",
     "jira": "Jira",
+    "linear": "Linear",
     "analytics": "Analytics",
     "about": "About",
     "experimental": "Experimental"
@@ -343,6 +344,19 @@
     "baseUrlHint": "Your Atlassian site URL (e.g. https://yourcompany.atlassian.net). Auto-detected from jira-cli config if left blank.",
     "save": "Save",
     "saved": "Saved"
+  },
+  "linear": {
+    "description": "Connect to Linear using a personal API key. Shows linked issues from branch names and enables issue lookup when creating worktrees.",
+    "apiKeyLabel": "API Key",
+    "apiKeyPlaceholder": "lin_api_...",
+    "apiKeyHint": "Personal API key from linear.app/settings/api",
+    "save": "Save",
+    "saved": "Saved",
+    "testConnection": "Test Connection",
+    "statusTesting": "Testing...",
+    "statusConnected": "Connected",
+    "statusFailed": "Connection failed",
+    "getApiKey": "Get API key"
   },
   "analytics": {
     "overview": "Overview",

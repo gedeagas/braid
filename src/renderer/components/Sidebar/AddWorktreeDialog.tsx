@@ -10,8 +10,9 @@ import { IconGitBranch, IconChevronDownFill, IconCheckFill, IconSettings } from 
 import { Button, Combobox, Dialog, Spinner } from '@/components/ui'
 import { copyFilesReducer } from './copyFilesReducer'
 import { JiraLookupField, useJiraAvailable } from './JiraLookupField'
+import { LinearLookupField, useLinearAvailable } from './LinearLookupField'
 import { CopyFilesSection } from './CopyFilesSection'
-import type { JiraIssue } from '@/types'
+import type { JiraIssue, LinearIssue } from '@/types'
 
 // ── Dialog state reducer ────────────────────────────────────────────────────
 
@@ -63,6 +64,8 @@ export function AddWorktreeDialog({ projectId, repoPath, onClose }: Props) {
   })
 
   const jiraAvailable = useJiraAvailable()
+  const linearApiKey = useUIStore((s) => s.linearApiKey)
+  const linearAvailable = useLinearAvailable(linearApiKey)
 
   // Ref so the fetch callback always sees the latest value without re-running the effect
   const userEditedRef = useRef(false)
@@ -133,6 +136,10 @@ export function AddWorktreeDialog({ projectId, repoPath, onClose }: Props) {
   const handleReroll = () => dd({ type: 'reroll', name: randomBranchName() })
 
   const handleJiraResolved = useCallback((_issue: JiraIssue, branch: string, validationError: string | null) => {
+    dd({ type: 'setBranch', value: branch, error: validationError ?? '' })
+  }, [])
+
+  const handleLinearResolved = useCallback((_issue: LinearIssue, branch: string, validationError: string | null) => {
     dd({ type: 'setBranch', value: branch, error: validationError ?? '' })
   }, [])
 
@@ -211,6 +218,17 @@ export function AddWorktreeDialog({ projectId, repoPath, onClose }: Props) {
           branchPrefix={defaultBranchPrefix}
           jiraBaseUrl={jiraBaseUrl}
           onResolved={handleJiraResolved}
+          onError={() => {}}
+        />
+      )}
+
+      {/* Linear issue lookup */}
+      {linearAvailable && (
+        <LinearLookupField
+          disabled={d.creating}
+          branchPrefix={defaultBranchPrefix}
+          linearApiKey={linearApiKey}
+          onResolved={handleLinearResolved}
           onError={() => {}}
         />
       )}

@@ -200,3 +200,24 @@ export interface JiraResult {
   available: boolean
   issues: JiraIssue[]
 }
+
+// ─── Linear ───────────────────────────────────────────────────────────────────
+
+export interface LinearIssue {
+  key: string
+  summary: string
+  /** Human-readable status name, e.g. "In Progress" */
+  status: string
+  /** Mapped from Linear workflow state type */
+  statusCategory: 'new' | 'indeterminate' | 'done'
+  /** issue.priorityLabel or empty string */
+  type: string
+  assignee: string | null
+  url: string
+}
+
+export interface LinearResult {
+  /** false when no API key is configured */
+  available: boolean
+  issues: LinearIssue[]
+}

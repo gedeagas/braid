@@ -89,3 +89,34 @@ export function deriveBranchFromJira(key: string, summary: string): string {
   if (!slug) return key
   return `${key}-${slug}`
 }
+
+/**
+ * Extract a Linear issue identifier from user input.
+ * Accepts:
+ *   - Raw key: "ENG-123"
+ *   - Linear URL: "https://linear.app/team/issue/ENG-123/title-slug"
+ * Returns uppercase identifier or null if no valid key is found.
+ */
+export function extractLinearKey(input: string): string | null {
+  const trimmed = input.trim()
+  if (!trimmed) return null
+
+  // Try extracting from Linear URL path: /issue/KEY-123/
+  const urlMatch = trimmed.match(/\/issue\/([A-Z]{2,10}-\d+)/i)
+  if (urlMatch) return urlMatch[1].toUpperCase()
+
+  // Try raw key pattern
+  const keyMatch = trimmed.match(/^([A-Z]{2,10}-\d+)$/i)
+  if (keyMatch) return keyMatch[1].toUpperCase()
+
+  return null
+}
+
+/**
+ * Derive a branch name from a Linear issue identifier + title.
+ * Uses the same slug algorithm as deriveBranchFromJira.
+ * Example: ("ENG-123", "Fix cart total calculation") -> "ENG-123-fix-cart-total-calculation"
+ */
+export function deriveBranchFromLinear(key: string, title: string): string {
+  return deriveBranchFromJira(key, title)
+}

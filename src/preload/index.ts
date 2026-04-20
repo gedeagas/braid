@@ -242,6 +242,18 @@ const api = {
       ipcRenderer.invoke('jira:getIssueByKey', key, overrideBaseUrl),
   },
 
+  // Linear (requires API key in settings)
+  linear: {
+    isAvailable: (apiKey: string) =>
+      ipcRenderer.invoke('linear:isAvailable', apiKey) as Promise<boolean>,
+    validateApiKey: (apiKey: string) =>
+      ipcRenderer.invoke('linear:validateApiKey', apiKey) as Promise<boolean>,
+    getIssuesForBranch: (worktreePath: string, apiKey: string) =>
+      ipcRenderer.invoke('linear:getIssuesForBranch', worktreePath, apiKey),
+    getIssueByKey: (key: string, apiKey: string) =>
+      ipcRenderer.invoke('linear:getIssueByKey', key, apiKey),
+  },
+
   // Sessions
   sessions: {
     save: (data: unknown) => ipcRenderer.invoke('sessions:save', data),

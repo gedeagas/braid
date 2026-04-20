@@ -16,6 +16,7 @@
     "claudeSkills": "Keahlian",
     "apps": "Aplikasi",
     "jira": "Jira",
+    "linear": "Linear",
     "analytics": "Analitik",
     "about": "Tentang",
     "experimental": "Eksperimental"
@@ -343,6 +344,19 @@
     "baseUrlHint": "URL situs Atlassian Anda (mis. https://perusahaan.atlassian.net). Terdeteksi otomatis dari konfigurasi jira-cli jika dikosongkan.",
     "save": "Simpan",
     "saved": "Tersimpan"
+  },
+  "linear": {
+    "description": "Hubungkan ke Linear menggunakan kunci API pribadi. Menampilkan isu terkait dari nama branch dan memungkinkan pencarian isu saat membuat worktree.",
+    "apiKeyLabel": "Kunci API",
+    "apiKeyPlaceholder": "lin_api_...",
+    "apiKeyHint": "Kunci API pribadi dari linear.app/settings/api",
+    "save": "Simpan",
+    "saved": "Tersimpan",
+    "testConnection": "Uji Koneksi",
+    "statusTesting": "Menguji...",
+    "statusConnected": "Terhubung",
+    "statusFailed": "Koneksi gagal",
+    "getApiKey": "Dapatkan kunci API"
   },
   "analytics": {
     "overview": "Ikhtisar",

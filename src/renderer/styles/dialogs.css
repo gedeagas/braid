@@ -419,6 +419,56 @@
   font-size: var(--text-2xs);
 }
 
+/* Linear ticket lookup in AddWorktreeDialog */
+
+.linear-lookup-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  margin-top: var(--space-4);
+}
+
+.linear-lookup-error {
+  font-size: var(--text-base);
+  color: var(--red);
+  margin-top: var(--space-4);
+}
+
+.linear-lookup-card {
+  margin-top: var(--space-6);
+  padding: var(--space-8) var(--space-10);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: var(--text-base);
+}
+
+.linear-lookup-card-header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-6);
+}
+
+.linear-lookup-card-summary {
+  color: var(--text-primary);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.linear-lookup-card-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin-top: var(--space-4);
+  color: var(--text-tertiary);
+  font-size: var(--text-2xs);
+}
+
 /* Empty state */
 .empty-state {
   display: flex;

@@ -830,6 +830,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@graphql-typed-document-node/core@npm:^3.2.0":
+  version: 3.2.0
+  resolution: "@graphql-typed-document-node/core@npm:3.2.0"
+  peerDependencies:
+    graphql: ^0.8.0 || ^0.9.0 || ^0.10.0 || ^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0 || ^15.0.0 || ^16.0.0 || ^17.0.0
+  checksum: 10c0/94e9d75c1f178bbae8d874f5a9361708a3350c8def7eaeb6920f2c820e82403b7d4f55b3735856d68e145e86c85cbfe2adc444fdc25519cd51f108697e99346c
+  languageName: node
+  linkType: hard
+
 "@hono/node-server@npm:^1.19.9":
   version: 1.19.12
   resolution: "@hono/node-server@npm:1.19.12"
@@ -1052,6 +1061,15 @@ __metadata:
   version: 1.1.1
   resolution: "@kwsites/promise-deferred@npm:1.1.1"
   checksum: 10c0/ef1ad3f1f50991e3bed352b175986d8b4bc684521698514a2ed63c1d1fc9848843da4f2bc2df961c9b148c94e1c34bf33f0da8a90ba2234e452481f2cc9937b1
+  languageName: node
+  linkType: hard
+
+"@linear/sdk@npm:^82.0.0":
+  version: 82.0.0
+  resolution: "@linear/sdk@npm:82.0.0"
+  dependencies:
+    "@graphql-typed-document-node/core": "npm:^3.2.0"
+  checksum: 10c0/89cf1275dc1fca6a31f5f7bc5a814ecba9a9c0e512a6733b1317b6ddcda79564c93eb00157ec375162c4a5242fc95cdbd450b65c2e044681cb7532d0b64cfd22
   languageName: node
   linkType: hard
 
@@ -3312,6 +3330,7 @@ __metadata:
     "@electron/packager": "npm:^18.3.5"
     "@electron/rebuild": "npm:^3.7.0"
     "@floating-ui/react": "npm:^0.27.19"
+    "@linear/sdk": "npm:^82.0.0"
     "@mobilenext/mobilecli": "npm:^0.1.62"
     "@modelcontextprotocol/sdk": "npm:^1.28.0"
     "@monaco-editor/react": "npm:^4.7.0"
