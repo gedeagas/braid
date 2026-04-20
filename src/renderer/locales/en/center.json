@@ -342,5 +342,11 @@
   "rollback.cancel": "Cancel",
   "rollback.experimentalWarning": "This feature is experimental and still in development.",
   "rollback.genericError": "Rollback failed",
-  "rollback.snapshotExpired": "Snapshot expired - git may have garbage-collected it"
+  "rollback.snapshotExpired": "Snapshot expired - git may have garbage-collected it",
+  "rateLimitTitle": "Limit",
+  "rateLimitHeader": "Claude usage limits for your subscription plan",
+  "rateLimitFiveHour": "5h",
+  "rateLimitSevenDay": "7d",
+  "rateLimitTooltip": "{{label}} rolling window: {{percent}}% used",
+  "rateLimitStatusOk": "{{label}} rolling window: well within limits"
 }

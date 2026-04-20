@@ -13,6 +13,7 @@ import { handleStreamEvent, handleToolProgress, handleResult } from './handlers/
 import { updateSession } from './stateUtils'
 import { flash } from '@/store/flash'
 import { useProjectsStore } from '@/store/projects'
+import { saveRateLimitEntry } from '@/lib/rateLimitCache'
 import type { ModelId } from '@/types'
 
 export function initAgentEventListener(): () => void {
@@ -58,6 +59,32 @@ export function initAgentEventListener(): () => void {
         if (ev.subtype === 'status') return handleSystemStatus(ctx, ev)
         if (ev.subtype === 'compact_boundary') return handleCompactBoundary(ctx, ev)
         break
+      case 'rate_limit_event': {
+        const info = ev.rate_limit_info as Record<string, unknown> | undefined
+        console.log('[RateLimit] event received:', info)
+        if (!info) break
+        // The SDK only populates `utilization` when usage is meaningful (typically >= ~25%).
+        // When absent, store status only so the UI can show a green "all clear" dot.
+        const rateLimitType = (info.rateLimitType as string) ?? 'unknown'
+        const utilization = typeof info.utilization === 'number' ? info.utilization : null
+        const entry = {
+          rateLimitType,
+          utilization,
+          status: ((info.status as string) ?? 'allowed') as 'allowed' | 'allowed_warning' | 'rejected',
+          resetsAt: info.resetsAt as number | undefined,
+          isUsingOverage: info.isUsingOverage as boolean | undefined,
+          updatedAt: Date.now()
+        }
+        updateSession(store, sessionId, (current) => ({
+          rateLimits: {
+            ...(current.rateLimits ?? {}),
+            [rateLimitType]: entry
+          }
+        }))
+        // Persist to localStorage with TTL matching the rate limit window
+        saveRateLimitEntry(entry)
+        break
+      }
       case 'elicitation_complete': {
         const session = store.getState().sessions[sessionId]
         if (session?.pendingElicitation) {

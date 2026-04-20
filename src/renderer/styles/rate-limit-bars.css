@@ -1,0 +1,80 @@
+/* ============= Rate Limit Bars ============= */
+.rate-limit-bars {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-2) var(--space-8);
+  flex-shrink: 0;
+  border-radius: var(--radius);
+  background: var(--bg-tertiary);
+  cursor: default;
+}
+
+.rate-limit-title {
+  font-size: var(--text-2xs);
+  color: var(--text-tertiary);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.rate-limit-tracks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 70px;
+}
+
+.rate-limit-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.rate-limit-label {
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  min-width: 16px;
+  text-align: right;
+  user-select: none;
+}
+
+.rate-limit-track {
+  flex: 1;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  min-width: 40px;
+}
+
+.rate-limit-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  transition: width var(--duration-normal) var(--ease-out),
+              background var(--duration-normal);
+}
+
+/* Low-usage state: thin sliver to indicate "active but below threshold" */
+.rate-limit-fill--low {
+  width: 15%;
+  opacity: 0.6;
+}
+
+.rate-limit-percent {
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  font-weight: var(--weight-normal);
+  min-width: 20px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.rate-limit-percent--ok {
+  color: var(--green);
+  font-weight: var(--weight-medium);
+}

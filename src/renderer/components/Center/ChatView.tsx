@@ -27,6 +27,7 @@ import { flash } from '@/store/flash'
 import { useTranslation } from 'react-i18next'
 import { useMentionAutocomplete } from './useMentionAutocomplete'
 import { BranchBar } from './BranchBar'
+import { RateLimitBars } from './RateLimitBars'
 
 const DiffReviewView = lazy(() => import('./DiffReviewView').then((m) => ({ default: m.DiffReviewView })))
 
@@ -459,6 +460,7 @@ export function ChatView({ worktreePath = '' }: ChatViewProps) {
       {!isChangesMode && (
         <div className="chat-input-footer">
           <BranchBar />
+          {activeSession && <RateLimitBars sessionId={activeSession.id} />}
         </div>
       )}
     </>

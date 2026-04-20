@@ -93,6 +93,8 @@ export interface AgentSession {
    * Cleared after the IPC send succeeds. Preserved on failure so a retry can reuse it.
    */
   pendingResumeAt?: string
+  /** Rate limit utilization from SDK rate_limit_event, keyed by rateLimitType */
+  rateLimits?: Record<string, RateLimitInfo>
 }
 
 export type ContentBlock =
@@ -105,6 +107,21 @@ export interface TurnUsage {
   outputTokens: number
   cacheReadTokens: number
   cacheWriteTokens: number
+}
+
+export interface RateLimitInfo {
+  /** The rate limit type (five_hour, seven_day, seven_day_opus, etc.) */
+  rateLimitType: string
+  /** Utilization 0.0 to 1.0, null when usage is below reporting threshold */
+  utilization: number | null
+  /** Status: allowed, allowed_warning, rejected */
+  status: 'allowed' | 'allowed_warning' | 'rejected'
+  /** Unix timestamp when limit resets */
+  resetsAt?: number
+  /** Whether overage billing is active */
+  isUsingOverage?: boolean
+  /** Last updated timestamp */
+  updatedAt: number
 }
 
 export interface Message {

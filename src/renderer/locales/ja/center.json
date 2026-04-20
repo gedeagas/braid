@@ -325,5 +325,11 @@
   "rollback.cancel": "キャンセル",
   "rollback.experimentalWarning": "この機能は実験的であり、まだ開発中です。",
   "rollback.genericError": "巻き戻しに失敗しました",
-  "rollback.snapshotExpired": "スナップショットが期限切れ - gitがガベージコレクションした可能性があります"
+  "rollback.snapshotExpired": "スナップショットが期限切れ - gitがガベージコレクションした可能性があります",
+  "rateLimitTitle": "制限",
+  "rateLimitHeader": "サブスクリプションのClaude使用制限",
+  "rateLimitFiveHour": "5時",
+  "rateLimitSevenDay": "7日",
+  "rateLimitTooltip": "{{label}}ローリング: {{percent}}%使用済み",
+  "rateLimitStatusOk": "{{label}}ローリング: 制限内"
 }

@@ -5,6 +5,7 @@
 @import './tabs.css';
 @import './sidebar.css';
 @import './branch-bar.css';
+@import './rate-limit-bars.css';
 @import './chat-messages.css';
 @import './tool-calls.css';
 @import './chat-input.css';
