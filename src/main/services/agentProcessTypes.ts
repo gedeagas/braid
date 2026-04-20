@@ -22,6 +22,8 @@ export type WorkerCommand =
       cwd: string; model: string; extendedContext: boolean; effortLevel: string; planMode: boolean; sessionName: string
       settings: AgentSettings; images?: string[]; additionalDirectories?: string[]
       linkedWorktreeContext?: string; connectedDeviceId?: string; mobileFramework?: string
+      /** SDK option: resume session history up to (and including) this assistant message uuid. Used for rollback. */
+      resumeSessionAt?: string
     }
   | { type: 'stopSession'; sessionId: string }
   | { type: 'closeSession'; sessionId: string }

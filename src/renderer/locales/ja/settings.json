@@ -41,6 +41,8 @@
     "bottomTerminalHint": "ターミナルをすべてのパネルの下に移動し、ウィンドウ全幅に表示します。",
     "noVirtualization": "仮想化なしチャットリスト",
     "noVirtualizationHint": "Virtuosoの代わりにすべてのメッセージをスクロール可能なdivに描画します。ツールグループ展開時のスクロールのガタつきを修正する可能性があります。",
+    "rollbackHistory": "チャット履歴の巻き戻し",
+    "rollbackHistoryHint": "ユーザーメッセージに巻き戻しボタンを追加します。クリックするとチャット履歴をその時点まで切り詰め、gitスナップショットでワークツリーのファイルを復元します。",
     "replayTour": "機能ツアーを再生",
     "replayTourHint": "Braidの主な機能をもう一度確認します"
   },

@@ -41,6 +41,8 @@
     "bottomTerminalHint": "Memindahkan terminal ke bawah semua panel sehingga mencakup lebar jendela penuh.",
     "noVirtualization": "Daftar chat tanpa virtualisasi",
     "noVirtualizationHint": "Merender semua pesan dalam div scrollable biasa pengganti Virtuoso. Dapat memperbaiki scroll yang tersendat pada grup tool yang besar.",
+    "rollbackHistory": "Rollback riwayat chat",
+    "rollbackHistoryHint": "Menambahkan tombol rewind pada pesan pengguna. Menekannya akan memotong riwayat chat hingga titik tersebut dan memulihkan file worktree melalui snapshot git.",
     "replayTour": "Putar Ulang Tur Fitur",
     "replayTourHint": "Telusuri fitur utama Braid sekali lagi"
   },

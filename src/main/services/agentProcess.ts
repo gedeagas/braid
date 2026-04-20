@@ -58,7 +58,7 @@ process.parentPort!.on('message', (e: { data: WorkerCommand }) => {
         cmd.sessionId, cmd.message, cmd.sdkSessionId, cmd.cwd,
         cmd.model, cmd.extendedContext, cmd.effortLevel, cmd.planMode, cmd.sessionName, cmd.settings,
         cmd.images, cmd.additionalDirectories, cmd.linkedWorktreeContext,
-        cmd.connectedDeviceId, cmd.mobileFramework
+        cmd.connectedDeviceId, cmd.mobileFramework, cmd.resumeSessionAt
       )
       break
     case 'stopSession':

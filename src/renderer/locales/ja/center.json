@@ -313,5 +313,11 @@
   "turnStats.input": "入力",
   "turnStats.output": "出力",
   "turnStats.cacheRead": "キャッシュ読取",
-  "turnStats.cacheWrite": "キャッシュ書込"
+  "turnStats.cacheWrite": "キャッシュ書込",
+  "rollback.button": "ここまで巻き戻す",
+  "rollback.disabledBusy": "巻き戻すには実行中のセッションを停止してください",
+  "rollback.confirmTitle": "チャットを巻き戻してファイルを復元しますか？",
+  "rollback.confirmBody": "この時点より後のメッセージをすべて削除し、ワークツリーのファイルをこのメッセージ送信時の状態に戻します。その後に編集して再送信できます。",
+  "rollback.confirm": "巻き戻す",
+  "rollback.cancel": "キャンセル"
 }

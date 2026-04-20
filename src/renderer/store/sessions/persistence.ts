@@ -84,7 +84,8 @@ export async function hydratePersistedSessions(): Promise<{
       tokenUsage: (p as Record<string, unknown>).tokenUsage as AgentSession['tokenUsage'] ?? null,
       contextTokens: (p as Record<string, unknown>).contextTokens as number | null ?? null,
       createdAt: p.createdAt,
-      linkedWorktrees: (p as Record<string, unknown>).linkedWorktrees as AgentSession['linkedWorktrees']
+      linkedWorktrees: (p as Record<string, unknown>).linkedWorktrees as AgentSession['linkedWorktrees'],
+      pendingResumeAt: (p as Record<string, unknown>).pendingResumeAt as string | null | undefined
     }
     sessionWorktreePaths.set(p.id, p.worktreePath)
     const linkedPaths = sessions[p.id].linkedWorktrees?.map((lw) => lw.path) ?? []

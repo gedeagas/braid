@@ -5,6 +5,7 @@
 import type { StateCreator } from 'zustand'
 import * as ipc from '@/lib/ipc'
 import { useProjectsStore } from '@/store/projects'
+import { useUIStore } from '@/store/ui'
 import { thinkingActivity } from '../activity'
 import { persistSession } from '../persistence'
 import { sessionWorktreePaths, sessionLinkedPaths, pendingTitleGenerations } from '../storage'
@@ -57,14 +58,32 @@ export const createCommunicationActions: StateCreator<
     const hasImages = images && images.length > 0
     if (!hasText && !hasImages) return
 
+    // Experimental: take a git snapshot before dispatching the user turn so the
+    // user can rollback to this exact moment later. Best-effort — if it fails,
+    // the message still goes through (just without a rollback anchor).
+    const worktreePathForSnapshot = sessionWorktreePaths.get(sessionId) ?? ''
+    const rollbackEnabled = useUIStore.getState().rollbackHistory
+    let snapshotSha: string | undefined
+    if (rollbackEnabled && worktreePathForSnapshot) {
+      try {
+        snapshotSha = await ipc.git.createSnapshot(worktreePathForSnapshot)
+      } catch (err) {
+        console.warn('[Braid] Failed to create rollback snapshot:', err)
+      }
+    }
+
     const userMsg = {
       id: `msg-${Date.now()}`,
       role: 'user' as const,
       content: text,
       images: images && images.length > 0 ? images : undefined,
       ...(options?.tag ? { tag: options.tag } : {}),
+      ...(snapshotSha ? { snapshotSha } : {}),
       timestamp: Date.now()
     }
+
+    // Consume any pendingResumeAt set by a prior rollback - it applies to THIS send.
+    const resumeSessionAt = session.pendingResumeAt ?? undefined
 
     set((s) => {
       const current = s.sessions[sessionId]
@@ -82,6 +101,7 @@ export const createCommunicationActions: StateCreator<
             pendingPlanApproval: undefined,
             pendingToolPermission: undefined,
             pendingAuthError: undefined,
+            pendingResumeAt: undefined,
             messages: [...current.messages, userMsg]
           }
         }
@@ -113,7 +133,7 @@ export const createCommunicationActions: StateCreator<
       await ipc.agent.sendMessage(
         sessionId, text, freshSession.sdkSessionId, worktreeCwd,
         freshSession.model, freshSession.extendedContext, freshSession.effortLevel, freshSession.planModeEnabled, freshSession.name,
-        images, additionalDirs, linkedContext, freshSession.connectedDeviceId, mobileFramework
+        images, additionalDirs, linkedContext, freshSession.connectedDeviceId, mobileFramework, resumeSessionAt
       )
     } else if (freshSession) {
       await ipc.agent.startSession(

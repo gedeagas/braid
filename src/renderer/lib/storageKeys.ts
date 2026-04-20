@@ -111,6 +111,7 @@ export const SK = {
   bottomTerminalEnabled:      `${prefix}:bottomTerminalEnabled`,
   noVirtualization:           `${prefix}:noVirtualization`,
   magicTrackpad:              `${prefix}:magicTrackpad`,
+  rollbackHistory:            `${prefix}:rollbackHistory`,
   webAppsEnabled:             `${prefix}:webAppsEnabled`,
   embeddedApps:               `${prefix}:embeddedApps`,
   webAppLastUrls:             `${prefix}:webAppLastUrls`,

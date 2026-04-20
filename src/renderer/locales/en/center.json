@@ -330,5 +330,11 @@
   "turnStats.input": "Input",
   "turnStats.output": "Output",
   "turnStats.cacheRead": "Cache read",
-  "turnStats.cacheWrite": "Cache write"
+  "turnStats.cacheWrite": "Cache write",
+  "rollback.button": "Rewind to here",
+  "rollback.disabledBusy": "Stop the current run to rewind",
+  "rollback.confirmTitle": "Rewind chat and restore files?",
+  "rollback.confirmBody": "This removes every message after this point and restores the worktree files to their state when this message was sent. You can then edit and resend.",
+  "rollback.confirm": "Rewind",
+  "rollback.cancel": "Cancel"
 }

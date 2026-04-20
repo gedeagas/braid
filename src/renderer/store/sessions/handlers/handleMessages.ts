@@ -77,6 +77,10 @@ export function handleAssistant(ctx: HandlerContext, ev: Record<string, unknown>
   const msg = ev.message as Record<string, unknown> | undefined
   if (!msg) return
 
+  // Capture the SDK's assistant message UUID. Used as a rollback anchor by
+  // the experimental rollback-history feature (passed to SDK as resumeSessionAt).
+  const sdkUuid = typeof ev.uuid === 'string' ? ev.uuid : undefined
+
   const blocks: ContentBlock[] = extractContentBlocks(msg)
   const textContent = blocks
     .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
@@ -93,6 +97,7 @@ export function handleAssistant(ctx: HandlerContext, ev: Record<string, unknown>
     if (lastMsg?.role === 'assistant' && lastMsg.isPartial) {
       messages[messages.length - 1] = {
         ...lastMsg,
+        sdkUuid: sdkUuid ?? lastMsg.sdkUuid,
         content: textContent,
         toolCalls: toolCalls.length > 0 ? toolCalls : lastMsg.toolCalls,
         blocks: blocks.length > 0 ? blocks : lastMsg.blocks,
@@ -100,7 +105,7 @@ export function handleAssistant(ctx: HandlerContext, ev: Record<string, unknown>
       }
     } else {
       messages.push({
-        id: msgId(), role: 'assistant', content: textContent,
+        id: msgId(), sdkUuid, role: 'assistant', content: textContent,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         blocks: blocks.length > 0 ? blocks : undefined,
         isPartial: false, timestamp: Date.now()

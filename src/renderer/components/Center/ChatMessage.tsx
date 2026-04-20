@@ -3,12 +3,14 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import type { ContentBlock, Message, TurnUsage } from '@/types'
 import { useUIStore } from '@/store/ui'
+import { useActiveSession, useSessionsStore } from '@/store/sessions'
 import { ToolCallGroup } from './ToolCallGroup'
 import { StreamingMarkdown } from './StreamingMarkdown'
 import { parseMentions } from './mentionHighlight'
 import { ImageLightbox } from './ImageLightbox'
-import { IconPrBranch, IconChevronRight, IconChevronDown, IconCodeBrackets, IconFile, IconCopy, IconCheckmark, IconTerminal } from '@/components/shared/icons'
+import { IconPrBranch, IconChevronRight, IconChevronDown, IconCodeBrackets, IconFile, IconCopy, IconCheckmark, IconTerminal, IconRewind } from '@/components/shared/icons'
 import { TurnFooter } from './TurnFooter'
+import { Dialog, Button } from '@/components/ui'
 import { parseDiffComments, parseSnippets, parseTerminalBlocks, stripAttachmentBlocks } from './diffCommentUtils'
 import type { ParsedDiffComment, ParsedSnippet, ParsedTerminalBlock } from './diffCommentUtils'
 import { formatTokens } from '@/lib/constants'
@@ -48,6 +50,69 @@ function AssistantCopyButton({ text }: { text: string }) {
     >
       {copied ? <IconCheckmark size={14} /> : <IconCopy size={14} />}
     </button>
+  )
+}
+
+/** Rewind-to-here button shown on user messages when the experimental flag is enabled. */
+function RollbackButton({ messageId }: { messageId: string }) {
+  const { t } = useTranslation('center')
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const session = useActiveSession()
+  const rollbackToUserMessage = useSessionsStore((s) => s.rollbackToUserMessage)
+
+  const sessionId = session?.id
+  const canRollback =
+    !!sessionId &&
+    (session?.status === 'idle' || session?.status === 'error' || session?.status === 'inactive')
+
+  const handleClick = useCallback(() => {
+    if (!canRollback) return
+    setOpen(true)
+  }, [canRollback])
+
+  const handleConfirm = useCallback(async () => {
+    if (!sessionId) return
+    setBusy(true)
+    try {
+      await rollbackToUserMessage(sessionId, messageId)
+    } catch (err) {
+      console.error('[Braid] rollbackToUserMessage failed:', err)
+    } finally {
+      setBusy(false)
+      setOpen(false)
+    }
+  }, [sessionId, messageId, rollbackToUserMessage])
+
+  return (
+    <>
+      <button
+        className="chat-msg-rewind-btn"
+        onClick={handleClick}
+        title={canRollback ? t('rollback.button') : t('rollback.disabledBusy')}
+        disabled={!canRollback}
+        aria-label={t('rollback.button')}
+      >
+        <IconRewind size={13} />
+      </button>
+      <Dialog
+        isOpen={open}
+        onClose={() => { if (!busy) setOpen(false) }}
+        title={t('rollback.confirmTitle')}
+        actions={
+          <>
+            <Button onClick={() => setOpen(false)} disabled={busy}>
+              {t('rollback.cancel')}
+            </Button>
+            <Button variant="danger" onClick={handleConfirm} loading={busy}>
+              {t('rollback.confirm')}
+            </Button>
+          </>
+        }
+      >
+        <p>{t('rollback.confirmBody')}</p>
+      </Dialog>
+    </>
   )
 }
 
@@ -182,6 +247,7 @@ interface Props {
 export const ChatMessage = memo(function ChatMessage({ message }: Props) {
   const { t } = useTranslation('center')
   const streamingAnimation = useUIStore((s) => s.streamingAnimation)
+  const rollbackHistoryEnabled = useUIStore((s) => s.rollbackHistory)
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
   const closeLightbox = useCallback(() => setLightboxSrc(null), [])
 
@@ -214,8 +280,11 @@ export const ChatMessage = memo(function ChatMessage({ message }: Props) {
     // Strip attachment blocks so the bubble only shows human-readable text.
     const displayContent = stripAttachmentBlocks(message.content)
 
+    const showRollback = rollbackHistoryEnabled && !!message.snapshotSha
+
     return (
       <div className="chat-msg chat-msg-user">
+        {showRollback && <RollbackButton messageId={message.id} />}
         {message.images && message.images.length > 0 && (
           <div className="chat-msg-user-images">
             {message.images.map((uri, i) => (
