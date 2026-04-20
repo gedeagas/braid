@@ -112,27 +112,21 @@ export async function restoreSnapshot(worktreePath: string, snapSha: string): Pr
 
   const filesToRemove = [...currentTracked, ...untracked].filter((f) => !snapFiles.has(f))
 
-  // Remove files not present in the snapshot. Use rm -f so missing files don't throw.
-  // We run in small batches to avoid arg-list limits.
-  const BATCH = 100
-  for (let i = 0; i < filesToRemove.length; i += BATCH) {
-    const batch = filesToRemove.slice(i, i + BATCH)
-    try {
-      await git.raw(['rm', '-f', '--quiet', '--', ...batch])
-    } catch {
-      // Some files may be untracked - fall through, they'll be handled by fs
-    }
-  }
-  // For any still-existing untracked files, delete via git clean scoped to paths.
-  // Easier: use `rm` via node fs for leftover untracked entries we couldn't stage.
-  // git rm -f fails on untracked; we handle those by explicitly unlinking.
+  // Sync the index to the snapshot state in one atomic operation. This correctly
+  // removes all paths not present in the snapshot from the index, avoiding the
+  // bug where `git rm` fails on batches containing untracked files and leaves
+  // tracked files as phantom "staged deletions".
+  await git.raw(['read-tree', snapSha])
+
+  // Delete files from disk that aren't in the snapshot. Use async fs to avoid
+  // blocking the Electron main process event loop.
   if (filesToRemove.length > 0) {
-    const { unlinkSync, rmdirSync } = await import('fs')
+    const fs = await import('fs/promises')
     const { join, dirname } = await import('path')
     const dirsToCheck = new Set<string>()
     for (const rel of filesToRemove) {
       try {
-        unlinkSync(join(worktreePath, rel))
+        await fs.unlink(join(worktreePath, rel))
       } catch {
         // File may already be gone
       }
@@ -147,7 +141,7 @@ export async function restoreSnapshot(worktreePath: string, snapSha: string): Pr
     const sorted = [...dirsToCheck].sort((a, b) => b.length - a.length)
     for (const dir of sorted) {
       try {
-        rmdirSync(join(worktreePath, dir))
+        await fs.rmdir(join(worktreePath, dir))
       } catch {
         // Not empty or already gone
       }
