@@ -65,6 +65,7 @@ function makeState(overrides?: Partial<SessionsState>): SessionsState {
     retryAfterAuth: () => {},
     dismissAuthError: () => {},
     answerElicitation: () => {},
+    rollbackToUserMessage: async () => {},
     ...overrides
   }
 }
