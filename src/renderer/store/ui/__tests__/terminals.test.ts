@@ -56,6 +56,18 @@ describe('terminalsSlice', () => {
       expect(ids).toEqual(['Terminal 1', 'Terminal 2'])
     })
 
+    it('avoids duplicate labels after closing a middle terminal', () => {
+      const { actions, read } = makeSlice()
+      actions.createBigTerminal(WT)
+      const b = actions.createBigTerminal(WT)
+      actions.createBigTerminal(WT)
+      // Close Terminal 2, then create a new one - should get Terminal 4, not another Terminal 3
+      actions.closeBigTerminal(WT, b)
+      actions.createBigTerminal(WT)
+      const labels = read()[WT]!.map((t) => t.label)
+      expect(labels).toEqual(['Terminal 1', 'Terminal 3', 'Terminal 4'])
+    })
+
     it('accepts an explicit label override', () => {
       const { actions, read } = makeSlice()
       const id = actions.createBigTerminal(WT, 'claude')

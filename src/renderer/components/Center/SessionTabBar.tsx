@@ -46,11 +46,10 @@ export function SessionTabBar() {
   const tabOrder = useUIStore((s) => s.tabOrder)
   const setTabOrder = useUIStore((s) => s.setTabOrder)
 
-  // Big terminal tabs — raw-data select, transform with useMemo (useShallow-safe).
-  const bigTerminalsRaw = useUIStore((s) => s.bigTerminalsByWorktree)
-  const bigTerminals = useMemo(
-    () => (selectedWorktreeId ? (bigTerminalsRaw[selectedWorktreeId] ?? []) : []),
-    [bigTerminalsRaw, selectedWorktreeId]
+  // Big terminal tabs - narrow selector scoped to active worktree only.
+  const bigTerminals = useUIStore(
+    useCallback((s) => selectedWorktreeId ? (s.bigTerminalsByWorktree[selectedWorktreeId] ?? []) : [],
+    [selectedWorktreeId])
   )
   const createBigTerminal = useUIStore((s) => s.createBigTerminal)
   const closeBigTerminalAction = useUIStore((s) => s.closeBigTerminal)

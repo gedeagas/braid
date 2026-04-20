@@ -47,8 +47,8 @@ export const CenterPanel = memo(function CenterPanel() {
   const changesOpen = useUIStore(selectChangesOpen)
   const showFile = activeCenterView?.type === 'file'
   const showTerminal = activeCenterView?.type === 'terminal'
-  const bigTerminals = useUIStore((s) => selectedWorktreeId ? (s.bigTerminalsByWorktree[selectedWorktreeId] ?? []) : [])
-  const hasNoTabs = sessionsLoaded && sessions.length === 0 && openFilePaths.length === 0 && !changesOpen && bigTerminals.length === 0
+  const hasBigTerminals = useUIStore((s) => selectedWorktreeId ? (s.bigTerminalsByWorktree[selectedWorktreeId]?.length ?? 0) > 0 : false)
+  const hasNoTabs = sessionsLoaded && sessions.length === 0 && openFilePaths.length === 0 && !changesOpen && !hasBigTerminals
 
   const handleNewChat = useCallback(() => {
     if (!selectedWorktreeId || !worktree) return

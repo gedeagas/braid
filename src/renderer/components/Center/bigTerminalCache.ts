@@ -2,7 +2,6 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import * as ipc from '@/lib/ipc'
 import { createTerminal, registerPtyFinder } from '@/components/Right/terminalCache'
-import { getTerminalTheme } from '@/themes/terminal'
 
 export interface BigTermEntry {
   terminalId: string
@@ -12,6 +11,8 @@ export interface BigTermEntry {
   ptyId: string | null
   resizeObserver: ResizeObserver | null
   spawnPromise: Promise<void>
+  /** Set by disposeBigTerminal so the in-flight spawn can bail out. */
+  disposed: boolean
 }
 
 const cache = new Map<string, BigTermEntry>()
@@ -42,7 +43,8 @@ export function getOrCreate(terminalId: string, worktreePath: string): BigTermEn
     fitAddon,
     ptyId: null,
     resizeObserver: null,
-    spawnPromise: Promise.resolve()
+    spawnPromise: Promise.resolve(),
+    disposed: false
   }
   cache.set(terminalId, entry)
 
@@ -57,24 +59,29 @@ export function getOrCreate(terminalId: string, worktreePath: string): BigTermEn
       // ignore: best-effort replay
     }
 
+    // Bail out if disposed while scrollback was loading
+    if (entry.disposed) return
+
     try {
       const ptyId = await ipc.pty.spawn(worktreePath)
+      // If disposed while spawn was in flight, kill the orphaned PTY immediately
+      if (entry.disposed) {
+        try { ipc.pty.kill(ptyId) } catch {}
+        return
+      }
       entry.ptyId = ptyId
       ipc.pty.registerBigTerminal(ptyId, terminalId)
       term.onData((d) => {
-        if (entry.ptyId) ipc.pty.write(entry.ptyId, d)
+        if (entry.ptyId && !entry.disposed) ipc.pty.write(entry.ptyId, d)
       })
     } catch (err) {
-      term.write(`\r\n\x1b[31m[failed to spawn pty: ${String(err)}]\x1b[0m\r\n`)
+      if (!entry.disposed) {
+        term.write(`\r\n\x1b[31m[failed to spawn pty]\x1b[0m\r\n`)
+      }
     }
   })()
 
   return entry
-}
-
-/** Look up an entry without creating one. */
-export function peek(terminalId: string): BigTermEntry | undefined {
-  return cache.get(terminalId)
 }
 
 /** Kill PTY, dispose xterm, remove from cache, and delete persisted scrollback. */
@@ -85,6 +92,7 @@ export function disposeBigTerminal(terminalId: string): void {
     try { ipc.pty.deleteScrollback(terminalId) } catch {}
     return
   }
+  entry.disposed = true
   try { entry.resizeObserver?.disconnect() } catch {}
   if (entry.ptyId) {
     try { ipc.pty.kill(entry.ptyId) } catch {}
@@ -95,12 +103,6 @@ export function disposeBigTerminal(terminalId: string): void {
 }
 
 /** Dispose many at once (e.g. on worktree removal). */
-export function disposeAllForWorktree(terminalIds: string[]): void {
+export function disposeBigTerminals(terminalIds: string[]): void {
   for (const id of terminalIds) disposeBigTerminal(id)
-}
-
-/** Re-theme all cached big terminals when the app theme changes. */
-export function reThemeAllBigTerminals(): void {
-  const theme = getTerminalTheme()
-  for (const entry of cache.values()) entry.term.options.theme = theme
 }

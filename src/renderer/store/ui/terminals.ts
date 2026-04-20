@@ -62,50 +62,65 @@ export const createTerminalsSlice: StateCreator<UIState, [], [], TerminalsSlice>
 
   createBigTerminal: (worktreeId, label) => {
     const id = nextBigTerminalId()
-    const existing = get().bigTerminalsByWorktree[worktreeId] ?? []
-    const nextLabel = label ?? `Terminal ${existing.length + 1}`
-    const next = [...existing, { id, label: nextLabel }]
-    saveBigTerminalsFor(worktreeId, next)
-    set({ bigTerminalsByWorktree: { ...get().bigTerminalsByWorktree, [worktreeId]: next } })
+    set((s) => {
+      const existing = s.bigTerminalsByWorktree[worktreeId] ?? []
+      const maxNum = existing.reduce((max, t) => {
+        const m = t.label.match(/^Terminal (\d+)$/)
+        return m ? Math.max(max, Number(m[1])) : max
+      }, 0)
+      const nextLabel = label ?? `Terminal ${maxNum + 1}`
+      const next = [...existing, { id, label: nextLabel }]
+      saveBigTerminalsFor(worktreeId, next)
+      return { bigTerminalsByWorktree: { ...s.bigTerminalsByWorktree, [worktreeId]: next } }
+    })
     return id
   },
 
   renameBigTerminal: (worktreeId, id, label) => {
-    const existing = get().bigTerminalsByWorktree[worktreeId] ?? []
-    const trimmed = label.trim() || `Terminal`
-    const next = existing.map((t) => (t.id === id ? { ...t, label: trimmed } : t))
-    saveBigTerminalsFor(worktreeId, next)
-    set({ bigTerminalsByWorktree: { ...get().bigTerminalsByWorktree, [worktreeId]: next } })
+    const trimmed = label.trim() || 'Terminal'
+    set((s) => {
+      const existing = s.bigTerminalsByWorktree[worktreeId] ?? []
+      const next = existing.map((t) => (t.id === id ? { ...t, label: trimmed } : t))
+      saveBigTerminalsFor(worktreeId, next)
+      return { bigTerminalsByWorktree: { ...s.bigTerminalsByWorktree, [worktreeId]: next } }
+    })
   },
 
   closeBigTerminal: (worktreeId, id) => {
-    const existing = get().bigTerminalsByWorktree[worktreeId] ?? []
-    const next = existing.filter((t) => t.id !== id)
-    saveBigTerminalsFor(worktreeId, next)
-    set({ bigTerminalsByWorktree: { ...get().bigTerminalsByWorktree, [worktreeId]: next } })
+    set((s) => {
+      const existing = s.bigTerminalsByWorktree[worktreeId] ?? []
+      const next = existing.filter((t) => t.id !== id)
+      saveBigTerminalsFor(worktreeId, next)
+      return { bigTerminalsByWorktree: { ...s.bigTerminalsByWorktree, [worktreeId]: next } }
+    })
   },
 
   reorderBigTerminals: (worktreeId, fromIndex, toIndex) => {
-    const existing = [...(get().bigTerminalsByWorktree[worktreeId] ?? [])]
-    if (fromIndex < 0 || fromIndex >= existing.length || toIndex < 0 || toIndex >= existing.length) return
-    const [moved] = existing.splice(fromIndex, 1)
-    existing.splice(toIndex, 0, moved)
-    saveBigTerminalsFor(worktreeId, existing)
-    set({ bigTerminalsByWorktree: { ...get().bigTerminalsByWorktree, [worktreeId]: existing } })
+    set((s) => {
+      const existing = [...(s.bigTerminalsByWorktree[worktreeId] ?? [])]
+      if (fromIndex < 0 || fromIndex >= existing.length || toIndex < 0 || toIndex >= existing.length) return s
+      const [moved] = existing.splice(fromIndex, 1)
+      existing.splice(toIndex, 0, moved)
+      saveBigTerminalsFor(worktreeId, existing)
+      return { bigTerminalsByWorktree: { ...s.bigTerminalsByWorktree, [worktreeId]: existing } }
+    })
   },
 
   restoreBigTerminalsForWorktree: (worktreeId) => {
-    const existing = get().bigTerminalsByWorktree[worktreeId]
-    if (existing !== undefined) return // already hydrated for this session
-    const loaded = loadBigTerminalsFor(worktreeId)
-    set({ bigTerminalsByWorktree: { ...get().bigTerminalsByWorktree, [worktreeId]: loaded } })
+    set((s) => {
+      if (s.bigTerminalsByWorktree[worktreeId] !== undefined) return s // already hydrated
+      const loaded = loadBigTerminalsFor(worktreeId)
+      return { bigTerminalsByWorktree: { ...s.bigTerminalsByWorktree, [worktreeId]: loaded } }
+    })
   },
 
   clearBigTerminalsForWorktree: (worktreeId) => {
     try { localStorage.removeItem(SK.bigTerminalTabsPrefix + worktreeId) } catch {}
-    const next = { ...get().bigTerminalsByWorktree }
-    delete next[worktreeId]
-    set({ bigTerminalsByWorktree: next })
+    set((s) => {
+      const next = { ...s.bigTerminalsByWorktree }
+      delete next[worktreeId]
+      return { bigTerminalsByWorktree: next }
+    })
   },
 })
 
