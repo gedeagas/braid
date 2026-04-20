@@ -24,6 +24,13 @@ import idRight from '../locales/id/right.json'
 import idSettings from '../locales/id/settings.json'
 import idMissionControl from '../locales/id/missionControl.json'
 import idShortcuts from '../locales/id/shortcuts.json'
+import zhCommon from '../locales/zh/common.json'
+import zhCenter from '../locales/zh/center.json'
+import zhSidebar from '../locales/zh/sidebar.json'
+import zhRight from '../locales/zh/right.json'
+import zhSettings from '../locales/zh/settings.json'
+import zhMissionControl from '../locales/zh/missionControl.json'
+import zhShortcuts from '../locales/zh/shortcuts.json'
 
 i18n
   .use(LanguageDetector)
@@ -33,6 +40,7 @@ i18n
       en: { common: enCommon, center: enCenter, sidebar: enSidebar, right: enRight, settings: enSettings, missionControl: enMissionControl, shortcuts: enShortcuts },
       ja: { common: jaCommon, center: jaCenter, sidebar: jaSidebar, right: jaRight, settings: jaSettings, missionControl: jaMissionControl, shortcuts: jaShortcuts },
       id: { common: idCommon, center: idCenter, sidebar: idSidebar, right: idRight, settings: idSettings, missionControl: idMissionControl, shortcuts: idShortcuts },
+      zh: { common: zhCommon, center: zhCenter, sidebar: zhSidebar, right: zhRight, settings: zhSettings, missionControl: zhMissionControl, shortcuts: zhShortcuts },
     },
     fallbackLng: 'en',
     defaultNS: 'common',

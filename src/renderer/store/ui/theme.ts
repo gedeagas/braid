@@ -5,7 +5,7 @@ import i18n from '@/lib/i18n'
 import { SK } from '@/lib/storageKeys'
 import { loadFloat } from './helpers'
 
-export type SupportedLanguage = 'en' | 'ja' | 'id'
+export type SupportedLanguage = 'en' | 'ja' | 'id' | 'zh'
 
 export interface ThemeSlice {
   activeThemeId: string
@@ -38,7 +38,7 @@ function loadCustomThemes(): ThemePalette[] {
 function loadLanguage(): SupportedLanguage {
   try {
     const raw = localStorage.getItem(SK.language)
-    if (raw === 'en' || raw === 'ja' || raw === 'id') return raw
+    if (raw === 'en' || raw === 'ja' || raw === 'id' || raw === 'zh') return raw
   } catch {}
   return 'en'
 }

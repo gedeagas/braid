@@ -1,0 +1,33 @@
+{
+  "title": "键盘快捷键",
+  "searchPlaceholder": "搜索快捷键...",
+  "categories": {
+    "general": "通用",
+    "view": "视图",
+    "navigation": "导航"
+  },
+  "openSettings": "打开设置",
+  "showShortcuts": "键盘快捷键",
+  "toggleMissionControl": "切换控制中心",
+  "toggleSidebar": "切换左侧栏",
+  "toggleRightPanel": "切换右侧面板",
+  "zoomIn": "放大",
+  "zoomOut": "缩小",
+  "zoomReset": "重置缩放",
+  "toggleTerminal": "切换终端",
+  "newChatTab": "新建聊天标签页",
+  "newBigTerminal": "新建大终端",
+  "closeTab": "关闭当前标签页",
+  "previousTab": "上一个标签页",
+  "nextTab": "下一个标签页",
+  "goToTab": "跳转到标签页 1-9",
+  "quickOpen": "快速打开文件",
+  "focusChat": "聚焦聊天输入框",
+  "saveFile": "保存文件",
+  "commandPalette": "命令面板",
+  "commandPaletteSearch": "输入命令...",
+  "commandPaletteRun": "执行",
+  "commandPaletteNoResults": "没有匹配 \"{{query}}\" 的命令",
+  "noResults": "没有匹配 \"{{query}}\" 的快捷键",
+  "empty": "暂无快捷键"
+}

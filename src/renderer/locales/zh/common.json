@@ -1,0 +1,149 @@
+{
+  "cancel": "取消",
+  "save": "保存",
+  "close": "关闭",
+  "delete": "删除",
+  "add": "添加",
+  "create": "创建",
+  "creating": "创建中…",
+  "edit": "编辑",
+  "refresh": "刷新",
+  "browse": "浏览",
+  "copy": "复制",
+  "copied": "已复制",
+  "remove": "移除",
+  "submit": "提交",
+  "approve": "批准",
+  "reject": "拒绝",
+  "loading": "加载中…",
+  "language": "语言",
+  "english": "English",
+  "japanese": "日本語",
+  "importVSCodeTheme": "导入 VSCode 主题",
+  "theme": "主题",
+  "removeTheme": "移除主题",
+  "toastDone": "任务完成",
+  "toastError": "Agent 已停止 - 需要帮助",
+  "toastQuestion": "Agent 有问题需要回答",
+  "toastPlanReady": "方案已就绪，等待审核",
+  "toastWaitingInput": "需要输入",
+  "toastErrorCount": "{{count}} 个会话需要关注",
+  "toastWaitingInputCount": "{{count}} 个会话等待你的回复",
+  "onboarding": {
+    "welcome": {
+      "title": "欢迎使用 Braid",
+      "subtitle": "AI 驱动的 Git 工作区",
+      "description": "Braid 将 Claude AI 与 Git worktree 结合，让你可以并行运行多个编程 Agent，每个 Agent 都在独立的分支上工作。",
+      "getStarted": "开始使用"
+    },
+    "doctor": {
+      "title": "环境检查",
+      "subtitle": "正在检查开发工具是否就绪",
+      "retry": "重试失败项",
+      "continue": "继续",
+      "continueAnyway": "仍然继续",
+      "optional": "可选",
+      "install": "安装",
+      "installing": "安装中…",
+      "openDocs": "查看文档",
+      "logIn": "登录",
+      "progressGit": "正在安装 Xcode 工具…",
+      "progressClaude": "正在安装 Claude Code…",
+      "progressGh": "正在安装 GitHub CLI…",
+      "progressGhAuth": "等待浏览器认证…",
+      "progressAcli": "正在安装 Atlassian CLI…"
+    },
+    "project": {
+      "title": "添加你的第一个项目",
+      "subtitle": "打开本地 Git 仓库或从 GitHub 克隆",
+      "openProject": "打开项目",
+      "skip": "稍后再说"
+    }
+  },
+  "ghAuth": {
+    "title": "登录 GitHub",
+    "instruction": "在 GitHub 上输入此验证码以关联你的账号。",
+    "copied": "验证码已复制到剪贴板",
+    "polling": "等待授权中…",
+    "openGitHub": "打开 GitHub",
+    "success": "认证成功！",
+    "expired": "验证码已过期",
+    "error": "认证失败",
+    "retry": "重试",
+    "configuring": "正在配置 GitHub CLI…"
+  },
+  "update": {
+    "available": {
+      "title": "有可用更新",
+      "body": "Braid v{{version}} 已准备好下载。",
+      "whatsNew": "更新内容："
+    },
+    "downloading": {
+      "title": "正在下载更新",
+      "body": "正在下载 Braid v{{version}}..."
+    },
+    "ready": {
+      "title": "更新就绪",
+      "body": "Braid v{{version}} 已下载完成。重启以应用更新。"
+    },
+    "error": {
+      "title": "更新失败",
+      "body": "检查更新时出现问题。",
+      "retry": "重试"
+    },
+    "later": "稍后",
+    "download": "下载",
+    "restart": "重启",
+    "check": "检查更新",
+    "checking": "检查中...",
+    "upToDate": "Braid 已是最新版本"
+  },
+  "tour": {
+    "next": "下一步",
+    "back": "上一步",
+    "skip": "跳过引导",
+    "done": "知道了！",
+    "sidebar": {
+      "title": "你的项目",
+      "description": "你的项目和 worktree 都在这里。每个 worktree 是一个独立的分支，可以同时进行开发。"
+    },
+    "addWorktree": {
+      "title": "创建 Worktree",
+      "description": "创建一个新的 worktree 来开始在某个分支上工作。每个 worktree 都是仓库的一个完全独立的副本。"
+    },
+    "chatPanel": {
+      "title": "与 Claude 对话",
+      "description": "与 Claude 对话来编写代码、修复 bug 和开发功能。使用 @ 来引用文件，使用 / 来执行斜杠命令。"
+    },
+    "sessionTabs": {
+      "title": "会话和文件标签页",
+      "description": "每个 worktree 可以运行多个聊天会话。在聊天旁边以编辑器标签页打开文件。"
+    },
+    "rightPanel": {
+      "title": "文件、变更与检查",
+      "description": "在同一个面板中浏览项目文件、查看 git 变更和监控 CI 状态。"
+    },
+    "terminal": {
+      "title": "集成终端",
+      "description": "无需离开应用即可运行命令、查看日志和执行脚本。"
+    },
+    "missionControl": {
+      "title": "控制中心",
+      "description": "一览你所有的 worktree。跟踪整个项目中正在运行的会话、PR 和 CI 状态。"
+    },
+    "simulator": {
+      "intro": {
+        "title": "模拟器预览",
+        "description": "直接在 Braid 中预览和控制 iOS 与 Android 模拟器。在实时设备屏幕上进行点击、滑动和输入操作。"
+      },
+      "devices": {
+        "title": "你的设备",
+        "description": "这里显示可用的模拟器。启动设备以开机，然后连接以开始串流。"
+      },
+      "connect": {
+        "title": "启动与连接",
+        "description": "点击"启动"来开启设备，然后点击"连接"来串流其屏幕。你也可以将其关联到聊天，让 Claude 看到 UI 界面。"
+      }
+    }
+  }
+}
