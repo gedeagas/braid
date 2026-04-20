@@ -324,5 +324,13 @@
   "rollback.cancel": "Batal",
   "rollback.experimentalWarning": "Fitur ini masih eksperimental dan dalam pengembangan.",
   "rollback.genericError": "Rollback gagal",
-  "rollback.snapshotExpired": "Snapshot kedaluwarsa - git mungkin telah melakukan garbage collection"
+  "rollback.snapshotExpired": "Snapshot kedaluwarsa - git mungkin telah melakukan garbage collection",
+  "rateLimitTitle": "Batas",
+  "rateLimitHeader": "Batas penggunaan Claude untuk paket langganan Anda",
+  "rateLimitFiveHour": "5j",
+  "rateLimitSevenDay": "7h",
+  "rateLimitTooltip": "Jendela bergulir {{label}}: {{percent}}% digunakan",
+  "rateLimitStatusOk": "Jendela bergulir {{label}}: dalam batas",
+  "rateLimitOk": "OK",
+  "rateLimitWarning": "!"
 }

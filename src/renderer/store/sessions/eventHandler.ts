@@ -13,6 +13,7 @@ import { handleStreamEvent, handleToolProgress, handleResult } from './handlers/
 import { updateSession } from './stateUtils'
 import { flash } from '@/store/flash'
 import { useProjectsStore } from '@/store/projects'
+import { useRateLimitsStore } from '@/store/rateLimits'
 import type { ModelId } from '@/types'
 
 export function initAgentEventListener(): () => void {
@@ -58,6 +59,30 @@ export function initAgentEventListener(): () => void {
         if (ev.subtype === 'status') return handleSystemStatus(ctx, ev)
         if (ev.subtype === 'compact_boundary') return handleCompactBoundary(ctx, ev)
         break
+      case 'rate_limit_event': {
+        const info = ev.rate_limit_info as Record<string, unknown> | undefined
+        if (!info) break
+        // The SDK only populates `utilization` when usage is meaningful (typically >= ~25%).
+        // When absent, store status only so the UI can show a green "all clear" dot.
+        const rateLimitType = (info.rateLimitType as string) ?? 'unknown'
+        const utilization = typeof info.utilization === 'number' ? info.utilization : null
+        const rawStatus = info.status as string | undefined
+        const VALID_STATUSES = new Set(['allowed', 'allowed_warning', 'rejected'])
+        const status = (rawStatus && VALID_STATUSES.has(rawStatus)
+          ? rawStatus
+          : 'allowed') as 'allowed' | 'allowed_warning' | 'rejected'
+        const entry = {
+          rateLimitType,
+          utilization,
+          status,
+          resetsAt: typeof info.resetsAt === 'number' ? info.resetsAt : undefined,
+          isUsingOverage: typeof info.isUsingOverage === 'boolean' ? info.isUsingOverage : undefined,
+          updatedAt: Date.now()
+        }
+        // Update global store (account-wide, not per-session) so all UI reacts
+        useRateLimitsStore.getState().update(entry)
+        break
+      }
       case 'elicitation_complete': {
         const session = store.getState().sessions[sessionId]
         if (session?.pendingElicitation) {

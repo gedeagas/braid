@@ -342,5 +342,13 @@
   "rollback.cancel": "取消",
   "rollback.experimentalWarning": "此功能为实验性功能，仍在开发中。",
   "rollback.genericError": "回退失败",
-  "rollback.snapshotExpired": "快照已过期 - git 可能已经回收了它"
+  "rollback.snapshotExpired": "快照已过期 - git 可能已经回收了它",
+  "rateLimitTitle": "限制",
+  "rateLimitHeader": "您的订阅计划的 Claude 使用限制",
+  "rateLimitFiveHour": "5时",
+  "rateLimitSevenDay": "7天",
+  "rateLimitTooltip": "{{label}}滚动窗口: 已使用{{percent}}%",
+  "rateLimitStatusOk": "{{label}}滚动窗口: 在限制范围内",
+  "rateLimitOk": "正常",
+  "rateLimitWarning": "!"
 }

@@ -53,7 +53,7 @@ src/renderer/components/
 src/renderer/hooks/    # useTabReorder, useChatScroll, useGesture, useLspProviders, etc.
 src/renderer/lib/      # ipc, i18n, branchValidation, kanbanColumns, sounds, shortcuts, constants, etc.
 src/renderer/types/    # session.ts, git.ts, ui.ts, claude-config.ts, lsp.ts (re-exported via index.ts)
-src/renderer/locales/  # en/, ja/, id/ - namespaces: common, center, sidebar, right, missionControl, settings, shortcuts
+src/renderer/locales/  # en/, ja/, id/, zh/ - namespaces: common, center, sidebar, right, missionControl, settings, shortcuts
 src/renderer/styles/   # Modular CSS stylesheets imported via styles/index.css
 ```
 
@@ -135,7 +135,7 @@ export function SettingsMyPage() {
 #### Adding a new settings page
 
 1. Create `Settings/SettingsMyPage.tsx` using the skeleton above
-2. Add translations to `locales/{en,ja,id}/settings.json`
+2. Add translations to `locales/{en,ja,id,zh}/settings.json`
 3. Add to `sectionMap` in `SettingsOverlay.tsx`
 4. Add to the relevant group in `NAV_GROUPS` in `SettingsNav.tsx`
 
@@ -149,12 +149,12 @@ export function SettingsMyPage() {
 ## Internationalization (i18n)
 
 - **i18next** + **react-i18next**, config in `src/renderer/lib/i18n.ts`
-- Languages: English (`en`), Japanese (`ja`), Indonesian (`id`). Fallback: English.
+- Languages: English (`en`), Japanese (`ja`), Indonesian (`id`), Chinese (`zh`). Fallback: English.
 - Namespaces: `common`, `center`, `sidebar`, `right`, `missionControl`, `settings`, `shortcuts`
 
 ### Adding New Strings
 
-1. Add the key to **all three** `en/<ns>.json`, `ja/<ns>.json`, `id/<ns>.json`
+1. Add the key to **all four** `en/<ns>.json`, `ja/<ns>.json`, `id/<ns>.json`, `zh/<ns>.json`
 2. Use `useTranslation('<namespace>')` and call `t('yourKey')`
 3. For plurals: `"key_one": "1 item"`, `"key_other": "{{count}} items"`
 4. Outside React: `import i18n from '@/lib/i18n'; i18n.t('key', { ns: 'center' })`

@@ -106,6 +106,10 @@ export const SK = {
   // ── Settings — Integrations ────────────────────────────────────────────
   jiraBaseUrl:                `${prefix}:jiraBaseUrl`,
 
+  // ── Rate limits ────────────────────────────────────────────────────
+  /** Account-wide rate limit utilization from SDK, cached with TTL matching the limit window */
+  rateLimits:                 `${prefix}:rateLimits`,
+
   // ── Experimental / Web apps ────────────────────────────────────────────
   experimentalCapture:        `${prefix}:experimentalCapture`,
   bottomTerminalEnabled:      `${prefix}:bottomTerminalEnabled`,
