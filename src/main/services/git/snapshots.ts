@@ -43,8 +43,8 @@ export async function createSnapshot(worktreePath: string): Promise<string> {
     const snapTree = (await git.raw(['write-tree'])).trim()
 
     // 4. Restore the original index - caller's staging area is untouched.
-    //    read-tree --reset would also touch the working tree; -m is a no-op
-    //    merge that just replaces the index.
+    //    Plain read-tree <tree> replaces the index from the saved tree and
+    //    does not modify the working tree.
     await git.raw(['read-tree', originalIndexTree])
 
     // 5. Build the commit object. If HEAD doesn't exist (fresh repo), omit -p.
@@ -55,11 +55,19 @@ export async function createSnapshot(worktreePath: string): Promise<string> {
       headSha = null
     }
 
+    // Set deterministic identity so commit-tree works even when user.name /
+    // user.email are not configured in the repo or global git config.
+    const env = {
+      GIT_AUTHOR_NAME: 'Braid',
+      GIT_AUTHOR_EMAIL: 'braid@local',
+      GIT_COMMITTER_NAME: 'Braid',
+      GIT_COMMITTER_EMAIL: 'braid@local',
+    }
     const args = ['commit-tree', snapTree, '-m', 'braid:snapshot']
     if (headSha) {
       args.push('-p', headSha)
     }
-    const snapSha = (await git.raw(args)).trim()
+    const snapSha = (await git.env(env).raw(args)).trim()
     if (!snapSha) throw new Error('git commit-tree returned empty SHA')
     return snapSha
   } catch (err) {

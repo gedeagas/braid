@@ -97,10 +97,6 @@ export const IconRefresh = ({ size = 14, ...p }: IconProps) => (
 export const IconGrid = ({ size = 14, ...p }: IconProps) => (
   <svg {...strokeIcon(size, p)}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
 )
-export const IconRewind = ({ size = 14, ...p }: IconProps) => (
-  <svg {...strokeIcon(size, p)}><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 8"/></svg>
-)
-
 // ─── Extracted from components ───────────────────────────────────────────────
 
 export const IconArrowLeft = ({ size = 14, ...p }: IconProps) => (

@@ -319,8 +319,10 @@
   "rollback.button": "Putar balik ke sini",
   "rollback.disabledBusy": "Hentikan sesi yang berjalan untuk memutar balik",
   "rollback.confirmTitle": "Putar balik chat dan pulihkan file?",
-  "rollback.confirmBody": "Tindakan ini menghapus semua pesan setelah titik ini dan memulihkan file worktree ke kondisi saat pesan ini dikirim. Anda dapat mengedit dan mengirim ulang.",
+  "rollback.confirmBody": "Tindakan ini menghapus pesan ini dan semua pesan setelahnya, lalu memulihkan file worktree ke kondisi saat pesan ini dikirim. Anda dapat mengedit dan mengirim ulang.",
   "rollback.confirm": "Putar balik",
   "rollback.cancel": "Batal",
-  "rollback.experimentalWarning": "Fitur ini masih eksperimental dan dalam pengembangan."
+  "rollback.experimentalWarning": "Fitur ini masih eksperimental dan dalam pengembangan.",
+  "rollback.genericError": "Rollback gagal",
+  "rollback.snapshotExpired": "Snapshot kedaluwarsa - git mungkin telah melakukan garbage collection"
 }

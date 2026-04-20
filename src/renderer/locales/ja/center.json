@@ -320,8 +320,10 @@
   "rollback.button": "ここまで巻き戻す",
   "rollback.disabledBusy": "巻き戻すには実行中のセッションを停止してください",
   "rollback.confirmTitle": "チャットを巻き戻してファイルを復元しますか？",
-  "rollback.confirmBody": "この時点より後のメッセージをすべて削除し、ワークツリーのファイルをこのメッセージ送信時の状態に戻します。その後に編集して再送信できます。",
+  "rollback.confirmBody": "このメッセージとそれ以降のメッセージをすべて削除し、ワークツリーのファイルをこのメッセージ送信時の状態に戻します。その後に編集して再送信できます。",
   "rollback.confirm": "巻き戻す",
   "rollback.cancel": "キャンセル",
-  "rollback.experimentalWarning": "この機能は実験的であり、まだ開発中です。"
+  "rollback.experimentalWarning": "この機能は実験的であり、まだ開発中です。",
+  "rollback.genericError": "巻き戻しに失敗しました",
+  "rollback.snapshotExpired": "スナップショットが期限切れ - gitがガベージコレクションした可能性があります"
 }

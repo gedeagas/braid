@@ -7,7 +7,9 @@ import * as ipc from '@/lib/ipc'
 import { useProjectsStore } from '@/store/projects'
 import { useUIStore } from '@/store/ui'
 import { thinkingActivity } from '../activity'
+import { useSessionsStore } from '../store'
 import { persistSession } from '../persistence'
+import { updateSession } from '../stateUtils'
 import { sessionWorktreePaths, sessionLinkedPaths, pendingTitleGenerations } from '../storage'
 import type { SessionsState } from '../storeTypes'
 import { buildLinkedWorktreeContext } from './communicationHelpers'
@@ -101,7 +103,6 @@ export const createCommunicationActions: StateCreator<
             pendingPlanApproval: undefined,
             pendingToolPermission: undefined,
             pendingAuthError: undefined,
-            pendingResumeAt: undefined,
             messages: [...current.messages, userMsg]
           }
         }
@@ -141,6 +142,12 @@ export const createCommunicationActions: StateCreator<
         freshSession.thinkingEnabled, freshSession.extendedContext, freshSession.effortLevel, freshSession.planModeEnabled, freshSession.name,
         images, additionalDirs, linkedContext, freshSession.connectedDeviceId, mobileFramework
       )
+    }
+
+    // Clear pendingResumeAt only after the IPC call succeeds. If the send
+    // failed, the value is preserved so a retry can use it.
+    if (resumeSessionAt) {
+      updateSession(useSessionsStore, sessionId, () => ({ pendingResumeAt: undefined }))
     }
   }
 })

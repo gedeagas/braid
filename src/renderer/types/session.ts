@@ -90,7 +90,7 @@ export interface AgentSession {
   /**
    * Set after a rollback. The next sendMessage call will pass this value to the SDK as
    * `resumeSessionAt`, so the SDK replays history only up to (and including) this UUID.
-   * Cleared after the next send completes.
+   * Cleared after the IPC send succeeds. Preserved on failure so a retry can reuse it.
    */
   pendingResumeAt?: string
 }

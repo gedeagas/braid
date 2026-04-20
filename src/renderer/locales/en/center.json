@@ -337,8 +337,10 @@
   "rollback.button": "Rewind to here",
   "rollback.disabledBusy": "Stop the current run to rewind",
   "rollback.confirmTitle": "Rewind chat and restore files?",
-  "rollback.confirmBody": "This removes every message after this point and restores the worktree files to their state when this message was sent. You can then edit and resend.",
+  "rollback.confirmBody": "This removes this message and every message after it, and restores the worktree files to their state when this message was sent. You can then edit and resend.",
   "rollback.confirm": "Rewind",
   "rollback.cancel": "Cancel",
-  "rollback.experimentalWarning": "This feature is experimental and still in development."
+  "rollback.experimentalWarning": "This feature is experimental and still in development.",
+  "rollback.genericError": "Rollback failed",
+  "rollback.snapshotExpired": "Snapshot expired - git may have garbage-collected it"
 }

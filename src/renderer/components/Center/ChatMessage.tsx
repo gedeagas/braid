@@ -12,6 +12,7 @@ import { ImageLightbox } from './ImageLightbox'
 import { IconPrBranch, IconChevronRight, IconChevronDown, IconCodeBrackets, IconFile, IconCopy, IconCheckmark, IconTerminal, IconUndo } from '@/components/shared/icons'
 import { TurnFooter } from './TurnFooter'
 import { Dialog, Button } from '@/components/ui'
+import { cleanIpcError } from '@/lib/ipc'
 import { parseDiffComments, parseSnippets, parseTerminalBlocks, stripAttachmentBlocks } from './diffCommentUtils'
 import type { ParsedDiffComment, ParsedSnippet, ParsedTerminalBlock } from './diffCommentUtils'
 import { formatTokens } from '@/lib/constants'
@@ -79,8 +80,8 @@ function RollbackButton({ messageId }: { messageId: string }) {
       await rollbackToUserMessage(sessionId, messageId)
     } catch (err) {
       console.error('[Braid] rollbackToUserMessage failed:', err)
-      const msg = err instanceof Error ? err.message : 'Rollback failed'
-      flash('error', msg.includes('SNAPSHOT_NOT_FOUND') ? 'Snapshot expired - git may have garbage-collected it' : msg)
+      const raw = cleanIpcError(err, t('rollback.genericError'))
+      flash('error', raw.includes('SNAPSHOT_NOT_FOUND') ? t('rollback.snapshotExpired') : raw)
     } finally {
       setBusy(false)
       setOpen(false)
