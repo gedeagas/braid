@@ -90,9 +90,9 @@ export interface AgentSession {
   /**
    * Set after a rollback. The next sendMessage call will pass this value to the SDK as
    * `resumeSessionAt`, so the SDK replays history only up to (and including) this UUID.
-   * Cleared after the next send completes. Empty string means "start a fresh session".
+   * Cleared after the next send completes.
    */
-  pendingResumeAt?: string | null
+  pendingResumeAt?: string
 }
 
 export type ContentBlock =

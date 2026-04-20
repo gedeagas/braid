@@ -61,19 +61,22 @@ export const createRollbackActions: StateCreator<
       }
     }
 
-    // Restore worktree files from the snapshot (best-effort but required;
-    // throw propagates to caller so UI can show an error).
+    // Restore worktree files from the snapshot. If the worktree path is
+    // unavailable we must bail - truncating messages without restoring files
+    // would leave the workspace in an inconsistent state.
     const worktreePath = sessionWorktreePaths.get(sessionId) ?? ''
-    if (worktreePath) {
-      await ipc.git.restoreSnapshot(worktreePath, target.snapshotSha)
+    if (!worktreePath) {
+      console.warn('[Braid] rollbackToUserMessage refused: worktree path unknown')
+      return
     }
+    await ipc.git.restoreSnapshot(worktreePath, target.snapshotSha)
 
     // Truncate messages and stash the resume anchor for the next send.
     // If there's no anchor (rollback to first user message), clear sdkSessionId
     // so communicationActions takes the "startSession" branch instead of resume.
     updateSession(useSessionsStore, sessionId, (current) => ({
       messages: current.messages.slice(0, targetIndex),
-      pendingResumeAt: resumeAnchorUuid ?? undefined,
+      pendingResumeAt: resumeAnchorUuid,
       sdkSessionId: resumeAnchorUuid ? current.sdkSessionId : undefined,
       // Clear any in-flight prompts left over from the rolled-back turn
       pendingQuestion: undefined,

@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import type { ContentBlock, Message, TurnUsage } from '@/types'
 import { useUIStore } from '@/store/ui'
-import { useActiveSession, useSessionsStore } from '@/store/sessions'
+import { useSessionsStore } from '@/store/sessions'
+import { flash } from '@/store/flash'
 import { ToolCallGroup } from './ToolCallGroup'
 import { StreamingMarkdown } from './StreamingMarkdown'
 import { parseMentions } from './mentionHighlight'
@@ -58,13 +59,13 @@ function RollbackButton({ messageId }: { messageId: string }) {
   const { t } = useTranslation('center')
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
-  const session = useActiveSession()
+  const sessionId = useSessionsStore((s) => s.activeSessionId)
+  const sessionStatus = useSessionsStore((s) => sessionId ? s.sessions[sessionId]?.status : undefined)
   const rollbackToUserMessage = useSessionsStore((s) => s.rollbackToUserMessage)
 
-  const sessionId = session?.id
   const canRollback =
     !!sessionId &&
-    (session?.status === 'idle' || session?.status === 'error' || session?.status === 'inactive')
+    (sessionStatus === 'idle' || sessionStatus === 'error' || sessionStatus === 'inactive')
 
   const handleClick = useCallback(() => {
     if (!canRollback) return
@@ -78,6 +79,8 @@ function RollbackButton({ messageId }: { messageId: string }) {
       await rollbackToUserMessage(sessionId, messageId)
     } catch (err) {
       console.error('[Braid] rollbackToUserMessage failed:', err)
+      const msg = err instanceof Error ? err.message : 'Rollback failed'
+      flash('error', msg.includes('SNAPSHOT_NOT_FOUND') ? 'Snapshot expired - git may have garbage-collected it' : msg)
     } finally {
       setBusy(false)
       setOpen(false)

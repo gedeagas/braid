@@ -83,7 +83,7 @@ export const createCommunicationActions: StateCreator<
     }
 
     // Consume any pendingResumeAt set by a prior rollback - it applies to THIS send.
-    const resumeSessionAt = session.pendingResumeAt ?? undefined
+    const resumeSessionAt = session.pendingResumeAt
 
     set((s) => {
       const current = s.sessions[sessionId]

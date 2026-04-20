@@ -127,13 +127,29 @@ export async function restoreSnapshot(worktreePath: string, snapSha: string): Pr
   // Easier: use `rm` via node fs for leftover untracked entries we couldn't stage.
   // git rm -f fails on untracked; we handle those by explicitly unlinking.
   if (filesToRemove.length > 0) {
-    const { unlinkSync } = await import('fs')
-    const { join } = await import('path')
+    const { unlinkSync, rmdirSync } = await import('fs')
+    const { join, dirname } = await import('path')
+    const dirsToCheck = new Set<string>()
     for (const rel of filesToRemove) {
       try {
         unlinkSync(join(worktreePath, rel))
       } catch {
         // File may already be gone
+      }
+      // Collect parent directories for cleanup
+      let dir = dirname(rel)
+      while (dir && dir !== '.') {
+        dirsToCheck.add(dir)
+        dir = dirname(dir)
+      }
+    }
+    // Remove empty directories, deepest first
+    const sorted = [...dirsToCheck].sort((a, b) => b.length - a.length)
+    for (const dir of sorted) {
+      try {
+        rmdirSync(join(worktreePath, dir))
+      } catch {
+        // Not empty or already gone
       }
     }
   }
