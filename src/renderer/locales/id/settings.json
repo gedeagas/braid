@@ -15,6 +15,7 @@
     "claudeMcp": "Server MCP",
     "claudeSkills": "Keahlian",
     "apps": "Aplikasi",
+    "github": "GitHub",
     "jira": "Jira",
     "analytics": "Analitik",
     "about": "Tentang",
@@ -328,6 +329,25 @@
     "invalidUrl": "URL harus diawali dengan http:// atau https://",
     "nameRequired": "Nama diperlukan",
     "workspaceRequired": "Nama workspace diperlukan"
+  },
+  "github": {
+    "description": "Hubungkan ke GitHub melalui GitHub CLI (gh). Mendukung status PR, CI check, deployment, dan aksi merge.",
+    "cliHeader": "GitHub CLI",
+    "statusChecking": "Memeriksa...",
+    "statusInstalled": "Terinstal",
+    "statusNotInstalled": "Belum terinstal",
+    "statusInstalling": "Menginstal...",
+    "install": "Instal",
+    "installHint": "Diinstal melalui Homebrew (brew install gh). Homebrew harus sudah terinstal terlebih dahulu.",
+    "installing": "Menginstal...",
+    "docs": "Dokumentasi",
+    "authHeader": "Autentikasi",
+    "authChecking": "Memeriksa...",
+    "authAuthenticated": "Terautentikasi",
+    "authNotAuthenticated": "Belum terautentikasi",
+    "signIn": "Masuk",
+    "signInHint": "Autentikasi menggunakan Device Flow GitHub. Membuka browser untuk mengotorisasi Braid.",
+    "recheck": "Periksa ulang"
   },
   "jira": {
     "description": "Hubungkan ke Jira melalui Atlassian CLI (acli). Menampilkan tiket terkait dari nama branch dan memungkinkan pencarian tiket saat membuat worktree.",

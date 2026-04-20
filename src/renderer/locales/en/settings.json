@@ -15,6 +15,7 @@
     "claudeMcp": "MCP Servers",
     "claudeSkills": "Skills",
     "apps": "Apps",
+    "github": "GitHub",
     "jira": "Jira",
     "analytics": "Analytics",
     "about": "About",
@@ -328,6 +329,25 @@
     "invalidUrl": "URL must start with http:// or https://",
     "nameRequired": "Name is required",
     "workspaceRequired": "Workspace name is required"
+  },
+  "github": {
+    "description": "Connect to GitHub via the GitHub CLI (gh). Powers PR status, CI checks, deployments, and merge actions.",
+    "cliHeader": "GitHub CLI",
+    "statusChecking": "Checking...",
+    "statusInstalled": "Installed",
+    "statusNotInstalled": "Not installed",
+    "statusInstalling": "Installing...",
+    "install": "Install",
+    "installHint": "Installs via Homebrew (brew install gh). Homebrew must be installed first.",
+    "installing": "Installing...",
+    "docs": "Docs",
+    "authHeader": "Authentication",
+    "authChecking": "Checking...",
+    "authAuthenticated": "Authenticated",
+    "authNotAuthenticated": "Not authenticated",
+    "signIn": "Sign in",
+    "signInHint": "Authenticate using GitHub's Device Flow. Opens your browser to authorize Braid.",
+    "recheck": "Re-check"
   },
   "jira": {
     "description": "Connect to Jira via the Atlassian CLI (acli). Shows linked issues from branch names and enables ticket lookup when creating worktrees.",

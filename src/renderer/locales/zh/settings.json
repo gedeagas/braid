@@ -15,6 +15,7 @@
     "claudeMcp": "MCP 服务器",
     "claudeSkills": "技能",
     "apps": "应用",
+    "github": "GitHub",
     "jira": "Jira",
     "analytics": "分析",
     "about": "关于",
@@ -328,6 +329,25 @@
     "invalidUrl": "URL 必须以 http:// 或 https:// 开头",
     "nameRequired": "名称为必填项",
     "workspaceRequired": "工作区名称为必填项"
+  },
+  "github": {
+    "description": "通过 GitHub CLI (gh) 连接 GitHub。支持 PR 状态、CI 检查、部署和合并操作。",
+    "cliHeader": "GitHub CLI",
+    "statusChecking": "检查中...",
+    "statusInstalled": "已安装",
+    "statusNotInstalled": "未安装",
+    "statusInstalling": "安装中...",
+    "install": "安装",
+    "installHint": "通过 Homebrew 安装（brew install gh）。需要先安装 Homebrew。",
+    "installing": "安装中...",
+    "docs": "文档",
+    "authHeader": "认证",
+    "authChecking": "检查中...",
+    "authAuthenticated": "已认证",
+    "authNotAuthenticated": "未认证",
+    "signIn": "登录",
+    "signInHint": "使用 GitHub 的 Device Flow 认证。将打开浏览器授权 Braid。",
+    "recheck": "重新检查"
   },
   "jira": {
     "description": "通过 Atlassian CLI (acli) 连接 Jira。从分支名显示关联工单，并在创建 worktree 时启用工单查找。",

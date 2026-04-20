@@ -15,6 +15,7 @@
     "claudeMcp": "MCPサーバー",
     "claudeSkills": "スキル",
     "apps": "アプリ",
+    "github": "GitHub",
     "jira": "Jira",
     "analytics": "アナリティクス",
     "about": "このアプリについて",
@@ -328,6 +329,25 @@
     "invalidUrl": "URLは http:// または https:// で始まる必要があります",
     "nameRequired": "名前は必須です",
     "workspaceRequired": "ワークスペース名は必須です"
+  },
+  "github": {
+    "description": "GitHub CLI (gh) を使用して GitHub に接続します。PRステータス、CIチェック、デプロイメント、マージ操作に使用されます。",
+    "cliHeader": "GitHub CLI",
+    "statusChecking": "確認中...",
+    "statusInstalled": "インストール済み",
+    "statusNotInstalled": "未インストール",
+    "statusInstalling": "インストール中...",
+    "install": "インストール",
+    "installHint": "Homebrew経由でインストールされます（brew install gh）。Homebrewが事前にインストールされている必要があります。",
+    "installing": "インストール中...",
+    "docs": "ドキュメント",
+    "authHeader": "認証",
+    "authChecking": "確認中...",
+    "authAuthenticated": "認証済み",
+    "authNotAuthenticated": "未認証",
+    "signIn": "サインイン",
+    "signInHint": "GitHubのDevice Flowを使用して認証します。ブラウザが開き、Braidを承認します。",
+    "recheck": "再確認"
   },
   "jira": {
     "description": "Atlassian CLI (acli) を使用して Jira に接続します。ブランチ名から関連チケットを表示し、ワークツリー作成時にチケット検索を有効にします。",
