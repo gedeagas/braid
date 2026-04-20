@@ -5,6 +5,25 @@ All notable changes to Braid are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [26.1.8] - 2026-04-20
+
+### Added
+
+- add Chinese (Simplified) language support (#65)
+- add git snapshots and chat rollback capability (#64)
+- add Big Terminal mode with persistent scrollback (#63)
+- add command palette with keyboard shortcut (⌘K) (#62)
+
+### Fixed
+
+- refresh diff view on stage/unstage and clean up worktree state (#61)
+
+### Contributors
+
+Thanks to [@gedeagas](https://github.com/gedeagas) for their contributions to this release!
+
+---
+
 ## [26.1.7] - 2026-04-17
 
 ### Added
