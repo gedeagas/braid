@@ -117,6 +117,7 @@ function RollbackButton({ messageId }: { messageId: string }) {
           }
         >
           <p>{t('rollback.confirmBody')}</p>
+          <p className="rollback-experimental-warning">{t('rollback.experimentalWarning')}</p>
         </Dialog>,
         document.body
       )}

@@ -319,5 +319,6 @@
   "rollback.confirmTitle": "チャットを巻き戻してファイルを復元しますか？",
   "rollback.confirmBody": "この時点より後のメッセージをすべて削除し、ワークツリーのファイルをこのメッセージ送信時の状態に戻します。その後に編集して再送信できます。",
   "rollback.confirm": "巻き戻す",
-  "rollback.cancel": "キャンセル"
+  "rollback.cancel": "キャンセル",
+  "rollback.experimentalWarning": "この機能は実験的であり、まだ開発中です。"
 }

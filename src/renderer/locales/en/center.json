@@ -336,5 +336,6 @@
   "rollback.confirmTitle": "Rewind chat and restore files?",
   "rollback.confirmBody": "This removes every message after this point and restores the worktree files to their state when this message was sent. You can then edit and resend.",
   "rollback.confirm": "Rewind",
-  "rollback.cancel": "Cancel"
+  "rollback.cancel": "Cancel",
+  "rollback.experimentalWarning": "This feature is experimental and still in development."
 }

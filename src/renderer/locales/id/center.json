@@ -318,5 +318,6 @@
   "rollback.confirmTitle": "Putar balik chat dan pulihkan file?",
   "rollback.confirmBody": "Tindakan ini menghapus semua pesan setelah titik ini dan memulihkan file worktree ke kondisi saat pesan ini dikirim. Anda dapat mengedit dan mengirim ulang.",
   "rollback.confirm": "Putar balik",
-  "rollback.cancel": "Batal"
+  "rollback.cancel": "Batal",
+  "rollback.experimentalWarning": "Fitur ini masih eksperimental dan dalam pengembangan."
 }
