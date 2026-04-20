@@ -482,7 +482,12 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('settings:getSystemPromptSuffix', () => mainSettings.systemPromptSuffix)
 
   // RTK (output compression)
-  ipcMain.handle('rtk:install', () => rtkService.ensureInstalled())
+  ipcMain.handle('rtk:install', (e) => {
+    const win = BrowserWindow.fromWebContents(e.sender)
+    return rtkService.ensureInstalled((downloaded, total) => {
+      win?.webContents.send('rtk:progress', downloaded, total)
+    })
+  })
   ipcMain.handle('rtk:status', () => rtkService.getStatus())
 
   // Claude Config
@@ -527,6 +532,7 @@ export function registerIpcHandlers(): void {
         systemPromptSuffix: mainSettings.systemPromptSuffix,
         claudeCodeExecutablePath: mainSettings.claudeCodeExecutablePath,
         bypassPermissions: mainSettings.bypassPermissions,
+        outputCompression: mainSettings.outputCompression,
       },
       (url) => shell.openExternal(url)
     )

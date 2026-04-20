@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/store/ui'
 import { Toggle } from '@/components/shared/Toggle'
@@ -41,6 +41,13 @@ export function SettingsExperimental() {
   const outputCompression = useUIStore((s) => s.outputCompression)
   const setOutputCompression = useUIStore((s) => s.setOutputCompression)
   const [rtkInstalling, setRtkInstalling] = useState(false)
+  const [rtkProgress, setRtkProgress] = useState(0) // 0-100
+  const cleanupRef = useRef<(() => void) | null>(null)
+
+  // Subscribe to RTK download progress events
+  useEffect(() => {
+    return () => { cleanupRef.current?.() }
+  }, [])
 
   const selected = FEATURES.find((f) => f.id === selectedId) ?? FEATURES[0]
 
@@ -118,7 +125,7 @@ export function SettingsExperimental() {
 
         <FormField
           label={t('general.outputCompression')}
-          hint={rtkInstalling ? t('general.outputCompressionInstalling') : t('general.outputCompressionHint')}
+          hint={rtkInstalling ? `${t('general.outputCompressionInstalling')} ${rtkProgress}%` : t('general.outputCompressionHint')}
           horizontal
         >
           <Toggle
@@ -127,9 +134,18 @@ export function SettingsExperimental() {
               setOutputCompression(v)
               if (v && !rtkInstalling) {
                 setRtkInstalling(true)
+                setRtkProgress(0)
+                cleanupRef.current = ipc.rtk.onProgress((downloaded, total) => {
+                  setRtkProgress(Math.round((downloaded / total) * 100))
+                })
                 ipc.rtk.install()
-                  .catch((e) => console.error('[RTK] Install failed:', e))
-                  .finally(() => setRtkInstalling(false))
+                  .catch((err: unknown) => console.error('[RTK] Install failed:', err))
+                  .finally(() => {
+                    setRtkInstalling(false)
+                    setRtkProgress(0)
+                    cleanupRef.current?.()
+                    cleanupRef.current = null
+                  })
               }
             }}
           />

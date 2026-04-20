@@ -72,7 +72,9 @@ async function fetchLatestVersion(): Promise<string> {
   })
 }
 
-function downloadFile(url: string, outPath: string): Promise<void> {
+export type RtkProgressCallback = (downloaded: number, total: number) => void
+
+function downloadFile(url: string, outPath: string, onProgress?: RtkProgressCallback): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     const get = (currentUrl: string, redirects = 0) => {
       if (redirects > 10) { reject(new Error('Too many redirects')); return }
@@ -87,7 +89,13 @@ function downloadFile(url: string, outPath: string): Promise<void> {
           reject(new Error(`Download failed: HTTP ${res.statusCode} from ${currentUrl}`))
           return
         }
+        const total = parseInt(res.headers['content-length'] ?? '0', 10)
+        let downloaded = 0
         const out = createWriteStream(outPath)
+        res.on('data', (chunk: Buffer) => {
+          downloaded += chunk.length
+          if (onProgress && total > 0) onProgress(downloaded, total)
+        })
         res.pipe(out)
         out.on('finish', () => resolve())
         out.on('error', reject)
@@ -116,7 +124,7 @@ class RtkService {
     return this.isAvailable() ? BINARY_PATH : null
   }
 
-  async ensureInstalled(): Promise<string> {
+  async ensureInstalled(onProgress?: RtkProgressCallback): Promise<string> {
     if (this.isAvailable()) return BINARY_PATH
 
     const target = getPlatformTarget()
@@ -133,7 +141,7 @@ class RtkService {
     const tarPath = join(BINARY_DIR, tarName)
 
     logger.info(`[RTK] Downloading from ${downloadUrl}`)
-    await downloadFile(downloadUrl, tarPath)
+    await downloadFile(downloadUrl, tarPath, onProgress)
 
     logger.info('[RTK] Extracting...')
     await extractTarGz(tarPath, BINARY_DIR)

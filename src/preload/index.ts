@@ -437,6 +437,11 @@ const api = {
   rtk: {
     install: () => ipcRenderer.invoke('rtk:install') as Promise<string>,
     status: () => ipcRenderer.invoke('rtk:status') as Promise<{ installed: boolean; version: string | null; path: string | null }>,
+    onProgress: (callback: (downloaded: number, total: number) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, downloaded: number, total: number) => callback(downloaded, total)
+      ipcRenderer.on('rtk:progress', handler)
+      return () => ipcRenderer.removeListener('rtk:progress', handler)
+    },
   },
 }
 

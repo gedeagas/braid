@@ -300,6 +300,7 @@ export const settings = {
 export const rtk = {
   install: () => api().rtk.install(),
   status: () => api().rtk.status(),
+  onProgress: (callback: (downloaded: number, total: number) => void) => api().rtk.onProgress(callback),
 }
 
 export const notes = {
