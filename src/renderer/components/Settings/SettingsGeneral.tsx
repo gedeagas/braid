@@ -9,6 +9,7 @@ const LANGUAGES: { value: SupportedLanguage; label: string }[] = [
   { value: 'en', label: 'English' },
   { value: 'ja', label: '日本語' },
   { value: 'id', label: 'Bahasa Indonesia' },
+  { value: 'zh', label: '简体中文' },
 ]
 
 export function SettingsGeneral() {
