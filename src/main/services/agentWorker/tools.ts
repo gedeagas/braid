@@ -3,7 +3,6 @@ import { matchesRuleList } from '../agentPermissions'
 import { USER_INPUT_TOOLS, BRAID_SYSTEM_PROMPT, loadPlugins } from '../agentUtils'
 import { getCliPath } from '../claudePath'
 import { rewriteCommand } from '../rtk'
-import { logger } from '../../lib/logger'
 import type { SlashCommand, WorkerEvent } from '../agentTypes'
 
 type EmitFn = (event: WorkerEvent) => void
@@ -19,6 +18,11 @@ export function createCanUseTool(
   rtkBinaryPath?: string | null,
   rtkDebug = false,
 ) {
+  // Log RTK state at construction time so it's visible in session logs
+  if (rtkDebug || rtkBinaryPath) {
+    log(sessionId, `[RTK] initialized — path=${rtkBinaryPath ?? 'null'}, debug=${rtkDebug}`)
+  }
+
   // Helper: apply RTK rewrite to Bash commands when enabled.
   // Delegates to `rtk rewrite <cmd>` which is the single source of truth.
   // Also resolves bare `rtk` commands to the full binary path since
@@ -32,12 +36,15 @@ export function createCanUseTool(
       // Resolve bare `rtk` meta-commands (rtk gain, rtk discover, etc.) to full path
       if (trimmed === 'rtk' || trimmed.startsWith('rtk ')) {
         const resolved = rtkBinaryPath + trimmed.slice(3)
-        if (rtkDebug) logger.info(`[RTK] resolve path: "${inp.command}" -> "${resolved}"`)
+        if (rtkDebug) log(sessionId, `[RTK] resolve path: "${inp.command}" -> "${resolved}"`)
         return { ...inp, command: resolved }
       }
       const result = rewriteCommand(rtkBinaryPath, inp.command, rtkDebug)
       if (result.rewritten) {
+        if (rtkDebug) log(sessionId, `[RTK] rewrite: "${inp.command}" -> "${result.command}"`)
         return { ...inp, command: result.command }
+      } else if (rtkDebug) {
+        log(sessionId, `[RTK] pass-through: "${inp.command}"`)
       }
     }
     return inp

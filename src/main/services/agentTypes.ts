@@ -19,6 +19,8 @@ export interface SessionState {
   worktreeId?: string
   /** Project name — used by the Braid MCP server for worktree creation paths. */
   projectName?: string
+  /** Whether RTK awareness was already injected into this session's system prompt. */
+  rtkAwarenessInjected?: boolean
 }
 
 /** Slash command descriptor returned by the SDK. */

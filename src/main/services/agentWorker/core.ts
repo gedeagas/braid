@@ -167,7 +167,7 @@ export class AgentWorker {
 
     delete process.env.CLAUDECODE
     const abortController = new AbortController()
-    const state: SessionState = { abortController, cwd: worktreePath, model, extendedContext, effortLevel, sessionName, additionalDirectories, linkedWorktreeContext, initialLinkedContext: linkedWorktreeContext, connectedDeviceId, mobileFramework, worktreeId, projectName }
+    const state: SessionState = { abortController, cwd: worktreePath, model, extendedContext, effortLevel, sessionName, additionalDirectories, linkedWorktreeContext, initialLinkedContext: linkedWorktreeContext, connectedDeviceId, mobileFramework, worktreeId, projectName, rtkAwarenessInjected: settings.outputCompression }
     this.sessions.set(sessionId, state)
     this.applyApiKey(settings)
 
@@ -208,13 +208,18 @@ export class AgentWorker {
         this.log(sessionId, 'stderr:', trimmed)
       }
 
+      const rtkPath = settings.outputCompression ? rtkService.getBinaryPath() : null
+      if (settings.outputCompression) {
+        this.log(sessionId, `[RTK] outputCompression=${settings.outputCompression}, binaryPath=${rtkPath}, debug=${settings.rtkDebug}`)
+      }
+
       const q = queryFn({
         prompt: promptParam as Parameters<typeof queryFn>[0]['prompt'],
         options: {
           cwd: worktreePath,
           additionalDirectories: additionalDirectories?.length ? additionalDirectories : undefined,
           model,
-          canUseTool: createCanUseTool(sessionId, worktreePath, settings.bypassPermissions, this.emit, this.pendingUserInput, this.log.bind(this), settings.outputCompression ? rtkService.getBinaryPath() : null, settings.rtkDebug),
+          canUseTool: createCanUseTool(sessionId, worktreePath, settings.bypassPermissions, this.emit, this.pendingUserInput, this.log.bind(this), rtkPath, settings.rtkDebug),
           onElicitation: this.createOnElicitation(sessionId),
           includePartialMessages: true,
           maxThinkingTokens: thinking ? undefined : 0,
@@ -399,6 +404,15 @@ export class AgentWorker {
         state.initialLinkedContext = currentLinked
       }
 
+      // If RTK was enabled after session start (or session was created before RTK),
+      // inject awareness inline so the agent knows about rtk meta-commands.
+      if (settings.outputCompression && !state.rtkAwarenessInjected) {
+        const rtkNotice = `[System: Output compression (RTK) is now active. Bash commands are automatically proxied through RTK for token savings.]\n${RTK_AWARENESS_PROMPT}\n\n`
+        effectiveMessage = rtkNotice + effectiveMessage
+        state.rtkAwarenessInjected = true
+        this.log(sessionId, '[RTK] Injected awareness prompt inline for resumed session')
+      }
+
       const hasImages = images && images.length > 0
       const promptParam = hasImages
         ? (async function* (content: Array<Record<string, unknown>>) {
@@ -416,6 +430,11 @@ export class AgentWorker {
         this.log(sessionId, 'resume stderr:', trimmed)
       }
 
+      const rtkPath = settings.outputCompression ? rtkService.getBinaryPath() : null
+      if (settings.outputCompression) {
+        this.log(sessionId, `[RTK] outputCompression=${settings.outputCompression}, binaryPath=${rtkPath}, debug=${settings.rtkDebug}`)
+      }
+
       const q = queryFn({
         prompt: promptParam as Parameters<typeof queryFn>[0]['prompt'],
         options: {
@@ -424,7 +443,7 @@ export class AgentWorker {
           model: state.model,
           resume: resumeId,
           ...(resumeSessionAt ? { resumeSessionAt } : {}),
-          canUseTool: createCanUseTool(sessionId, state.cwd, settings.bypassPermissions, this.emit, this.pendingUserInput, this.log.bind(this), settings.outputCompression ? rtkService.getBinaryPath() : null, settings.rtkDebug),
+          canUseTool: createCanUseTool(sessionId, state.cwd, settings.bypassPermissions, this.emit, this.pendingUserInput, this.log.bind(this), rtkPath, settings.rtkDebug),
           onElicitation: this.createOnElicitation(sessionId),
           includePartialMessages: true,
           permissionMode: planMode ? 'plan' : undefined,
