@@ -1,6 +1,7 @@
 import { useReducer, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { shell } from '@/lib/ipc'
+import { flash } from '@/store/flash'
 import { Button } from '@/components/ui/Button'
 import { StatusDot } from '@/components/ui/StatusDot'
 import { GhAuthDialog } from '@/components/shared/GhAuthDialog'
@@ -89,10 +90,11 @@ export function SettingsGitHub() {
 
   // Check auth status once gh is confirmed installed
   useEffect(() => {
-    if (state.ghStatus !== 'installed') {
+    if (state.ghStatus === 'not_installed') {
       dispatch({ type: 'setAuth', status: 'not_authenticated' })
       return
     }
+    if (state.ghStatus !== 'installed') return
     let cancelled = false
     dispatch({ type: 'setAuth', status: 'checking' })
     shell
@@ -104,7 +106,12 @@ export function SettingsGitHub() {
 
   const handleInstall = useCallback(async () => {
     dispatch({ type: 'setGh', status: 'installing' })
-    try { await shell.installTool('gh') } catch { /* recheck below */ }
+    try {
+      await shell.installTool('gh')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error'
+      flash('error', `Failed to install gh: ${msg}`, 5000)
+    }
     if (!mountedRef.current) return
     dispatch({ type: 'setGh', status: 'checking' })
     try {
