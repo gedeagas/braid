@@ -11,6 +11,7 @@
 import type { StateCreator } from 'zustand'
 import * as ipc from '@/lib/ipc'
 import { useSessionsStore } from '../store'
+import { useUIStore } from '@/store/ui'
 import { sessionWorktreePaths } from '../storage'
 import { persistSession } from '../persistence'
 import { updateSession } from '../stateUtils'
@@ -70,6 +71,16 @@ export const createRollbackActions: StateCreator<
       return
     }
     await ipc.git.restoreSnapshot(worktreePath, target.snapshotSha)
+
+    // Refresh the Changes tab so the right panel reflects restored files.
+    try {
+      const status = await ipc.git.getStatus(worktreePath) as Array<unknown>
+      const ui = useUIStore.getState()
+      ui.setChangesCount(worktreePath, status.length)
+      ui.bumpDiffRevision(worktreePath)
+    } catch {
+      // Best-effort - the 10s auto-poll will catch up if this fails.
+    }
 
     // Truncate messages and stash the resume anchor for the next send.
     // If there's no anchor (rollback to first user message), clear sdkSessionId
