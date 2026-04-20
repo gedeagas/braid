@@ -57,6 +57,7 @@
   "unsavedChanges": "未保存の変更",
   "newChat": "新しいチャット",
   "newBigTerminal": "新しいターミナル",
+  "newTabTooltip": "新しいタブ",
   "bigTerminalDisabledHint": "設定 → 実験的機能 でビッグターミナルモードを有効にしてください",
   "newChatDefault": "新しいチャット",
   "modelTooltip": "モデルを選択",

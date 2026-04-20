@@ -57,6 +57,7 @@
   "unsavedChanges": "Unsaved changes",
   "newChat": "New chat",
   "newBigTerminal": "New terminal",
+  "newTabTooltip": "New tab",
   "bigTerminalDisabledHint": "Enable Big Terminal Mode in Settings → Experimental",
   "newChatDefault": "New Chat",
   "modelTooltip": "Select model",

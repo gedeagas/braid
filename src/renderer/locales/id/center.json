@@ -57,6 +57,7 @@
   "unsavedChanges": "Perubahan belum disimpan",
   "newChat": "Chat Baru",
   "newBigTerminal": "Terminal Baru",
+  "newTabTooltip": "Tab baru",
   "bigTerminalDisabledHint": "Aktifkan Big Terminal Mode di Pengaturan → Eksperimental",
   "newChatDefault": "Chat Baru",
   "modelTooltip": "Pilih model",

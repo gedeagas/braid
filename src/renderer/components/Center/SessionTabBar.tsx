@@ -7,7 +7,6 @@ import { useDragScroll } from '@/hooks/useDragScroll'
 import { useTabReorder } from '@/hooks/useTabReorder'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { ContextMenu, type ContextMenuItem } from '@/components/shared/ContextMenu'
-import { IconTerminal } from '@/components/shared/icons'
 import type { AgentSession } from '@/types'
 import { getSessionTitle } from '@/lib/sessionTitle'
 import { disposeBigTerminal } from './bigTerminalCache'
@@ -20,6 +19,7 @@ interface TabBarLocal {
   editingId: string | null
   editValue: string
   menu: { x: number; y: number; key: string } | null
+  addMenu: { x: number; y: number } | null
 }
 
 export function SessionTabBar() {
@@ -67,7 +67,7 @@ export function SessionTabBar() {
 
   const [local, setLocal] = useReducer(
     (s: TabBarLocal, a: Partial<TabBarLocal>) => ({ ...s, ...a }),
-    { editingId: null, editValue: '', menu: null } as TabBarLocal
+    { editingId: null, editValue: '', menu: null, addMenu: null } as TabBarLocal
   )
   const inputRef = useRef<HTMLInputElement>(null)
   const tabBarRef = useRef<HTMLDivElement>(null)
@@ -405,30 +405,18 @@ export function SessionTabBar() {
         return null
       })}
 
-      {bigTerminalEnabled && (
-        <Tooltip content={t('newBigTerminal')} position="bottom">
-          <button
-            className="tab tab--add tab--add-terminal"
-            aria-label={t('newBigTerminal')}
-            onClick={() => {
-              if (!selectedWorktreeId) return
-              const id = createBigTerminal(selectedWorktreeId)
-              setActiveCenterView({ type: 'terminal', terminalId: id })
-            }}
-          >
-            <IconTerminal size={12} />
-            <span>+</span>
-          </button>
-        </Tooltip>
-      )}
-
-      <Tooltip content={t('newChat')} position="bottom">
+      <Tooltip content={bigTerminalEnabled ? t('newTabTooltip') : t('newChat')} position="bottom">
         <button
           className="tab tab--add"
           aria-label={t('newChat')}
-          onClick={() => {
-            const id = createSession(selectedWorktreeId, worktree.path)
-            setActiveCenterView({ type: 'session', sessionId: id })
+          onClick={(e) => {
+            if (bigTerminalEnabled) {
+              const rect = (e.target as HTMLElement).getBoundingClientRect()
+              setLocal({ addMenu: { x: rect.left, y: rect.bottom + 4 } })
+            } else {
+              const id = createSession(selectedWorktreeId, worktree.path)
+              setActiveCenterView({ type: 'session', sessionId: id })
+            }
           }}
         >
           +
@@ -441,6 +429,31 @@ export function SessionTabBar() {
           y={local.menu.y}
           items={menuItems}
           onClose={() => setLocal({ menu: null })}
+        />
+      )}
+
+      {local.addMenu && (
+        <ContextMenu
+          x={local.addMenu.x}
+          y={local.addMenu.y}
+          items={[
+            {
+              label: t('newChat'),
+              onClick: () => {
+                const id = createSession(selectedWorktreeId, worktree.path)
+                setActiveCenterView({ type: 'session', sessionId: id })
+              },
+            },
+            {
+              label: t('newBigTerminal'),
+              onClick: () => {
+                if (!selectedWorktreeId) return
+                const id = createBigTerminal(selectedWorktreeId)
+                setActiveCenterView({ type: 'terminal', terminalId: id })
+              },
+            },
+          ]}
+          onClose={() => setLocal({ addMenu: null })}
         />
       )}
     </div>
