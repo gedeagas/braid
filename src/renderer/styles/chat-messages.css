@@ -117,52 +117,6 @@
   position: relative;
 }
 
-/* Rewind-to-here button (experimental rollback history) */
-.chat-msg-rewind-btn {
-  position: absolute;
-  top: var(--space-2);
-  left: 0;
-  padding: var(--space-6);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  cursor: pointer;
-  opacity: 0.25;
-  transition: opacity var(--duration-fast), color var(--duration-fast), background var(--duration-fast);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  /* Expand clickable area beyond visual bounds for easier targeting */
-  min-width: 28px;
-  min-height: 28px;
-}
-
-.chat-msg-user:hover .chat-msg-rewind-btn:not(:disabled),
-.chat-msg-rewind-btn:focus-visible {
-  opacity: 1;
-}
-
-.chat-msg-rewind-btn:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.chat-msg-rewind-btn:hover:not(:disabled) {
-  color: var(--text-primary);
-  background: var(--bg-hover);
-}
-
-.chat-msg-rewind-btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.4;
-}
-
-/* Disabled button stays visually muted even when parent row is hovered */
-.chat-msg-user:hover .chat-msg-rewind-btn:disabled {
-  opacity: 0.4;
-}
-
 .chat-msg-user-bubble {
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
