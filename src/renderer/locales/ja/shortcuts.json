@@ -23,6 +23,10 @@
   "quickOpen": "ファイルを開く",
   "focusChat": "チャット入力にフォーカス",
   "saveFile": "ファイルを保存",
+  "commandPalette": "コマンドパレット",
+  "commandPaletteSearch": "コマンドを入力...",
+  "commandPaletteRun": "実行",
+  "commandPaletteNoResults": "「{{query}}」に一致するコマンドはありません",
   "noResults": "「{{query}}」に一致するショートカットはありません",
   "empty": "ショートカットはありません"
 }
