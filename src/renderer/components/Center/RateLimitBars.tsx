@@ -23,21 +23,13 @@ function getStatusColor(status: string): string {
   return 'var(--green)'
 }
 
-/** Label keys per rate limit type */
-const LABEL_KEY: Record<string, string> = {
-  five_hour: 'rateLimitFiveHour',
-  seven_day: 'rateLimitSevenDay',
-  seven_day_opus: 'rateLimitSevenDayOpus',
-  seven_day_sonnet: 'rateLimitSevenDaySonnet',
-}
-
-/** Display order priority (lower = shown first) */
-const TYPE_ORDER: Record<string, number> = {
-  five_hour: 0,
-  seven_day: 1,
-  seven_day_opus: 2,
-  seven_day_sonnet: 3,
-}
+/** Single source of truth: supported types in display order + their i18n label key. */
+const ORDERED_TYPES: { key: string; labelKey: string }[] = [
+  { key: 'five_hour', labelKey: 'rateLimitFiveHour' },
+  { key: 'seven_day', labelKey: 'rateLimitSevenDay' },
+  { key: 'seven_day_opus', labelKey: 'rateLimitSevenDayOpus' },
+  { key: 'seven_day_sonnet', labelKey: 'rateLimitSevenDaySonnet' },
+]
 
 export function RateLimitBars() {
   const { t } = useTranslation('center')
@@ -46,25 +38,19 @@ export function RateLimitBars() {
     useShallow((s) => s.limits)
   )
 
-  const rows = useMemo(() => {
-    const result: { label: string; info: RateLimitInfo }[] = []
-
-    // Collect all known rate limit types that have data
-    for (const [key, info] of Object.entries(limits)) {
-      const labelKey = LABEL_KEY[key]
-      if (!labelKey) continue // skip unknown types
-      result.push({ label: t(labelKey), info })
-    }
-
-    // Sort by display order
-    result.sort((a, b) => {
-      const orderA = TYPE_ORDER[a.info.rateLimitType] ?? 99
-      const orderB = TYPE_ORDER[b.info.rateLimitType] ?? 99
-      return orderA - orderB
-    })
-
-    return result
-  }, [limits, t])
+  // Filter to types present in the store, preserving declared display order.
+  // Uses the store key (not info.rateLimitType) for ordering and React key
+  // to stay consistent even if cached data drifts.
+  const rows = useMemo(() =>
+    ORDERED_TYPES
+      .filter(({ key }) => !!limits[key])
+      .map(({ key, labelKey }) => ({
+        key,
+        label: t(labelKey),
+        info: limits[key],
+      })),
+    [limits, t],
+  )
 
   if (rows.length === 0) return null
 
@@ -74,7 +60,7 @@ export function RateLimitBars() {
         <span className="rate-limit-title">{t('rateLimitTitle')}</span>
         <span className="rate-limit-tracks">
           {rows.map((row) => (
-            <RateLimitRow key={row.info.rateLimitType} label={row.label} info={row.info} t={t} />
+            <RateLimitRow key={row.key} label={row.label} info={row.info} t={t} />
           ))}
         </span>
       </span>
