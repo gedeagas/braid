@@ -126,7 +126,7 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
           .join(' ')}
         role="option"
         aria-selected={isSelected}
-        tabIndex={0}
+        tabIndex={isFocused ? 0 : -1}
         draggable
         data-worktree-id={worktree.id}
         onClick={() => selectWorktree(worktree.projectId, worktree.id)}

@@ -159,7 +159,7 @@ export function ProjectList({ onAddWorktree }: Props) {
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement
-    if (target.closest('input, textarea, button, [role="dialog"]')) return
+    if (target.closest('input, textarea, [role="dialog"]')) return
 
     switch (e.key) {
       case 'ArrowDown':
