@@ -10,17 +10,25 @@ import path from 'path'
 import fs from 'fs'
 import os from 'os'
 
-/** User-installed plugins — read once and cached for the process lifetime. */
-const userPluginsCache: Array<{ type: 'local'; path: string }> = (() => {
+/**
+ * User-installed plugins — installed_plugins.json is read once at module load
+ * and cached for the process lifetime. Each entry keeps its `plugin@marketplace`
+ * key so `loadPlugins` can filter by the user's `enabledPlugins` setting, which
+ * is re-read on every call (so runtime toggles in the Claude settings UI are
+ * honored without restarting Braid).
+ */
+type CachedPlugin = { type: 'local'; path: string; key: string }
+
+const userPluginsCache: CachedPlugin[] = (() => {
   try {
     const pluginsFile = path.join(os.homedir(), '.claude', 'plugins', 'installed_plugins.json')
     const data = JSON.parse(fs.readFileSync(pluginsFile, 'utf-8')) as {
       plugins: Record<string, Array<{ scope: string; installPath: string }>>
     }
-    return Object.values(data.plugins).flatMap((versions) =>
+    return Object.entries(data.plugins).flatMap(([key, versions]) =>
       versions
         .filter((v) => v.scope === 'user' && v.installPath)
-        .map((v) => ({ type: 'local' as const, path: v.installPath }))
+        .map((v) => ({ type: 'local' as const, path: v.installPath, key }))
     )
   } catch {
     return []
@@ -28,16 +36,61 @@ const userPluginsCache: Array<{ type: 'local'; path: string }> = (() => {
 })()
 
 /**
+ * Read `enabledPlugins` from ~/.claude/settings.json. A plugin is considered
+ * disabled only when its value is explicitly `false` - `true`, an array of
+ * version strings, or an absent key all mean "enabled" (matches the Claude
+ * Code settings schema).
+ *
+ * Results are cached and only re-read when the file's mtime changes, avoiding
+ * synchronous disk I/O on every loadPlugins() call.
+ *
+ * Note: claudeConfig.ts has a similar readJson helper for the same file.
+ * Both are kept separate because agentUtils must remain Electron-free.
+ */
+let _disabledCache: { mtime: number; keys: Set<string> } | null = null
+const _settingsPath = path.join(os.homedir(), '.claude', 'settings.json')
+
+function readDisabledPluginKeys(): Set<string> {
+  try {
+    const stat = fs.statSync(_settingsPath)
+    const mtime = stat.mtimeMs
+    if (_disabledCache && _disabledCache.mtime === mtime) {
+      return _disabledCache.keys
+    }
+    const data = JSON.parse(fs.readFileSync(_settingsPath, 'utf-8')) as Record<string, unknown> | null
+    const disabled = new Set<string>()
+    const enabledPlugins = data?.enabledPlugins
+    if (enabledPlugins && typeof enabledPlugins === 'object' && !Array.isArray(enabledPlugins)) {
+      for (const [k, v] of Object.entries(enabledPlugins as Record<string, unknown>)) {
+        if (v === false) disabled.add(k)
+      }
+    }
+    _disabledCache = { mtime, keys: disabled }
+    return disabled
+  } catch {
+    _disabledCache = null
+    return new Set()
+  }
+}
+
+/**
  * Returns plugin entries for a session rooted at `cwd`:
- *   • User-scope — ~/.claude/plugins/installed_plugins.json (cached at startup)
+ *   • User-scope — ~/.claude/plugins/installed_plugins.json, minus any keys
+ *     the user has disabled via `enabledPlugins` in ~/.claude/settings.json.
+ *     Without this filter, SessionStart hooks from disabled plugins (e.g.
+ *     superpowers) would keep firing and injecting skill instructions.
  *   • Project-scope — <cwd>/.claude (if it contains a skills/ subdirectory)
  */
 export function loadPlugins(cwd: string): Array<{ type: 'local'; path: string }> {
+  const disabled = readDisabledPluginKeys()
+  const userPlugins = userPluginsCache
+    .filter((p) => !disabled.has(p.key))
+    .map(({ type, path: p }) => ({ type, path: p }))
   const projectPlugin = path.join(cwd, '.claude')
   const projectPlugins = fs.existsSync(path.join(projectPlugin, 'skills'))
     ? [{ type: 'local' as const, path: projectPlugin }]
     : []
-  return [...userPluginsCache, ...projectPlugins]
+  return [...userPlugins, ...projectPlugins]
 }
 
 export const BRAID_SYSTEM_PROMPT = `
