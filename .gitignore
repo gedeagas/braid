@@ -37,3 +37,4 @@ release/
 docs/plans/
 .idea/
 .vscode/
+.worktrees/
