@@ -11,6 +11,8 @@
   "searchWholeWord": "Match Whole Word",
   "searchRegex": "Use Regular Expression",
   "searchToggleReplace": "Toggle Replace",
+  "searchFiltersSection": "filter",
+  "searchToggleFilters": "Toggle file filters",
   "searchReplaceAll": "Replace All",
   "searchReplaceOne": "Replace",
   "searchReplaceConfirm": "Replace {{count}} matches across {{files}} files?",

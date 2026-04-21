@@ -11,6 +11,8 @@
   "searchWholeWord": "Cocokkan Seluruh Kata",
   "searchRegex": "Gunakan Ekspresi Reguler",
   "searchToggleReplace": "Alihkan Ganti",
+  "searchFiltersSection": "filter",
+  "searchToggleFilters": "Alihkan filter file",
   "searchReplaceAll": "Ganti Semua",
   "searchReplaceOne": "Ganti",
   "searchReplaceConfirm": "Ganti {{count}} kecocokan di {{files}} file?",

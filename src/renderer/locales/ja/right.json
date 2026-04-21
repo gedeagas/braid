@@ -11,6 +11,8 @@
   "searchWholeWord": "単語単位で一致",
   "searchRegex": "正規表現を使用",
   "searchToggleReplace": "置換の切り替え",
+  "searchFiltersSection": "フィルター",
+  "searchToggleFilters": "ファイルフィルターの切り替え",
   "searchReplaceAll": "すべて置換",
   "searchReplaceOne": "置換",
   "searchReplaceConfirm": "{{files}} 個のファイルで {{count}} 件を置換しますか？",

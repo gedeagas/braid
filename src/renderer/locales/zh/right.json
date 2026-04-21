@@ -11,6 +11,8 @@
   "searchWholeWord": "全词匹配",
   "searchRegex": "使用正则表达式",
   "searchToggleReplace": "切换替换",
+  "searchFiltersSection": "过滤器",
+  "searchToggleFilters": "切换文件过滤器",
   "searchReplaceAll": "全部替换",
   "searchReplaceOne": "替换",
   "searchReplaceConfirm": "在 {{files}} 个文件中替换 {{count}} 处匹配？",

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { IconChevronRight, IconChevronDown } from '@/components/shared/icons'
@@ -42,6 +43,11 @@ export function SearchInput({
   onReplaceAll,
 }: Props) {
   const { t } = useTranslation('right')
+  // Auto-expand filters if either field already has a value (e.g. after
+  // a worktree switch where state was preserved). Default hidden so users
+  // don't accidentally restrict searches by typing in the include field.
+  const [showFilters, setShowFilters] = useState(() => !!(includeGlobs || excludeGlobs))
+  const hasActiveFilters = !!(includeGlobs || excludeGlobs)
 
   return (
     <div className="search-input-section">
@@ -121,26 +127,43 @@ export function SearchInput({
         </div>
       </div>
 
-      <div className="search-filters">
-        <label htmlFor="search-include-filter" className="search-filter-label">{t('searchIncludeLabel')}</label>
-        <input
-          id="search-include-filter"
-          type="text"
-          className="search-input search-input--filter"
-          value={includeGlobs}
-          onChange={(e) => onIncludeChange(e.target.value)}
-          placeholder="*.ts, src/**/*.tsx"
-        />
-        <label htmlFor="search-exclude-filter" className="search-filter-label">{t('searchExcludeLabel')}</label>
-        <input
-          id="search-exclude-filter"
-          type="text"
-          className="search-input search-input--filter"
-          value={excludeGlobs}
-          onChange={(e) => onExcludeChange(e.target.value)}
-          placeholder="**/*.test.ts, dist/**"
-        />
-      </div>
+      {/* Collapsible file filter section — hidden by default to prevent
+          accidental use of the include field (which restricts rg to only
+          those files, hiding all other results). */}
+      <button
+        type="button"
+        className={`search-filter-section-toggle${hasActiveFilters ? ' has-active' : ''}`}
+        onClick={() => setShowFilters((v) => !v)}
+        title={t('searchToggleFilters')}
+        aria-expanded={showFilters}
+      >
+        {showFilters ? <IconChevronDown size={10} /> : <IconChevronRight size={10} />}
+        <span>{t('searchFiltersSection')}</span>
+        {hasActiveFilters && <span className="search-filter-active-dot" aria-hidden="true" />}
+      </button>
+
+      {showFilters && (
+        <div className="search-filters">
+          <label htmlFor="search-include-filter" className="search-filter-label">{t('searchIncludeLabel')}</label>
+          <input
+            id="search-include-filter"
+            type="text"
+            className="search-input search-input--filter"
+            value={includeGlobs}
+            onChange={(e) => onIncludeChange(e.target.value)}
+            placeholder="*.ts, src/**/*.tsx"
+          />
+          <label htmlFor="search-exclude-filter" className="search-filter-label">{t('searchExcludeLabel')}</label>
+          <input
+            id="search-exclude-filter"
+            type="text"
+            className="search-input search-input--filter"
+            value={excludeGlobs}
+            onChange={(e) => onExcludeChange(e.target.value)}
+            placeholder="**/*.test.ts, dist/**"
+          />
+        </div>
+      )}
     </div>
   )
 }
