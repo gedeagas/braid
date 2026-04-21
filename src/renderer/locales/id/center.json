@@ -329,6 +329,8 @@
   "rateLimitHeader": "Batas penggunaan Claude untuk paket langganan Anda",
   "rateLimitFiveHour": "5j",
   "rateLimitSevenDay": "7h",
+  "rateLimitSevenDayOpus": "7h·Op",
+  "rateLimitSevenDaySonnet": "7h·So",
   "rateLimitTooltip": "Jendela bergulir {{label}}: {{percent}}% digunakan",
   "rateLimitStatusOk": "Jendela bergulir {{label}}: dalam batas",
   "rateLimitOk": "OK",

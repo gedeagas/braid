@@ -347,6 +347,8 @@
   "rateLimitHeader": "Claude usage limits for your subscription plan",
   "rateLimitFiveHour": "5h",
   "rateLimitSevenDay": "7d",
+  "rateLimitSevenDayOpus": "7d·Op",
+  "rateLimitSevenDaySonnet": "7d·So",
   "rateLimitTooltip": "{{label}} rolling window: {{percent}}% used",
   "rateLimitStatusOk": "{{label}} rolling window: well within limits",
   "rateLimitOk": "OK",

@@ -23,6 +23,14 @@ function getStatusColor(status: string): string {
   return 'var(--green)'
 }
 
+/** Single source of truth: supported types in display order + their i18n label key. */
+const ORDERED_TYPES: { key: string; labelKey: string }[] = [
+  { key: 'five_hour', labelKey: 'rateLimitFiveHour' },
+  { key: 'seven_day', labelKey: 'rateLimitSevenDay' },
+  { key: 'seven_day_opus', labelKey: 'rateLimitSevenDayOpus' },
+  { key: 'seven_day_sonnet', labelKey: 'rateLimitSevenDaySonnet' },
+]
+
 export function RateLimitBars() {
   const { t } = useTranslation('center')
 
@@ -30,28 +38,30 @@ export function RateLimitBars() {
     useShallow((s) => s.limits)
   )
 
-  const { fiveHour, sevenDay } = useMemo(() => {
-    const fiveHour = limits['five_hour'] ?? null
-    const sevenDay = limits['seven_day']
-      ?? limits['seven_day_opus']
-      ?? limits['seven_day_sonnet']
-      ?? null
-    return { fiveHour, sevenDay }
-  }, [limits])
+  // Filter to types present in the store, preserving declared display order.
+  // Uses the store key (not info.rateLimitType) for ordering and React key
+  // to stay consistent even if cached data drifts.
+  const rows = useMemo(() =>
+    ORDERED_TYPES
+      .filter(({ key }) => !!limits[key])
+      .map(({ key, labelKey }) => ({
+        key,
+        label: t(labelKey),
+        info: limits[key],
+      })),
+    [limits, t],
+  )
 
-  if (!fiveHour && !sevenDay) return null
+  if (rows.length === 0) return null
 
   return (
     <Tooltip content={t('rateLimitHeader')} position="top">
       <span className="rate-limit-bars">
         <span className="rate-limit-title">{t('rateLimitTitle')}</span>
         <span className="rate-limit-tracks">
-          {fiveHour && (
-            <RateLimitRow label={t('rateLimitFiveHour')} info={fiveHour} t={t} />
-          )}
-          {sevenDay && (
-            <RateLimitRow label={t('rateLimitSevenDay')} info={sevenDay} t={t} />
-          )}
+          {rows.map((row) => (
+            <RateLimitRow key={row.key} label={row.label} info={row.info} t={t} />
+          ))}
         </span>
       </span>
     </Tooltip>
