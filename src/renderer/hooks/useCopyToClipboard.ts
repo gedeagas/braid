@@ -9,7 +9,7 @@ export function useCopyToClipboard(text: string) {
 
   const handleCopy = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
-    navigator.clipboard.writeText(text)
+    navigator.clipboard.writeText(text).catch(() => {})
     setCopied(true)
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => setCopied(false), 2000)

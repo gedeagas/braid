@@ -18,6 +18,7 @@ import { parseDiffComments, parseSnippets, parseTerminalBlocks, stripAttachmentB
 import type { ParsedDiffComment, ParsedSnippet, ParsedTerminalBlock } from './diffCommentUtils'
 import { formatTokens } from '@/lib/constants'
 
+/** Renders text with @mentions highlighted as accent-coloured spans */
 function renderWithMentions(text: string): React.ReactNode {
   const parts = parseMentions(text, 'chat-msg-mention')
   return parts.length > 0 ? parts : text
