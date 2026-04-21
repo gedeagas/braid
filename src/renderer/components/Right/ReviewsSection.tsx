@@ -78,7 +78,7 @@ export function ReviewsSection({ reviews, onOpenReview }: ReviewsSectionProps) {
   if (latestReviews.length === 0 && reviews.comments.length === 0) return null
 
   const displayReviews = latestReviews.slice(0, MAX_INLINE)
-  const hasMore = latestReviews.length > MAX_INLINE || reviews.comments.length > 0
+  const hasMore = latestReviews.length > 0 || reviews.comments.length > 0
 
   return (
     <div className="checks-section">

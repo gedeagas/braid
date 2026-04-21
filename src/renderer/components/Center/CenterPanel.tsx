@@ -50,7 +50,7 @@ export const CenterPanel = memo(function CenterPanel() {
   const showTerminal = activeCenterView?.type === 'terminal'
   const showCodeReview = activeCenterView?.type === 'codeReview'
   const hasBigTerminals = useUIStore((s) => selectedWorktreeId ? (s.bigTerminalsByWorktree[selectedWorktreeId]?.length ?? 0) > 0 : false)
-  const hasNoTabs = sessionsLoaded && sessions.length === 0 && openFilePaths.length === 0 && !changesOpen && !hasBigTerminals
+  const hasNoTabs = sessionsLoaded && sessions.length === 0 && openFilePaths.length === 0 && !changesOpen && !hasBigTerminals && !showCodeReview
 
   const handleNewChat = useCallback(() => {
     if (!selectedWorktreeId || !worktree) return
