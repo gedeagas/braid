@@ -177,6 +177,7 @@ export function ProjectGroupRow({
           'project-header',
           isHeaderFocused ? 'project-header--keyboard-focused' : ''
         ].filter(Boolean).join(' ')}
+        tabIndex={-1}
         onClick={() => { if (!isDragging) toggleProject(project.id) }}
         onContextMenu={(e) => {
           e.preventDefault()

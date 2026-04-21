@@ -61,9 +61,13 @@
   outline-offset: -2px;
 }
 
+.project-header:focus {
+  outline: none;
+}
+
 .project-header--keyboard-focused {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
+  background: var(--bg-hover);
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 
 /* Status dot */

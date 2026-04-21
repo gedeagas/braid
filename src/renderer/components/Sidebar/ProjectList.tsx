@@ -117,13 +117,16 @@ export function ProjectList({ onAddWorktree }: Props) {
     return items
   }, [orderedProjects, expandedProjects, worktreeOrders, pinnedWorktrees])
 
-  // Scroll focused item into view
+  // Scroll focused item into view and move DOM focus to match
   useEffect(() => {
     if (focusedIndex === null) return
     const item = navItems[focusedIndex]
     if (!item) return
     const key = item.kind === 'worktree' ? `worktree:${item.worktreeId}` : `project:${item.projectId}`
-    rowRefs.current.get(key)?.scrollIntoView({ block: 'nearest' })
+    const el = rowRefs.current.get(key)
+    if (!el) return
+    el.scrollIntoView({ block: 'nearest' })
+    el.focus({ preventScroll: true })
   }, [focusedIndex, navItems])
 
   // Sync focus to selected worktree on mouse click
