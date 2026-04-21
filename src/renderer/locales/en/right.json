@@ -310,5 +310,14 @@
   "openIn": "Open",
   "copyPath": "Copy path",
   "revealInFinder": "Reveal in Finder",
-  "openInApp": "Open in {{app}}"
+  "openInApp": "Open in {{app}}",
+  "codeReviews": "Code Reviews",
+  "seeAllReviews": "See all",
+  "reviewApproved": "Approved",
+  "reviewChangesRequested": "Changes requested",
+  "reviewCommented": "Commented",
+  "reviewDismissed": "Dismissed",
+  "reviewNoReviews": "No reviews yet",
+  "reviewComments_one": "{{count}} comment",
+  "reviewComments_other": "{{count}} comments"
 }

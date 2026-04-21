@@ -16,6 +16,7 @@ import { navigateTab } from '@/lib/tabNavigation'
 
 // Lazy-loaded: FileViewer pulls in Monaco editor + react-markdown
 const FileViewer = lazy(() => import('@/components/Right/FileViewer').then((m) => ({ default: m.FileViewer })))
+const CodeReviewView = lazy(() => import('./CodeReviewView').then((m) => ({ default: m.CodeReviewView })))
 
 export const CenterPanel = memo(function CenterPanel() {
   const { t } = useTranslation('center')
@@ -47,6 +48,7 @@ export const CenterPanel = memo(function CenterPanel() {
   const changesOpen = useUIStore(selectChangesOpen)
   const showFile = activeCenterView?.type === 'file'
   const showTerminal = activeCenterView?.type === 'terminal'
+  const showCodeReview = activeCenterView?.type === 'codeReview'
   const hasBigTerminals = useUIStore((s) => selectedWorktreeId ? (s.bigTerminalsByWorktree[selectedWorktreeId]?.length ?? 0) > 0 : false)
   const hasNoTabs = sessionsLoaded && sessions.length === 0 && openFilePaths.length === 0 && !changesOpen && !hasBigTerminals
 
@@ -102,6 +104,10 @@ export const CenterPanel = memo(function CenterPanel() {
                 terminalId={activeCenterView.terminalId}
                 worktreePath={worktree?.path ?? ''}
               />
+            ) : showCodeReview ? (
+              <Suspense fallback={<Spinner size="md" />}>
+                <CodeReviewView worktreePath={worktree?.path ?? ''} />
+              </Suspense>
             ) : (
               <ChatView worktreePath={worktree?.path ?? ''} />
             )}

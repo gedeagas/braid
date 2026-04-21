@@ -11,7 +11,7 @@ import * as ipc from '@/lib/ipc'
 import { cleanIpcError } from '@/lib/ipc'
 import { useSessionsStore } from '@/store/sessions'
 import { useUIStore } from '@/store/ui'
-import type { JiraResult } from '@/types'
+import type { JiraResult, PrReviewData } from '@/types'
 import { flash } from '@/store/flash'
 import { useTranslation } from 'react-i18next'
 import { usePrCacheStore, type PrStatus } from '@/store/prCache'
@@ -20,6 +20,7 @@ import { IconRefresh } from '@/components/shared/icons'
 import { DEFAULT_PR_PROMPT } from '@/lib/prPrompt'
 import { isOnline, onOnline } from '@/lib/online'
 import { JiraSection } from './JiraSection'
+import { ReviewsSection } from './ReviewsSection'
 import { PushErrorPanel } from './PushErrorPanel'
 import {
   type CheckRun, type Deployment, type GitSyncStatus,
@@ -47,6 +48,7 @@ interface ChecksSnapshot {
   deployments: Deployment[]
   sync: GitSyncStatus | null
   jiraResult: JiraResult | null | 'error'
+  reviews: PrReviewData | null
   lastUpdated: Date
 }
 
@@ -60,6 +62,7 @@ interface ChecksViewState {
   deployments: Deployment[]
   sync: GitSyncStatus | null
   jiraResult: JiraResult | null | 'error'
+  reviews: PrReviewData | null
   loading: boolean
   lastUpdated: Date | null
   fixingCheck: string | null
@@ -73,7 +76,7 @@ interface ChecksViewState {
 }
 
 type ChecksAction =
-  | { type: 'LOAD_DONE'; pr: PrStatus | null; checks: CheckRun[]; deployments: Deployment[]; sync: GitSyncStatus | null; jiraResult: JiraResult | null | 'error'; lastUpdated: Date }
+  | { type: 'LOAD_DONE'; pr: PrStatus | null; checks: CheckRun[]; deployments: Deployment[]; sync: GitSyncStatus | null; jiraResult: JiraResult | null | 'error'; reviews: PrReviewData | null; lastUpdated: Date }
   | { type: 'LOAD_ERROR' }
   | { type: 'SET_FIXING_CHECK'; name: string | null }
   | { type: 'SET_OPENING_LOG'; name: string | null }
@@ -89,7 +92,7 @@ function checksViewReducer(state: ChecksViewState, action: ChecksAction): Checks
     case 'LOAD_DONE': return {
       ...state, loading: false,
       pr: action.pr, checks: action.checks, deployments: action.deployments,
-      sync: action.sync, jiraResult: action.jiraResult, lastUpdated: action.lastUpdated,
+      sync: action.sync, jiraResult: action.jiraResult, reviews: action.reviews, lastUpdated: action.lastUpdated,
     }
     case 'LOAD_ERROR': return { ...state, loading: false }
     case 'SET_FIXING_CHECK': return { ...state, fixingCheck: action.name }
@@ -114,6 +117,7 @@ function buildInitialState(worktreePath: string): ChecksViewState {
     deployments: snapshot?.deployments ?? [],
     sync: snapshot?.sync ?? null,
     jiraResult: snapshot?.jiraResult ?? null,
+    reviews: snapshot?.reviews ?? null,
     loading: !hasCachedData,
     lastUpdated: snapshot?.lastUpdated ?? null,
     fixingCheck: null, openingLog: null,
@@ -126,7 +130,7 @@ function buildInitialState(worktreePath: string): ChecksViewState {
 export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props) {
   const [state, dispatch] = useReducer(checksViewReducer, worktreePath, buildInitialState)
   const {
-    pr, checks, deployments, sync, jiraResult, loading, lastUpdated,
+    pr, checks, deployments, sync, jiraResult, reviews, loading, lastUpdated,
     fixingCheck, openingLog, creatingPr, refreshing, pulling, pushing, pushError, markingReady,
   } = state
 
@@ -172,22 +176,25 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
       let latestChecks: CheckRun[] = []
       let latestDeployments: Deployment[] = []
       let latestSync: GitSyncStatus | null = null
+      let latestReviews: PrReviewData | null = null
 
       if (prResult) {
         const syncBranch = upstream ?? prResult.baseRefName ?? 'main'
-        const [checksData, deploymentsData, syncData] = await Promise.all([
+        const [checksData, deploymentsData, syncData, reviewsData] = await Promise.all([
           ipc.github.getChecks(worktreePath, forceRefresh),
           ipc.github.getDeployments(worktreePath, forceRefresh),
           ipc.github.getGitSyncStatus(worktreePath, syncBranch, forceRefresh),
+          ipc.github.getReviews(worktreePath, forceRefresh).catch(() => null),
         ])
         latestChecks = (checksData as CheckRun[]) ?? []
         latestDeployments = (deploymentsData as Deployment[]) ?? []
         latestSync = syncData as GitSyncStatus
+        latestReviews = reviewsData as PrReviewData | null
       }
 
       const now2 = new Date()
-      dispatch({ type: 'LOAD_DONE', pr: prResult, checks: latestChecks, deployments: latestDeployments, sync: latestSync, jiraResult: jiraFetch, lastUpdated: now2 })
-      checksCache.set(worktreePath, { pr: prResult, checks: latestChecks, deployments: latestDeployments, sync: latestSync, jiraResult: jiraFetch, lastUpdated: now2 })
+      dispatch({ type: 'LOAD_DONE', pr: prResult, checks: latestChecks, deployments: latestDeployments, sync: latestSync, jiraResult: jiraFetch, reviews: latestReviews, lastUpdated: now2 })
+      checksCache.set(worktreePath, { pr: prResult, checks: latestChecks, deployments: latestDeployments, sync: latestSync, jiraResult: jiraFetch, reviews: latestReviews, lastUpdated: now2 })
     } catch (err) {
       const st = usePrCacheStore.getState().cache[worktreePath]?.data?.state
       if (st !== 'MERGED' && st !== 'CLOSED') flash('error', cleanIpcError(err, t('loadChecksError')))
@@ -263,6 +270,10 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
       await sendMessage(sessionId, prompt)
     } finally { dispatch({ type: 'SET_FIXING_CHECK', name: null }) }
   }, [fixingCheck, worktreePath, worktreeId, pr, createSession, sendMessage, setActiveSession, setActiveCenterView])
+
+  const handleOpenCodeReview = useCallback(() => {
+    setActiveCenterView({ type: 'codeReview' })
+  }, [setActiveCenterView])
 
   const createPrWithAI = useCallback(async () => {
     if (creatingPr) return
@@ -365,6 +376,10 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
         )}
 
         {deployments.length > 0 && <DeploymentsSection deployments={deployments} />}
+
+        {reviews && pr.state === 'OPEN' && (
+          <ReviewsSection reviews={reviews} onOpenReview={handleOpenCodeReview} />
+        )}
 
         {pr.state === 'OPEN' && (
           lastUpdated === null ? (

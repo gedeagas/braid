@@ -218,6 +218,8 @@ const api = {
       ipcRenderer.invoke('github:mergePr', worktreePath, strategy),
     markPrReady: (worktreePath: string) =>
       ipcRenderer.invoke('github:markPrReady', worktreePath),
+    getReviews: (worktreePath: string, forceRefresh?: boolean) =>
+      ipcRenderer.invoke('github:getReviews', worktreePath, forceRefresh),
     startDeviceFlow: () =>
       ipcRenderer.invoke('github:startDeviceFlow') as Promise<{
         userCode: string; verificationUri: string; expiresIn: number

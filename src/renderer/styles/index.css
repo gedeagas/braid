@@ -23,6 +23,7 @@
 @import './diff-review.css';
 @import './diff-comment-chips.css';
 @import './checks.css';
+@import './code-review.css';
 @import './pr-merge-bar.css';
 @import './checks-log.css';
 @import './branch-combobox.css';

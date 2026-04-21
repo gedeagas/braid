@@ -9,6 +9,7 @@ export type CenterView =
   | { type: 'file'; path: string }
   | { type: 'changes' }
   | { type: 'terminal'; terminalId: string }
+  | { type: 'codeReview' }
 
 export type ToolMessageStyle = 'funny' | 'boring'
 export type ActivityIndicatorStyle = 'spinner' | 'dots' | 'waveform'

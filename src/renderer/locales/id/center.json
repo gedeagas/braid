@@ -332,5 +332,14 @@
   "rateLimitTooltip": "Jendela bergulir {{label}}: {{percent}}% digunakan",
   "rateLimitStatusOk": "Jendela bergulir {{label}}: dalam batas",
   "rateLimitOk": "OK",
-  "rateLimitWarning": "!"
+  "rateLimitWarning": "!",
+  "codeReviewTitle": "Ulasan Kode",
+  "codeReviewSummary": "{{reviewCount}} ulasan, {{commentCount}} komentar inline",
+  "codeReviewBack": "Kembali",
+  "codeReviewOpenFile": "Buka file",
+  "codeReviewLine": "L{{line}}",
+  "codeReviewNoReviews": "Belum ada ulasan",
+  "codeReviewNoComments": "Belum ada komentar inline",
+  "codeReviewEmpty": "Belum ada aktivitas ulasan kode",
+  "codeReviewEmptyHint": "Ulasan dan komentar akan muncul di sini saat reviewer merespons"
 }

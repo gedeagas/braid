@@ -350,5 +350,14 @@
   "rateLimitTooltip": "{{label}}滚动窗口: 已使用{{percent}}%",
   "rateLimitStatusOk": "{{label}}滚动窗口: 在限制范围内",
   "rateLimitOk": "正常",
-  "rateLimitWarning": "!"
+  "rateLimitWarning": "!",
+  "codeReviewTitle": "代码审查",
+  "codeReviewSummary": "{{reviewCount}} 个审查, {{commentCount}} 条内联评论",
+  "codeReviewBack": "返回",
+  "codeReviewOpenFile": "打开文件",
+  "codeReviewLine": "L{{line}}",
+  "codeReviewNoReviews": "暂无审查",
+  "codeReviewNoComments": "暂无内联评论",
+  "codeReviewEmpty": "暂无代码审查活动",
+  "codeReviewEmptyHint": "审查者回复后, 审查和评论将显示在此处"
 }

@@ -350,5 +350,14 @@
   "rateLimitTooltip": "{{label}} rolling window: {{percent}}% used",
   "rateLimitStatusOk": "{{label}} rolling window: well within limits",
   "rateLimitOk": "OK",
-  "rateLimitWarning": "!"
+  "rateLimitWarning": "!",
+  "codeReviewTitle": "Code Review",
+  "codeReviewSummary": "{{reviewCount}} reviews, {{commentCount}} inline comments",
+  "codeReviewBack": "Back",
+  "codeReviewOpenFile": "Open file",
+  "codeReviewLine": "L{{line}}",
+  "codeReviewNoReviews": "No reviews",
+  "codeReviewNoComments": "No inline comments yet",
+  "codeReviewEmpty": "No code review activity",
+  "codeReviewEmptyHint": "Reviews and comments will appear here when reviewers respond"
 }

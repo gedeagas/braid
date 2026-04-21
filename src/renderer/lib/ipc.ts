@@ -176,6 +176,8 @@ export const github = {
     api().github.mergePr(worktreePath, strategy),
   markPrReady: (worktreePath: string) =>
     api().github.markPrReady(worktreePath),
+  getReviews: (worktreePath: string, forceRefresh?: boolean) =>
+    api().github.getReviews(worktreePath, forceRefresh),
   startDeviceFlow: () =>
     api().github.startDeviceFlow(),
   cancelDeviceFlow: () =>
