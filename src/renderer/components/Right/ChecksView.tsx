@@ -271,9 +271,10 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
     } finally { dispatch({ type: 'SET_FIXING_CHECK', name: null }) }
   }, [fixingCheck, worktreePath, worktreeId, pr, createSession, sendMessage, setActiveSession, setActiveCenterView])
 
+  const openCodeReview = useUIStore((s) => s.openCodeReview)
   const handleOpenCodeReview = useCallback(() => {
-    setActiveCenterView({ type: 'codeReview' })
-  }, [setActiveCenterView])
+    openCodeReview()
+  }, [openCodeReview])
 
   const createPrWithAI = useCallback(async () => {
     if (creatingPr) return

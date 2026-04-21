@@ -457,19 +457,71 @@
   border-radius: var(--radius-sm);
 }
 
+/* ─── Syntax-highlighted diff hunk ─────────────────────────────────────────── */
+
 .code-review-diff-hunk {
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   line-height: 1.5;
-  background: var(--bg-tertiary);
   border-radius: var(--radius);
-  padding: var(--space-6) var(--space-8);
   margin: var(--space-2) 0 var(--space-4);
   overflow-x: auto;
-  white-space: pre;
   border: 1px solid var(--border);
-  max-height: 120px;
+  max-height: 140px;
   overflow-y: auto;
+  background: var(--bg-secondary);
+}
+
+.cr-diff-line {
+  display: flex;
+  min-height: 20px;
+}
+
+.cr-diff-gutter {
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+  user-select: none;
+  color: var(--text-muted);
+}
+
+.cr-diff-content {
+  flex: 1;
+  white-space: pre;
+  padding-right: var(--space-8);
+  tab-size: 4;
+}
+
+/* Context lines */
+.cr-diff-ctx {
+  background: var(--bg-secondary);
+}
+
+/* Added lines */
+.cr-diff-add {
+  background: var(--green-tint-10);
+}
+.cr-diff-add .cr-diff-gutter {
+  color: var(--green);
+}
+
+/* Deleted lines */
+.cr-diff-del {
+  background: var(--red-tint-10);
+}
+.cr-diff-del .cr-diff-gutter {
+  color: var(--red);
+}
+
+/* Hunk range header (@@) */
+.cr-diff-range {
+  background: var(--accent-tint-6);
+  color: var(--accent);
+  padding-left: var(--space-4);
+}
+.cr-diff-range .cr-diff-content {
+  color: var(--text-muted);
+  font-style: italic;
 }
 
 .code-review-comment-thread {

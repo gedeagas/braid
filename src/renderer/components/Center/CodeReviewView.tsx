@@ -4,12 +4,13 @@
  * Shows all PR reviews (summary cards) and inline comments grouped by file.
  * Accessed from the Checks tab "See all" button or clicking a review row.
  */
-import { useEffect, useReducer, useCallback, useMemo } from 'react'
+import { useEffect, useReducer, useCallback, useMemo, memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import * as ipc from '@/lib/ipc'
 import { useUIStore } from '@/store/ui'
 import { EmptyState, Spinner } from '@/components/ui'
 import { IconArrowLeft, IconFile } from '@/components/shared/icons'
+import { useShikiHighlight } from '@/hooks/useShikiHighlight'
 import type { PrReview, PrReviewComment, PrReviewData, ReviewState } from '@/types'
 
 // ─── State ──────────────────────────────────────────────────────────────────
@@ -105,6 +106,53 @@ function stateLabel(state: ReviewState, t: (key: string) => string): string {
   }
 }
 
+// ─── Diff hunk renderer with Shiki syntax highlighting ───────────────────────
+
+const DiffHunk = memo(function DiffHunk({ raw, filePath }: { raw: string; filePath: string }) {
+  const lines = useMemo(() => raw.split('\n').slice(-6), [raw])
+
+  // Strip diff markers (+/-/space/@@) to get pure code for Shiki
+  const codeLines = useMemo(
+    () => lines.map((l) => (l.startsWith('@@') ? '' : l.slice(1))),
+    [lines],
+  )
+
+  const highlighted = useShikiHighlight(codeLines, filePath)
+
+  return (
+    <div className="code-review-diff-hunk">
+      {lines.map((line, i) => {
+        let cls = 'cr-diff-line cr-diff-ctx'
+        let gutter = ' '
+        if (line.startsWith('@@')) {
+          cls = 'cr-diff-line cr-diff-range'
+          gutter = ''
+        } else if (line.startsWith('+')) {
+          cls = 'cr-diff-line cr-diff-add'
+          gutter = '+'
+        } else if (line.startsWith('-')) {
+          cls = 'cr-diff-line cr-diff-del'
+          gutter = '-'
+        }
+
+        const html = highlighted?.[i]
+        const isRange = line.startsWith('@@')
+
+        return (
+          <div key={i} className={cls}>
+            {gutter !== '' && <span className="cr-diff-gutter">{gutter}</span>}
+            {html && !isRange ? (
+              <span className="cr-diff-content" dangerouslySetInnerHTML={{ __html: html }} />
+            ) : (
+              <span className="cr-diff-content">{isRange ? line : line.slice(1)}</span>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+})
+
 // ─── Sub-components ─────────────────────────────────────────────────────────
 
 function ReviewCard({ review, t }: { review: PrReview; t: (key: string) => string }) {
@@ -167,11 +215,7 @@ function CommentItem({
             )}
             <span className="code-review-comment-time">{formatTime(comment.createdAt)}</span>
           </div>
-          {comment.diffHunk && (
-            <div className="code-review-diff-hunk">
-              {comment.diffHunk.split('\n').slice(-4).join('\n')}
-            </div>
-          )}
+          {comment.diffHunk && <DiffHunk raw={comment.diffHunk} filePath={comment.path} />}
           <div className="code-review-comment-body">{comment.body}</div>
         </div>
       </div>
@@ -196,7 +240,7 @@ export function CodeReviewView({ worktreePath }: Props) {
   const { t } = useTranslation(['center', 'right'])
   const [state, dispatch] = useReducer(reducer, { data: null, loading: true, error: false, filter: 'all' })
   const openFile = useUIStore((s) => s.openFile)
-  const setActiveCenterView = useUIStore((s) => s.setActiveCenterView)
+  const closeCodeReview = useUIStore((s) => s.closeCodeReview)
 
   const load = useCallback(async () => {
     dispatch({ type: 'LOAD_START' })
@@ -245,18 +289,8 @@ export function CodeReviewView({ worktreePath }: Props) {
   const inlineCount = rootComments.length
 
   const handleBack = useCallback(() => {
-    // Go back to the most recent session view
-    const sessions = useUIStore.getState()
-    const worktreeId = sessions.selectedWorktreeId
-    if (worktreeId) {
-      const acv = sessions.activeCenterViewByWorktree[worktreeId]
-      if (acv && acv.type !== 'codeReview') {
-        setActiveCenterView(acv)
-        return
-      }
-    }
-    setActiveCenterView(null)
-  }, [setActiveCenterView])
+    closeCodeReview()
+  }, [closeCodeReview])
 
   const handleOpenFile = useCallback((path: string) => {
     // File paths from GitHub are relative to repo root, which matches worktree
