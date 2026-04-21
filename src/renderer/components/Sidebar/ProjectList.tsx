@@ -81,6 +81,7 @@ export function ProjectList({ onAddWorktree }: Props) {
   const { focusedIndex } = navState
 
   const rowRefs = useRef<Map<string, HTMLElement>>(new Map())
+  const containerRef = useRef<HTMLDivElement>(null)
 
   const handleRegisterRef = useCallback((key: string, el: HTMLElement | null) => {
     if (el) rowRefs.current.set(key, el)
@@ -117,7 +118,13 @@ export function ProjectList({ onAddWorktree }: Props) {
     return items
   }, [orderedProjects, expandedProjects, worktreeOrders, pinnedWorktrees])
 
-  // Scroll focused item into view and move DOM focus to match
+  // Keep a ref to navItems so the sync effect below can read current value
+  // without re-running when navItems rebuilds (e.g. on expand/collapse)
+  const navItemsRef = useRef(navItems)
+  navItemsRef.current = navItems
+
+  // Scroll focused item into view and move DOM focus — but only if the sidebar
+  // already owns focus, so we never steal focus from the chat textarea
   useEffect(() => {
     if (focusedIndex === null) return
     const item = navItems[focusedIndex]
@@ -126,15 +133,22 @@ export function ProjectList({ onAddWorktree }: Props) {
     const el = rowRefs.current.get(key)
     if (!el) return
     el.scrollIntoView({ block: 'nearest' })
-    el.focus({ preventScroll: true })
+    if (containerRef.current?.contains(document.activeElement)) {
+      el.focus({ preventScroll: true })
+    }
   }, [focusedIndex, navItems])
 
-  // Sync focus to selected worktree on mouse click
+  // Sync keyboard focus to selected worktree on mouse click.
+  // Depends only on selectedWorktreeId — NOT navItems — so that
+  // expand/collapse rebuilding navItems doesn't reset nav position.
   useEffect(() => {
     if (!selectedWorktreeId) return
-    const idx = navItems.findIndex((item) => item.kind === 'worktree' && item.worktreeId === selectedWorktreeId)
+    const idx = navItemsRef.current.findIndex(
+      (item) => item.kind === 'worktree' && item.worktreeId === selectedWorktreeId
+    )
     if (idx !== -1) navDispatch({ type: 'NAV_SET', index: idx })
-  }, [selectedWorktreeId, navItems])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedWorktreeId])
 
   const focusedItem = focusedIndex !== null ? navItems[focusedIndex] ?? null : null
   const focusedWorktreeId = focusedItem?.kind === 'worktree' ? focusedItem.worktreeId : null
@@ -142,7 +156,7 @@ export function ProjectList({ onAddWorktree }: Props) {
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement
-    if (target.closest('input, button, [role="dialog"]')) return
+    if (target.closest('input, textarea, button, [role="dialog"]')) return
 
     switch (e.key) {
       case 'ArrowDown':
@@ -205,7 +219,7 @@ export function ProjectList({ onAddWorktree }: Props) {
   }
 
   return (
-    <div className="project-list" onKeyDown={handleKeyDown}>
+    <div ref={containerRef} className="project-list" onKeyDown={handleKeyDown}>
       {orderedProjects.map((project) => (
         <ProjectGroupRow
           key={project.id}
