@@ -5,6 +5,28 @@ All notable changes to Braid are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [26.1.10] - 2026-04-21
+
+### Added
+
+- add code review panel with PR reviews and inline comments (#78)
+- arrow key navigation for project/worktree list (#76)
+- make URLs in chat messages clickable (#74)
+- add search features (#72)
+- support multiple rate limit types with dynamic ordering (#71)
+- add plugin enablement filtering via settings (#70)
+- persist update dismissal and add activity bar update button (#67)
+
+### Changed
+
+- move copy button from turn actions to code blocks (#77)
+
+### Contributors
+
+Thanks to [@asaadam](https://github.com/asaadam), [@eplnh](https://github.com/eplnh), [@gedeagas](https://github.com/gedeagas), [@hanifnr](https://github.com/hanifnr) for their contributions to this release!
+
+---
+
 ## [26.1.9] - 2026-04-20
 
 ### Added
