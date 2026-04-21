@@ -134,6 +134,20 @@ describe('parseMentions', () => {
     expect(parts[2]).toEqual({ type: 'text', text: ', thanks' })
   })
 
+  it('opens URLs externally on click and prevents default navigation', () => {
+    const nodes = parseMentions('check https://example.com please', 'cls')
+    const link = nodes.find(
+      (node): node is React.ReactElement<any> => React.isValidElement(node) && node.type === 'a',
+    )
+    expect(link).toBeDefined()
+
+    const event = { preventDefault: vi.fn() }
+    link!.props.onClick(event)
+
+    expect(event.preventDefault).toHaveBeenCalledTimes(1)
+    expect((window as any).api.shell.openExternal).toHaveBeenCalledWith('https://example.com')
+  })
+
   it('does not linkify URLs in backdrop mode (mark tag)', () => {
     const parts = extractParts(parseMentions('see https://example.com ok', 'cls', 'mark'))
     // URL should be plain text, not a link
