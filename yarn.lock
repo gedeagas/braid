@@ -5,10 +5,11 @@ __metadata:
   version: 8
   cacheKey: 10c0
 
-"@anthropic-ai/claude-agent-sdk@npm:^0.2.85":
-  version: 0.2.85
-  resolution: "@anthropic-ai/claude-agent-sdk@npm:0.2.85"
+"@anthropic-ai/claude-agent-sdk@npm:0.2.112":
+  version: 0.2.112
+  resolution: "@anthropic-ai/claude-agent-sdk@npm:0.2.112"
   dependencies:
+    "@anthropic-ai/sdk": "npm:^0.81.0"
     "@img/sharp-darwin-arm64": "npm:^0.34.2"
     "@img/sharp-darwin-x64": "npm:^0.34.2"
     "@img/sharp-linux-arm": "npm:^0.34.2"
@@ -18,6 +19,7 @@ __metadata:
     "@img/sharp-linuxmusl-x64": "npm:^0.34.2"
     "@img/sharp-win32-arm64": "npm:^0.34.2"
     "@img/sharp-win32-x64": "npm:^0.34.2"
+    "@modelcontextprotocol/sdk": "npm:^1.29.0"
   peerDependencies:
     zod: ^4.0.0
   dependenciesMeta:
@@ -39,7 +41,23 @@ __metadata:
       optional: true
     "@img/sharp-win32-x64":
       optional: true
-  checksum: 10c0/5bb31712460b03b264b489c38a2ddcac62ba60aad50da8cd6d3cebdaf46fae84c37473f25b7a4e20a6bda6f2310b4cc9f3574bc3f2e8f73a4a6e6bd0e04bd827
+  checksum: 10c0/7727b8f864fb003409eec0459209f3c1627225fa7cf760b4854703baf6fcb47bbd18c7707529a949d2eba9f2b16bf93579be092b58221903897e4a60b4c0f42a
+  languageName: node
+  linkType: hard
+
+"@anthropic-ai/sdk@npm:^0.81.0":
+  version: 0.81.0
+  resolution: "@anthropic-ai/sdk@npm:0.81.0"
+  dependencies:
+    json-schema-to-ts: "npm:^3.1.1"
+  peerDependencies:
+    zod: ^3.25.0 || ^4.0.0
+  peerDependenciesMeta:
+    zod:
+      optional: true
+  bin:
+    anthropic-ai-sdk: bin/cli
+  checksum: 10c0/9ce1de04f88c05a74e67d07e8707d74815df8a9ad4977fbd7ad6fc146cef521214f11c4faeab5f5c00d76ee5671bf4e223dadf0e2f98c2c979aa9e33c8f89d8d
   languageName: node
   linkType: hard
 
@@ -255,7 +273,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@babel/runtime@npm:^7.12.5, @babel/runtime@npm:^7.23.2, @babel/runtime@npm:^7.29.2":
+"@babel/runtime@npm:^7.12.5, @babel/runtime@npm:^7.18.3, @babel/runtime@npm:^7.23.2, @babel/runtime@npm:^7.29.2":
   version: 7.29.2
   resolution: "@babel/runtime@npm:7.29.2"
   checksum: 10c0/30b80a0140d16467792e1bbeb06f655b0dab70407da38dfac7fedae9c859f9ae9d846ef14ad77bd3814c064295fe9b1bc551f1541ea14646ae9f22b71a8bc17a
@@ -1085,6 +1103,39 @@ __metadata:
     zod:
       optional: false
   checksum: 10c0/eff999884bea7302b42832b7fe172a53c83ee0afd6fa42dcda29dd503d72b6f67f3d45e9eebbcecbe52e1ee418c14574b6d30ce5a0b10f947a2a680f8bb8c8c3
+  languageName: node
+  linkType: hard
+
+"@modelcontextprotocol/sdk@npm:^1.29.0":
+  version: 1.29.0
+  resolution: "@modelcontextprotocol/sdk@npm:1.29.0"
+  dependencies:
+    "@hono/node-server": "npm:^1.19.9"
+    ajv: "npm:^8.17.1"
+    ajv-formats: "npm:^3.0.1"
+    content-type: "npm:^1.0.5"
+    cors: "npm:^2.8.5"
+    cross-spawn: "npm:^7.0.5"
+    eventsource: "npm:^3.0.2"
+    eventsource-parser: "npm:^3.0.0"
+    express: "npm:^5.2.1"
+    express-rate-limit: "npm:^8.2.1"
+    hono: "npm:^4.11.4"
+    jose: "npm:^6.1.3"
+    json-schema-typed: "npm:^8.0.2"
+    pkce-challenge: "npm:^5.0.0"
+    raw-body: "npm:^3.0.0"
+    zod: "npm:^3.25 || ^4.0"
+    zod-to-json-schema: "npm:^3.25.1"
+  peerDependencies:
+    "@cfworker/json-schema": ^4.1.1
+    zod: ^3.25 || ^4.0
+  peerDependenciesMeta:
+    "@cfworker/json-schema":
+      optional: true
+    zod:
+      optional: false
+  checksum: 10c0/7c4bc339205b1652330cd4e6b121cc859079655f2b9c0506bbb15563ba0d07924bda3d949705530532db7f4d2cb86d633dc8f92bc32803d97c7bece2ac63e29f
   languageName: node
   linkType: hard
 
@@ -3255,7 +3306,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "braid@workspace:."
   dependencies:
-    "@anthropic-ai/claude-agent-sdk": "npm:^0.2.85"
+    "@anthropic-ai/claude-agent-sdk": "npm:0.2.112"
     "@electron/notarize": "npm:^2.3.0"
     "@electron/osx-sign": "npm:^1.3.1"
     "@electron/packager": "npm:^18.3.5"
@@ -5416,6 +5467,16 @@ __metadata:
   version: 3.0.1
   resolution: "json-buffer@npm:3.0.1"
   checksum: 10c0/0d1c91569d9588e7eef2b49b59851f297f3ab93c7b35c7c221e288099322be6b562767d11e4821da500f3219542b9afd2e54c5dc573107c1126ed1080f8e96d7
+  languageName: node
+  linkType: hard
+
+"json-schema-to-ts@npm:^3.1.1":
+  version: 3.1.1
+  resolution: "json-schema-to-ts@npm:3.1.1"
+  dependencies:
+    "@babel/runtime": "npm:^7.18.3"
+    ts-algebra: "npm:^2.0.0"
+  checksum: 10c0/609bae04aa5e860a11b6d30ccf41445fae1c7f66fb600c1d170257cf33aa468aa9d03aa046428c3688aff0ff450c2b0c76584b66fa4a5d0da8e33799e4c439a6
   languageName: node
   linkType: hard
 
@@ -8781,6 +8842,13 @@ __metadata:
   version: 2.2.0
   resolution: "trough@npm:2.2.0"
   checksum: 10c0/58b671fc970e7867a48514168894396dd94e6d9d6456aca427cc299c004fe67f35ed7172a36449086b2edde10e78a71a284ec0076809add6834fb8f857ccb9b0
+  languageName: node
+  linkType: hard
+
+"ts-algebra@npm:^2.0.0":
+  version: 2.0.0
+  resolution: "ts-algebra@npm:2.0.0"
+  checksum: 10c0/4ae93bec1bada635bba425854eec323dad50b6ffe86bc04ad2d7f9ce3fb129d673dcf483e19a6e70d07a3a9083e6a0a7f4e004bb8d2164cddc60cc9540ba187f
   languageName: node
   linkType: hard
 

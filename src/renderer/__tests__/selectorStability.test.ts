@@ -24,6 +24,8 @@ const mockSession: AgentSession = {
   status: 'idle',
   model: 'claude-sonnet-4-6',
   thinkingEnabled: false,
+  extendedContext: false,
+  effortLevel: 'high',
   planModeEnabled: false,
   messages: [],
   activity: null,

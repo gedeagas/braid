@@ -125,6 +125,27 @@
   color: var(--text-secondary);
 }
 
+/* Streaming scaffold output (create-next-app, etc.) under the spinner. */
+.dialog-scaffold-log {
+  margin-top: var(--space-4);
+  padding: var(--space-6) var(--space-10);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  max-height: 160px;
+  overflow-y: auto;
+  line-height: 1.5;
+}
+
+.dialog-scaffold-log__line {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 
 /* Discard dialog */
 .discard-dialog-hint {
@@ -535,6 +556,15 @@
   flex: 1;
   padding: var(--space-4);
   overflow: hidden;
+}
+
+/* Big terminal - full center-panel terminal */
+.big-terminal-container {
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-8);
+  overflow: hidden;
+  background: var(--bg);
 }
 
 /* xterm.js scrollbar theming — override the hardcoded #000 background */

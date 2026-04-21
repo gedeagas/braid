@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { GitChange } from '@/types'
 import type { GitStatusCode } from '@/store/ui'
@@ -5,6 +6,40 @@ import { Tooltip } from '@/components/shared/Tooltip'
 import { STATUS_META } from './changesState'
 import { basename, dirname } from '@/lib/diffUtils'
 import { NekoWalk } from './NekoWalk'
+
+function sumStats(changes: GitChange[]): { additions: number; deletions: number } {
+  let additions = 0, deletions = 0
+  for (const c of changes) {
+    additions += c.additions ?? 0
+    deletions += c.deletions ?? 0
+  }
+  return { additions, deletions }
+}
+
+interface DiffStatsProps {
+  additions?: number
+  deletions?: number
+  /** Variant controls layout/spacing; visual color tokens are shared. */
+  variant?: 'row' | 'section'
+}
+
+/** Renders `+N -N` stats; returns null when there's nothing to show. */
+function DiffStats({ additions = 0, deletions = 0, variant = 'row' }: DiffStatsProps) {
+  if (additions <= 0 && deletions <= 0) return null
+  const className = variant === 'section' ? 'change-section-stats' : 'change-diff-stats'
+  return (
+    <span className={className}>
+      {additions > 0 && <span className="change-diff-add">+{additions}</span>}
+      {deletions > 0 && <span className="change-diff-del">-{deletions}</span>}
+    </span>
+  )
+}
+
+/** Aggregates line stats across a set of changes. Thin wrapper over `DiffStats`. */
+function SectionStats({ changes }: { changes: GitChange[] }) {
+  const { additions, deletions } = useMemo(() => sumStats(changes), [changes])
+  return <DiffStats additions={additions} deletions={deletions} variant="section" />
+}
 
 interface ChangeFileListProps {
   stagedChanges: GitChange[]
@@ -53,6 +88,7 @@ export function ChangeFileList({
         <span className={`changes-section-chevron${stagedCollapsed ? ' collapsed' : ''}`}>▾</span>
         <span className="changes-section-title">{t('stagedChanges')}</span>
         <span className="changes-section-count">{stagedChanges.length}</span>
+        <SectionStats changes={stagedChanges} />
         {stagedChanges.length > 0 && (
           <>
             <button className="changes-section-btn" onClick={onUnstageAll} disabled={stagingInProgress}>
@@ -94,6 +130,7 @@ export function ChangeFileList({
                   <span className="change-file-name">{name}</span>
                   {dir && <span className="change-file-dir">{dir}</span>}
                 </span>
+                <DiffStats additions={change.additions} deletions={change.deletions} />
               </div>
             )
           })
@@ -108,6 +145,7 @@ export function ChangeFileList({
         <span className={`changes-section-chevron${unstagedCollapsed ? ' collapsed' : ''}`}>▾</span>
         <span className="changes-section-title">{t('unstagedChanges')}</span>
         <span className="changes-section-count">{unstagedChanges.length}</span>
+        <SectionStats changes={unstagedChanges} />
         {unstagedChanges.length > 0 && (
           <>
             <button className="changes-section-btn" onClick={onStageAll} disabled={stagingInProgress}>
@@ -144,6 +182,7 @@ export function ChangeFileList({
                 <span className="change-file-name">{name}</span>
                 {dir && <span className="change-file-dir">{dir}</span>}
               </span>
+              <DiffStats additions={change.additions} deletions={change.deletions} />
               <div className="change-row-actions">
                 <Tooltip content={t('discardChanges')} position="left">
                   <button

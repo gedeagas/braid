@@ -15,4 +15,6 @@ export interface GitChangeInfo {
   file: string
   status: string
   staged: boolean
+  additions?: number
+  deletions?: number
 }

@@ -21,10 +21,53 @@ export function invalidateTrackedFiles(worktreePath: string): void {
   trackedFilesCache.invalidate(worktreePath)
 }
 
+interface LineStats { additions: number; deletions: number }
+
+/**
+ * Parse `git diff --numstat` output into a file-keyed map.
+ * Format: `<additions>\t<deletions>\t<path>` per line. Binary files emit '-' for counts.
+ * Filenames may contain tabs, so the path is everything after the second tab.
+ */
+function parseNumstat(raw: string): Map<string, LineStats> {
+  const map = new Map<string, LineStats>()
+  for (const line of raw.split('\n')) {
+    if (!line) continue
+    const firstTab = line.indexOf('\t')
+    if (firstTab < 0) continue
+    const secondTab = line.indexOf('\t', firstTab + 1)
+    if (secondTab < 0) continue
+    const add = line.slice(0, firstTab)
+    const del = line.slice(firstTab + 1, secondTab)
+    const file = line.slice(secondTab + 1)
+    // Binary files show '-' for both counts
+    if (add === '-' || del === '-') continue
+    const additions = parseInt(add, 10)
+    const deletions = parseInt(del, 10)
+    if (!Number.isFinite(additions) || !Number.isFinite(deletions)) continue
+    map.set(file, { additions, deletions })
+  }
+  return map
+}
+
+// `-c core.quotePath=false` forces literal UTF-8 paths instead of octal-escaped
+// quoted strings, so lookups by path match regardless of locale (e.g. Japanese filenames).
+const NUMSTAT_ARGS_UNSTAGED = ['-c', 'core.quotePath=false', 'diff', '--numstat']
+const NUMSTAT_ARGS_STAGED = ['-c', 'core.quotePath=false', 'diff', '--cached', '--numstat']
+
 export async function getStatus(worktreePath: string): Promise<GitChangeInfo[]> {
   const git = await getValidGit(worktreePath)
   if (!git) return []
-  const status = await git.status()
+
+  // Fetch status and numstat in parallel for both indexes
+  const [status, unstagedNumstat, stagedNumstat] = await Promise.all([
+    git.status(),
+    git.raw(NUMSTAT_ARGS_UNSTAGED).catch(() => ''),
+    git.raw(NUMSTAT_ARGS_STAGED).catch(() => ''),
+  ])
+
+  const unstagedStats = parseNumstat(unstagedNumstat)
+  const stagedStats = parseNumstat(stagedNumstat)
+
   const changes: GitChangeInfo[] = []
 
   for (const f of status.files) {
@@ -37,7 +80,10 @@ export async function getStatus(worktreePath: string): Promise<GitChangeInfo[]> 
         f.index === 'A' ? 'A' :
         f.index === 'D' ? 'D' :
         f.index === 'R' ? 'R' : null
-      if (mapped) changes.push({ file, status: mapped, staged: true })
+      if (mapped) {
+        const stat = stagedStats.get(file)
+        changes.push({ file, status: mapped, staged: true, ...stat })
+      }
     }
 
     // Working directory (unstaged) status
@@ -46,7 +92,10 @@ export async function getStatus(worktreePath: string): Promise<GitChangeInfo[]> 
         f.working_dir === 'M' ? 'M' :
         f.working_dir === 'D' ? 'D' :
         f.working_dir === '?' ? '?' : null
-      if (mapped) changes.push({ file, status: mapped, staged: false })
+      if (mapped) {
+        const stat = unstagedStats.get(file)
+        changes.push({ file, status: mapped, staged: false, ...stat })
+      }
     }
   }
 

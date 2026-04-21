@@ -15,9 +15,11 @@
     "claudeMcp": "MCPサーバー",
     "claudeSkills": "スキル",
     "apps": "アプリ",
+    "github": "GitHub",
     "jira": "Jira",
     "analytics": "アナリティクス",
-    "about": "このアプリについて"
+    "about": "このアプリについて",
+    "experimental": "実験的機能"
   },
   "groups": {
     "general": "一般",
@@ -25,6 +27,7 @@
     "claudeAgent": "Claude",
     "appearance": "外観",
     "integrations": "連携",
+    "experimental": "実験的",
     "projects": "プロジェクト"
   },
   "general": {
@@ -37,8 +40,12 @@
     "experimentalCapture": "ウィンドウキャプチャタブ",
     "bottomTerminal": "ボトムターミナルストリップ",
     "bottomTerminalHint": "ターミナルをすべてのパネルの下に移動し、ウィンドウ全幅に表示します。",
+    "bigTerminal": "ビッグターミナルモード",
+    "bigTerminalHint": "⌘⇧T でセンターパネルにフルターミナルを開きます。タブと履歴は再起動時に復元されます。",
     "noVirtualization": "仮想化なしチャットリスト",
     "noVirtualizationHint": "Virtuosoの代わりにすべてのメッセージをスクロール可能なdivに描画します。ツールグループ展開時のスクロールのガタつきを修正する可能性があります。",
+    "rollbackHistory": "チャット履歴の巻き戻し",
+    "rollbackHistoryHint": "ユーザーメッセージに巻き戻しボタンを追加します。クリックするとチャット履歴をその時点まで切り詰め、gitスナップショットでワークツリーのファイルを復元します。",
     "replayTour": "機能ツアーを再生",
     "replayTourHint": "Braidの主な機能をもう一度確認します"
   },
@@ -63,10 +70,20 @@
     "streamingAnimation": "ストリーミングアニメーション",
     "streamingAnimationHint": "ストリーミング時にワードごとにアニメーション表示する",
     "chatCompactMode": "チャットコンパクトモード",
-    "chatCompactModeHint": "間隔とフォントサイズを縮小し、CLIのようなチャット表示にする"
+    "chatCompactModeHint": "間隔とフォントサイズを縮小し、CLIのようなチャット表示にする",
+    "projectAvatar": "プロジェクトアバター",
+    "projectAvatarHint": "サイドバーのプロジェクト名の横にアイコンを表示する"
   },
   "ai": {
     "defaultModel": "デフォルトモデル",
+    "extendedContext": "拡張コンテキスト（1M）",
+    "extendedContextHint": "新しいセッションで1Mトークンコンテキストウィンドウをデフォルトで有効にする",
+    "defaultEffort": "デフォルトエフォート",
+    "defaultEffortHint": "新しいセッションのデフォルト推論エフォート",
+    "effort_low": "低",
+    "effort_medium": "中",
+    "effort_high": "高",
+    "effort_max": "最大",
     "thinkingMode": "シンキングモード",
     "thinkingModeHint": "新しいセッションで拡張思考を有効にする",
     "systemPrompt": "システムプロンプト追記",
@@ -313,6 +330,25 @@
     "nameRequired": "名前は必須です",
     "workspaceRequired": "ワークスペース名は必須です"
   },
+  "github": {
+    "description": "GitHub CLI (gh) を使用して GitHub に接続します。PRステータス、CIチェック、デプロイメント、マージ操作に使用されます。",
+    "cliHeader": "GitHub CLI",
+    "statusChecking": "確認中...",
+    "statusInstalled": "インストール済み",
+    "statusNotInstalled": "未インストール",
+    "statusInstalling": "インストール中...",
+    "install": "インストール",
+    "installHint": "Homebrew経由でインストールされます（brew install gh）。Homebrewが事前にインストールされている必要があります。",
+    "installing": "インストール中...",
+    "docs": "ドキュメント",
+    "authHeader": "認証",
+    "authChecking": "確認中...",
+    "authAuthenticated": "認証済み",
+    "authNotAuthenticated": "未認証",
+    "signIn": "サインイン",
+    "signInHint": "GitHubのDevice Flowを使用して認証します。ブラウザが開き、Braidを承認します。",
+    "recheck": "再確認"
+  },
   "jira": {
     "description": "Atlassian CLI (acli) を使用して Jira に接続します。ブランチ名から関連チケットを表示し、ワークツリー作成時にチケット検索を有効にします。",
     "statusHeader": "Atlassian CLI",
@@ -376,6 +412,14 @@
     "contributorsThanks": "Braidに貢献してくださったすべての方々に感謝します。",
     "createdBy": "Braidプロジェクト",
     "builtIn": "東京、日本にて開発"
+  },
+  "experimental": {
+    "hint": "開発中の機能です。不安定な場合や予告なく変更される場合があります。",
+    "features": "実験的機能",
+    "magicTrackpad": "マジックトラックパッド",
+    "magicTrackpadHint": "トラックパッドで2本指の水平スワイプでタブを切り替えます。左にスワイプで次のタブ、右にスワイプで前のタブに移動します。",
+    "otherFlags": "その他のフラグ",
+    "previewTab": "タブ {{n}}"
   },
   "claudeSkills": {
     "title": "スキル",

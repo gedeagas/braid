@@ -21,7 +21,7 @@ function makeSession(overrides: Partial<AgentSession> = {}): AgentSession {
   return {
     id: 'sess-1', worktreeId: 'wt-1', name: 'My Session', customName: false,
     status: 'running', model: 'claude-sonnet-4-6', thinkingEnabled: false,
-    planModeEnabled: false, messages: [], activity: 'Running Bash...',
+    extendedContext: false, effortLevel: 'high', planModeEnabled: false, messages: [], activity: 'Running Bash...',
     runStartedAt: Date.now() - 5000, runCompletedAt: null, totalRunDurationMs: 0,
     tokenUsage: null, contextTokens: null, createdAt: Date.now(), ...overrides
   }
@@ -134,11 +134,26 @@ describe('handleWaitingInput (question/plan_approval)', () => {
     expect(s.pendingQuestion?.toolUseId).toBe('tc-1')
   })
 
-  it('is idempotent when status is already waiting_input', () => {
+  it('is idempotent when status is already waiting_input (skips state update)', () => {
     const store = makeStore({ status: 'waiting_input' })
     handleWaitingInput(makeCtx(store), { reason: 'question' })
-    // persistSession should not be called (early return)
+    // State is already correct — no persist needed
     expect(persistSession).not.toHaveBeenCalled()
+  })
+
+  it('still fires maybeShowToast when status is already waiting_input', () => {
+    // Regression: handleAssistant pre-sets status='waiting_input' via resolvePendingState
+    // before the waiting_input event arrives.  The old code returned early and skipped
+    // maybeShowToast entirely, so the in-app toast and sound were never triggered.
+    const store = makeStore({ status: 'waiting_input' })
+    handleWaitingInput(makeCtx(store), { reason: 'question' })
+    expect(maybeShowToast).toHaveBeenCalledWith('sess-1', 'waiting_input', expect.anything(), 'question')
+  })
+
+  it('fires maybeShowToast before the status guard so both running and waiting sessions notify', () => {
+    const storeFresh = makeStore({ status: 'running' })
+    handleWaitingInput(makeCtx(storeFresh), { reason: 'question' })
+    expect(vi.mocked(maybeShowToast)).toHaveBeenCalledWith('sess-1', 'waiting_input', expect.anything(), 'question')
   })
 })
 

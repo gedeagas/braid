@@ -15,6 +15,8 @@ function makeSession(overrides?: Partial<AgentSession>): AgentSession {
     status: 'waiting_input',
     model: 'claude-sonnet-4-6',
     thinkingEnabled: true,
+    extendedContext: false,
+    effortLevel: 'high',
     planModeEnabled: false,
     messages: [],
     activity: 'Waiting...',

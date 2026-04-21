@@ -114,6 +114,15 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  position: relative;
+}
+
+/* Experimental warning inside rollback confirmation dialog */
+.rollback-experimental-warning {
+  font-size: var(--text-base);
+  color: var(--amber);
+  margin-top: var(--space-8);
+  margin-bottom: 0;
 }
 
 .chat-msg-user-bubble {
@@ -133,12 +142,15 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  max-width: 60%;
+  min-width: 0;
 }
 
 .chat-msg-snippet-card {
   border-radius: var(--radius);
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
+  border-left: 2px solid var(--accent-tint-40);
   overflow: hidden;
   min-width: 0;
 }
@@ -147,9 +159,9 @@
   display: flex;
   align-items: center;
   gap: var(--space-6);
-  padding: var(--space-5) var(--space-8);
+  padding: var(--space-6) var(--space-10);
   font-size: var(--text-base);
-  min-height: 28px;
+  min-height: 30px;
   width: 100%;
   border: none;
   background: transparent;
@@ -179,7 +191,9 @@
   color: var(--text-muted);
   white-space: nowrap;
   flex-shrink: 0;
-  opacity: 0.8;
+  padding: var(--space-1) var(--space-6);
+  background: var(--overlay-6);
+  border-radius: var(--radius-pill);
 }
 
 .chat-msg-snippet-card-content {
@@ -202,6 +216,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  max-width: 100%;
+  min-width: 0;
 }
 
 .chat-msg-terminal-card {
@@ -248,7 +264,9 @@
   color: var(--text-muted);
   white-space: nowrap;
   flex-shrink: 0;
-  opacity: 0.8;
+  padding: var(--space-1) var(--space-6);
+  background: var(--overlay-6);
+  border-radius: var(--radius-pill);
 }
 
 .chat-msg-terminal-card-content {
@@ -378,6 +396,11 @@
   line-height: 1.55;
 }
 
+/* When pre is inside a code-block-wrapper, the wrapper owns the margin */
+.chat-msg-assistant-content .code-block-wrapper {
+  margin: var(--space-12) 0;
+}
+
 .chat-msg-assistant-content pre code {
   background: transparent;
   border: none;
@@ -385,12 +408,60 @@
   font-size: inherit;
 }
 
-.chat-msg-assistant-content a {
+/* ============= Code Block Copy Button ============= */
+
+.code-block-wrapper {
+  position: relative;
+}
+
+.code-block-wrapper pre {
+  margin: 0;
+}
+
+.code-block-copy-btn {
+  position: absolute;
+  top: var(--space-8);
+  right: var(--space-8);
+  padding: var(--space-4);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--duration-normal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-base);
+}
+
+.code-block-wrapper:hover .code-block-copy-btn {
+  opacity: 1;
+}
+
+.code-block-copy-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.code-block-copy-btn--copied {
+  color: var(--green);
+  opacity: 1;
+}
+
+.code-block-copy-btn--copied:hover {
+  color: var(--green);
+}
+
+.chat-msg-assistant-content a,
+.chat-msg-inline-link {
   color: var(--accent);
   text-decoration: none;
 }
 
-.chat-msg-assistant-content a:hover {
+.chat-msg-assistant-content a:hover,
+.chat-msg-inline-link:hover {
   text-decoration: underline;
 }
 
@@ -718,12 +789,13 @@
   background: var(--bg-hover);
 }
 
-.turn-actions-btn--copied {
-  color: var(--green);
+.turn-actions-btn--disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
 }
 
-.turn-actions-btn--copied:hover {
-  color: var(--green);
+.turn-actions-btn--disabled:hover {
+  color: var(--text-muted);
   background: none;
 }
 

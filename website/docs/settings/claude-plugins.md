@@ -20,6 +20,10 @@ Each plugin displays:
 - **Scope** - Whether the plugin is global or project-scoped.
 - **Status** - Enabled or disabled.
 
+## Filter plugins
+
+Use the filter controls at the top of the plugin list to narrow down what you see. You can filter by enablement state (enabled, disabled, or all) to quickly find the plugins you want to manage.
+
 ## Enable and disable plugins
 
 Toggle a plugin on or off using the switch next to its name. Changes take effect on the next session start. Running sessions continue with their original plugin configuration.

@@ -15,9 +15,11 @@
     "claudeMcp": "MCP Servers",
     "claudeSkills": "Skills",
     "apps": "Apps",
+    "github": "GitHub",
     "jira": "Jira",
     "analytics": "Analytics",
-    "about": "About"
+    "about": "About",
+    "experimental": "Experimental"
   },
   "groups": {
     "general": "General",
@@ -25,6 +27,7 @@
     "claudeAgent": "Claude",
     "appearance": "Appearance",
     "integrations": "Integrations",
+    "experimental": "Experimental",
     "projects": "Projects"
   },
   "general": {
@@ -37,8 +40,12 @@
     "experimentalCapture": "Window Capture tab",
     "bottomTerminal": "Bottom terminal strip",
     "bottomTerminalHint": "Moves the terminal below all panels so it spans the full window width.",
+    "bigTerminal": "Big Terminal Mode",
+    "bigTerminalHint": "Run a full terminal in the center panel with ⌘⇧T. Tabs and history are restored on restart.",
     "noVirtualization": "No-virtualization chat list",
     "noVirtualizationHint": "Renders all messages in a plain scrollable div instead of Virtuoso. May fix scroll jank with expanded tool groups.",
+    "rollbackHistory": "Rollback chat history",
+    "rollbackHistoryHint": "Adds a rewind button to user messages. Clicking it truncates chat history to that point and restores the worktree's files via git snapshot.",
     "replayTour": "Replay Feature Tour",
     "replayTourHint": "Walk through the main features of Braid again"
   },
@@ -63,10 +70,20 @@
     "streamingAnimation": "Streaming Animation",
     "streamingAnimationHint": "Animate words as they stream in",
     "chatCompactMode": "Chat Compact Mode",
-    "chatCompactModeHint": "Reduce spacing and font sizes for a denser, CLI-like chat display"
+    "chatCompactModeHint": "Reduce spacing and font sizes for a denser, CLI-like chat display",
+    "projectAvatar": "Project Avatar",
+    "projectAvatarHint": "Show project icon next to each project name in the sidebar"
   },
   "ai": {
     "defaultModel": "Default Model",
+    "extendedContext": "Extended Context (1M)",
+    "extendedContextHint": "Enable 1M token context window by default for new sessions",
+    "defaultEffort": "Default Effort",
+    "defaultEffortHint": "Default reasoning effort for new sessions",
+    "effort_low": "Low",
+    "effort_medium": "Med",
+    "effort_high": "High",
+    "effort_max": "Max",
     "thinkingMode": "Thinking Mode",
     "thinkingModeHint": "Enable extended thinking for new sessions",
     "systemPrompt": "System Prompt Suffix",
@@ -313,6 +330,25 @@
     "nameRequired": "Name is required",
     "workspaceRequired": "Workspace name is required"
   },
+  "github": {
+    "description": "Connect to GitHub via the GitHub CLI (gh). Powers PR status, CI checks, deployments, and merge actions.",
+    "cliHeader": "GitHub CLI",
+    "statusChecking": "Checking...",
+    "statusInstalled": "Installed",
+    "statusNotInstalled": "Not installed",
+    "statusInstalling": "Installing...",
+    "install": "Install",
+    "installHint": "Installs via Homebrew (brew install gh). Homebrew must be installed first.",
+    "installing": "Installing...",
+    "docs": "Docs",
+    "authHeader": "Authentication",
+    "authChecking": "Checking...",
+    "authAuthenticated": "Authenticated",
+    "authNotAuthenticated": "Not authenticated",
+    "signIn": "Sign in",
+    "signInHint": "Authenticate using GitHub's Device Flow. Opens your browser to authorize Braid.",
+    "recheck": "Re-check"
+  },
   "jira": {
     "description": "Connect to Jira via the Atlassian CLI (acli). Shows linked issues from branch names and enables ticket lookup when creating worktrees.",
     "statusHeader": "Atlassian CLI",
@@ -376,6 +412,14 @@
     "contributorsThanks": "Thanks to all the people who have contributed to Braid.",
     "createdBy": "The Braid Project",
     "builtIn": "Built in Tokyo, Japan"
+  },
+  "experimental": {
+    "hint": "Features in development. May be unstable or change without notice.",
+    "features": "Experimental features",
+    "magicTrackpad": "Magic Trackpad",
+    "magicTrackpadHint": "Two-finger horizontal swipe on the trackpad to switch between tabs. Swipe left for the next tab, swipe right for the previous tab.",
+    "otherFlags": "Other Flags",
+    "previewTab": "Tab {{n}}"
   },
   "claudeSkills": {
     "title": "Skills",

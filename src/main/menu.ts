@@ -98,6 +98,11 @@ export function createAppMenu(mainWindow: BrowserWindow): void {
           accelerator: 'CmdOrCtrl+P',
           click: () => sendAction(mainWindow, 'quickOpen')
         },
+        {
+          label: 'Command Palette',
+          accelerator: 'CmdOrCtrl+K',
+          click: () => sendAction(mainWindow, 'openCommandPalette')
+        },
         { type: 'separator' },
         {
           label: 'Zoom In',
@@ -133,6 +138,11 @@ export function createAppMenu(mainWindow: BrowserWindow): void {
           label: 'New Chat Tab',
           accelerator: 'CmdOrCtrl+T',
           click: () => sendAction(mainWindow, 'newChatTab')
+        },
+        {
+          label: 'New Big Terminal',
+          accelerator: 'CmdOrCtrl+Shift+T',
+          click: () => sendAction(mainWindow, 'newBigTerminal')
         },
         {
           label: 'Close Tab',

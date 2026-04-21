@@ -19,9 +19,11 @@ import { SettingsClaudePlugins } from './SettingsClaudePlugins'
 import { SettingsClaudeMcp } from './SettingsClaudeMcp'
 import { SettingsClaudeSkills } from './SettingsClaudeSkills'
 import { SettingsApps } from './SettingsApps'
+import { SettingsGitHub } from './SettingsGitHub'
 import { SettingsJira } from './SettingsJira'
 import { SettingsAnalytics } from './SettingsAnalytics'
 import { SettingsAbout } from './SettingsAbout'
+import { SettingsExperimental } from './SettingsExperimental'
 
 /**
  * Maps nav section keys → their rendered page component.
@@ -48,9 +50,11 @@ const sectionMap: Record<string, React.ReactNode> = {
   claudeMcp: <SettingsClaudeMcp />,
   claudeSkills: <SettingsClaudeSkills />,
   apps: <SettingsApps />,
+  github: <SettingsGitHub />,
   jira: <SettingsJira />,
   analytics: <SettingsAnalytics />,
   about: <SettingsAbout />,
+  experimental: <SettingsExperimental />,
 }
 
 function SettingsContent() {

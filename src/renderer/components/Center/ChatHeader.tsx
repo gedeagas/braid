@@ -1,13 +1,14 @@
 /**
- * ChatHeader — bottom controls bar for the chat input area.
+ * ChatHeader - bottom controls bar for the chat input area.
  *
- * Contains: model selector, stop button, thinking/plan-mode toggles,
- * image attach button, and the send button.
+ * Contains: model selector (with 1M context toggle), stop button,
+ * thinking/plan-mode toggles, image attach button, and the send button.
  * Extracted from ChatView.tsx to keep that file under the 450-line limit.
  */
 import { useCallback } from 'react'
 import { useSessionsStore } from '@/store/sessions'
-import type { ModelId, AgentSession } from '@/types'
+import { useUIStore } from '@/store/ui'
+import type { ModelId, EffortLevel, AgentSession } from '@/types'
 import type { ChatViewAction } from './ChatView'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { ModelSelector } from './ModelSelector'
@@ -46,14 +47,30 @@ export function ChatHeader({
   const online = useOnlineStatus()
   const updateModel = useSessionsStore((s) => s.updateModel)
   const updateThinking = useSessionsStore((s) => s.updateThinking)
+  const updateExtendedContext = useSessionsStore((s) => s.updateExtendedContext)
+  const updateEffortLevel = useSessionsStore((s) => s.updateEffortLevel)
   const updatePlanMode = useSessionsStore((s) => s.updatePlanMode)
   const stopSession = useSessionsStore((s) => s.stopSession)
   const setDraftInput = useSessionsStore((s) => s.setDraftInput)
   const setQueuedMessage = useSessionsStore((s) => s.setQueuedMessage)
+  const defaultModel = useUIStore((s) => s.defaultModel)
+  const setDefaultModel = useUIStore((s) => s.setDefaultModel)
 
   const handleModelSelect = useCallback((modelId: ModelId) => {
     updateModel(activeSession.id, modelId)
   }, [activeSession.id, updateModel])
+
+  const handleExtendedContextToggle = useCallback((enabled: boolean) => {
+    updateExtendedContext(activeSession.id, enabled)
+  }, [activeSession.id, updateExtendedContext])
+
+  const handleEffortChange = useCallback((level: EffortLevel) => {
+    updateEffortLevel(activeSession.id, level)
+  }, [activeSession.id, updateEffortLevel])
+
+  const handleSetDefault = useCallback((modelId: ModelId) => {
+    setDefaultModel(modelId)
+  }, [setDefaultModel])
 
   const handleStop = useCallback(() => {
     if (queuedMessage !== null) {
@@ -86,8 +103,17 @@ export function ChatHeader({
   return (
     <div className="chat-bottom-bar">
       <div className="chat-bottom-left">
-        {/* Model selector */}
-        <ModelSelector currentModelId={activeSession.model} onSelect={handleModelSelect} />
+        {/* Model selector (includes 1M context toggle in dropdown) */}
+        <ModelSelector
+          currentModelId={activeSession.model}
+          extendedContext={activeSession.extendedContext}
+          effortLevel={activeSession.effortLevel}
+          defaultModelId={defaultModel}
+          onSelect={handleModelSelect}
+          onToggleExtendedContext={handleExtendedContextToggle}
+          onChangeEffortLevel={handleEffortChange}
+          onSetDefault={handleSetDefault}
+        />
 
         {variant === 'default' && (
           <>

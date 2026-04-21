@@ -1,5 +1,6 @@
 import simpleGit, { SimpleGit } from 'simple-git'
 import { existsSync } from 'fs'
+import { enrichedEnv } from '../../lib/enrichedEnv'
 
 export const NOISE_DIRS = new Set([
   'node_modules', '.git', 'dist', '.next', 'build', 'out',
@@ -7,7 +8,9 @@ export const NOISE_DIRS = new Set([
 ])
 
 export function getGit(repoPath: string): SimpleGit {
-  return simpleGit(repoPath)
+  const git = simpleGit(repoPath)
+  git.env(enrichedEnv())
+  return git
 }
 
 /** Returns a SimpleGit instance if path is a valid git repo, null otherwise */

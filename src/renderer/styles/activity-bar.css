@@ -148,3 +148,29 @@
 .activity-bar-app--drag-over {
   box-shadow: inset 0 2px 0 0 var(--accent);
 }
+
+/* ── Update available button ───────────────────────────────────────── */
+
+.activity-bar-update-btn {
+  color: var(--green);
+}
+
+.activity-bar-update-btn:hover {
+  color: var(--green);
+}
+
+.activity-bar-update-dot {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: var(--radius-full);
+  background: var(--green);
+  animation: update-dot-pulse 2s ease-in-out infinite;
+}
+
+@keyframes update-dot-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}

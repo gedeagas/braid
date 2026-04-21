@@ -3,16 +3,21 @@ export const DEFAULT_PR_PROMPT = `Create a pull request for the current branch.
 Steps:
 1. Check if the current branch has an upstream remote. If not, push it with \`git push -u origin HEAD\`.
 2. If there are unpushed commits, push them.
-3. Look for a PR template file in any of these locations:
+3. Compute the merge-base ONCE and store it, then use it for all subsequent git commands. This avoids races if the base branch advances mid-flow:
+   \`\`\`
+   BASE=$(git merge-base HEAD <base-branch>)
+   git log $BASE..HEAD --oneline
+   git diff $BASE..HEAD --stat
+   git diff $BASE..HEAD
+   \`\`\`
+   IMPORTANT: Cross-check the diff output against the commit list. If the diff contains files or features not mentioned in any commit message, re-run with a fresh merge-base - the base branch may have changed.
+4. Read the PR template file. Check these locations in order and read the first one found:
    - \`.github/pull_request_template.md\`
    - \`.github/PULL_REQUEST_TEMPLATE.md\`
    - \`docs/pull_request_template.md\`
    - \`.github/PULL_REQUEST_TEMPLATE/\` directory
-4. If a template exists, follow its structure and guidelines when writing the PR description. Fill in each section thoughtfully based on the actual changes.
-5. Review only the commits and changes introduced by this branch. Use the merge-base to avoid including unrelated changes from the base branch:
-   - \`git log $(git merge-base HEAD <base-branch>)..HEAD --oneline\` to see commits on this branch only
-   - \`git diff $(git merge-base HEAD <base-branch>)..HEAD\` to see the combined diff of this branch's changes
-   This ensures the comparison is accurate even if the base branch (e.g. main) has newer commits that are not yet in this branch.
-6. Create the PR using \`gh pr create\`, with a clear title and a well-written description that follows the template (if found) or otherwise summarizes the changes clearly.
+   You MUST actually read the file contents before writing the PR body. If a template exists, use its exact section structure.
+5. Write the PR title and body based ONLY on the commits and diff from step 3. Do not describe changes that are not in the diff. If the diff is large, focus on the commit messages and diffstat to avoid hallucinating details from truncated output.
+6. Create the PR using \`gh pr create\`, filling in the template sections (if found) or summarizing the changes clearly.
 
 Do not ask me for confirmation — just go ahead and create it.`

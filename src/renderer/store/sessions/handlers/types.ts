@@ -67,7 +67,7 @@ export interface NotificationDeps {
     projectName: string
     reason?: 'question' | 'plan_approval'
   }) => void
-  desktopNotify: (sessionId: string, type: string, name: string) => void
+  desktopNotify: (sessionId: string, type: 'done' | 'error' | 'waiting_input', name: string, errorMessage?: string, reason?: 'question' | 'plan_approval') => void
 }
 
 // ---------------------------------------------------------------------------

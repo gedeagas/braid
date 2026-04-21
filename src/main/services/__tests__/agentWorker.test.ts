@@ -462,7 +462,7 @@ describe('canUseTool — allow list auto-approves pre-approved tools', () => {
 
   it('auto-allows a tool matched by allow rule — no waiting_input emitted', async () => {
     vi.mocked(claudeConfigService.getPermissions).mockReturnValue({ allow: ['Read'], deny: [] })
-    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', noBypassSettings)
+    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'high', false, 'Chat', noBypassSettings)
 
     const canUseTool = captureCanUseTool()
     const result = await canUseTool('Read', { file_path: '/src/foo.ts' }, { signal })
@@ -471,7 +471,7 @@ describe('canUseTool — allow list auto-approves pre-approved tools', () => {
 
   it('auto-allows Glob via Read allow rule', async () => {
     vi.mocked(claudeConfigService.getPermissions).mockReturnValue({ allow: ['Read'], deny: [] })
-    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', noBypassSettings)
+    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'high', false, 'Chat', noBypassSettings)
 
     const canUseTool = captureCanUseTool()
     const result = await canUseTool('Glob', { pattern: '**/*.ts' }, { signal })
@@ -480,7 +480,7 @@ describe('canUseTool — allow list auto-approves pre-approved tools', () => {
 
   it('auto-allows Write via Edit allow rule', async () => {
     vi.mocked(claudeConfigService.getPermissions).mockReturnValue({ allow: ['Edit'], deny: [] })
-    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', noBypassSettings)
+    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'high', false, 'Chat', noBypassSettings)
 
     const canUseTool = captureCanUseTool()
     const result = await canUseTool('Write', { file_path: '/src/foo.ts' }, { signal })
@@ -489,7 +489,7 @@ describe('canUseTool — allow list auto-approves pre-approved tools', () => {
 
   it('auto-allows MCP tool via server wildcard allow rule', async () => {
     vi.mocked(claudeConfigService.getPermissions).mockReturnValue({ allow: ['mcp__puppeteer__*'], deny: [] })
-    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', noBypassSettings)
+    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'high', false, 'Chat', noBypassSettings)
 
     const canUseTool = captureCanUseTool()
     const result = await canUseTool('mcp__puppeteer__navigate', {}, { signal })
@@ -498,7 +498,7 @@ describe('canUseTool — allow list auto-approves pre-approved tools', () => {
 
   it('auto-allows MCP tool with hyphenated server name', async () => {
     vi.mocked(claudeConfigService.getPermissions).mockReturnValue({ allow: ['mcp__slack-server__*'], deny: [] })
-    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', noBypassSettings)
+    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'high', false, 'Chat', noBypassSettings)
 
     const canUseTool = captureCanUseTool()
     const result = await canUseTool('mcp__slack-server__search_messages', {}, { signal })
@@ -510,7 +510,7 @@ describe('canUseTool — allow list auto-approves pre-approved tools', () => {
       allow: ['Bash'],
       deny: ['Bash(rm *)'],
     })
-    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', noBypassSettings)
+    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'high', false, 'Chat', noBypassSettings)
 
     const canUseTool = captureCanUseTool()
     const result = await canUseTool('Bash', { command: 'rm -rf /tmp' }, { signal })
@@ -523,7 +523,7 @@ describe('canUseTool — allow list auto-approves pre-approved tools', () => {
     mockQuery.mockReturnValue(makeAsyncIterable([]))
     vi.mocked(claudeConfigService.getPermissions).mockReturnValue({ allow: ['Read'], deny: [] })
 
-    await w.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', noBypassSettings)
+    await w.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'high', false, 'Chat', noBypassSettings)
 
     const canUseTool = captureCanUseTool()
     const ac = new AbortController()
@@ -553,7 +553,7 @@ describe('canUseTool — bypassPermissions mode', () => {
 
   it('auto-allows any tool when bypassPermissions is true', async () => {
     const worker = new AgentWorker(() => {})
-    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', bypassSettings)
+    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'high', false, 'Chat', bypassSettings)
 
     const canUseTool = captureCanUseTool()
     const result = await canUseTool('Bash', { command: 'rm -rf /tmp' }, { signal })
@@ -563,7 +563,7 @@ describe('canUseTool — bypassPermissions mode', () => {
   it('no waiting_input emitted for unlisted tool in bypass mode', async () => {
     const emitted: unknown[] = []
     const worker = new AgentWorker((e) => emitted.push(e))
-    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', bypassSettings)
+    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'high', false, 'Chat', bypassSettings)
 
     const canUseTool = captureCanUseTool()
     await canUseTool('Bash', { command: 'git push --force' }, { signal, toolUseID: 'tool-bp-1' })
@@ -575,7 +575,7 @@ describe('canUseTool — bypassPermissions mode', () => {
   it('global deny list still blocks in bypass mode', async () => {
     vi.mocked(claudeConfigService.getPermissions).mockReturnValue({ allow: [], deny: ['Bash(rm *)'] })
     const worker = new AgentWorker(() => {})
-    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', bypassSettings)
+    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'high', false, 'Chat', bypassSettings)
 
     const canUseTool = captureCanUseTool()
     const result = await canUseTool('Bash', { command: 'rm -rf /tmp' }, { signal })
@@ -585,7 +585,7 @@ describe('canUseTool — bypassPermissions mode', () => {
   it('project deny list still blocks in bypass mode', async () => {
     vi.mocked(claudeConfigService.getProjectPermissions).mockReturnValue({ allow: [], deny: ['Bash(git push *)'] })
     const worker = new AgentWorker(() => {})
-    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', bypassSettings)
+    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'high', false, 'Chat', bypassSettings)
 
     const canUseTool = captureCanUseTool()
     const result = await canUseTool('Bash', { command: 'git push origin main' }, { signal })
@@ -607,7 +607,7 @@ describe('canUseTool — project-level permissions', () => {
   it('project allow rule auto-approves a tool', async () => {
     vi.mocked(claudeConfigService.getProjectPermissions).mockReturnValue({ allow: ['Bash(npm *)'], deny: [] })
     const worker = new AgentWorker(() => {})
-    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', noBypassSettings)
+    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'high', false, 'Chat', noBypassSettings)
 
     const canUseTool = captureCanUseTool()
     const result = await canUseTool('Bash', { command: 'npm install' }, { signal })
@@ -618,7 +618,7 @@ describe('canUseTool — project-level permissions', () => {
     vi.mocked(claudeConfigService.getProjectPermissions).mockReturnValue({ allow: ['Bash(npm *)'], deny: [] })
     const emitted: unknown[] = []
     const worker = new AgentWorker((e) => emitted.push(e))
-    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', noBypassSettings)
+    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'high', false, 'Chat', noBypassSettings)
 
     const canUseTool = captureCanUseTool()
     const ac = new AbortController()
@@ -635,7 +635,7 @@ describe('canUseTool — project-level permissions', () => {
     vi.mocked(claudeConfigService.getPermissions).mockReturnValue({ allow: ['Bash'], deny: [] })
     vi.mocked(claudeConfigService.getProjectPermissions).mockReturnValue({ allow: [], deny: ['Bash(git push *)'] })
     const worker = new AgentWorker(() => {})
-    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', noBypassSettings)
+    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'high', false, 'Chat', noBypassSettings)
 
     const canUseTool = captureCanUseTool()
     const result = await canUseTool('Bash', { command: 'git push origin main' }, { signal })
@@ -646,7 +646,7 @@ describe('canUseTool — project-level permissions', () => {
     vi.mocked(claudeConfigService.getPermissions).mockReturnValue({ allow: ['Read'], deny: [] })
     vi.mocked(claudeConfigService.getProjectPermissions).mockReturnValue({ allow: [], deny: [] })
     const worker = new AgentWorker(() => {})
-    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', noBypassSettings)
+    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'high', false, 'Chat', noBypassSettings)
 
     const canUseTool = captureCanUseTool()
     const result = await canUseTool('Read', { file_path: '/src/main.ts' }, { signal })
@@ -657,7 +657,7 @@ describe('canUseTool — project-level permissions', () => {
     vi.mocked(claudeConfigService.getPermissions).mockReturnValue({ allow: [], deny: ['Bash(rm *)'] })
     vi.mocked(claudeConfigService.getProjectPermissions).mockReturnValue({ allow: [], deny: ['Read(.env)'] })
     const worker = new AgentWorker(() => {})
-    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', noBypassSettings)
+    await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'high', false, 'Chat', noBypassSettings)
 
     const canUseTool = captureCanUseTool()
 
@@ -693,7 +693,7 @@ describe('AgentWorker', () => {
   describe('updateSessionName', () => {
     it('updates session name after startSession', async () => {
       mockQuery.mockReturnValue(makeAsyncIterable([]))
-      await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Original', defaultSettings)
+      await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'high', false, 'Original', defaultSettings)
       worker.updateSessionName('s1', 'Renamed')
       expect(worker.getSession('s1')?.sessionName).toBe('Renamed')
     })
@@ -704,7 +704,7 @@ describe('AgentWorker', () => {
       mockQuery.mockReturnValue(makeAsyncIterable([
         { type: 'assistant', message: { content: [{ type: 'text', text: 'hello' }] } }
       ]))
-      await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', defaultSettings)
+      await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'high', false, 'Chat', defaultSettings)
 
       const doneEvents = emitted.filter(e => e.type === 'done')
       expect(doneEvents).toHaveLength(1)
@@ -715,7 +715,7 @@ describe('AgentWorker', () => {
       mockQuery.mockReturnValue(makeAsyncIterable([
         { type: 'system', subtype: 'init', session_id: 'sdk-123', slash_commands: ['help'], skills: ['my-skill'] }
       ]))
-      await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', defaultSettings)
+      await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'high', false, 'Chat', defaultSettings)
 
       const initEvents = emitted.filter(e => e.type === 'init')
       expect(initEvents).toHaveLength(1)
@@ -729,7 +729,7 @@ describe('AgentWorker', () => {
     it('emits sdk_message for non-init messages', async () => {
       const msg = { type: 'assistant', message: { content: [{ type: 'text', text: 'yo' }] } }
       mockQuery.mockReturnValue(makeAsyncIterable([msg]))
-      await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', defaultSettings)
+      await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'high', false, 'Chat', defaultSettings)
 
       const sdkMsgs = emitted.filter(e => e.type === 'sdk_message')
       expect(sdkMsgs).toHaveLength(1)
@@ -740,7 +740,7 @@ describe('AgentWorker', () => {
       mockQuery.mockImplementation(() => {
         throw new Error('SDK exploded')
       })
-      await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', defaultSettings)
+      await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'high', false, 'Chat', defaultSettings)
 
       const errors = emitted.filter(e => e.type === 'error')
       expect(errors).toHaveLength(1)
@@ -750,7 +750,7 @@ describe('AgentWorker', () => {
     it('applies API key from settings', async () => {
       const origKey = process.env.ANTHROPIC_API_KEY
       mockQuery.mockReturnValue(makeAsyncIterable([]))
-      await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', {
+      await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'high', false, 'Chat', {
         apiKey: 'sk-test-key',
         systemPromptSuffix: '', claudeCodeExecutablePath: '', bypassPermissions: true
       })
@@ -763,7 +763,7 @@ describe('AgentWorker', () => {
 
   describe('sendMessage', () => {
     it('emits error when no sdkSessionId available', async () => {
-      await worker.sendMessage('s1', 'msg', '', '/tmp', 'claude-sonnet-4-6', false, 'Chat', defaultSettings)
+      await worker.sendMessage('s1', 'msg', '', '/tmp', 'claude-sonnet-4-6', false, 'high', false, 'Chat', defaultSettings)
       const errors = emitted.filter(e => e.type === 'error')
       expect(errors).toHaveLength(1)
       expect(errors[0]).toMatchObject({ message: 'No active SDK session to resume' })
@@ -771,14 +771,14 @@ describe('AgentWorker', () => {
 
     it('recovers state from params when session map is empty', async () => {
       mockQuery.mockReturnValue(makeAsyncIterable([]))
-      await worker.sendMessage('s2', 'msg', 'sdk-abc', '/tmp/proj', 'claude-sonnet-4-6', false, 'Recovered', defaultSettings)
+      await worker.sendMessage('s2', 'msg', 'sdk-abc', '/tmp/proj', 'claude-sonnet-4-6', false, 'high', false, 'Recovered', defaultSettings)
       expect(worker.getSession('s2')).toBeDefined()
       expect(worker.getSession('s2')?.sessionName).toBe('Recovered')
     })
 
     it('emits done on successful resume', async () => {
       mockQuery.mockReturnValue(makeAsyncIterable([]))
-      await worker.sendMessage('s3', 'msg', 'sdk-abc', '/tmp', 'claude-sonnet-4-6', false, 'Chat', defaultSettings)
+      await worker.sendMessage('s3', 'msg', 'sdk-abc', '/tmp', 'claude-sonnet-4-6', false, 'high', false, 'Chat', defaultSettings)
       const doneEvents = emitted.filter(e => e.type === 'done')
       expect(doneEvents).toHaveLength(1)
     })
@@ -787,7 +787,7 @@ describe('AgentWorker', () => {
   describe('stopSession', () => {
     it('aborts but preserves session state for resume', async () => {
       mockQuery.mockReturnValue(makeAsyncIterable([]))
-      await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', defaultSettings)
+      await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'high', false, 'Chat', defaultSettings)
       await worker.stopSession('s1')
       // Session state still exists
       expect(worker.getSession('s1')).toBeDefined()
@@ -798,7 +798,7 @@ describe('AgentWorker', () => {
   describe('closeSession', () => {
     it('aborts and removes session state', async () => {
       mockQuery.mockReturnValue(makeAsyncIterable([]))
-      await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', defaultSettings)
+      await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'high', false, 'Chat', defaultSettings)
       worker.closeSession('s1')
       expect(worker.getSession('s1')).toBeUndefined()
     })

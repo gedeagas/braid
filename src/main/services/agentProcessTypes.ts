@@ -13,15 +13,17 @@ export type WorkerCommand =
   | {
       type: 'startSession'; sessionId: string; worktreeId: string; projectName: string
       worktreePath: string; prompt: string
-      model: string; thinking: boolean; planMode: boolean; sessionName: string
+      model: string; thinking: boolean; extendedContext: boolean; effortLevel: string; planMode: boolean; sessionName: string
       settings: AgentSettings; images?: string[]; additionalDirectories?: string[]
       linkedWorktreeContext?: string; connectedDeviceId?: string; mobileFramework?: string
     }
   | {
       type: 'sendMessage'; sessionId: string; message: string; sdkSessionId: string
-      cwd: string; model: string; planMode: boolean; sessionName: string
+      cwd: string; model: string; extendedContext: boolean; effortLevel: string; planMode: boolean; sessionName: string
       settings: AgentSettings; images?: string[]; additionalDirectories?: string[]
       linkedWorktreeContext?: string; connectedDeviceId?: string; mobileFramework?: string
+      /** SDK option: resume session history up to (and including) this assistant message uuid. Used for rollback. */
+      resumeSessionAt?: string
     }
   | { type: 'stopSession'; sessionId: string }
   | { type: 'closeSession'; sessionId: string }

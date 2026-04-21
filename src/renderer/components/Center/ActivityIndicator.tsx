@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/store/ui'
 import { Spinner, BouncingDots, WaveformBars } from '@/components/ui'
-import { CONTEXT_WINDOW, formatTokens } from '@/lib/constants'
+import { formatTokens } from '@/lib/constants'
 
 interface Props {
   activity: string
   runStartedAt: number | null
   contextTokens: number | null
+  /** Effective context window size (200k or 1M) */
+  contextWindow: number
 }
 
 function formatElapsed(seconds: number): string {
@@ -27,7 +29,7 @@ function IndicatorIcon() {
   return <Spinner size="md" />
 }
 
-export function ActivityIndicator({ activity, runStartedAt, contextTokens }: Props) {
+export function ActivityIndicator({ activity, runStartedAt, contextTokens, contextWindow }: Props) {
   const { t } = useTranslation('center')
   const [elapsed, setElapsed] = useState(0)
 
@@ -45,9 +47,9 @@ export function ActivityIndicator({ activity, runStartedAt, contextTokens }: Pro
 
   const ctxStr = contextTokens != null && contextTokens > 0
     ? t('contextDisplay', {
-        percent: Math.round((contextTokens / CONTEXT_WINDOW) * 100),
+        percent: Math.round((contextTokens / contextWindow) * 100),
         used: formatTokens(contextTokens),
-        total: formatTokens(CONTEXT_WINDOW),
+        total: formatTokens(contextWindow),
       })
     : null
 

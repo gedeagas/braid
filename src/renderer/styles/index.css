@@ -5,6 +5,7 @@
 @import './tabs.css';
 @import './sidebar.css';
 @import './branch-bar.css';
+@import './rate-limit-bars.css';
 @import './chat-messages.css';
 @import './tool-calls.css';
 @import './chat-input.css';
@@ -22,6 +23,7 @@
 @import './diff-review.css';
 @import './diff-comment-chips.css';
 @import './checks.css';
+@import './code-review.css';
 @import './pr-merge-bar.css';
 @import './checks-log.css';
 @import './branch-combobox.css';
@@ -44,6 +46,7 @@
 @import './settings-mcp.css';
 @import './settings-notifications.css';
 @import './settings-about.css';
+@import './settings-experimental.css';
 @import './mission-control.css';
 @import './toasts.css';
 @import './flash-toasts.css';
@@ -51,6 +54,8 @@
 @import './update-dialog.css';
 @import './shortcuts.css';
 @import './quick-open.css';
+@import './search-view.css';
+@import './command-palette.css';
 @import './simulator.css';
 @import './run-panel.css';
 @import './window-capture.css';

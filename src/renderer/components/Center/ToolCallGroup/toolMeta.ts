@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 import { createElement } from 'react'
+import { openExternalLink } from '@/lib/openExternalLink'
+import { CodeBlockWithCopy } from '../CodeBlockCopy'
 import {
   IconPencil, IconFile, IconTerminal, IconSearch, IconGlobe,
   IconGitFork, IconChecklist, IconInbox, IconXCircle, IconBook,
@@ -56,15 +58,12 @@ export const TOOL_SUMMARY_GROUPS: Record<string, string> = {
 // Markdown link renderer
 export function LinkRenderer({ href, children }: React.AnchorHTMLAttributes<HTMLAnchorElement>) {
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (href) {
-      e.preventDefault()
-      window.api.shell.openExternal(href)
-    }
+    if (href) openExternalLink(e, href)
   }
   return createElement('a', { href, onClick: handleClick }, children)
 }
 
-export const markdownComponents = { a: LinkRenderer }
+export const markdownComponents = { a: LinkRenderer, pre: CodeBlockWithCopy }
 
 // ── File extension → highlight.js language mapping ────────────────────────────
 // Only includes languages that are registered in ToolCallRow.tsx at module level.

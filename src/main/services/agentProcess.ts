@@ -9,10 +9,36 @@
 import { AgentWorker } from './agentWorker'
 import type { WorkerCommand } from './agentProcessTypes'
 import { resolveBraidDataRequest, rejectBraidDataRequest } from './braidMcp'
+import { isEpipe } from '../lib/errors'
 
-const worker = new AgentWorker((event) => {
-  process.parentPort!.postMessage(event)
+// EPIPE is expected when the SDK aborts an in-flight request — the claude CLI
+// subprocess pipe closes before all writes drain.  Without these handlers Node.js
+// crashes the UtilityProcess with exit code 1.
+//
+// stdout/stderr get explicit 'error' listeners because Node.js v22 does NOT route
+// pipe-close EPIPEs from process.stdout/stderr through 'uncaughtException' — it
+// throws directly on the Socket, bypassing the global hook.
+process.stdout.on('error', (err) => { if (!isEpipe(err)) throw err })
+process.stderr.on('error', (err) => { if (!isEpipe(err)) throw err })
+process.on('uncaughtException', (err) => {
+  if (isEpipe(err)) return
+  throw err
 })
+process.on('unhandledRejection', (reason) => {
+  if (isEpipe(reason)) return
+  throw reason
+})
+
+function postToParent(msg: unknown): void {
+  try {
+    process.parentPort!.postMessage(msg)
+  } catch (e) {
+    // Parent IPC channel gone — EPIPE is expected; other errors are re-thrown.
+    if (!isEpipe(e)) throw e
+  }
+}
+
+const worker = new AgentWorker(postToParent)
 
 process.parentPort!.on('message', (e: { data: WorkerCommand }) => {
   const cmd = e.data
@@ -22,7 +48,7 @@ process.parentPort!.on('message', (e: { data: WorkerCommand }) => {
       worker.startSession(
         cmd.sessionId, cmd.worktreeId, cmd.projectName,
         cmd.worktreePath, cmd.prompt, cmd.model,
-        cmd.thinking, cmd.planMode, cmd.sessionName, cmd.settings,
+        cmd.thinking, cmd.extendedContext, cmd.effortLevel, cmd.planMode, cmd.sessionName, cmd.settings,
         cmd.images, cmd.additionalDirectories, cmd.linkedWorktreeContext,
         cmd.connectedDeviceId, cmd.mobileFramework
       )
@@ -30,9 +56,9 @@ process.parentPort!.on('message', (e: { data: WorkerCommand }) => {
     case 'sendMessage':
       worker.sendMessage(
         cmd.sessionId, cmd.message, cmd.sdkSessionId, cmd.cwd,
-        cmd.model, cmd.planMode, cmd.sessionName, cmd.settings,
+        cmd.model, cmd.extendedContext, cmd.effortLevel, cmd.planMode, cmd.sessionName, cmd.settings,
         cmd.images, cmd.additionalDirectories, cmd.linkedWorktreeContext,
-        cmd.connectedDeviceId, cmd.mobileFramework
+        cmd.connectedDeviceId, cmd.mobileFramework, cmd.resumeSessionAt
       )
       break
     case 'stopSession':
@@ -82,9 +108,9 @@ async function handleRequestResponse(cmd: RequestCommand): Promise<void> {
         value = await worker.getSlashCommands(cmd.cwd)
         break
     }
-    process.parentPort!.postMessage({ type: 'result', requestId: cmd.requestId, value })
+    postToParent({ type: 'result', requestId: cmd.requestId, value })
   } catch (err) {
-    process.parentPort!.postMessage({
+    postToParent({
       type: 'result_error',
       requestId: cmd.requestId,
       message: err instanceof Error ? err.message : String(err)

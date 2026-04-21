@@ -124,6 +124,10 @@ You do not need to do anything when compaction happens. It is automatic and desi
 If you notice Claude losing track of earlier context after compaction, re-state the key details in your next message. Compaction preserves the important information, but very specific details from early in a long conversation may be condensed.
 :::
 
+## Clickable URLs
+
+URLs in chat messages are automatically detected and rendered as clickable links. Click any link to open it in your default browser. This works in both your messages and Claude's responses, so you can quickly follow references to documentation, pull requests, or any other web resource without copy-pasting.
+
 ## Handle Claude's questions
 
 Sometimes Claude needs clarification before proceeding. When this happens, the session status changes to **waiting** and a prompt appears inline in the chat. Type your answer and press Enter to let Claude continue.

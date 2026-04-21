@@ -1,8 +1,18 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { themes as prismThemes } from 'prism-react-renderer'
 import type { Config } from '@docusaurus/types'
 import type * as Preset from '@docusaurus/preset-classic'
 
+const pkg = JSON.parse(
+  readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'),
+) as { version: string }
+
 const config: Config = {
+  customFields: {
+    version: pkg.version,
+  },
+
   title: 'Braid',
   tagline: 'Manage worktrees. Run AI agents. Ship from isolated branches.',
   favicon: 'img/favicon.ico',

@@ -1,6 +1,6 @@
 {
   "name": "braid",
-  "version": "26.1.4",
+  "version": "26.1.10",
   "description": "Git worktree & Claude Code session manager",
   "license": "MIT",
   "repository": {
@@ -33,7 +33,7 @@
     "generate-icon": "node scripts/generate-icon.js"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.85",
+    "@anthropic-ai/claude-agent-sdk": "0.2.112",
     "@floating-ui/react": "^0.27.19",
     "@mobilenext/mobilecli": "^0.1.62",
     "@modelcontextprotocol/sdk": "^1.28.0",

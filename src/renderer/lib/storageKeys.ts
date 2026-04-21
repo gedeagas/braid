@@ -45,6 +45,8 @@ export const SK = {
   // ── Settings — AI ──────────────────────────────────────────────────────
   defaultModel:               `${prefix}:defaultModel`,
   defaultThinking:            `${prefix}:defaultThinking`,
+  defaultExtendedContext:     `${prefix}:defaultExtendedContext`,
+  defaultEffortLevel:         `${prefix}:defaultEffortLevel`,
   apiKey:                     `${prefix}:apiKey`,
   systemPromptSuffix:         `${prefix}:systemPromptSuffix`,
   claudeCodeExecutablePath:   `${prefix}:claudeCodeExecutablePath`,
@@ -81,6 +83,7 @@ export const SK = {
   skipDeleteWorktreeConfirm:  `${prefix}:skipDeleteWorktreeConfirm`,
   tabDisplayMode:             `${prefix}:tabDisplayMode`,
   chatCompactMode:            `${prefix}:chatCompactMode`,
+  projectAvatarVisible:       `${prefix}:projectAvatarVisible`,
 
   // ── i18n ───────────────────────────────────────────────────────────────
   language:                   `${prefix}:language`,
@@ -103,10 +106,19 @@ export const SK = {
   // ── Settings — Integrations ────────────────────────────────────────────
   jiraBaseUrl:                `${prefix}:jiraBaseUrl`,
 
+  // ── Rate limits ────────────────────────────────────────────────────
+  /** Account-wide rate limit utilization from SDK, cached with TTL matching the limit window */
+  rateLimits:                 `${prefix}:rateLimits`,
+
   // ── Experimental / Web apps ────────────────────────────────────────────
   experimentalCapture:        `${prefix}:experimentalCapture`,
   bottomTerminalEnabled:      `${prefix}:bottomTerminalEnabled`,
   noVirtualization:           `${prefix}:noVirtualization`,
+  magicTrackpad:              `${prefix}:magicTrackpad`,
+  bigTerminalEnabled:         `${prefix}:bigTerminalEnabled`,
+  /** Prefix — append worktreeId to get the full key, e.g. SK.bigTerminalTabsPrefix + worktreeId */
+  bigTerminalTabsPrefix:      `${prefix}:bigTerminalTabs:`,
+  rollbackHistory:            `${prefix}:rollbackHistory`,
   webAppsEnabled:             `${prefix}:webAppsEnabled`,
   embeddedApps:               `${prefix}:embeddedApps`,
   webAppLastUrls:             `${prefix}:webAppLastUrls`,

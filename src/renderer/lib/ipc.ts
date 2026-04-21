@@ -75,13 +75,17 @@ export const git = {
     api().git.isRepoRoot(repoPath) as Promise<boolean>,
   findChildRepos: (parentPath: string) =>
     api().git.findChildRepos(parentPath) as Promise<string[]>,
+  createSnapshot: (worktreePath: string) =>
+    api().git.createSnapshot(worktreePath) as Promise<string>,
+  restoreSnapshot: (worktreePath: string, snapSha: string) =>
+    api().git.restoreSnapshot(worktreePath, snapSha) as Promise<void>,
 }
 
 export const agent = {
-  startSession: (sessionId: string, worktreeId: string, worktreePath: string, prompt: string, model: string, thinking: boolean, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string) =>
-    api().agent.startSession(sessionId, worktreeId, worktreePath, prompt, model, thinking, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework),
-  sendMessage: (sessionId: string, message: string, sdkSessionId: string, cwd: string, model: string, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string) =>
-    api().agent.sendMessage(sessionId, message, sdkSessionId, cwd, model, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework),
+  startSession: (sessionId: string, worktreeId: string, worktreePath: string, prompt: string, model: string, thinking: boolean, extendedContext: boolean, effortLevel: string, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string) =>
+    api().agent.startSession(sessionId, worktreeId, worktreePath, prompt, model, thinking, extendedContext, effortLevel, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework),
+  sendMessage: (sessionId: string, message: string, sdkSessionId: string, cwd: string, model: string, extendedContext: boolean, effortLevel: string, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string, resumeSessionAt?: string) =>
+    api().agent.sendMessage(sessionId, message, sdkSessionId, cwd, model, extendedContext, effortLevel, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework, resumeSessionAt),
   updateSessionName: (sessionId: string, name: string) => api().agent.updateSessionName(sessionId, name),
   notify: (sessionId: string, type: 'done' | 'error' | 'waiting_input', sessionName?: string, errorMessage?: string, reason?: 'question' | 'plan_approval') =>
     api().agent.notify(sessionId, type, sessionName, errorMessage, reason),
@@ -108,7 +112,10 @@ export const pty = {
   runScript: (cwd: string, command: string) => api().pty.runScript(cwd, command),
   readTerminalOutput: (worktreePath: string) => api().pty.readTerminalOutput(worktreePath),
   onData: (callback: (id: string, data: string) => void) => api().pty.onData(callback),
-  onExit: (callback: (id: string, exitCode: number) => void) => api().pty.onExit(callback)
+  onExit: (callback: (id: string, exitCode: number) => void) => api().pty.onExit(callback),
+  registerBigTerminal: (ptyId: string, terminalId: string) => api().pty.registerBigTerminal(ptyId, terminalId),
+  readScrollback: (terminalId: string) => api().pty.readScrollback(terminalId) as Promise<string>,
+  deleteScrollback: (terminalId: string) => api().pty.deleteScrollback(terminalId),
 }
 
 export const simulator = {
@@ -169,6 +176,8 @@ export const github = {
     api().github.mergePr(worktreePath, strategy),
   markPrReady: (worktreePath: string) =>
     api().github.markPrReady(worktreePath),
+  getReviews: (worktreePath: string, forceRefresh?: boolean) =>
+    api().github.getReviews(worktreePath, forceRefresh),
   startDeviceFlow: () =>
     api().github.startDeviceFlow(),
   cancelDeviceFlow: () =>
@@ -201,6 +210,18 @@ export const scripts = {
   detect: (projectPath: string, forceRefresh?: boolean) => api().scripts.detect(projectPath, forceRefresh) as Promise<import('@/types').RunCommand[]>,
 }
 
+export type { CreateFailureReason as CreateTemplateFailureReason, CreateTemplateResult, TemplateLogEntry } from '@shared/templates'
+import type { TemplateKind, CreateTemplateArgs, CreateTemplateResult, TemplateLogEntry } from '@shared/templates'
+
+export const templates = {
+  create: (kind: TemplateKind, args: CreateTemplateArgs) =>
+    api().templates.create(kind, args) as Promise<CreateTemplateResult>,
+  cancel: () => api().templates.cancel() as Promise<boolean>,
+  /** Subscribe to per-line stdout/stderr from the active scaffold. Returns unsubscribe. */
+  onLog: (handler: (entry: TemplateLogEntry) => void): (() => void) =>
+    (api().templates.onLog as (h: (e: TemplateLogEntry) => void) => () => void)(handler),
+}
+
 export const files = {
   getIgnored: (worktreePath: string, patterns?: string[]) => api().files.getIgnored(worktreePath, patterns),
   getFileInfo: (worktreePath: string, paths: string[]) => api().files.getFileInfo(worktreePath, paths),
@@ -209,6 +230,15 @@ export const files = {
   pathExists: (dirPath: string) => api().files.pathExists(dirPath) as Promise<boolean>,
   detectPlatform: (repoPath: string) => api().files.detectPlatform(repoPath) as Promise<import('@/types').ProjectPlatform>,
   detectFramework: (repoPath: string) => api().files.detectFramework(repoPath) as Promise<import('@/types').MobileFramework>,
+}
+
+export const search = {
+  content: (worktreePath: string, query: string, options: import('@shared/search').SearchOptions) =>
+    api().search.content(worktreePath, query, options),
+  replace: (worktreePath: string, results: import('@shared/search').SearchFileResult[], replacement: string) =>
+    api().search.replace(worktreePath, results, replacement),
+  replaceOne: (worktreePath: string, relativePath: string, matches: import('@shared/search').SearchMatch[], replacement: string) =>
+    api().search.replaceOne(worktreePath, relativePath, matches, replacement),
 }
 
 export const dialog = {

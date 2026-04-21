@@ -2,7 +2,8 @@
 // Session persistence — save/load sessions to/from disk via IPC
 // ---------------------------------------------------------------------------
 
-import type { AgentSession, Message, ModelId } from '@/types'
+import type { AgentSession, EffortLevel, Message, ModelId } from '@/types'
+import { DEFAULT_EFFORT, getEffortLevelsForModel } from '@/lib/constants'
 import * as ipc from '@/lib/ipc'
 import { sessionWorktreePaths, sessionLinkedPaths, lastActivePerWorktree } from './storage'
 
@@ -17,6 +18,14 @@ let _getSession: SessionGetter = () => undefined
 /** Wire up the sessions store getter. Called once by store.ts after create(). */
 export function bindSessionsStore(getter: SessionGetter): void {
   _getSession = getter
+}
+
+/** Normalize persisted effort level: coerce to DEFAULT_EFFORT if the model doesn't support it. */
+function normalizeEffort(model: string, persisted: EffortLevel | undefined): EffortLevel {
+  const level = persisted ?? DEFAULT_EFFORT
+  const supported = getEffortLevelsForModel(model)
+  if (supported.length === 0 || !supported.includes(level)) return DEFAULT_EFFORT
+  return level
 }
 
 /** Persist a session to disk (fire-and-forget) */
@@ -62,7 +71,9 @@ export async function hydratePersistedSessions(): Promise<{
       status: (p.status === 'running' || p.status === 'waiting_input' || p.status === 'error') ? 'idle' : p.status as AgentSession['status'],
       model: p.model as ModelId,
       thinkingEnabled: p.thinkingEnabled,
-      planModeEnabled: (p as Record<string, unknown>).planModeEnabled as boolean ?? false,
+      extendedContext: ((p as Record<string, unknown>).extendedContext as boolean | undefined) ?? false,
+      effortLevel: normalizeEffort(p.model, (p as Record<string, unknown>).effortLevel as EffortLevel | undefined),
+      planModeEnabled: ((p as Record<string, unknown>).planModeEnabled as boolean | undefined) ?? false,
       messages: p.messages.filter(
         (m) => !(m.role === 'system' && typeof m.content === 'string' && m.content.startsWith('Error: Session process exited'))
       ),
@@ -73,7 +84,8 @@ export async function hydratePersistedSessions(): Promise<{
       tokenUsage: (p as Record<string, unknown>).tokenUsage as AgentSession['tokenUsage'] ?? null,
       contextTokens: (p as Record<string, unknown>).contextTokens as number | null ?? null,
       createdAt: p.createdAt,
-      linkedWorktrees: (p as Record<string, unknown>).linkedWorktrees as AgentSession['linkedWorktrees']
+      linkedWorktrees: (p as Record<string, unknown>).linkedWorktrees as AgentSession['linkedWorktrees'],
+      pendingResumeAt: (p as Record<string, unknown>).pendingResumeAt as string | undefined
     }
     sessionWorktreePaths.set(p.id, p.worktreePath)
     const linkedPaths = sessions[p.id].linkedWorktrees?.map((lw) => lw.path) ?? []

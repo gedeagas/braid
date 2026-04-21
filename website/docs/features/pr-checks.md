@@ -98,6 +98,35 @@ If your repository has deployment environments (such as staging or production), 
 - **State indicator**: colored dot showing success, failure, or pending
 - **Link**: Click the row to open the deployment URL in your browser
 
+## Code reviews
+
+When your PR has code reviews, Braid surfaces them in two places.
+
+### Reviews summary in the Checks tab
+
+A **Code Reviews** section appears below the check runs when reviewers have left feedback. Each row shows:
+
+- **Reviewer avatar and name** - The person who submitted the review.
+- **Review state badge** - Approved, changes requested, commented, or dismissed.
+- **Thread counts** - How many comment threads are resolved vs. unresolved.
+
+Reviews are deduplicated to show only the latest review per author.
+
+### Full code review panel
+
+Click **See all** or any review row to open the full code review panel in the center area. This view provides:
+
+- **Filter bar** - Toggle between All, Open, and Resolved comment threads.
+- **File-grouped comments** - Inline comments are organized by file path, each showing the relevant diff hunk with syntax highlighting (powered by Shiki).
+- **Comment threading** - Reply chains are rendered inline beneath each diff hunk.
+- **Click to open file** - Click any file path header to jump to that file in the editor.
+
+The code review panel opens as a tab in the center panel, so you can switch between it and your chat sessions freely.
+
+:::tip
+Use the filter bar to focus on unresolved comments when addressing reviewer feedback. Switch to "All" to see the full conversation history.
+:::
+
 ## PR status caching
 
 Braid caches PR status per worktree to keep the UI responsive. The cache refreshes automatically every **60 seconds** in the background. Concurrent fetch requests for the same worktree are deduplicated, so even if multiple components request PR data simultaneously, only one GitHub API call is made.

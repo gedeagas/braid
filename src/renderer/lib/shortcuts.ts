@@ -13,6 +13,7 @@ export const SHORTCUTS: ShortcutDef[] = [
   { id: 'openSettings', symbols: ['⌘', ','], category: 'general' },
   { id: 'showShortcuts', symbols: ['⌘', '/'], category: 'general' },
   { id: 'toggleMissionControl', symbols: ['⌘', '⇧', 'M'], category: 'general' },
+  { id: 'commandPalette', symbols: ['⌘', 'K'], category: 'general' },
 
   // View
   { id: 'toggleSidebar', symbols: ['⌘', 'B'], category: 'view' },
@@ -24,6 +25,7 @@ export const SHORTCUTS: ShortcutDef[] = [
 
   // Navigation
   { id: 'newChatTab', symbols: ['⌘', 'T'], category: 'navigation' },
+  { id: 'newBigTerminal', symbols: ['⌘', '⇧', 'T'], category: 'navigation' },
   { id: 'closeTab', symbols: ['⌘', 'W'], category: 'navigation' },
   { id: 'previousTab', symbols: ['⌘', '⇧', '['], category: 'navigation' },
   { id: 'nextTab', symbols: ['⌘', '⇧', ']'], category: 'navigation' },

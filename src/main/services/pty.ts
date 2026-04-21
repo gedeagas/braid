@@ -1,8 +1,24 @@
-import { BrowserWindow } from 'electron'
-import { existsSync, accessSync, constants, lstatSync } from 'fs'
+import { BrowserWindow, app } from 'electron'
+import { existsSync, accessSync, constants, lstatSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'fs'
 import { homedir } from 'os'
+import { join } from 'path'
 import { execFileSync } from 'child_process'
 import { mainSettings } from '../ipc'
+
+// ── Big Terminal scrollback persistence ──────────────────────────────────────
+
+function scrollbackDir(): string {
+  return join(homedir(), 'Braid', 'bigTerminals')
+}
+
+function scrollbackPath(terminalId: string): string {
+  // Strict allowlist: terminalId must match our generated format (bt-<digits>-<digits>).
+  // Anything else is rejected to prevent path traversal.
+  if (!/^bt-\d+-\d+$/.test(terminalId)) {
+    throw new Error(`Invalid terminal id: ${terminalId}`)
+  }
+  return join(scrollbackDir(), `${terminalId}.scrollback`)
+}
 
 // ── Ring Buffer ──────────────────────────────────────────────────────────────
 
@@ -59,6 +75,14 @@ export interface IPtyService {
   runScript(cwd: string, command: string, timeoutMs?: number): Promise<{ exitCode: number }>
   /** Read buffered output from all PTYs spawned in the given worktree path. */
   readTerminalOutput(worktreePath: string): TerminalOutput[]
+  /** Associate a ptyId with a persistent big-terminal id so the RingBuffer is flushed to disk on exit/shutdown. */
+  registerBigTerminal(ptyId: string, terminalId: string): void
+  /** Read the persisted scrollback for a big terminal. Returns empty string if none exists. */
+  readScrollback(terminalId: string): string
+  /** Delete the persisted scrollback file for a big terminal. */
+  deleteScrollback(terminalId: string): void
+  /** Flush all live big-terminal PTYs' RingBuffers to disk. Called on app quit. */
+  dumpAllScrollbacks(): void
 }
 
 // ── Service ──────────────────────────────────────────────────────────────────
@@ -66,6 +90,8 @@ export interface IPtyService {
 class PtyService implements IPtyService {
   private instances = new Map<string, PtyInstance>()
   private counter = 0
+  /** Mapping ptyId → terminalId for big terminal PTYs (for scrollback persistence). */
+  private bigTerminalByPty = new Map<string, string>()
 
   private getWindow(): BrowserWindow | null {
     const windows = BrowserWindow.getAllWindows()
@@ -134,11 +160,15 @@ class PtyService implements IPtyService {
     })
 
     ptyProcess.onExit(({ exitCode }: { exitCode: number }) => {
+      // Persist scrollback for big terminals before removing the instance
+      const terminalId = this.bigTerminalByPty.get(id)
+      if (terminalId) this.writeScrollbackFile(terminalId, buffer.read())
       const win = this.getWindow()
       if (win && !win.isDestroyed()) {
         win.webContents.send('pty:exit', id, exitCode)
       }
       this.instances.delete(id)
+      this.bigTerminalByPty.delete(id)
     })
 
     this.instances.set(id, instance)
@@ -154,8 +184,13 @@ class PtyService implements IPtyService {
   }
 
   kill(id: string): void {
-    this.instances.get(id)?.process.kill()
+    // Persist scrollback for big terminals before killing (onExit may not fire reliably on kill)
+    const terminalId = this.bigTerminalByPty.get(id)
+    const instance = this.instances.get(id)
+    if (terminalId && instance) this.writeScrollbackFile(terminalId, instance.buffer.read())
+    instance?.process.kill()
     this.instances.delete(id)
+    this.bigTerminalByPty.delete(id)
   }
 
   killAll(): void {
@@ -172,6 +207,46 @@ class PtyService implements IPtyService {
       }
     }
     return results
+  }
+
+  // ── Big Terminal scrollback persistence ────────────────────────────────────
+
+  private writeScrollbackFile(terminalId: string, data: string): void {
+    try {
+      mkdirSync(scrollbackDir(), { recursive: true })
+      writeFileSync(scrollbackPath(terminalId), data, { encoding: 'utf8', mode: 0o600 })
+    } catch (err) {
+      // Non-fatal: scrollback is a best-effort restore aid
+      console.warn('[pty] Failed to persist scrollback for', terminalId, err)
+    }
+  }
+
+  registerBigTerminal(ptyId: string, terminalId: string): void {
+    if (!this.instances.has(ptyId)) return
+    this.bigTerminalByPty.set(ptyId, terminalId)
+  }
+
+  readScrollback(terminalId: string): string {
+    try {
+      return readFileSync(scrollbackPath(terminalId), { encoding: 'utf8' })
+    } catch {
+      return ''
+    }
+  }
+
+  deleteScrollback(terminalId: string): void {
+    try {
+      unlinkSync(scrollbackPath(terminalId))
+    } catch {
+      // File may not exist — ignore
+    }
+  }
+
+  dumpAllScrollbacks(): void {
+    for (const [ptyId, terminalId] of this.bigTerminalByPty) {
+      const instance = this.instances.get(ptyId)
+      if (instance) this.writeScrollbackFile(terminalId, instance.buffer.read())
+    }
   }
 
   /** Run a command synchronously and return when it exits. Used for archive scripts. */
@@ -220,3 +295,8 @@ class PtyService implements IPtyService {
 }
 
 export const ptyService = new PtyService()
+
+// Flush all big-terminal scrollbacks on graceful app quit so next launch can replay.
+app.on('before-quit', () => {
+  ptyService.dumpAllScrollbacks()
+})

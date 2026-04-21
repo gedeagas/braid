@@ -52,6 +52,23 @@
   color: var(--text-primary);
 }
 
+.worktree-row:focus {
+  outline: none;
+}
+
+.worktree-row--keyboard-focused {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.project-header:focus {
+  outline: none;
+}
+
+.project-header--keyboard-focused {
+  background: var(--bg-hover);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
 /* Status dot */
 .status-dot {
   width: 8px;

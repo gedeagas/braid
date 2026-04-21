@@ -8,6 +8,8 @@ export type CenterView =
   | { type: 'session'; sessionId: string }
   | { type: 'file'; path: string }
   | { type: 'changes' }
+  | { type: 'terminal'; terminalId: string }
+  | { type: 'codeReview' }
 
 export type ToolMessageStyle = 'funny' | 'boring'
 export type ActivityIndicatorStyle = 'spinner' | 'dots' | 'waveform'
@@ -109,6 +111,7 @@ export interface LayoutSlice {
   activityIndicatorStyle: ActivityIndicatorStyle
   openFilePaths: string[]
   changesOpenByWorktree: Record<string, boolean>
+  codeReviewOpenByWorktree: Record<string, boolean>
   selectedDiffFileByWorktree: Record<string, DiffFileSelection | null>
   tabOrder: string[]
   dirtyFilePaths: Set<string>
@@ -116,11 +119,13 @@ export interface LayoutSlice {
   skipDeleteWorktreeConfirm: boolean
   newlyAddedWorktreeId: string | null
   missionControlActive: boolean
+  projectAvatarVisible: boolean
   sidebarPanelOpen: boolean
   rightPanelVisible: boolean
   sidebarWidth: number
   rightPanelWidth: number
   changesCounts: Record<string, number>
+  diffRevisionByWorktree: Record<string, number>
 
   selectWorktree: (projectId: string, worktreeId: string) => void
   toggleProject: (projectId: string) => void
@@ -137,6 +142,8 @@ export interface LayoutSlice {
   closeFile: (path: string) => void
   openChanges: (file?: string, status?: GitStatusCode, staged?: boolean) => void
   closeChanges: () => void
+  openCodeReview: () => void
+  closeCodeReview: () => void
   selectDiffFile: (path: string, status?: GitStatusCode, staged?: boolean) => void
   setActiveCenterView: (view: CenterView | null) => void
   setFileDirty: (path: string, dirty: boolean) => void
@@ -145,6 +152,7 @@ export interface LayoutSlice {
   setSkipDeleteWorktreeConfirm: (skip: boolean) => void
   setNewlyAddedWorktreeId: (id: string | null) => void
   prependWorktreeToOrder: (projectId: string, worktreeId: string) => void
+  setProjectAvatarVisible: (visible: boolean) => void
   toggleMissionControl: () => void
   setMissionControlActive: (active: boolean) => void
   toggleSidebar: () => void
@@ -154,6 +162,8 @@ export interface LayoutSlice {
   setRightPanelWidth: (width: number) => void
   persistRightPanelWidth: () => void
   setChangesCount: (worktreePath: string, count: number) => void
+  bumpDiffRevision: (worktreePath: string) => void
+  cleanupWorktreeState: (worktreeId: string, worktreePath: string) => void
 }
 
 export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (set, get) => ({
@@ -181,6 +191,7 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
     return []
   })(),
   changesOpenByWorktree: {},
+  codeReviewOpenByWorktree: {},
   selectedDiffFileByWorktree: {},
   tabOrder: (() => {
     try {
@@ -199,6 +210,7 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
   activeCenterViewByWorktree: {},
   skipDeleteWorktreeConfirm: localStorage.getItem(SK.skipDeleteWorktreeConfirm) === 'true',
   newlyAddedWorktreeId: null,
+  projectAvatarVisible: loadBool(SK.projectAvatarVisible, true),
   missionControlActive: loadBool(SK.missionControlActive, false),
   sidebarPanelOpen: (() => {
     const saved = localStorage.getItem(SK.sidebarPanelOpen)
@@ -209,6 +221,7 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
   sidebarWidth: loadInt(SK.sidebarWidth, 290),
   rightPanelWidth: loadInt(SK.rightPanelWidth, 400),
   changesCounts: {},
+  diffRevisionByWorktree: {},
 
   selectWorktree: (projectId, worktreeId) => {
     const expanded = new Set(get().expandedProjects)
@@ -254,6 +267,8 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
       tabOrder: restoredTabOrder,
       dirtyFilePaths: new Set(),
     })
+    // Hydrate persisted big terminal tabs for the target worktree (idempotent)
+    get().restoreBigTerminalsForWorktree(worktreeId)
     // Close any active web app via the apps slice's own action
     // (avoids cross-slice mutation of activeWebAppId)
     get().closeWebApp()
@@ -403,6 +418,38 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
     })
   },
 
+  openCodeReview: () => {
+    const wtId = get().selectedWorktreeId
+    if (!wtId) return
+    const { tabOrder } = get()
+    const crKey = 'codeReview'
+    const nextTabOrder = tabOrder.includes(crKey) ? tabOrder : [...tabOrder, crKey]
+    if (!tabOrder.includes(crKey)) {
+      try { localStorage.setItem(SK.tabOrderPrefix + wtId, JSON.stringify(nextTabOrder)) } catch {}
+    }
+    set({
+      codeReviewOpenByWorktree: { ...get().codeReviewOpenByWorktree, [wtId]: true },
+      tabOrder: nextTabOrder,
+      activeCenterViewByWorktree: { ...get().activeCenterViewByWorktree, [wtId]: { type: 'codeReview' } },
+    })
+  },
+
+  closeCodeReview: () => {
+    const wtId = get().selectedWorktreeId
+    if (!wtId) return
+    const { tabOrder } = get()
+    const acv = get().activeCenterViewByWorktree[wtId] ?? null
+    const nextTabOrder = tabOrder.filter((k) => k !== 'codeReview')
+    let nextView: CenterView | null = acv
+    if (acv?.type === 'codeReview') nextView = null
+    try { localStorage.setItem(SK.tabOrderPrefix + wtId, JSON.stringify(nextTabOrder)) } catch {}
+    set({
+      codeReviewOpenByWorktree: { ...get().codeReviewOpenByWorktree, [wtId]: false },
+      tabOrder: nextTabOrder,
+      activeCenterViewByWorktree: { ...get().activeCenterViewByWorktree, [wtId]: nextView },
+    })
+  },
+
   selectDiffFile: (path, status, staged) => {
     const wtId = get().selectedWorktreeId ?? ''
     set({ selectedDiffFileByWorktree: { ...get().selectedDiffFileByWorktree, [wtId]: { path, status: status ?? 'M', staged: staged ?? false } } })
@@ -451,6 +498,11 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
     orders[projectId] = [worktreeId, ...current.filter((id) => id !== worktreeId)]
     saveWorktreeOrders(orders)
     set({ worktreeOrders: orders, newlyAddedWorktreeId: worktreeId })
+  },
+
+  setProjectAvatarVisible: (visible) => {
+    localStorage.setItem(SK.projectAvatarVisible, String(visible))
+    set({ projectAvatarVisible: visible })
   },
 
   toggleMissionControl: () => {
@@ -551,6 +603,33 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
     if (prev === count) return
     set({ changesCounts: { ...get().changesCounts, [worktreePath]: count } })
   },
+
+  bumpDiffRevision: (worktreePath) => {
+    const current = get().diffRevisionByWorktree[worktreePath] ?? 0
+    set({ diffRevisionByWorktree: { ...get().diffRevisionByWorktree, [worktreePath]: current + 1 } })
+  },
+
+  cleanupWorktreeState: (worktreeId, worktreePath) => {
+    // Prune all per-worktree maps to avoid leaking entries after worktree deletion.
+    // Some maps key by worktreeId, others by worktreePath - clean both consistently.
+    const omit = <V,>(obj: Record<string, V>, key: string): Record<string, V> => {
+      if (!(key in obj)) return obj
+      const { [key]: _, ...rest } = obj
+      return rest
+    }
+    const s = get()
+    set({
+      changesOpenByWorktree: omit(s.changesOpenByWorktree, worktreeId),
+      codeReviewOpenByWorktree: omit(s.codeReviewOpenByWorktree, worktreeId),
+      selectedDiffFileByWorktree: omit(s.selectedDiffFileByWorktree, worktreeId),
+      activeCenterViewByWorktree: omit(s.activeCenterViewByWorktree, worktreeId),
+      changesCounts: omit(s.changesCounts, worktreePath),
+      diffRevisionByWorktree: omit(s.diffRevisionByWorktree, worktreePath),
+    })
+    // Also clear persisted per-worktree localStorage entries
+    try { localStorage.removeItem(SK.openFilePathsPrefix + worktreeId) } catch {}
+    try { localStorage.removeItem(SK.tabOrderPrefix + worktreeId) } catch {}
+  },
 })
 
 // ─── Derived selectors (per-worktree lookups) ─────────────────────────────────
@@ -563,3 +642,6 @@ export const selectSelectedDiffFile = (s: LayoutSlice): DiffFileSelection | null
 
 export const selectActiveCenterView = (s: LayoutSlice): CenterView | null =>
   s.activeCenterViewByWorktree[s.selectedWorktreeId ?? ''] ?? null
+
+export const selectCodeReviewOpen = (s: LayoutSlice): boolean =>
+  s.codeReviewOpenByWorktree[s.selectedWorktreeId ?? ''] ?? false

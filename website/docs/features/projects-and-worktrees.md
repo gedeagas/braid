@@ -50,6 +50,21 @@ If a worktree has an open pull request, you see a **PR badge** with the PR numbe
 Status indicators update in real time. If Claude finishes a task while you're looking at another worktree, you see the indicator change immediately.
 :::
 
+## Keyboard navigation
+
+You can navigate the sidebar entirely with the keyboard:
+
+| Key | Action |
+|-----|--------|
+| **↑ / ↓** | Move focus through worktrees and project headers |
+| **←** on a worktree | Jump focus to its parent project header |
+| **←** on an expanded project | Collapse the project |
+| **→** on a collapsed project | Expand the project |
+| **→** on an expanded project | Move focus to its first worktree |
+| **Enter / Space** | Select the focused worktree or toggle the project |
+
+Clicking a row with the mouse syncs the keyboard focus position, so subsequent arrow navigation resumes from where you clicked. Arrow keys are disabled when a text input or button has focus, so they never interfere with typing in the chat input.
+
 ## Pin worktrees
 
 Right-click any worktree and select **Pin** from the context menu. Pinned worktrees float to the top of their project group, so your most important branches stay visible no matter how many worktrees you have.

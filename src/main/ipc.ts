@@ -12,8 +12,12 @@ import { ptyService } from './services/pty'
 import { githubService } from './services/github'
 import { sessionStorageService, PersistedSession } from './services/sessionStorage'
 import { filesService } from './services/files'
+import { searchService } from './services/search'
 import { simulatorService } from './services/simulator'
 import { detectScripts } from './services/scriptDetector'
+import { templatesService } from './services/templates'
+import type { TemplateKind, CreateTemplateArgs } from '../shared/templates'
+import type { SearchFileResult, SearchMatch, SearchOptions } from '../shared/search'
 import { windowCaptureService } from './services/windowCapture'
 import { claudeConfigService, ClaudePermissions, ClaudeHookConfig, SkillDetail, McpServerEntry, McpServerConfig } from './services/claudeConfig'
 import { notesService } from './services/notes'
@@ -112,13 +116,17 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('git:initRepo', (_e, dirPath: string) => gitService.initRepo(dirPath))
   ipcMain.handle('git:isRepoRoot', (_e, repoPath: string) => gitService.isRepoRoot(repoPath))
   ipcMain.handle('git:findChildRepos', (_e, parentPath: string) => gitService.findChildRepos(parentPath))
+  ipcMain.handle('git:createSnapshot', (_e, worktreePath: string) => gitService.createSnapshot(worktreePath))
+  ipcMain.handle('git:restoreSnapshot', (_e, worktreePath: string, snapSha: string) =>
+    gitService.restoreSnapshot(worktreePath, snapSha)
+  )
 
   // Agent
-  ipcMain.handle('agent:startSession', (_e, sessionId: string, worktreeId: string, worktreePath: string, prompt: string, model: string, thinking: boolean, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string) =>
-    agentService.startSession(sessionId, worktreeId, worktreePath, prompt, model, thinking, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework)
+  ipcMain.handle('agent:startSession', (_e, sessionId: string, worktreeId: string, worktreePath: string, prompt: string, model: string, thinking: boolean, extendedContext: boolean, effortLevel: string, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string) =>
+    agentService.startSession(sessionId, worktreeId, worktreePath, prompt, model, thinking, extendedContext, effortLevel, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework)
   )
-  ipcMain.handle('agent:sendMessage', (_e, sessionId: string, message: string, sdkSessionId: string, cwd: string, model: string, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string) =>
-    agentService.sendMessage(sessionId, message, sdkSessionId, cwd, model, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework)
+  ipcMain.handle('agent:sendMessage', (_e, sessionId: string, message: string, sdkSessionId: string, cwd: string, model: string, extendedContext: boolean, effortLevel: string, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string, resumeSessionAt?: string) =>
+    agentService.sendMessage(sessionId, message, sdkSessionId, cwd, model, extendedContext, effortLevel, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework, resumeSessionAt)
   )
   ipcMain.handle('agent:updateSessionName', (_e, sessionId: string, name: string) =>
     agentService.updateSessionName(sessionId, name)
@@ -163,6 +171,10 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('pty:kill', (_e, id: string) => ptyService.kill(id))
   ipcMain.handle('pty:runScript', (_e, cwd: string, command: string) => ptyService.runScript(cwd, command))
   ipcMain.handle('pty:readTerminalOutput', (_e, worktreePath: string) => ptyService.readTerminalOutput(worktreePath))
+  ipcMain.on('pty:registerBigTerminal', (_e, ptyId: string, terminalId: string) =>
+    ptyService.registerBigTerminal(ptyId, terminalId))
+  ipcMain.handle('pty:readScrollback', (_e, terminalId: string) => ptyService.readScrollback(terminalId))
+  ipcMain.on('pty:deleteScrollback', (_e, terminalId: string) => ptyService.deleteScrollback(terminalId))
 
   // GitHub
   ipcMain.handle('github:getPrStatus', (_e, worktreePath: string, forceRefresh?: boolean) =>
@@ -184,6 +196,9 @@ export function registerIpcHandlers(): void {
   )
   ipcMain.handle('github:getCheckRunLog', (_e, worktreePath: string, checkUrl: string) =>
     githubService.getCheckRunLog(worktreePath, checkUrl)
+  )
+  ipcMain.handle('github:getReviews', (_e, worktreePath: string, forceRefresh?: boolean) =>
+    githubService.getReviews(worktreePath, forceRefresh)
   )
   ipcMain.handle('github:openCheckLog', async (_e, worktreePath: string, checkUrl: string, checkName: string) => {
     const log = await githubService.getCheckRunLog(worktreePath, checkUrl)
@@ -397,6 +412,17 @@ export function registerIpcHandlers(): void {
   // Scripts
   ipcMain.handle('scripts:detect', (_e, projectPath: string, forceRefresh?: boolean) => detectScripts(projectPath, forceRefresh))
 
+  // Templates - scaffold new projects from built-in starter templates.
+  // Progress lines are pushed to the invoking renderer via 'templates:log'.
+  ipcMain.handle('templates:create', (e, kind: TemplateKind, args: CreateTemplateArgs) =>
+    templatesService.create(kind, args, {
+      onLog: (entry) => {
+        if (!e.sender.isDestroyed()) e.sender.send('templates:log', entry)
+      },
+    })
+  )
+  ipcMain.handle('templates:cancel', () => templatesService.cancel())
+
   // Window Capture
   ipcMain.handle('windowCapture:getSources', () => windowCaptureService.getSources())
   ipcMain.handle('windowCapture:checkPermission', () => windowCaptureService.checkPermission())
@@ -428,6 +454,17 @@ export function registerIpcHandlers(): void {
   )
   ipcMain.handle('files:detectFramework', (_e, repoPath: string) =>
     filesService.detectMobileFramework(repoPath)
+  )
+
+  // Search
+  ipcMain.handle('search:content', (_e, worktreePath: string, query: string, options: SearchOptions) =>
+    searchService.searchContent(worktreePath, query, options)
+  )
+  ipcMain.handle('search:replace', (_e, worktreePath: string, results: SearchFileResult[], replacement: string) =>
+    searchService.replaceAll(worktreePath, results, replacement)
+  )
+  ipcMain.handle('search:replaceOne', (_e, worktreePath: string, relativePath: string, matches: SearchMatch[], replacement: string) =>
+    searchService.replaceInFile(worktreePath, relativePath, matches, replacement)
   )
 
   // Claude CLI detection — delegates to the single source of truth

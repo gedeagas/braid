@@ -1,7 +1,8 @@
 // ─── Session ──────────────────────────────────────────────────────────────────
 
 export type SessionStatus = 'idle' | 'running' | 'waiting_input' | 'error' | 'inactive'
-export type ModelId = 'claude-sonnet-4-6' | 'claude-opus-4-6' | 'claude-haiku-4-5-20251001'
+export type ModelId = 'claude-opus-4-7' | 'claude-sonnet-4-6' | 'claude-opus-4-6' | 'claude-haiku-4-5-20251001'
+export type EffortLevel = 'low' | 'medium' | 'high' | 'max'
 export type SettingsSection = string
 
 export interface PendingQuestion {
@@ -66,6 +67,8 @@ export interface AgentSession {
   status: SessionStatus
   model: ModelId
   thinkingEnabled: boolean
+  extendedContext: boolean
+  effortLevel: EffortLevel
   planModeEnabled: boolean
   messages: Message[]
   activity: string | null // e.g. "Thinking...", "Running Bash", "Reading file"
@@ -85,6 +88,12 @@ export interface AgentSession {
   linkedWorktrees?: LinkedWorktree[]
   /** When set, the mobile-device MCP server is injected into this session. */
   connectedDeviceId?: string
+  /**
+   * Set after a rollback. The next sendMessage call will pass this value to the SDK as
+   * `resumeSessionAt`, so the SDK replays history only up to (and including) this UUID.
+   * Cleared after the IPC send succeeds. Preserved on failure so a retry can reuse it.
+   */
+  pendingResumeAt?: string
 }
 
 export type ContentBlock =
@@ -99,8 +108,27 @@ export interface TurnUsage {
   cacheWriteTokens: number
 }
 
+export interface RateLimitInfo {
+  /** The rate limit type (five_hour, seven_day, seven_day_opus, etc.) */
+  rateLimitType: string
+  /** Utilization 0.0 to 1.0, null when usage is below reporting threshold */
+  utilization: number | null
+  /** Status: allowed, allowed_warning, rejected */
+  status: 'allowed' | 'allowed_warning' | 'rejected'
+  /** Unix timestamp when limit resets */
+  resetsAt?: number
+  /** Whether overage billing is active */
+  isUsingOverage?: boolean
+  /** Last updated timestamp */
+  updatedAt: number
+}
+
 export interface Message {
   id: string
+  /** SDK-assigned message UUID (from SDKAssistantMessage/SDKUserMessage.uuid). Used as anchor for rollback via resumeSessionAt. */
+  sdkUuid?: string
+  /** Git commit SHA of a snapshot taken just before this user turn was sent. Set only on user messages. */
+  snapshotSha?: string
   role: 'user' | 'assistant' | 'system'
   content: string
   images?: string[] // base64 data URIs for user-attached images

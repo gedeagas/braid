@@ -1,5 +1,5 @@
 import { logger } from '../lib/logger'
-import simpleGit from 'simple-git'
+import { getGit } from './git/core'
 import { existsSync, statSync, copyFileSync, mkdirSync, readdirSync, readFileSync } from 'fs'
 import { join, dirname, relative } from 'path'
 import { ServiceCache } from '../lib/serviceCache'
@@ -131,7 +131,7 @@ class FilesService {
   private async _fetchIgnoredFiles(worktreePath: string, patterns?: string[]): Promise<IgnoredFile[]> {
     try {
       const globs = (patterns && patterns.length > 0 ? patterns : DEFAULT_PATTERNS).map(globToRegex)
-      const git = simpleGit(worktreePath)
+      const git = getGit(worktreePath)
       const raw = await git.raw(['ls-files', '--others', '--ignored', '--exclude-standard'])
       const files = raw
         .split('\n')

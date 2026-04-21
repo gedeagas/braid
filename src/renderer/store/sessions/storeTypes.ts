@@ -2,7 +2,7 @@
 // Store type definitions — shared between store.ts and action slice factories
 // ---------------------------------------------------------------------------
 
-import type { AgentSession, DiffComment, LinkedWorktree, ModelId, SnippetAttachment } from '@/types'
+import type { AgentSession, DiffComment, EffortLevel, LinkedWorktree, ModelId, SnippetAttachment } from '@/types'
 
 export interface QueuedMessage {
   text: string
@@ -37,6 +37,8 @@ export interface SessionsState {
   closeSessionsByWorktree: (worktreeId: string) => void
   updateModel: (sessionId: string, model: ModelId) => void
   updateThinking: (sessionId: string, enabled: boolean) => void
+  updateExtendedContext: (sessionId: string, enabled: boolean) => void
+  updateEffortLevel: (sessionId: string, level: EffortLevel) => void
   updatePlanMode: (sessionId: string, enabled: boolean) => void
   renameSession: (sessionId: string, name: string) => void
   reorderSessions: (worktreeId: string, fromIndex: number, toIndex: number) => void
@@ -50,6 +52,7 @@ export interface SessionsState {
   addDraftSnippet: (sessionId: string, snippet: SnippetAttachment) => void
   removeDraftSnippet: (sessionId: string, snippetId: string) => void
   clearDraftSnippets: (sessionId: string) => void
+  setDraftSnippets: (sessionId: string, snippets: SnippetAttachment[]) => void
   addDiffComment: (sessionId: string, comment: DiffComment) => void
   updateDiffComment: (sessionId: string, commentId: string, text: string) => void
   removeDiffComment: (sessionId: string, commentId: string) => void
@@ -74,4 +77,11 @@ export interface SessionsState {
   dismissNetworkError: (sessionId: string) => void
   /** Respond to an MCP elicitation (OAuth auth or form input). */
   answerElicitation: (sessionId: string, result: { action: 'accept' | 'decline' | 'cancel'; content?: Record<string, unknown> }) => void
+  /**
+   * Experimental: rollback chat history to a specific user message.
+   * Truncates messages at the target, restores worktree files from that
+   * message's git snapshot, and sets pendingResumeAt so the next sendMessage
+   * passes resumeSessionAt to the SDK (resuming from the prior assistant turn).
+   */
+  rollbackToUserMessage: (sessionId: string, targetMessageId: string) => Promise<void>
 }

@@ -21,7 +21,8 @@ const NAV_GROUPS = [
   { header: 'general', items: ['general', 'editor', 'analytics', 'about'] },
   { header: 'claudeAgent', items: ['ai', 'claudePermissions', 'claudeHooks', 'claudeInstructions', 'claudePlugins', 'claudeMcp', 'claudeSkills'] },
   { header: 'appearance', items: ['appearance'] },
-  { header: 'integrations', items: ['apps', 'git', 'jira', 'notifications'] },
+  { header: 'integrations', items: ['apps', 'git', 'github', 'jira', 'notifications'] },
+  { header: 'experimental', items: ['experimental'] },
 ]
 
 export function SettingsNav() {

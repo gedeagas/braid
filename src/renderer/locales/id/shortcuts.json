@@ -16,6 +16,7 @@
   "zoomReset": "Reset Zoom",
   "toggleTerminal": "Tampilkan/Sembunyikan Terminal",
   "newChatTab": "Tab Chat Baru",
+  "newBigTerminal": "Terminal Besar Baru",
   "closeTab": "Tutup Tab Saat Ini",
   "previousTab": "Tab Sebelumnya",
   "nextTab": "Tab Selanjutnya",
@@ -23,6 +24,10 @@
   "quickOpen": "Buka File Cepat",
   "focusChat": "Fokus Input Chat",
   "saveFile": "Simpan File",
+  "commandPalette": "Palet Perintah",
+  "commandPaletteSearch": "Ketik perintah...",
+  "commandPaletteRun": "jalankan",
+  "commandPaletteNoResults": "Tidak ada perintah yang cocok dengan \"{{query}}\"",
   "noResults": "Tidak ada pintasan yang cocok dengan \"{{query}}\"",
   "empty": "Tidak ada pintasan"
 }

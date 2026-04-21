@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer, webFrame } from 'electron'
+import type { TemplateKind, CreateTemplateArgs, CreateTemplateResult, TemplateLogEntry } from '../shared/templates'
 
 const api = {
   // Storage
@@ -71,14 +72,18 @@ const api = {
       ipcRenderer.invoke('git:isRepoRoot', repoPath) as Promise<boolean>,
     findChildRepos: (parentPath: string) =>
       ipcRenderer.invoke('git:findChildRepos', parentPath) as Promise<string[]>,
+    createSnapshot: (worktreePath: string) =>
+      ipcRenderer.invoke('git:createSnapshot', worktreePath) as Promise<string>,
+    restoreSnapshot: (worktreePath: string, snapSha: string) =>
+      ipcRenderer.invoke('git:restoreSnapshot', worktreePath, snapSha) as Promise<void>,
   },
 
   // Agent
   agent: {
-    startSession: (sessionId: string, worktreeId: string, worktreePath: string, prompt: string, model: string, thinking: boolean, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string) =>
-      ipcRenderer.invoke('agent:startSession', sessionId, worktreeId, worktreePath, prompt, model, thinking, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework),
-    sendMessage: (sessionId: string, message: string, sdkSessionId: string, cwd: string, model: string, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string) =>
-      ipcRenderer.invoke('agent:sendMessage', sessionId, message, sdkSessionId, cwd, model, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework),
+    startSession: (sessionId: string, worktreeId: string, worktreePath: string, prompt: string, model: string, thinking: boolean, extendedContext: boolean, effortLevel: string, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string) =>
+      ipcRenderer.invoke('agent:startSession', sessionId, worktreeId, worktreePath, prompt, model, thinking, extendedContext, effortLevel, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework),
+    sendMessage: (sessionId: string, message: string, sdkSessionId: string, cwd: string, model: string, extendedContext: boolean, effortLevel: string, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string, resumeSessionAt?: string) =>
+      ipcRenderer.invoke('agent:sendMessage', sessionId, message, sdkSessionId, cwd, model, extendedContext, effortLevel, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework, resumeSessionAt),
     updateSessionName: (sessionId: string, name: string) =>
       ipcRenderer.invoke('agent:updateSessionName', sessionId, name),
     notify: (sessionId: string, type: 'done' | 'error' | 'waiting_input', sessionName?: string, errorMessage?: string, reason?: 'question' | 'plan_approval') =>
@@ -119,7 +124,13 @@ const api = {
       const handler = (_event: Electron.IpcRendererEvent, id: string, exitCode: number) => callback(id, exitCode)
       ipcRenderer.on('pty:exit', handler)
       return () => ipcRenderer.removeListener('pty:exit', handler)
-    }
+    },
+    registerBigTerminal: (ptyId: string, terminalId: string) =>
+      ipcRenderer.send('pty:registerBigTerminal', ptyId, terminalId),
+    readScrollback: (terminalId: string) =>
+      ipcRenderer.invoke('pty:readScrollback', terminalId) as Promise<string>,
+    deleteScrollback: (terminalId: string) =>
+      ipcRenderer.send('pty:deleteScrollback', terminalId),
   },
 
   // Simulator
@@ -158,6 +169,24 @@ const api = {
       ipcRenderer.invoke('scripts:detect', projectPath, forceRefresh) as Promise<Array<{ id: string; name: string; command: string; source: string }>>,
   },
 
+  // Templates - scaffold new projects from built-in starter templates
+  templates: {
+    create: (kind: TemplateKind, args: CreateTemplateArgs) =>
+      ipcRenderer.invoke('templates:create', kind, args) as Promise<CreateTemplateResult>,
+    cancel: () => ipcRenderer.invoke('templates:cancel') as Promise<boolean>,
+    /**
+     * Subscribe to per-line stdout/stderr from the active scaffold.
+     * Returns an unsubscribe function.
+     */
+    onLog: (handler: (entry: TemplateLogEntry) => void) => {
+      const listener = (_: Electron.IpcRendererEvent, entry: TemplateLogEntry) => handler(entry)
+      ipcRenderer.on('templates:log', listener)
+      return () => {
+        ipcRenderer.off('templates:log', listener)
+      }
+    },
+  },
+
   // Window Capture
   windowCapture: {
     getSources: () => ipcRenderer.invoke('windowCapture:getSources'),
@@ -189,6 +218,8 @@ const api = {
       ipcRenderer.invoke('github:mergePr', worktreePath, strategy),
     markPrReady: (worktreePath: string) =>
       ipcRenderer.invoke('github:markPrReady', worktreePath),
+    getReviews: (worktreePath: string, forceRefresh?: boolean) =>
+      ipcRenderer.invoke('github:getReviews', worktreePath, forceRefresh),
     startDeviceFlow: () =>
       ipcRenderer.invoke('github:startDeviceFlow') as Promise<{
         userCode: string; verificationUri: string; expiresIn: number
@@ -249,6 +280,16 @@ const api = {
       ipcRenderer.invoke('files:detectPlatform', repoPath) as Promise<'mobile' | 'web' | 'unknown'>,
     detectFramework: (repoPath: string) =>
       ipcRenderer.invoke('files:detectFramework', repoPath) as Promise<'react-native' | 'flutter' | null>,
+  },
+
+  // Search
+  search: {
+    content: (worktreePath: string, query: string, options: import('../shared/search').SearchOptions) =>
+      ipcRenderer.invoke('search:content', worktreePath, query, options) as Promise<import('../shared/search').SearchResult>,
+    replace: (worktreePath: string, results: import('../shared/search').SearchFileResult[], replacement: string) =>
+      ipcRenderer.invoke('search:replace', worktreePath, results, replacement) as Promise<import('../shared/search').ReplaceResult>,
+    replaceOne: (worktreePath: string, relativePath: string, matches: import('../shared/search').SearchMatch[], replacement: string) =>
+      ipcRenderer.invoke('search:replaceOne', worktreePath, relativePath, matches, replacement) as Promise<{ replaced: number }>,
   },
 
   // Claude CLI

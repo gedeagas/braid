@@ -5,6 +5,7 @@ import { getBranches, getRemoteBranches, setUpstream, renameBranch, getTrackingB
 import { getStatus, getDiff, getFileDiff, getStagedDiff, getStagedFiles, getFileTree, getTrackedFiles, readFile, writeFile, readFileAsBase64, getFileSize, invalidateFileTree, invalidateTrackedFiles } from './status'
 import { initRepo, push, pull, stageFiles, unstageFiles, discardChanges, commit } from './operations'
 import { getRemoteUrl, getRemotes, getGitUserConfig, setGitUserConfig, clearGitUserConfig, isRepoRoot, findChildRepos } from './config'
+import { createSnapshot, restoreSnapshot } from './snapshots'
 
 export type { WorktreeInfo, FileEntry, GitChangeInfo } from './types'
 export { getWorktrees, addWorktree, removeWorktree, cloneRepo, parseRepoName }
@@ -12,6 +13,7 @@ export { getBranches, getRemoteBranches, setUpstream, renameBranch, getTrackingB
 export { getStatus, getDiff, getFileDiff, getStagedDiff, getStagedFiles, getFileTree, getTrackedFiles, readFile, writeFile, readFileAsBase64, getFileSize, invalidateFileTree, invalidateTrackedFiles }
 export { initRepo, push, pull, stageFiles, unstageFiles, discardChanges, commit }
 export { getRemoteUrl, getRemotes, getGitUserConfig, setGitUserConfig, clearGitUserConfig, isRepoRoot, findChildRepos }
+export { createSnapshot, restoreSnapshot }
 
 class GitService {
   getWorktrees = getWorktrees
@@ -55,6 +57,9 @@ class GitService {
   clearGitUserConfig = clearGitUserConfig
   isRepoRoot = isRepoRoot
   findChildRepos = findChildRepos
+
+  createSnapshot = createSnapshot
+  restoreSnapshot = restoreSnapshot
 }
 
 export const gitService = new GitService()
