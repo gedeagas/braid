@@ -1,10 +1,12 @@
 import React from 'react'
+import { openExternalLink } from '@/lib/openExternalLink'
 
-/** Regex matching @mention tokens: `@` preceded by start-of-string or whitespace, followed by non-space chars */
-export const MENTION_RE = /(^|\s)(@\S+)/g
+/** Combined regex: @mentions (groups 1-2) and URLs (group 3) in a single pass */
+const MENTION_OR_URL_RE = /(?:(^|\s)(@\S+))|(https?:\/\/[^\s)>\]]+(?<![.,!?:;]))/g
 
 /**
- * Parses text and returns React nodes with @mentions wrapped in highlighted spans.
+ * Parses text and returns React nodes with @mentions wrapped in highlighted spans
+ * and URLs rendered as clickable links that open in the default browser.
  * Used by both the input backdrop overlay and sent message bubbles.
  */
 export function parseMentions(
@@ -15,15 +17,39 @@ export function parseMentions(
   const parts: React.ReactNode[] = []
   let lastIndex = 0
   let match: RegExpExecArray | null
-  MENTION_RE.lastIndex = 0
-  while ((match = MENTION_RE.exec(text)) !== null) {
-    const prefix = match[1]
-    const mention = match[2]
+  MENTION_OR_URL_RE.lastIndex = 0
+  while ((match = MENTION_OR_URL_RE.exec(text)) !== null) {
     const start = match.index
-    if (start + prefix.length > lastIndex) {
-      parts.push(text.slice(lastIndex, start + prefix.length))
+
+    if (match[2]) {
+      // @mention match
+      const prefix = match[1]
+      const mention = match[2]
+      if (start + prefix.length > lastIndex) {
+        parts.push(text.slice(lastIndex, start + prefix.length))
+      }
+      parts.push(<Tag key={`m${start}`} className={className}>{mention}</Tag>)
+    } else if (match[3]) {
+      // URL match — only linkify in display contexts (span), not input backdrop (mark)
+      const url = match[3]
+      if (start > lastIndex) {
+        parts.push(text.slice(lastIndex, start))
+      }
+      if (Tag === 'span') {
+        parts.push(
+          <a
+            key={`u${start}`}
+            href={url}
+            className="chat-msg-inline-link"
+            onClick={(e) => openExternalLink(e, url)}
+          >
+            {url}
+          </a>
+        )
+      } else {
+        parts.push(url)
+      }
     }
-    parts.push(<Tag key={start} className={className}>{mention}</Tag>)
     lastIndex = start + match[0].length
   }
   if (lastIndex < text.length) parts.push(text.slice(lastIndex))

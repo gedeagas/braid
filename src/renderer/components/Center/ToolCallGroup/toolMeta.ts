@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { createElement } from 'react'
+import { openExternalLink } from '@/lib/openExternalLink'
 import {
   IconPencil, IconFile, IconTerminal, IconSearch, IconGlobe,
   IconGitFork, IconChecklist, IconInbox, IconXCircle, IconBook,
@@ -56,10 +57,7 @@ export const TOOL_SUMMARY_GROUPS: Record<string, string> = {
 // Markdown link renderer
 export function LinkRenderer({ href, children }: React.AnchorHTMLAttributes<HTMLAnchorElement>) {
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (href) {
-      e.preventDefault()
-      window.api.shell.openExternal(href)
-    }
+    if (href) openExternalLink(e, href)
   }
   return createElement('a', { href, onClick: handleClick }, children)
 }
