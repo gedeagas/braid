@@ -1,8 +1,5 @@
 import React from 'react'
-import { openExternalLink } from './ToolCallGroup/toolMeta'
-
-/** Regex matching @mention tokens: `@` preceded by start-of-string or whitespace, followed by non-space chars */
-export const MENTION_RE = /(^|\s)(@\S+)/g
+import { openExternalLink } from '@/lib/openExternalLink'
 
 /** Combined regex: @mentions (groups 1-2) and URLs (group 3) in a single pass */
 const MENTION_OR_URL_RE = /(?:(^|\s)(@\S+))|(https?:\/\/[^\s)>\]]+)/g

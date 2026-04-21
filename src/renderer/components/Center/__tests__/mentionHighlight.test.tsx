@@ -93,4 +93,25 @@ describe('parseMentions', () => {
       { type: 'text', text: ' is great' },
     ])
   })
+
+  it('handles URLs with query strings and anchors', () => {
+    const parts = extractParts(
+      parseMentions('see https://example.com/page?q=1&b=2#section done', 'cls')
+    )
+    expect(parts).toEqual([
+      { type: 'text', text: 'see ' },
+      {
+        type: 'link',
+        text: 'https://example.com/page?q=1&b=2#section',
+        href: 'https://example.com/page?q=1&b=2#section',
+      },
+      { type: 'text', text: ' done' },
+    ])
+  })
+
+  it('treats @https://... as a mention, not a URL', () => {
+    const parts = extractParts(parseMentions('@https://example.com rest', 'cls'))
+    // The @-prefix causes the mention branch to win
+    expect(parts[0]).toEqual({ type: 'mention', text: '@https://example.com' })
+  })
 })

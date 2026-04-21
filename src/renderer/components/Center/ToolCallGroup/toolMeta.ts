@@ -53,16 +53,13 @@ export const TOOL_SUMMARY_GROUPS: Record<string, string> = {
   TodoWrite: 'todo',
 }
 
-/** Prevent default and open a URL in the OS default browser via Electron shell. */
-export function openExternalLink(e: React.MouseEvent<HTMLAnchorElement>, href: string) {
-  e.preventDefault()
-  window.api.shell.openExternal(href)
-}
-
 // Markdown link renderer
 export function LinkRenderer({ href, children }: React.AnchorHTMLAttributes<HTMLAnchorElement>) {
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (href) openExternalLink(e, href)
+    if (href) {
+      e.preventDefault()
+      window.api.shell.openExternal(href)
+    }
   }
   return createElement('a', { href, onClick: handleClick }, children)
 }
