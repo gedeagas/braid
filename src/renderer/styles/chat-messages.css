@@ -403,12 +403,14 @@
   font-size: inherit;
 }
 
-.chat-msg-assistant-content a {
+.chat-msg-assistant-content a,
+.chat-msg-inline-link {
   color: var(--accent);
   text-decoration: none;
 }
 
-.chat-msg-assistant-content a:hover {
+.chat-msg-assistant-content a:hover,
+.chat-msg-inline-link:hover {
   text-decoration: underline;
 }
 
