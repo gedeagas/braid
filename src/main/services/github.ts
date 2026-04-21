@@ -307,9 +307,12 @@ class GitHubService {
     const pr = await this.getPrStatus(worktreePath)
     if (!pr) return { reviews: [], comments: [] }
 
-    const [reviewsRaw, commentsRaw] = await Promise.all([
+    const [owner, repo] = nwo.split('/')
+
+    const [reviewsRaw, commentsRaw, threadsRaw] = await Promise.all([
       this.gh(['api', `repos/${nwo}/pulls/${pr.number}/reviews`, '--paginate'], worktreePath),
       this.gh(['api', `repos/${nwo}/pulls/${pr.number}/comments`, '--paginate'], worktreePath),
+      this._fetchThreadResolution(worktreePath, owner, repo, pr.number),
     ])
 
     let reviews: PrReview[] = []
@@ -330,25 +333,97 @@ class GitHubService {
 
     try {
       const data = JSON.parse(commentsRaw || '[]')
-      comments = (data as Array<Record<string, unknown>>).map((c) => ({
-        id: c.id as number,
-        reviewId: c.pull_request_review_id as number,
-        author: (c.user as Record<string, unknown>)?.login as string ?? 'unknown',
-        authorAvatarUrl: (c.user as Record<string, unknown>)?.avatar_url as string ?? '',
-        body: (c.body as string) ?? '',
-        path: c.path as string,
-        line: (c.line as number) ?? (c.original_line as number) ?? null,
-        originalLine: (c.original_line as number) ?? null,
-        side: (c.side as 'LEFT' | 'RIGHT') ?? 'RIGHT',
-        diffHunk: (c.diff_hunk as string) ?? '',
-        createdAt: c.created_at as string,
-        updatedAt: c.updated_at as string,
-        htmlUrl: c.html_url as string,
-        inReplyToId: (c.in_reply_to_id as number) ?? null,
-      }))
+      comments = (data as Array<Record<string, unknown>>).map((c) => {
+        const commentId = c.id as number
+        const replyTo = (c.in_reply_to_id as number) ?? null
+        // Root comments: look up directly in threadsRaw map
+        // Reply comments: inherit from their root comment's thread
+        const resolved = replyTo
+          ? threadsRaw.get(replyTo) ?? false
+          : threadsRaw.get(commentId) ?? false
+        return {
+          id: commentId,
+          reviewId: c.pull_request_review_id as number,
+          author: (c.user as Record<string, unknown>)?.login as string ?? 'unknown',
+          authorAvatarUrl: (c.user as Record<string, unknown>)?.avatar_url as string ?? '',
+          body: (c.body as string) ?? '',
+          path: c.path as string,
+          line: (c.line as number) ?? (c.original_line as number) ?? null,
+          originalLine: (c.original_line as number) ?? null,
+          side: (c.side as 'LEFT' | 'RIGHT') ?? 'RIGHT',
+          diffHunk: (c.diff_hunk as string) ?? '',
+          createdAt: c.created_at as string,
+          updatedAt: c.updated_at as string,
+          htmlUrl: c.html_url as string,
+          inReplyToId: replyTo,
+          isResolved: resolved,
+        }
+      })
     } catch { /* ignore parse errors */ }
 
     return { reviews, comments }
+  }
+
+  /**
+   * Fetch review thread resolution status via GraphQL.
+   * Returns a map: rootCommentId -> isResolved.
+   */
+  private async _fetchThreadResolution(
+    worktreePath: string, owner: string, repo: string, prNumber: number,
+  ): Promise<Map<number, boolean>> {
+    const result = new Map<number, boolean>()
+    try {
+      const query = `
+        query($owner: String!, $repo: String!, $number: Int!) {
+          repository(owner: $owner, name: $repo) {
+            pullRequest(number: $number) {
+              reviewThreads(first: 100) {
+                nodes {
+                  isResolved
+                  comments(first: 1) {
+                    nodes { databaseId }
+                  }
+                }
+              }
+            }
+          }
+        }
+      `
+      const raw = await this.gh([
+        'api', 'graphql',
+        '-f', `query=${query}`,
+        '-F', `owner=${owner}`,
+        '-F', `repo=${repo}`,
+        '-F', `number=${prNumber}`,
+      ], worktreePath)
+      if (!raw) return result
+
+      const parsed = JSON.parse(raw) as {
+        data?: {
+          repository?: {
+            pullRequest?: {
+              reviewThreads?: {
+                nodes?: Array<{
+                  isResolved: boolean
+                  comments: { nodes: Array<{ databaseId: number }> }
+                }>
+              }
+            }
+          }
+        }
+      }
+
+      const threads = parsed.data?.repository?.pullRequest?.reviewThreads?.nodes
+      if (threads) {
+        for (const thread of threads) {
+          const firstComment = thread.comments.nodes[0]
+          if (firstComment) {
+            result.set(firstComment.databaseId, thread.isResolved)
+          }
+        }
+      }
+    } catch { /* GraphQL resolution lookup is best-effort */ }
+    return result
   }
 
   async getCheckRunLog(worktreePath: string, checkUrl: string): Promise<string> {

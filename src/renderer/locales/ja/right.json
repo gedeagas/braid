@@ -319,5 +319,9 @@
   "reviewDismissed": "却下",
   "reviewNoReviews": "レビューはまだありません",
   "reviewComments_one": "{{count}}件のコメント",
-  "reviewComments_other": "{{count}}件のコメント"
+  "reviewComments_other": "{{count}}件のコメント",
+  "reviewUnresolved_one": "{{count}} 未解決",
+  "reviewUnresolved_other": "{{count}} 未解決",
+  "reviewResolved_one": "{{count}} 解決済み",
+  "reviewResolved_other": "{{count}} 解決済み"
 }

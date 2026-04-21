@@ -14,22 +14,27 @@ import type { PrReview, PrReviewComment, PrReviewData, ReviewState } from '@/typ
 
 // ─── State ──────────────────────────────────────────────────────────────────
 
+type FilterMode = 'all' | 'unresolved' | 'resolved'
+
 interface State {
   data: PrReviewData | null
   loading: boolean
   error: boolean
+  filter: FilterMode
 }
 
 type Action =
   | { type: 'LOAD_START' }
   | { type: 'LOAD_DONE'; data: PrReviewData }
   | { type: 'LOAD_ERROR' }
+  | { type: 'SET_FILTER'; filter: FilterMode }
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case 'LOAD_START': return { ...state, loading: true, error: false }
-    case 'LOAD_DONE': return { data: action.data, loading: false, error: false }
+    case 'LOAD_DONE': return { ...state, data: action.data, loading: false, error: false }
     case 'LOAD_ERROR': return { ...state, loading: false, error: true }
+    case 'SET_FILTER': return { ...state, filter: action.filter }
   }
 }
 
@@ -128,18 +133,20 @@ function ReviewCard({ review, t }: { review: PrReview; t: (key: string) => strin
 }
 
 function CommentItem({
-  comment, allComments, t,
+  comment, allComments, isRoot, t,
 }: {
   comment: PrReviewComment
   allComments: PrReviewComment[]
+  isRoot?: boolean
   t: (key: string, opts?: Record<string, unknown>) => string
 }) {
   const openUrl = () => ipc.shell.openExternal(comment.htmlUrl)
   const replies = getReplies(allComments, comment.id)
+  const resolvedClass = comment.isResolved ? ' code-review-comment--resolved' : ''
 
   return (
     <>
-      <div className="code-review-comment" onClick={openUrl}>
+      <div className={`code-review-comment${resolvedClass}`} onClick={openUrl}>
         {comment.authorAvatarUrl ? (
           <img className="code-review-comment-avatar" src={comment.authorAvatarUrl} alt={comment.author} />
         ) : (
@@ -152,6 +159,11 @@ function CommentItem({
             <span className="code-review-comment-author">{comment.author}</span>
             {comment.line && (
               <span className="code-review-comment-line">{t('codeReviewLine', { line: comment.line })}</span>
+            )}
+            {isRoot && (
+              <span className={`code-review-resolved-badge ${comment.isResolved ? 'code-review-resolved-badge--resolved' : 'code-review-resolved-badge--open'}`}>
+                {comment.isResolved ? t('codeReviewResolved') : t('codeReviewOpen')}
+              </span>
             )}
             <span className="code-review-comment-time">{formatTime(comment.createdAt)}</span>
           </div>
@@ -182,7 +194,7 @@ interface Props {
 
 export function CodeReviewView({ worktreePath }: Props) {
   const { t } = useTranslation(['center', 'right'])
-  const [state, dispatch] = useReducer(reducer, { data: null, loading: true, error: false })
+  const [state, dispatch] = useReducer(reducer, { data: null, loading: true, error: false, filter: 'all' })
   const openFile = useUIStore((s) => s.openFile)
   const setActiveCenterView = useUIStore((s) => s.setActiveCenterView)
 
@@ -203,12 +215,34 @@ export function CodeReviewView({ worktreePath }: Props) {
     [state.data],
   )
 
-  const fileGroups = useMemo(
-    () => state.data ? groupCommentsByFile(state.data.comments) : new Map<string, PrReviewComment[]>(),
+  const rootComments = useMemo(
+    () => state.data?.comments.filter((c) => c.inReplyToId === null) ?? [],
     [state.data],
   )
 
-  const inlineCount = state.data?.comments.filter((c) => c.inReplyToId === null).length ?? 0
+  const resolvedCount = useMemo(() => rootComments.filter((c) => c.isResolved).length, [rootComments])
+  const unresolvedCount = rootComments.length - resolvedCount
+
+  // Filter comments based on current filter mode (applied to root comments only)
+  const filteredComments = useMemo(() => {
+    if (!state.data || state.filter === 'all') return state.data?.comments ?? []
+    const matchResolved = state.filter === 'resolved'
+    // Get root comment IDs that match the filter
+    const matchingRoots = new Set(
+      rootComments.filter((c) => c.isResolved === matchResolved).map((c) => c.id),
+    )
+    // Include matching root comments + their replies
+    return state.data.comments.filter((c) =>
+      c.inReplyToId === null ? matchingRoots.has(c.id) : matchingRoots.has(c.inReplyToId!),
+    )
+  }, [state.data, state.filter, rootComments])
+
+  const fileGroups = useMemo(
+    () => groupCommentsByFile(filteredComments),
+    [filteredComments],
+  )
+
+  const inlineCount = rootComments.length
 
   const handleBack = useCallback(() => {
     // Go back to the most recent session view
@@ -265,6 +299,31 @@ export function CodeReviewView({ worktreePath }: Props) {
         t={t}
         summary={t('center:codeReviewSummary', { reviewCount: dedupedReviews.length, commentCount: inlineCount })}
       />
+
+      {/* Filter bar - only show when there are inline comments */}
+      {inlineCount > 0 && (
+        <div className="code-review-filter-bar">
+          <button
+            className={`code-review-filter-chip${state.filter === 'all' ? ' code-review-filter-chip--active' : ''}`}
+            onClick={() => dispatch({ type: 'SET_FILTER', filter: 'all' })}
+          >
+            {t('center:codeReviewFilterAll', { count: inlineCount })}
+          </button>
+          <button
+            className={`code-review-filter-chip code-review-filter-chip--unresolved${state.filter === 'unresolved' ? ' code-review-filter-chip--active' : ''}`}
+            onClick={() => dispatch({ type: 'SET_FILTER', filter: 'unresolved' })}
+          >
+            {t('center:codeReviewFilterOpen', { count: unresolvedCount })}
+          </button>
+          <button
+            className={`code-review-filter-chip code-review-filter-chip--resolved${state.filter === 'resolved' ? ' code-review-filter-chip--active' : ''}`}
+            onClick={() => dispatch({ type: 'SET_FILTER', filter: 'resolved' })}
+          >
+            {t('center:codeReviewFilterResolved', { count: resolvedCount })}
+          </button>
+        </div>
+      )}
+
       <div className="code-review-body">
         {/* Review summary cards */}
         {dedupedReviews.length > 0 && (
@@ -284,21 +343,29 @@ export function CodeReviewView({ worktreePath }: Props) {
                 {filePath}
               </span>
               <span className="code-review-file-count">
-                {t('right:reviewComments', { count: comments.length })}
+                {t('right:reviewComments', { count: comments.filter((c) => c.inReplyToId === null).length })}
               </span>
             </div>
             <div className="code-review-comments">
-              {comments.map((comment) => (
+              {comments.filter((c) => c.inReplyToId === null).map((comment) => (
                 <CommentItem
                   key={comment.id}
                   comment={comment}
-                  allComments={state.data!.comments}
+                  allComments={filteredComments}
+                  isRoot
                   t={(k, opts) => t(`center:${k}`, opts as Record<string, string>)}
                 />
               ))}
             </div>
           </div>
         ))}
+
+        {/* Empty filter state */}
+        {state.filter !== 'all' && fileGroups.size === 0 && inlineCount > 0 && (
+          <EmptyState
+            title={state.filter === 'resolved' ? t('center:codeReviewNoResolved') : t('center:codeReviewNoOpen')}
+          />
+        )}
       </div>
     </div>
   )

@@ -359,5 +359,12 @@
   "codeReviewNoReviews": "No reviews",
   "codeReviewNoComments": "No inline comments yet",
   "codeReviewEmpty": "No code review activity",
-  "codeReviewEmptyHint": "Reviews and comments will appear here when reviewers respond"
+  "codeReviewEmptyHint": "Reviews and comments will appear here when reviewers respond",
+  "codeReviewResolved": "Resolved",
+  "codeReviewOpen": "Open",
+  "codeReviewFilterAll": "All ({{count}})",
+  "codeReviewFilterOpen": "Open ({{count}})",
+  "codeReviewFilterResolved": "Resolved ({{count}})",
+  "codeReviewNoResolved": "No resolved comments",
+  "codeReviewNoOpen": "No open comments"
 }

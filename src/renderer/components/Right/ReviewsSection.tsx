@@ -80,6 +80,11 @@ export function ReviewsSection({ reviews, onOpenReview }: ReviewsSectionProps) {
   const displayReviews = latestReviews.slice(0, MAX_INLINE)
   const hasMore = latestReviews.length > 0 || reviews.comments.length > 0
 
+  // Count resolved/unresolved root comments
+  const rootComments = reviews.comments.filter((c) => c.inReplyToId === null)
+  const resolvedCount = rootComments.filter((c) => c.isResolved).length
+  const unresolvedCount = rootComments.length - resolvedCount
+
   return (
     <div className="checks-section">
       <SectionHeader
@@ -93,10 +98,19 @@ export function ReviewsSection({ reviews, onOpenReview }: ReviewsSectionProps) {
         {displayReviews.map((review) => (
           <ReviewRow key={review.id} review={review} onClick={onOpenReview} />
         ))}
-        {displayReviews.length === 0 && reviews.comments.length > 0 && (
+        {rootComments.length > 0 && (
           <div className="review-row" onClick={onOpenReview}>
-            <span className="review-snippet">
-              {t('reviewComments', { count: reviews.comments.length })}
+            <span className="review-thread-counts">
+              {unresolvedCount > 0 && (
+                <span className="review-thread-badge review-thread-badge--unresolved">
+                  {t('reviewUnresolved', { count: unresolvedCount })}
+                </span>
+              )}
+              {resolvedCount > 0 && (
+                <span className="review-thread-badge review-thread-badge--resolved">
+                  {t('reviewResolved', { count: resolvedCount })}
+                </span>
+              )}
             </span>
           </div>
         )}

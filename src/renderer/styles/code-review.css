@@ -92,6 +92,35 @@
   min-width: 0;
 }
 
+/* ─── Thread count badges in Checks tab ────────────────────────────────────── */
+
+.review-thread-counts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.review-thread-badge {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  padding: var(--space-1) var(--space-6);
+  border-radius: var(--radius-lg);
+  white-space: nowrap;
+  line-height: 1.5;
+}
+
+.review-thread-badge--unresolved {
+  background: var(--amber-tint-15);
+  color: var(--amber);
+  border: 1px solid var(--amber-tint-30);
+}
+
+.review-thread-badge--resolved {
+  background: var(--green-tint-15);
+  color: var(--green);
+  border: 1px solid var(--green-tint-30);
+}
+
 /* ─── Code Review center panel ───────────────────────────────────────────────── */
 
 .code-review-view {
@@ -140,6 +169,58 @@
   font-size: var(--text-base);
   color: var(--text-muted);
   margin-left: auto;
+}
+
+/* ─── Filter bar ──────────────────────────────────────────────────────────── */
+
+.code-review-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-8) var(--space-16);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.code-review-filter-chip {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  padding: var(--space-2) var(--space-10);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+  white-space: nowrap;
+}
+
+.code-review-filter-chip:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.code-review-filter-chip--active {
+  background: var(--accent-tint-15);
+  color: var(--accent);
+  border-color: var(--accent-tint-30);
+}
+
+.code-review-filter-chip--active:hover {
+  background: var(--accent-tint-15);
+  color: var(--accent);
+}
+
+.code-review-filter-chip--unresolved.code-review-filter-chip--active {
+  background: var(--amber-tint-15);
+  color: var(--amber);
+  border-color: var(--amber-tint-30);
+}
+
+.code-review-filter-chip--resolved.code-review-filter-chip--active {
+  background: var(--green-tint-15);
+  color: var(--green);
+  border-color: var(--green-tint-30);
 }
 
 .code-review-body {
@@ -268,7 +349,7 @@
   padding: var(--space-10) var(--space-16) var(--space-10) var(--space-24);
   border-top: 1px solid var(--border);
   cursor: pointer;
-  transition: background var(--duration-fast);
+  transition: background var(--duration-fast), opacity var(--duration-fast);
 }
 
 .code-review-comment:first-child {
@@ -277,6 +358,15 @@
 
 .code-review-comment:hover {
   background: var(--bg-hover);
+}
+
+/* Resolved comments are visually dimmed */
+.code-review-comment--resolved {
+  opacity: 0.55;
+}
+
+.code-review-comment--resolved:hover {
+  opacity: 0.85;
 }
 
 .code-review-comment-avatar {
@@ -312,6 +402,31 @@
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   color: var(--text-muted);
+}
+
+/* ─── Resolved/Open badge on comments ──────────────────────────────────────── */
+
+.code-review-resolved-badge {
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  padding: 0 var(--space-6);
+  border-radius: var(--radius-pill);
+  line-height: 1.7;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+.code-review-resolved-badge--resolved {
+  background: var(--green-tint-15);
+  color: var(--green);
+  border: 1px solid var(--green-tint-30);
+}
+
+.code-review-resolved-badge--open {
+  background: var(--amber-tint-15);
+  color: var(--amber);
+  border: 1px solid var(--amber-tint-30);
 }
 
 .code-review-comment-time {

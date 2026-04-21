@@ -319,5 +319,9 @@
   "reviewDismissed": "已驳回",
   "reviewNoReviews": "暂无审查",
   "reviewComments_one": "{{count}} 条评论",
-  "reviewComments_other": "{{count}} 条评论"
+  "reviewComments_other": "{{count}} 条评论",
+  "reviewUnresolved_one": "{{count}} 个未解决",
+  "reviewUnresolved_other": "{{count}} 个未解决",
+  "reviewResolved_one": "{{count}} 个已解决",
+  "reviewResolved_other": "{{count}} 个已解决"
 }

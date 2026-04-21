@@ -319,5 +319,9 @@
   "reviewDismissed": "Ditolak",
   "reviewNoReviews": "Belum ada ulasan",
   "reviewComments_one": "{{count}} komentar",
-  "reviewComments_other": "{{count}} komentar"
+  "reviewComments_other": "{{count}} komentar",
+  "reviewUnresolved_one": "{{count}} terbuka",
+  "reviewUnresolved_other": "{{count}} terbuka",
+  "reviewResolved_one": "{{count}} terselesaikan",
+  "reviewResolved_other": "{{count}} terselesaikan"
 }

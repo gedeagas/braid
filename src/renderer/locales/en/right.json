@@ -319,5 +319,9 @@
   "reviewDismissed": "Dismissed",
   "reviewNoReviews": "No reviews yet",
   "reviewComments_one": "{{count}} comment",
-  "reviewComments_other": "{{count}} comments"
+  "reviewComments_other": "{{count}} comments",
+  "reviewUnresolved_one": "{{count}} open",
+  "reviewUnresolved_other": "{{count}} open",
+  "reviewResolved_one": "{{count}} resolved",
+  "reviewResolved_other": "{{count}} resolved"
 }

@@ -341,5 +341,12 @@
   "codeReviewNoReviews": "Belum ada ulasan",
   "codeReviewNoComments": "Belum ada komentar inline",
   "codeReviewEmpty": "Belum ada aktivitas ulasan kode",
-  "codeReviewEmptyHint": "Ulasan dan komentar akan muncul di sini saat reviewer merespons"
+  "codeReviewEmptyHint": "Ulasan dan komentar akan muncul di sini saat reviewer merespons",
+  "codeReviewResolved": "Terselesaikan",
+  "codeReviewOpen": "Terbuka",
+  "codeReviewFilterAll": "Semua ({{count}})",
+  "codeReviewFilterOpen": "Terbuka ({{count}})",
+  "codeReviewFilterResolved": "Terselesaikan ({{count}})",
+  "codeReviewNoResolved": "Tidak ada komentar terselesaikan",
+  "codeReviewNoOpen": "Tidak ada komentar terbuka"
 }
