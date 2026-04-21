@@ -1,5 +1,5 @@
 import { spawn } from 'child_process'
-import { existsSync, readFileSync, statSync, writeFileSync } from 'fs'
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'fs'
 import { join, relative, resolve } from 'path'
 import { logger } from '../lib/logger'
 import { enrichedEnv, waitForEnrichedEnv } from '../lib/enrichedEnv'
@@ -23,7 +23,28 @@ interface RgMatchJson {
   }
 }
 
-function buildArgs(query: string, options: SearchOptions): string[] {
+/**
+ * Return the names of immediate subdirectories that are git linked worktrees
+ * (identified by containing a `.git` FILE rather than a `.git` directory).
+ * When a project's main worktree contains linked worktrees as subdirectories
+ * (the common Braid setup), rg would otherwise traverse into those siblings.
+ * These names are passed as `!name` exclude globs to rg.
+ */
+function getLinkedWorktreeSubdirs(worktreePath: string): string[] {
+  try {
+    return readdirSync(worktreePath, { withFileTypes: true })
+      .filter((entry) => {
+        if (!entry.isDirectory()) return false
+        const gitEntry = join(worktreePath, entry.name, '.git')
+        return existsSync(gitEntry) && statSync(gitEntry).isFile()
+      })
+      .map((entry) => entry.name)
+  } catch {
+    return []
+  }
+}
+
+function buildArgs(query: string, options: SearchOptions, linkedWorktreeSubdirs: string[]): string[] {
   // We deliberately avoid --max-columns: with JSON output, rg omits line content
   // for over-long lines, leaving empty rows in the UI. CSS handles overflow.
   const args = ['--json']
@@ -33,6 +54,9 @@ function buildArgs(query: string, options: SearchOptions): string[] {
   if (!options.regex) args.push('--fixed-strings')
   for (const g of options.includeGlobs) if (g.trim()) args.push('-g', g.trim())
   for (const g of options.excludeGlobs) if (g.trim()) args.push('-g', `!${g.trim()}`)
+  // Exclude any linked worktree subdirectories so a search scoped to the main
+  // worktree doesn't bleed into sibling branches that live inside it.
+  for (const dir of linkedWorktreeSubdirs) args.push('-g', `!${dir}/`)
   args.push('--', query, '.')
   return args
 }
@@ -97,7 +121,8 @@ class SearchService {
     const rgBinary = BUNDLED_RG_PATH ?? 'rg'
 
     return new Promise((resolve) => {
-      const args = buildArgs(query, options)
+      const linkedWorktreeSubdirs = getLinkedWorktreeSubdirs(worktreePath)
+      const args = buildArgs(query, options, linkedWorktreeSubdirs)
       const child = spawn(rgBinary, args, { cwd: worktreePath, env: enrichedEnv() })
       const byPath = new Map<string, SearchFileResult>()
       let totalMatches = 0
