@@ -2,7 +2,6 @@ import { claudeConfigService } from '../claudeConfig'
 import { matchesRuleList } from '../agentPermissions'
 import { USER_INPUT_TOOLS, BRAID_SYSTEM_PROMPT, loadPlugins } from '../agentUtils'
 import { getCliPath } from '../claudePath'
-import { rewriteCommand } from '../rtk'
 import type { SlashCommand, WorkerEvent } from '../agentTypes'
 
 type EmitFn = (event: WorkerEvent) => void
@@ -15,41 +14,7 @@ export function createCanUseTool(
   emit: EmitFn,
   pendingUserInput: PendingInputMap,
   log: (sessionId: string, ...args: unknown[]) => void,
-  rtkBinaryPath?: string | null,
-  rtkDebug = false,
 ) {
-  // Log RTK state at construction time so it's visible in session logs
-  if (rtkDebug || rtkBinaryPath) {
-    log(sessionId, `[RTK] initialized — path=${rtkBinaryPath ?? 'null'}, debug=${rtkDebug}`)
-  }
-
-  // Helper: apply RTK rewrite to Bash commands when enabled.
-  // Delegates to `rtk rewrite <cmd>` which is the single source of truth.
-  // Also resolves bare `rtk` commands to the full binary path since
-  // ~/Braid/binaries/rtk isn't in PATH.
-  const maybeWrapRtk = (
-    toolName: string,
-    inp: Record<string, unknown>,
-  ): Record<string, unknown> => {
-    if (rtkBinaryPath && toolName === 'Bash' && typeof inp.command === 'string') {
-      const trimmed = inp.command.trim()
-      // Resolve bare `rtk` meta-commands (rtk gain, rtk discover, etc.) to full path
-      if (trimmed === 'rtk' || trimmed.startsWith('rtk ')) {
-        const resolved = rtkBinaryPath + trimmed.slice(3)
-        if (rtkDebug) log(sessionId, `[RTK] resolve path: "${inp.command}" -> "${resolved}"`)
-        return { ...inp, command: resolved }
-      }
-      const result = rewriteCommand(rtkBinaryPath, inp.command, rtkDebug)
-      if (result.rewritten) {
-        if (rtkDebug) log(sessionId, `[RTK] rewrite: "${inp.command}" -> "${result.command}"`)
-        return { ...inp, command: result.command }
-      } else if (rtkDebug) {
-        log(sessionId, `[RTK] pass-through: "${inp.command}"`)
-      }
-    }
-    return inp
-  }
-
   return (
     toolName: string,
     input: Record<string, unknown>,
@@ -94,7 +59,7 @@ export function createCanUseTool(
       const allAllow = [...globalAllow, ...projectAllow]
       if (allAllow.length > 0 && matchesRuleList(toolName, input, allAllow)) {
         log(sessionId, `canUseTool: auto-allowed by rules — ${toolName}`)
-        return Promise.resolve({ behavior: 'allow' as const, updatedInput: maybeWrapRtk(toolName, input) })
+        return Promise.resolve({ behavior: 'allow' as const })
       }
     } catch (err) {
       log(sessionId, 'canUseTool: allow list check failed:', err)
@@ -102,7 +67,7 @@ export function createCanUseTool(
 
     // ── 4. Bypass mode — auto-allow everything else ─────────────────────
     if (bypassPermissions) {
-      return Promise.resolve({ behavior: 'allow' as const, updatedInput: maybeWrapRtk(toolName, input) })
+      return Promise.resolve({ behavior: 'allow' as const })
     }
 
     // ── 5. Confirmation required — ask the user ─────────────────────────
@@ -121,13 +86,7 @@ export function createCanUseTool(
     return new Promise((resolve, reject) => {
       if (signal.aborted) { reject(new Error('Aborted')); return }
       pendingUserInput.set(sessionId, {
-        resolve: (result) => {
-          const r = result as { behavior: string; updatedInput?: Record<string, unknown> }
-          if (r.behavior === 'allow' && r.updatedInput) {
-            r.updatedInput = maybeWrapRtk(toolName, r.updatedInput)
-          }
-          resolve(r)
-        }
+        resolve: (result) => resolve(result as { behavior: string; updatedInput?: Record<string, unknown> }),
       })
       signal.addEventListener('abort', () => {
         pendingUserInput.delete(sessionId)

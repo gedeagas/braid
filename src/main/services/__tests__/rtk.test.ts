@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { getPlatformTarget, rewriteCommand } from '../rtk'
+import { getPlatformTarget, rewriteCommand, createRtkPreToolUseHook } from '../rtk'
 
 // Mock child_process to control `rtk rewrite` behavior
 vi.mock('child_process', async (importOriginal) => {
@@ -127,6 +127,73 @@ describe('RTK service', () => {
       // Should not throw - just verifies debug path executes without error
       const result = rewriteCommand(rtkPath, 'git status', true)
       expect(result).toEqual({ rewritten: true, command: `${rtkPath} git status` })
+    })
+  })
+
+  describe('createRtkPreToolUseHook', () => {
+    const rtkPath = '/Users/test/Braid/binaries/rtk/rtk'
+    const mockLog = vi.fn()
+
+    it('returns empty for non-Bash tools', async () => {
+      const hook = createRtkPreToolUseHook(rtkPath, false, mockLog, 'sess1')
+      const result = await hook({ hook_event_name: 'PreToolUse', tool_name: 'Read', tool_input: { file_path: '/foo' } })
+      expect(result).toEqual({})
+    })
+
+    it('resolves bare rtk commands to full path', async () => {
+      const hook = createRtkPreToolUseHook(rtkPath, false, mockLog, 'sess1')
+      const result = await hook({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'rtk gain' } })
+      expect(result).toEqual({
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          updatedInput: { command: `${rtkPath} gain` },
+        },
+      })
+    })
+
+    it('rewrites commands via rtk rewrite', async () => {
+      mockExecFileSync.mockReturnValue('rtk git status\n')
+      const hook = createRtkPreToolUseHook(rtkPath, false, mockLog, 'sess1')
+      const result = await hook({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'git status' } })
+      expect(result).toEqual({
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          updatedInput: { command: `${rtkPath} git status` },
+        },
+      })
+    })
+
+    it('passes through when no rewrite available', async () => {
+      const err = new Error('exit 1') as Error & { status: number }
+      err.status = 1
+      mockExecFileSync.mockImplementation(() => { throw err })
+      const hook = createRtkPreToolUseHook(rtkPath, false, mockLog, 'sess1')
+      const result = await hook({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'echo hello' } })
+      expect(result).toEqual({})
+    })
+
+    it('preserves extra tool input fields', async () => {
+      mockExecFileSync.mockReturnValue('rtk git status\n')
+      const hook = createRtkPreToolUseHook(rtkPath, false, mockLog, 'sess1')
+      const result = await hook({
+        hook_event_name: 'PreToolUse',
+        tool_name: 'Bash',
+        tool_input: { command: 'git status', description: 'check status', timeout: 5000 },
+      })
+      expect(result).toEqual({
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          updatedInput: { command: `${rtkPath} git status`, description: 'check status', timeout: 5000 },
+        },
+      })
+    })
+
+    it('logs when debug is enabled', async () => {
+      mockExecFileSync.mockReturnValue('rtk git status\n')
+      mockLog.mockClear()
+      const hook = createRtkPreToolUseHook(rtkPath, true, mockLog, 'sess1')
+      await hook({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'git status' } })
+      expect(mockLog).toHaveBeenCalledWith('sess1', expect.stringContaining('[RTK hook] rewrite'))
     })
   })
 })

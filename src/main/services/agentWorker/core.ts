@@ -21,7 +21,7 @@ import { prepareMcpServers } from './mcp'
 import type { BraidAction } from '../braidMcp'
 import { createCanUseTool, fetchSlashCommands } from './tools'
 import { classifyError, classifyAuthType } from './errorClassifier'
-import { rtkService, RTK_AWARENESS_PROMPT } from '../rtk'
+import { rtkService, RTK_AWARENESS_PROMPT, createRtkPreToolUseHook } from '../rtk'
 import type { SessionState, SlashCommand, WorkerEvent, AgentSettings } from '../agentTypes'
 
 const CONTEXT_1M_BETA = 'context-1m-2025-08-07' as const
@@ -213,13 +213,24 @@ export class AgentWorker {
         this.log(sessionId, `[RTK] outputCompression=${settings.outputCompression}, binaryPath=${rtkPath}, debug=${settings.rtkDebug}`)
       }
 
+      // Build RTK PreToolUse hook when output compression is enabled.
+      // Uses the SDK's native hooks mechanism instead of canUseTool.updatedInput.
+      const rtkHooks = rtkPath
+        ? {
+            PreToolUse: [{
+              matcher: 'Bash',
+              hooks: [createRtkPreToolUseHook(rtkPath, settings.rtkDebug, this.log.bind(this), sessionId)],
+            }],
+          }
+        : undefined
+
       const q = queryFn({
         prompt: promptParam as Parameters<typeof queryFn>[0]['prompt'],
         options: {
           cwd: worktreePath,
           additionalDirectories: additionalDirectories?.length ? additionalDirectories : undefined,
           model,
-          canUseTool: createCanUseTool(sessionId, worktreePath, settings.bypassPermissions, this.emit, this.pendingUserInput, this.log.bind(this), rtkPath, settings.rtkDebug),
+          canUseTool: createCanUseTool(sessionId, worktreePath, settings.bypassPermissions, this.emit, this.pendingUserInput, this.log.bind(this)),
           onElicitation: this.createOnElicitation(sessionId),
           includePartialMessages: true,
           maxThinkingTokens: thinking ? undefined : 0,
@@ -232,6 +243,7 @@ export class AgentWorker {
           ...(effort ? { effort } : {}),
           ...(betas ? { betas } : {}),
           ...(mcpServers ? { mcpServers } : {}),
+          ...(rtkHooks ? { hooks: rtkHooks } : {}),
           ...(getCliPath(this.userCliPath) ? { pathToClaudeCodeExecutable: getCliPath(this.userCliPath) } : {}),
         } as Parameters<typeof queryFn>[0]['options']
       })
@@ -435,6 +447,16 @@ export class AgentWorker {
         this.log(sessionId, `[RTK] outputCompression=${settings.outputCompression}, binaryPath=${rtkPath}, debug=${settings.rtkDebug}`)
       }
 
+      // Build RTK PreToolUse hook for resume path too
+      const rtkHooks = rtkPath
+        ? {
+            PreToolUse: [{
+              matcher: 'Bash',
+              hooks: [createRtkPreToolUseHook(rtkPath, settings.rtkDebug, this.log.bind(this), sessionId)],
+            }],
+          }
+        : undefined
+
       const q = queryFn({
         prompt: promptParam as Parameters<typeof queryFn>[0]['prompt'],
         options: {
@@ -443,7 +465,7 @@ export class AgentWorker {
           model: state.model,
           resume: resumeId,
           ...(resumeSessionAt ? { resumeSessionAt } : {}),
-          canUseTool: createCanUseTool(sessionId, state.cwd, settings.bypassPermissions, this.emit, this.pendingUserInput, this.log.bind(this), rtkPath, settings.rtkDebug),
+          canUseTool: createCanUseTool(sessionId, state.cwd, settings.bypassPermissions, this.emit, this.pendingUserInput, this.log.bind(this)),
           onElicitation: this.createOnElicitation(sessionId),
           includePartialMessages: true,
           permissionMode: planMode ? 'plan' : undefined,
@@ -454,6 +476,7 @@ export class AgentWorker {
           ...(effort ? { effort } : {}),
           ...(betas ? { betas } : {}),
           ...(mcpServers ? { mcpServers } : {}),
+          ...(rtkHooks ? { hooks: rtkHooks } : {}),
           ...(getCliPath(this.userCliPath) ? { pathToClaudeCodeExecutable: getCliPath(this.userCliPath) } : {}),
         } as Parameters<typeof queryFn>[0]['options']
       })

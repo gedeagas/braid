@@ -285,3 +285,63 @@ class RtkService {
 }
 
 export const rtkService = new RtkService()
+
+// ─── SDK PreToolUse Hook ────────────────────────────────────────────────
+// Uses the SDK's native hooks mechanism instead of canUseTool.updatedInput,
+// which may not be applied reliably for built-in tools.
+
+/**
+ * Creates a PreToolUse hook callback that delegates Bash command rewriting
+ * to `rtk rewrite <cmd>`. This uses the SDK's hook system, which is the
+ * official mechanism for modifying tool input before execution.
+ */
+export function createRtkPreToolUseHook(
+  rtkPath: string,
+  debug: boolean,
+  log: (sessionId: string, ...args: unknown[]) => void,
+  sessionId: string,
+) {
+  return async (
+    input: { hook_event_name: string; tool_name?: string; tool_input?: unknown },
+  ): Promise<{
+    hookSpecificOutput?: {
+      hookEventName: 'PreToolUse'
+      updatedInput?: Record<string, unknown>
+    }
+  }> => {
+    if (input.tool_name !== 'Bash') return {}
+
+    const toolInput = input.tool_input as Record<string, unknown> | undefined
+    if (!toolInput || typeof toolInput.command !== 'string') return {}
+
+    const command = toolInput.command
+    const trimmed = command.trim()
+
+    // Resolve bare `rtk` meta-commands (rtk gain, rtk discover, etc.) to full path
+    if (trimmed === 'rtk' || trimmed.startsWith('rtk ')) {
+      const resolved = rtkPath + trimmed.slice(3)
+      if (debug) log(sessionId, `[RTK hook] resolve path: "${command}" -> "${resolved}"`)
+      return {
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          updatedInput: { ...toolInput, command: resolved },
+        },
+      }
+    }
+
+    // Delegate to rtk rewrite
+    const result = rewriteCommand(rtkPath, command, debug)
+    if (result.rewritten) {
+      if (debug) log(sessionId, `[RTK hook] rewrite: "${command}" -> "${result.command}"`)
+      return {
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          updatedInput: { ...toolInput, command: result.command },
+        },
+      }
+    }
+
+    if (debug) log(sessionId, `[RTK hook] pass-through: "${command}"`)
+    return {}
+  }
+}
