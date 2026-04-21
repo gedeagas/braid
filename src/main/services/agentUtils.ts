@@ -37,24 +37,38 @@ const userPluginsCache: CachedPlugin[] = (() => {
 
 /**
  * Read `enabledPlugins` from ~/.claude/settings.json. A plugin is considered
- * disabled only when its value is explicitly `false` — `true`, an array of
+ * disabled only when its value is explicitly `false` - `true`, an array of
  * version strings, or an absent key all mean "enabled" (matches the Claude
  * Code settings schema).
+ *
+ * Results are cached and only re-read when the file's mtime changes, avoiding
+ * synchronous disk I/O on every loadPlugins() call.
+ *
+ * Note: claudeConfig.ts has a similar readJson helper for the same file.
+ * Both are kept separate because agentUtils must remain Electron-free.
  */
+let _disabledCache: { mtime: number; keys: Set<string> } | null = null
+const _settingsPath = path.join(os.homedir(), '.claude', 'settings.json')
+
 function readDisabledPluginKeys(): Set<string> {
   try {
-    const settingsFile = path.join(os.homedir(), '.claude', 'settings.json')
-    const data = JSON.parse(fs.readFileSync(settingsFile, 'utf-8')) as {
-      enabledPlugins?: Record<string, unknown>
+    const stat = fs.statSync(_settingsPath)
+    const mtime = stat.mtimeMs
+    if (_disabledCache && _disabledCache.mtime === mtime) {
+      return _disabledCache.keys
     }
+    const data = JSON.parse(fs.readFileSync(_settingsPath, 'utf-8')) as Record<string, unknown> | null
     const disabled = new Set<string>()
-    if (data.enabledPlugins) {
-      for (const [k, v] of Object.entries(data.enabledPlugins)) {
+    const enabledPlugins = data?.enabledPlugins
+    if (enabledPlugins && typeof enabledPlugins === 'object' && !Array.isArray(enabledPlugins)) {
+      for (const [k, v] of Object.entries(enabledPlugins as Record<string, unknown>)) {
         if (v === false) disabled.add(k)
       }
     }
+    _disabledCache = { mtime, keys: disabled }
     return disabled
   } catch {
+    _disabledCache = null
     return new Set()
   }
 }

@@ -18,11 +18,17 @@ function installFsMock(files: FsFiles, dirs: FsDirs = new Set()): void {
       const key = String(p)
       return key in files || dirs.has(key)
     }
+    const statSync = (p: string | Buffer | URL): { mtimeMs: number } => {
+      const key = String(p)
+      if (key in files) return { mtimeMs: Date.now() }
+      throw Object.assign(new Error(`ENOENT: ${key}`), { code: 'ENOENT' })
+    }
     return {
       ...actual,
-      default: { ...actual, readFileSync, existsSync },
+      default: { ...actual, readFileSync, existsSync, statSync },
       readFileSync,
-      existsSync
+      existsSync,
+      statSync
     }
   })
   vi.doMock('os', async () => {
@@ -138,6 +144,16 @@ describe('loadPlugins', () => {
     installFsMock({
       [installedPluginsPath]: installedPlugins,
       [settingsPath]: '{ not json'
+    })
+    const { loadPlugins } = await import('../agentUtils')
+    const result = loadPlugins('/tmp/cwd')
+    expect(result).toHaveLength(3)
+  })
+
+  it('handles settings.json containing literal null without throwing', async () => {
+    installFsMock({
+      [installedPluginsPath]: installedPlugins,
+      [settingsPath]: 'null'
     })
     const { loadPlugins } = await import('../agentUtils')
     const result = loadPlugins('/tmp/cwd')
