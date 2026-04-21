@@ -118,16 +118,18 @@ export function ProjectList({ onAddWorktree }: Props) {
     return items
   }, [orderedProjects, expandedProjects, worktreeOrders, pinnedWorktrees])
 
-  // Keep a ref to navItems so the sync effect below can read current value
-  // without re-running when navItems rebuilds (e.g. on expand/collapse)
+  // navItemsRef lets the click-sync effect below read current items without
+  // triggering a re-run when the list rebuilds (e.g. on expand/collapse)
   const navItemsRef = useRef(navItems)
   navItemsRef.current = navItems
 
   // Scroll focused item into view and move DOM focus — but only if the sidebar
-  // already owns focus, so we never steal focus from the chat textarea
+  // already owns focus, so we never steal focus from the chat textarea.
+  // navItems is intentionally omitted: rowRefs is always current via ref, so
+  // only focusedIndex changes should trigger scrolling.
   useEffect(() => {
     if (focusedIndex === null) return
-    const item = navItems[focusedIndex]
+    const item = navItemsRef.current[focusedIndex]
     if (!item) return
     const key = item.kind === 'worktree' ? `worktree:${item.worktreeId}` : `project:${item.projectId}`
     const el = rowRefs.current.get(key)
@@ -136,7 +138,8 @@ export function ProjectList({ onAddWorktree }: Props) {
     if (containerRef.current?.contains(document.activeElement)) {
       el.focus({ preventScroll: true })
     }
-  }, [focusedIndex, navItems])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusedIndex])
 
   // Sync keyboard focus to selected worktree on mouse click.
   // Depends only on selectedWorktreeId — NOT navItems — so that
@@ -169,12 +172,12 @@ export function ProjectList({ onAddWorktree }: Props) {
         break
       case 'ArrowRight': {
         e.preventDefault()
-        if (!focusedItem) break
+        if (!focusedItem || focusedIndex === null) break
         if (focusedItem.kind === 'project') {
           if (!expandedProjects.has(focusedItem.projectId)) {
             toggleProject(focusedItem.projectId)
           } else {
-            const nextIdx = focusedIndex! + 1
+            const nextIdx = focusedIndex + 1
             if (nextIdx < navItems.length) navDispatch({ type: 'NAV_SET', index: nextIdx })
           }
         }
@@ -182,12 +185,12 @@ export function ProjectList({ onAddWorktree }: Props) {
       }
       case 'ArrowLeft': {
         e.preventDefault()
-        if (!focusedItem) break
+        if (!focusedItem || focusedIndex === null) break
         if (focusedItem.kind === 'project') {
           if (expandedProjects.has(focusedItem.projectId)) toggleProject(focusedItem.projectId)
         } else {
           const projIdx = navItems.findIndex(
-            (n, i) => i < focusedIndex! && n.kind === 'project' && n.projectId === focusedItem.projectId
+            (n, i) => i < focusedIndex && n.kind === 'project' && n.projectId === focusedItem.projectId
           )
           if (projIdx !== -1) navDispatch({ type: 'NAV_SET', index: projIdx })
         }

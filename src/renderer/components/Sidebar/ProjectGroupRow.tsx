@@ -122,6 +122,16 @@ export function ProjectGroupRow({
 
   const worktreeIds = useMemo(() => orderedWorktrees.map((w) => w.id), [orderedWorktrees])
 
+  // Stable per-worktree ref callbacks — avoids creating a new closure per render
+  // (which would trigger WorktreeRow's useEffect([onRegisterRef]) on every render)
+  const worktreeRegisterRefs = useMemo(
+    () => new Map(orderedWorktrees.map((wt) => [
+      wt.id,
+      (el: HTMLElement | null) => onRegisterRef(`worktree:${wt.id}`, el)
+    ])),
+    [orderedWorktrees, onRegisterRef]
+  )
+
   const isDragging = projDraggingId === project.id
   const isDropTarget = projDragOverId === project.id
   const isHeaderFocused = focusedProjectId === project.id
@@ -271,7 +281,7 @@ export function ProjectGroupRow({
               dragOverId={wtDragOverId}
               isNew={wt.id === newlyAddedWorktreeId}
               isFocused={focusedWorktreeId === wt.id}
-              onRegisterRef={(el) => onRegisterRef(`worktree:${wt.id}`, el)}
+              onRegisterRef={worktreeRegisterRefs.get(wt.id)}
             />
           ))}
         </div>
