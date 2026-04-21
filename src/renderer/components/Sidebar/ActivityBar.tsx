@@ -1,8 +1,9 @@
 import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/store/ui'
+import { useUpdaterStore } from '@/store/updater'
 import { Tooltip } from '@/components/shared/Tooltip'
-import { IconGitBranch, IconGrid, IconSettings } from '@/components/shared/icons'
+import { IconGitBranch, IconGrid, IconSettings, IconArrowUp } from '@/components/shared/icons'
 import { ActivityBarApps } from './ActivityBarApps'
 
 interface ActivityBarItemProps {
@@ -38,6 +39,18 @@ export const ActivityBar = memo(function ActivityBar() {
   const toggleSidebar = useUIStore((s) => s.toggleSidebar)
   const toggleMissionControl = useUIStore((s) => s.toggleMissionControl)
   const openSettings = useUIStore((s) => s.openSettings)
+  const dismissedUpdate = useUpdaterStore(
+    (s) => (s.state.status === 'available' || s.state.status === 'ready') && s.state.dismissed
+  )
+  const updaterStatus = useUpdaterStore((s) => s.state.status)
+  const updaterVersion = useUpdaterStore((s) => ('version' in s.state ? s.state.version : undefined))
+  const updaterDispatch = useUpdaterStore((s) => s.dispatch)
+
+  const updateTooltip = dismissedUpdate
+    ? updaterStatus === 'ready'
+      ? t('updateReady', { version: updaterVersion })
+      : t('updateAvailable', { version: updaterVersion })
+    : ''
 
   return (
     <div className="activity-bar">
@@ -60,6 +73,18 @@ export const ActivityBar = memo(function ActivityBar() {
         <div className="activity-bar-drag-spacer" />
       </div>
       <div className="activity-bar-bottom">
+        {dismissedUpdate && (
+          <Tooltip content={updateTooltip} position="right">
+            <button
+              className="activity-bar-item activity-bar-update-btn"
+              onClick={() => updaterDispatch({ type: 'undismiss' })}
+              aria-label={updateTooltip}
+            >
+              <IconArrowUp size={18} />
+              <span className="activity-bar-update-dot" />
+            </button>
+          </Tooltip>
+        )}
         <ActivityBarItem
           icon={<IconSettings size={20} />}
           label={`${t('settings')} (\u2318,)`}
