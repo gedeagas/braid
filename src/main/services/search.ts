@@ -1,6 +1,6 @@
 import { spawn } from 'child_process'
 import { existsSync, readFileSync, statSync, writeFileSync } from 'fs'
-import { join, relative } from 'path'
+import { join, relative, resolve } from 'path'
 import { logger } from '../lib/logger'
 import { enrichedEnv, waitForEnrichedEnv } from '../lib/enrichedEnv'
 import { BUNDLED_RG_PATH } from './rgPath'
@@ -26,7 +26,7 @@ interface RgMatchJson {
 function buildArgs(query: string, options: SearchOptions): string[] {
   // We deliberately avoid --max-columns: with JSON output, rg omits line content
   // for over-long lines, leaving empty rows in the UI. CSS handles overflow.
-  const args = ['--json', '--max-count=50']
+  const args = ['--json']
   if (options.caseSensitive) args.push('--case-sensitive')
   else args.push('--smart-case')
   if (options.wholeWord) args.push('--word-regexp')
@@ -115,14 +115,15 @@ class SearchService {
         }
         if (parsed.type !== 'match') return
         const m = parsed as RgMatchJson
-        const absPath = m.data.path.text
-        if (!absPath) return
+        const rawPath = m.data.path.text
+        if (!rawPath) return
+        const absPath = join(worktreePath, rawPath)
         const rawLine = m.data.lines.text
         // rg emits `bytes` (base64) instead of `text` for non-UTF8 / binary
         // content — skip these rather than display garbage.
         if (typeof rawLine !== 'string') return
         const lineText = rawLine.replace(/\r?\n$/, '')
-        const rel = relative(worktreePath, absPath) || absPath
+        const rel = relative(worktreePath, absPath) || rawPath
         let fileResult = byPath.get(absPath)
         if (!fileResult) {
           fileResult = { path: absPath, relativePath: rel, matches: [] }
@@ -148,8 +149,9 @@ class SearchService {
         if (truncated) child.kill('SIGTERM')
       }
 
-      child.stdout.on('data', (chunk: Buffer) => {
-        stdoutBuf += chunk.toString('utf8')
+      child.stdout.setEncoding('utf8')
+      child.stdout.on('data', (chunk: string) => {
+        stdoutBuf += chunk
         let idx: number
         while ((idx = stdoutBuf.indexOf('\n')) !== -1) {
           const line = stdoutBuf.slice(0, idx)
@@ -238,7 +240,9 @@ class SearchService {
     replacement: string,
   ): Promise<{ replaced: number }> {
     if (matches.length === 0) return { replaced: 0 }
-    const abs = join(worktreePath, relativePath)
+    // Prevent path traversal: resolve the path and ensure it stays within worktreePath
+    const abs = resolve(worktreePath, relativePath)
+    if (!abs.startsWith(worktreePath + '/') && abs !== worktreePath) return { replaced: 0 }
     if (!existsSync(abs)) return { replaced: 0 }
     const content = readFileSync(abs, 'utf-8')
     const lines = content.split('\n')

@@ -1,4 +1,4 @@
-import type { SearchFileResult, SearchMatch } from '../../../../shared/search'
+import type { SearchFileResult, SearchMatch } from '@shared/search'
 import { IconChevronRight, IconChevronDown } from '@/components/shared/icons'
 import { SearchResultRow } from './SearchResultRow'
 
@@ -6,7 +6,6 @@ interface Props {
   file: SearchFileResult
   collapsed: boolean
   showReplace: boolean
-  worktreePath: string
   onToggleCollapsed: () => void
   onReplaceOne: (match: SearchMatch) => void
 }
@@ -15,7 +14,6 @@ export function SearchFileGroup({
   file,
   collapsed,
   showReplace,
-  worktreePath,
   onToggleCollapsed,
   onReplaceOne,
 }: Props) {
@@ -43,7 +41,6 @@ export function SearchFileGroup({
               file={file}
               match={match}
               showReplace={showReplace}
-              worktreePath={worktreePath}
               onReplaceOne={() => onReplaceOne(match)}
             />
           ))}

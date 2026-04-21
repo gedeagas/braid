@@ -231,11 +231,11 @@ export const files = {
 }
 
 export const search = {
-  content: (worktreePath: string, query: string, options: import('../../shared/search').SearchOptions) =>
+  content: (worktreePath: string, query: string, options: import('@shared/search').SearchOptions) =>
     api().search.content(worktreePath, query, options),
-  replace: (worktreePath: string, results: import('../../shared/search').SearchFileResult[], replacement: string) =>
+  replace: (worktreePath: string, results: import('@shared/search').SearchFileResult[], replacement: string) =>
     api().search.replace(worktreePath, results, replacement),
-  replaceOne: (worktreePath: string, relativePath: string, matches: import('../../shared/search').SearchMatch[], replacement: string) =>
+  replaceOne: (worktreePath: string, relativePath: string, matches: import('@shared/search').SearchMatch[], replacement: string) =>
     api().search.replaceOne(worktreePath, relativePath, matches, replacement),
 }
 

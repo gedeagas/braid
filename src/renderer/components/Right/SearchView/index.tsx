@@ -7,8 +7,8 @@ import type {
   SearchMatch,
   SearchOptions,
   SearchResult,
-} from '../../../../shared/search'
-import { DEFAULT_MAX_RESULTS } from '../../../../shared/search'
+} from '@shared/search'
+import { DEFAULT_MAX_RESULTS } from '@shared/search'
 import { SearchInput } from './SearchInput'
 import { SearchResults } from './SearchResults'
 
@@ -277,7 +277,6 @@ export function SearchView({ worktreePath }: Props) {
             files={state.result.files}
             collapsed={state.collapsed}
             showReplace={state.showReplace}
-            worktreePath={worktreePath}
             onToggleCollapsed={(path) => dispatch({ type: 'toggleCollapsed', path })}
             onReplaceOne={handleReplaceOne}
           />

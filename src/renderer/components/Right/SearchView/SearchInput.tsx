@@ -122,16 +122,18 @@ export function SearchInput({
       </div>
 
       <div className="search-filters">
-        <label className="search-filter-label">{t('searchIncludeLabel')}</label>
+        <label htmlFor="search-include-filter" className="search-filter-label">{t('searchIncludeLabel')}</label>
         <input
+          id="search-include-filter"
           type="text"
           className="search-input search-input--filter"
           value={includeGlobs}
           onChange={(e) => onIncludeChange(e.target.value)}
           placeholder="*.ts, src/**/*.tsx"
         />
-        <label className="search-filter-label">{t('searchExcludeLabel')}</label>
+        <label htmlFor="search-exclude-filter" className="search-filter-label">{t('searchExcludeLabel')}</label>
         <input
+          id="search-exclude-filter"
           type="text"
           className="search-input search-input--filter"
           value={excludeGlobs}

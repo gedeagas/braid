@@ -1,12 +1,11 @@
 import { useTranslation } from 'react-i18next'
-import type { SearchFileResult, SearchMatch } from '../../../../shared/search'
+import type { SearchFileResult, SearchMatch } from '@shared/search'
 import { useUIStore } from '@/store/ui'
 
 interface Props {
   file: SearchFileResult
   match: SearchMatch
   showReplace: boolean
-  worktreePath: string
   onReplaceOne: () => void
 }
 
@@ -28,7 +27,18 @@ export function SearchResultRow({ file, match, showReplace, onReplaceOne }: Prop
   }
 
   return (
-    <div className="search-result-row" onClick={handleClick}>
+    <div
+      className="search-result-row"
+      onClick={handleClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          handleClick()
+        }
+      }}
+    >
       <span className="search-result-line-number">{match.lineNumber}</span>
       <span className="search-result-line-text">
         {before}
