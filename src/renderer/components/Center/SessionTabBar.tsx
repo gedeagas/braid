@@ -1,7 +1,7 @@
 import { useReducer, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSessionsStore, useSessionsForWorktree, getLastActiveForWorktree } from '@/store/sessions'
-import { useUIStore, selectChangesOpen, selectActiveCenterView } from '@/store/ui'
+import { useUIStore, selectChangesOpen, selectActiveCenterView, selectCodeReviewOpen } from '@/store/ui'
 import { useProjectsStore } from '@/store/projects'
 import { useDragScroll } from '@/hooks/useDragScroll'
 import { useTabReorder } from '@/hooks/useTabReorder'
@@ -14,6 +14,7 @@ import { SessionTab } from './SessionTab'
 import { TerminalTab } from './TerminalTab'
 import { FileTab } from './FileTab'
 import { ChangesTab } from './ChangesTab'
+import { CodeReviewTab } from './CodeReviewTab'
 
 interface TabBarLocal {
   editingId: string | null
@@ -38,10 +39,12 @@ export function SessionTabBar() {
 
   const openFilePaths = useUIStore((s) => s.openFilePaths)
   const changesOpen = useUIStore(selectChangesOpen)
+  const codeReviewOpen = useUIStore(selectCodeReviewOpen)
   const dirtyFilePaths = useUIStore((s) => s.dirtyFilePaths)
   const activeCenterView = useUIStore(selectActiveCenterView)
   const closeFile = useUIStore((s) => s.closeFile)
   const closeChanges = useUIStore((s) => s.closeChanges)
+  const closeCodeReview = useUIStore((s) => s.closeCodeReview)
   const setActiveCenterView = useUIStore((s) => s.setActiveCenterView)
   const tabOrder = useUIStore((s) => s.tabOrder)
   const setTabOrder = useUIStore((s) => s.setTabOrder)
@@ -88,13 +91,14 @@ export function SessionTabBar() {
     const sessionKeys = sessions.map((s) => `s:${s.id}`)
     const fileKeys = openFilePaths.map((p) => `f:${p}`)
     const changesKeys = changesOpen ? ['changes'] : []
+    const codeReviewKeys = codeReviewOpen ? ['codeReview'] : []
     const terminalKeys = bigTerminals.map((bt) => `t:${bt.id}`)
-    const all = [...sessionKeys, ...fileKeys, ...changesKeys, ...terminalKeys]
+    const all = [...sessionKeys, ...fileKeys, ...changesKeys, ...codeReviewKeys, ...terminalKeys]
     const allValid = new Set(all)
     const valid = tabOrder.filter((k) => allValid.has(k))
     const newEntries = all.filter((k) => !valid.includes(k))
     return [...valid, ...newEntries]
-  }, [tabOrder, sessions, openFilePaths, changesOpen, bigTerminals])
+  }, [tabOrder, sessions, openFilePaths, changesOpen, codeReviewOpen, bigTerminals])
 
   // Persist reconciled order whenever it diverges.
   useEffect(() => {
@@ -178,11 +182,13 @@ export function SessionTabBar() {
         closeFile(key.slice(2))
       } else if (key === 'changes') {
         closeChanges()
+      } else if (key === 'codeReview') {
+        closeCodeReview()
       } else if (key.startsWith('t:')) {
         closeTerminalFully(key.slice(2))
       }
     },
-    [sessions, closeSession, closeFile, closeChanges, closeTerminalFully, t]
+    [sessions, closeSession, closeFile, closeChanges, closeCodeReview, closeTerminalFully, t]
   )
 
   // Close multiple tabs — batches active-session confirmation into one dialog
@@ -201,10 +207,11 @@ export function SessionTabBar() {
         if (key.startsWith('s:')) closeSession(key.slice(2))
         else if (key.startsWith('f:')) closeFile(key.slice(2))
         else if (key === 'changes') closeChanges()
+        else if (key === 'codeReview') closeCodeReview()
         else if (key.startsWith('t:')) closeTerminalFully(key.slice(2))
       }
     },
-    [sessions, closeSession, closeFile, closeChanges, closeTerminalFully, t]
+    [sessions, closeSession, closeFile, closeChanges, closeCodeReview, closeTerminalFully, t]
   )
 
   // Keyboard-accessible tab close — Delete key closes the focused tab.
@@ -359,6 +366,30 @@ export function SessionTabBar() {
               onKeyDown={handleTabKeyDown}
               onContextMenu={handleTabContextMenu}
               onClose={() => closeChanges()}
+            />
+          )
+        }
+
+        // ── Code Review tab (single) ───────────────────────────────────
+        if (key === 'codeReview') {
+          const isActive = activeCenterView?.type === 'codeReview'
+          return (
+            <CodeReviewTab
+              key={key}
+              tabKey={key}
+              label={t('codeReviewTitle', { ns: 'center' })}
+              isActive={isActive}
+              isDragSource={isDragSource}
+              isDraggedOver={isDraggedOver}
+              onDragStart={onDragStart}
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop}
+              onDragEnd={onDragEnd}
+              onActivate={() => setActiveCenterView({ type: 'codeReview' })}
+              onKeyDown={handleTabKeyDown}
+              onContextMenu={handleTabContextMenu}
+              onClose={() => closeCodeReview()}
             />
           )
         }

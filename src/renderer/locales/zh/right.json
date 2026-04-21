@@ -332,5 +332,18 @@
   "openIn": "打开",
   "copyPath": "复制路径",
   "revealInFinder": "在 Finder 中显示",
-  "openInApp": "在 {{app}} 中打开"
+  "openInApp": "在 {{app}} 中打开",
+  "codeReviews": "代码审查",
+  "seeAllReviews": "查看全部",
+  "reviewApproved": "已批准",
+  "reviewChangesRequested": "请求更改",
+  "reviewCommented": "已评论",
+  "reviewDismissed": "已驳回",
+  "reviewNoReviews": "暂无审查",
+  "reviewComments_one": "{{count}} 条评论",
+  "reviewComments_other": "{{count}} 条评论",
+  "reviewUnresolved_one": "{{count}} 个未解决",
+  "reviewUnresolved_other": "{{count}} 个未解决",
+  "reviewResolved_one": "{{count}} 个已解决",
+  "reviewResolved_other": "{{count}} 个已解决"
 }

@@ -332,5 +332,18 @@
   "openIn": "開く",
   "copyPath": "パスをコピー",
   "revealInFinder": "Finderで表示",
-  "openInApp": "{{app}}で開く"
+  "openInApp": "{{app}}で開く",
+  "codeReviews": "コードレビュー",
+  "seeAllReviews": "すべて表示",
+  "reviewApproved": "承認済み",
+  "reviewChangesRequested": "変更依頼",
+  "reviewCommented": "コメント",
+  "reviewDismissed": "却下",
+  "reviewNoReviews": "レビューはまだありません",
+  "reviewComments_one": "{{count}}件のコメント",
+  "reviewComments_other": "{{count}}件のコメント",
+  "reviewUnresolved_one": "{{count}} 未解決",
+  "reviewUnresolved_other": "{{count}} 未解決",
+  "reviewResolved_one": "{{count}} 解決済み",
+  "reviewResolved_other": "{{count}} 解決済み"
 }

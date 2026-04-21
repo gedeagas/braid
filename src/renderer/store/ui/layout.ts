@@ -9,6 +9,7 @@ export type CenterView =
   | { type: 'file'; path: string }
   | { type: 'changes' }
   | { type: 'terminal'; terminalId: string }
+  | { type: 'codeReview' }
 
 export type ToolMessageStyle = 'funny' | 'boring'
 export type ActivityIndicatorStyle = 'spinner' | 'dots' | 'waveform'
@@ -110,6 +111,7 @@ export interface LayoutSlice {
   activityIndicatorStyle: ActivityIndicatorStyle
   openFilePaths: string[]
   changesOpenByWorktree: Record<string, boolean>
+  codeReviewOpenByWorktree: Record<string, boolean>
   selectedDiffFileByWorktree: Record<string, DiffFileSelection | null>
   tabOrder: string[]
   dirtyFilePaths: Set<string>
@@ -140,6 +142,8 @@ export interface LayoutSlice {
   closeFile: (path: string) => void
   openChanges: (file?: string, status?: GitStatusCode, staged?: boolean) => void
   closeChanges: () => void
+  openCodeReview: () => void
+  closeCodeReview: () => void
   selectDiffFile: (path: string, status?: GitStatusCode, staged?: boolean) => void
   setActiveCenterView: (view: CenterView | null) => void
   setFileDirty: (path: string, dirty: boolean) => void
@@ -187,6 +191,7 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
     return []
   })(),
   changesOpenByWorktree: {},
+  codeReviewOpenByWorktree: {},
   selectedDiffFileByWorktree: {},
   tabOrder: (() => {
     try {
@@ -413,6 +418,38 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
     })
   },
 
+  openCodeReview: () => {
+    const wtId = get().selectedWorktreeId
+    if (!wtId) return
+    const { tabOrder } = get()
+    const crKey = 'codeReview'
+    const nextTabOrder = tabOrder.includes(crKey) ? tabOrder : [...tabOrder, crKey]
+    if (!tabOrder.includes(crKey)) {
+      try { localStorage.setItem(SK.tabOrderPrefix + wtId, JSON.stringify(nextTabOrder)) } catch {}
+    }
+    set({
+      codeReviewOpenByWorktree: { ...get().codeReviewOpenByWorktree, [wtId]: true },
+      tabOrder: nextTabOrder,
+      activeCenterViewByWorktree: { ...get().activeCenterViewByWorktree, [wtId]: { type: 'codeReview' } },
+    })
+  },
+
+  closeCodeReview: () => {
+    const wtId = get().selectedWorktreeId
+    if (!wtId) return
+    const { tabOrder } = get()
+    const acv = get().activeCenterViewByWorktree[wtId] ?? null
+    const nextTabOrder = tabOrder.filter((k) => k !== 'codeReview')
+    let nextView: CenterView | null = acv
+    if (acv?.type === 'codeReview') nextView = null
+    try { localStorage.setItem(SK.tabOrderPrefix + wtId, JSON.stringify(nextTabOrder)) } catch {}
+    set({
+      codeReviewOpenByWorktree: { ...get().codeReviewOpenByWorktree, [wtId]: false },
+      tabOrder: nextTabOrder,
+      activeCenterViewByWorktree: { ...get().activeCenterViewByWorktree, [wtId]: nextView },
+    })
+  },
+
   selectDiffFile: (path, status, staged) => {
     const wtId = get().selectedWorktreeId ?? ''
     set({ selectedDiffFileByWorktree: { ...get().selectedDiffFileByWorktree, [wtId]: { path, status: status ?? 'M', staged: staged ?? false } } })
@@ -583,6 +620,7 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
     const s = get()
     set({
       changesOpenByWorktree: omit(s.changesOpenByWorktree, worktreeId),
+      codeReviewOpenByWorktree: omit(s.codeReviewOpenByWorktree, worktreeId),
       selectedDiffFileByWorktree: omit(s.selectedDiffFileByWorktree, worktreeId),
       activeCenterViewByWorktree: omit(s.activeCenterViewByWorktree, worktreeId),
       changesCounts: omit(s.changesCounts, worktreePath),
@@ -604,3 +642,6 @@ export const selectSelectedDiffFile = (s: LayoutSlice): DiffFileSelection | null
 
 export const selectActiveCenterView = (s: LayoutSlice): CenterView | null =>
   s.activeCenterViewByWorktree[s.selectedWorktreeId ?? ''] ?? null
+
+export const selectCodeReviewOpen = (s: LayoutSlice): boolean =>
+  s.codeReviewOpenByWorktree[s.selectedWorktreeId ?? ''] ?? false

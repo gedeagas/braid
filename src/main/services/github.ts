@@ -78,10 +78,46 @@ export interface GitSyncStatus {
   baseBranch: string | null
 }
 
+export type ReviewState = 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | 'PENDING' | 'DISMISSED'
+
+export interface PrReview {
+  id: number
+  author: string
+  authorAvatarUrl: string
+  state: ReviewState
+  body: string
+  submittedAt: string
+  htmlUrl: string
+}
+
+export interface PrReviewComment {
+  id: number
+  reviewId: number
+  author: string
+  authorAvatarUrl: string
+  body: string
+  path: string
+  line: number | null
+  originalLine: number | null
+  side: 'LEFT' | 'RIGHT'
+  diffHunk: string
+  createdAt: string
+  updatedAt: string
+  htmlUrl: string
+  inReplyToId: number | null
+  isResolved: boolean
+}
+
+export interface PrReviewData {
+  reviews: PrReview[]
+  comments: PrReviewComment[]
+}
+
 class GitHubService {
   private prCache = new ServiceCache<PrStatus | null>(30_000)
   private checksCache = new ServiceCache<CheckRun[]>(30_000)
   private deploymentsCache = new ServiceCache<Deployment[]>(60_000)
+  private reviewsCache = new ServiceCache<PrReviewData>(30_000)
   // Note: getGitSyncStatus is NOT cached — it reads uncommittedChanges from `git status`
   // which changes on every file save. The existing fetchIfStale() debounce already handles
   // the expensive network call (git fetch). git status + rev-list are fast local ops (~10ms).
@@ -258,6 +294,150 @@ class GitHubService {
     }
   }
 
+  async getReviews(worktreePath: string, forceRefresh?: boolean): Promise<PrReviewData> {
+    return await this.reviewsCache.get(worktreePath, () => this._fetchReviews(worktreePath), { forceRefresh })
+  }
+
+  private async _fetchReviews(worktreePath: string): Promise<PrReviewData> {
+    const nwo = await resolveNwo(worktreePath)
+    const pr = await this.getPrStatus(worktreePath)
+    if (!pr) return { reviews: [], comments: [] }
+
+    const [owner, repo] = nwo.split('/')
+
+    const [reviewsRaw, commentsRaw, threadsRaw] = await Promise.all([
+      this.gh(['api', `repos/${nwo}/pulls/${pr.number}/reviews`, '--paginate'], worktreePath),
+      this.gh(['api', `repos/${nwo}/pulls/${pr.number}/comments`, '--paginate'], worktreePath),
+      this._fetchThreadResolution(worktreePath, owner, repo, pr.number),
+    ])
+
+    let reviews: PrReview[] = []
+    let comments: PrReviewComment[] = []
+
+    try {
+      const data = JSON.parse(reviewsRaw || '[]')
+      reviews = (data as Array<Record<string, unknown>>).map((r) => ({
+        id: r.id as number,
+        author: (r.user as Record<string, unknown>)?.login as string ?? 'unknown',
+        authorAvatarUrl: (r.user as Record<string, unknown>)?.avatar_url as string ?? '',
+        state: r.state as ReviewState,
+        body: (r.body as string) ?? '',
+        submittedAt: r.submitted_at as string,
+        htmlUrl: r.html_url as string,
+      }))
+    } catch { /* ignore parse errors */ }
+
+    try {
+      const data = JSON.parse(commentsRaw || '[]')
+      comments = (data as Array<Record<string, unknown>>).map((c) => {
+        const commentId = c.id as number
+        const replyTo = (c.in_reply_to_id as number) ?? null
+        // All comment IDs (root + replies) are in threadsRaw, so direct lookup works
+        const resolved = threadsRaw.get(commentId) ?? false
+        return {
+          id: commentId,
+          reviewId: c.pull_request_review_id as number,
+          author: (c.user as Record<string, unknown>)?.login as string ?? 'unknown',
+          authorAvatarUrl: (c.user as Record<string, unknown>)?.avatar_url as string ?? '',
+          body: (c.body as string) ?? '',
+          path: c.path as string,
+          line: (c.line as number) ?? (c.original_line as number) ?? null,
+          originalLine: (c.original_line as number) ?? null,
+          side: (c.side as 'LEFT' | 'RIGHT') ?? 'RIGHT',
+          diffHunk: (c.diff_hunk as string) ?? '',
+          createdAt: c.created_at as string,
+          updatedAt: c.updated_at as string,
+          htmlUrl: c.html_url as string,
+          inReplyToId: replyTo,
+          isResolved: resolved,
+        }
+      })
+    } catch { /* ignore parse errors */ }
+
+    return { reviews, comments }
+  }
+
+  /**
+   * Fetch review thread resolution status via GraphQL (paginated).
+   * Returns a map: commentDatabaseId -> isResolved for ALL comments in each thread,
+   * so both root comments and replies can look up their thread's resolution status directly.
+   */
+  private async _fetchThreadResolution(
+    worktreePath: string, owner: string, repo: string, prNumber: number,
+  ): Promise<Map<number, boolean>> {
+    const result = new Map<number, boolean>()
+    try {
+      const query = `
+        query($owner: String!, $repo: String!, $number: Int!, $after: String) {
+          repository(owner: $owner, name: $repo) {
+            pullRequest(number: $number) {
+              reviewThreads(first: 100, after: $after) {
+                nodes {
+                  isResolved
+                  comments(first: 100) {
+                    nodes { databaseId }
+                  }
+                }
+                pageInfo {
+                  hasNextPage
+                  endCursor
+                }
+              }
+            }
+          }
+        }
+      `
+
+      let after: string | undefined
+      let hasNextPage = true
+
+      while (hasNextPage) {
+        const args = [
+          'api', 'graphql',
+          '-f', `query=${query}`,
+          '-F', `owner=${owner}`,
+          '-F', `repo=${repo}`,
+          '-F', `number=${prNumber}`,
+        ]
+        if (after) args.push('-F', `after=${after}`)
+
+        const raw = await this.gh(args, worktreePath)
+        if (!raw) break
+
+        const parsed = JSON.parse(raw) as {
+          data?: {
+            repository?: {
+              pullRequest?: {
+                reviewThreads?: {
+                  nodes?: Array<{
+                    isResolved: boolean
+                    comments: { nodes: Array<{ databaseId: number }> }
+                  }>
+                  pageInfo?: { hasNextPage?: boolean; endCursor?: string | null }
+                }
+              }
+            }
+          }
+        }
+
+        const reviewThreads = parsed.data?.repository?.pullRequest?.reviewThreads
+        const threads = reviewThreads?.nodes
+        if (threads) {
+          for (const thread of threads) {
+            for (const comment of thread.comments.nodes) {
+              result.set(comment.databaseId, thread.isResolved)
+            }
+          }
+        }
+
+        hasNextPage = reviewThreads?.pageInfo?.hasNextPage === true
+        after = reviewThreads?.pageInfo?.endCursor ?? undefined
+        if (hasNextPage && !after) break
+      }
+    } catch { /* GraphQL resolution lookup is best-effort */ }
+    return result
+  }
+
   async getCheckRunLog(worktreePath: string, checkUrl: string): Promise<string> {
     // checkUrl from gh pr checks looks like:
     //   https://github.com/owner/repo/actions/runs/12345/jobs/67890
@@ -316,6 +496,7 @@ class GitHubService {
     this.prCache.invalidate(worktreePath)
     this.checksCache.invalidate(worktreePath)
     this.deploymentsCache.invalidate(worktreePath)
+    this.reviewsCache.invalidate(worktreePath)
   }
 
   async markPrReady(worktreePath: string): Promise<void> {

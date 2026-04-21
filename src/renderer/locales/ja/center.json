@@ -335,5 +335,21 @@
   "rateLimitTooltip": "{{label}}ローリング: {{percent}}%使用済み",
   "rateLimitStatusOk": "{{label}}ローリング: 制限内",
   "rateLimitOk": "OK",
-  "rateLimitWarning": "!"
+  "rateLimitWarning": "!",
+  "codeReviewTitle": "コードレビュー",
+  "codeReviewSummary": "{{reviewCount}}件のレビュー、{{commentCount}}件のインラインコメント",
+  "codeReviewBack": "戻る",
+  "codeReviewOpenFile": "ファイルを開く",
+  "codeReviewLine": "L{{line}}",
+  "codeReviewNoReviews": "レビューなし",
+  "codeReviewNoComments": "インラインコメントはまだありません",
+  "codeReviewEmpty": "コードレビューのアクティビティなし",
+  "codeReviewEmptyHint": "レビュアーが応答するとレビューとコメントがここに表示されます",
+  "codeReviewResolved": "解決済み",
+  "codeReviewOpen": "未解決",
+  "codeReviewFilterAll": "すべて ({{count}})",
+  "codeReviewFilterOpen": "未解決 ({{count}})",
+  "codeReviewFilterResolved": "解決済み ({{count}})",
+  "codeReviewNoResolved": "解決済みのコメントはありません",
+  "codeReviewNoOpen": "未解決のコメントはありません"
 }

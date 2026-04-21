@@ -332,5 +332,18 @@
   "openIn": "Buka",
   "copyPath": "Salin jalur",
   "revealInFinder": "Tampilkan di Finder",
-  "openInApp": "Buka di {{app}}"
+  "openInApp": "Buka di {{app}}",
+  "codeReviews": "Ulasan Kode",
+  "seeAllReviews": "Lihat semua",
+  "reviewApproved": "Disetujui",
+  "reviewChangesRequested": "Perubahan diminta",
+  "reviewCommented": "Dikomentari",
+  "reviewDismissed": "Ditolak",
+  "reviewNoReviews": "Belum ada ulasan",
+  "reviewComments_one": "{{count}} komentar",
+  "reviewComments_other": "{{count}} komentar",
+  "reviewUnresolved_one": "{{count}} terbuka",
+  "reviewUnresolved_other": "{{count}} terbuka",
+  "reviewResolved_one": "{{count}} terselesaikan",
+  "reviewResolved_other": "{{count}} terselesaikan"
 }
