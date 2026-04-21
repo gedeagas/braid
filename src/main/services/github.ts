@@ -295,11 +295,7 @@ class GitHubService {
   }
 
   async getReviews(worktreePath: string, forceRefresh?: boolean): Promise<PrReviewData> {
-    try {
-      return await this.reviewsCache.get(worktreePath, () => this._fetchReviews(worktreePath), { forceRefresh })
-    } catch {
-      return { reviews: [], comments: [] }
-    }
+    return await this.reviewsCache.get(worktreePath, () => this._fetchReviews(worktreePath), { forceRefresh })
   }
 
   private async _fetchReviews(worktreePath: string): Promise<PrReviewData> {
@@ -336,11 +332,8 @@ class GitHubService {
       comments = (data as Array<Record<string, unknown>>).map((c) => {
         const commentId = c.id as number
         const replyTo = (c.in_reply_to_id as number) ?? null
-        // Root comments: look up directly in threadsRaw map
-        // Reply comments: inherit from their root comment's thread
-        const resolved = replyTo
-          ? threadsRaw.get(replyTo) ?? false
-          : threadsRaw.get(commentId) ?? false
+        // All comment IDs (root + replies) are in threadsRaw, so direct lookup works
+        const resolved = threadsRaw.get(commentId) ?? false
         return {
           id: commentId,
           reviewId: c.pull_request_review_id as number,
@@ -365,8 +358,9 @@ class GitHubService {
   }
 
   /**
-   * Fetch review thread resolution status via GraphQL.
-   * Returns a map: rootCommentId -> isResolved.
+   * Fetch review thread resolution status via GraphQL (paginated).
+   * Returns a map: commentDatabaseId -> isResolved for ALL comments in each thread,
+   * so both root comments and replies can look up their thread's resolution status directly.
    */
   private async _fetchThreadResolution(
     worktreePath: string, owner: string, repo: string, prNumber: number,
@@ -374,53 +368,71 @@ class GitHubService {
     const result = new Map<number, boolean>()
     try {
       const query = `
-        query($owner: String!, $repo: String!, $number: Int!) {
+        query($owner: String!, $repo: String!, $number: Int!, $after: String) {
           repository(owner: $owner, name: $repo) {
             pullRequest(number: $number) {
-              reviewThreads(first: 100) {
+              reviewThreads(first: 100, after: $after) {
                 nodes {
                   isResolved
-                  comments(first: 1) {
+                  comments(first: 100) {
                     nodes { databaseId }
                   }
+                }
+                pageInfo {
+                  hasNextPage
+                  endCursor
                 }
               }
             }
           }
         }
       `
-      const raw = await this.gh([
-        'api', 'graphql',
-        '-f', `query=${query}`,
-        '-F', `owner=${owner}`,
-        '-F', `repo=${repo}`,
-        '-F', `number=${prNumber}`,
-      ], worktreePath)
-      if (!raw) return result
 
-      const parsed = JSON.parse(raw) as {
-        data?: {
-          repository?: {
-            pullRequest?: {
-              reviewThreads?: {
-                nodes?: Array<{
-                  isResolved: boolean
-                  comments: { nodes: Array<{ databaseId: number }> }
-                }>
+      let after: string | undefined
+      let hasNextPage = true
+
+      while (hasNextPage) {
+        const args = [
+          'api', 'graphql',
+          '-f', `query=${query}`,
+          '-F', `owner=${owner}`,
+          '-F', `repo=${repo}`,
+          '-F', `number=${prNumber}`,
+        ]
+        if (after) args.push('-F', `after=${after}`)
+
+        const raw = await this.gh(args, worktreePath)
+        if (!raw) break
+
+        const parsed = JSON.parse(raw) as {
+          data?: {
+            repository?: {
+              pullRequest?: {
+                reviewThreads?: {
+                  nodes?: Array<{
+                    isResolved: boolean
+                    comments: { nodes: Array<{ databaseId: number }> }
+                  }>
+                  pageInfo?: { hasNextPage?: boolean; endCursor?: string | null }
+                }
               }
             }
           }
         }
-      }
 
-      const threads = parsed.data?.repository?.pullRequest?.reviewThreads?.nodes
-      if (threads) {
-        for (const thread of threads) {
-          const firstComment = thread.comments.nodes[0]
-          if (firstComment) {
-            result.set(firstComment.databaseId, thread.isResolved)
+        const reviewThreads = parsed.data?.repository?.pullRequest?.reviewThreads
+        const threads = reviewThreads?.nodes
+        if (threads) {
+          for (const thread of threads) {
+            for (const comment of thread.comments.nodes) {
+              result.set(comment.databaseId, thread.isResolved)
+            }
           }
         }
+
+        hasNextPage = reviewThreads?.pageInfo?.hasNextPage === true
+        after = reviewThreads?.pageInfo?.endCursor ?? undefined
+        if (hasNextPage && !after) break
       }
     } catch { /* GraphQL resolution lookup is best-effort */ }
     return result

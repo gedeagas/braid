@@ -72,15 +72,19 @@ function getReplies(comments: PrReviewComment[], parentId: number): PrReviewComm
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
 }
 
+const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'always', style: 'short' })
+
 function formatTime(iso: string): string {
   try {
     const d = new Date(iso)
     const now = new Date()
     const diffMs = now.getTime() - d.getTime()
-    const diffHrs = diffMs / (1000 * 60 * 60)
-    if (diffHrs < 1) return `${Math.max(1, Math.round(diffMs / 60000))}m ago`
-    if (diffHrs < 24) return `${Math.round(diffHrs)}h ago`
-    if (diffHrs < 168) return `${Math.round(diffHrs / 24)}d ago`
+    const diffMinutes = Math.max(1, Math.round(diffMs / 60000))
+    const diffHours = Math.round(diffMs / (1000 * 60 * 60))
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24))
+    if (diffMinutes < 60) return rtf.format(-diffMinutes, 'minute')
+    if (diffHours < 24) return rtf.format(-diffHours, 'hour')
+    if (diffDays < 7) return rtf.format(-diffDays, 'day')
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
   } catch {
     return ''
@@ -158,7 +162,13 @@ const DiffHunk = memo(function DiffHunk({ raw, filePath }: { raw: string; filePa
 function ReviewCard({ review, t }: { review: PrReview; t: (key: string) => string }) {
   const openUrl = () => ipc.shell.openExternal(review.htmlUrl)
   return (
-    <div className="code-review-card" onClick={openUrl}>
+    <div
+      className="code-review-card"
+      role="button"
+      tabIndex={0}
+      onClick={openUrl}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openUrl() } }}
+    >
       {review.authorAvatarUrl ? (
         <img className="code-review-card-avatar" src={review.authorAvatarUrl} alt={review.author} />
       ) : (
@@ -194,7 +204,13 @@ function CommentItem({
 
   return (
     <>
-      <div className={`code-review-comment${resolvedClass}`} onClick={openUrl}>
+      <div
+        className={`code-review-comment${resolvedClass}`}
+        role="button"
+        tabIndex={0}
+        onClick={openUrl}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openUrl() } }}
+      >
         {comment.authorAvatarUrl ? (
           <img className="code-review-comment-avatar" src={comment.authorAvatarUrl} alt={comment.author} />
         ) : (
@@ -267,19 +283,14 @@ export function CodeReviewView({ worktreePath }: Props) {
   const resolvedCount = useMemo(() => rootComments.filter((c) => c.isResolved).length, [rootComments])
   const unresolvedCount = rootComments.length - resolvedCount
 
-  // Filter comments based on current filter mode (applied to root comments only)
+  // Filter comments based on current filter mode.
+  // Every comment (root + reply) has isResolved set from the GraphQL thread map,
+  // so we can filter directly without chasing inReplyToId chains.
   const filteredComments = useMemo(() => {
     if (!state.data || state.filter === 'all') return state.data?.comments ?? []
     const matchResolved = state.filter === 'resolved'
-    // Get root comment IDs that match the filter
-    const matchingRoots = new Set(
-      rootComments.filter((c) => c.isResolved === matchResolved).map((c) => c.id),
-    )
-    // Include matching root comments + their replies
-    return state.data.comments.filter((c) =>
-      c.inReplyToId === null ? matchingRoots.has(c.id) : matchingRoots.has(c.inReplyToId!),
-    )
-  }, [state.data, state.filter, rootComments])
+    return state.data.comments.filter((c) => c.isResolved === matchResolved)
+  }, [state.data, state.filter])
 
   const fileGroups = useMemo(
     () => groupCommentsByFile(filteredComments),
@@ -414,7 +425,7 @@ function CodeReviewHeader({
 }) {
   return (
     <div className="code-review-header">
-      <button className="code-review-header-back" onClick={onBack}>
+      <button className="code-review-header-back" onClick={onBack} aria-label={t('center:codeReviewBack')}>
         <IconArrowLeft size={16} />
       </button>
       <span className="code-review-header-title">{t('center:codeReviewTitle')}</span>

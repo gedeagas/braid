@@ -58,7 +58,13 @@ function ReviewStateBadge({ state }: { state: ReviewState }) {
 
 function ReviewRow({ review, onClick }: { review: PrReview; onClick: () => void }) {
   return (
-    <div className="review-row" onClick={onClick}>
+    <div
+      className="review-row"
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
+    >
       {review.authorAvatarUrl ? (
         <img className="review-avatar" src={review.authorAvatarUrl} alt={review.author} />
       ) : (
@@ -78,7 +84,7 @@ export function ReviewsSection({ reviews, onOpenReview }: ReviewsSectionProps) {
   if (latestReviews.length === 0 && reviews.comments.length === 0) return null
 
   const displayReviews = latestReviews.slice(0, MAX_INLINE)
-  const hasMore = latestReviews.length > 0 || reviews.comments.length > 0
+  const hasMore = latestReviews.length > MAX_INLINE || reviews.comments.length > 0
 
   // Count resolved/unresolved root comments
   const rootComments = reviews.comments.filter((c) => c.inReplyToId === null)
@@ -99,7 +105,13 @@ export function ReviewsSection({ reviews, onOpenReview }: ReviewsSectionProps) {
           <ReviewRow key={review.id} review={review} onClick={onOpenReview} />
         ))}
         {rootComments.length > 0 && (
-          <div className="review-row" onClick={onOpenReview}>
+          <div
+            className="review-row"
+            role="button"
+            tabIndex={0}
+            onClick={onOpenReview}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenReview() } }}
+          >
             <span className="review-thread-counts">
               {unresolvedCount > 0 && (
                 <span className="review-thread-badge review-thread-badge--unresolved">
