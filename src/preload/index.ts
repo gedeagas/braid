@@ -280,6 +280,16 @@ const api = {
       ipcRenderer.invoke('files:detectFramework', repoPath) as Promise<'react-native' | 'flutter' | null>,
   },
 
+  // Search
+  search: {
+    content: (worktreePath: string, query: string, options: import('../shared/search').SearchOptions) =>
+      ipcRenderer.invoke('search:content', worktreePath, query, options) as Promise<import('../shared/search').SearchResult>,
+    replace: (worktreePath: string, results: import('../shared/search').SearchFileResult[], replacement: string) =>
+      ipcRenderer.invoke('search:replace', worktreePath, results, replacement) as Promise<import('../shared/search').ReplaceResult>,
+    replaceOne: (worktreePath: string, relativePath: string, matches: import('../shared/search').SearchMatch[], replacement: string) =>
+      ipcRenderer.invoke('search:replaceOne', worktreePath, relativePath, matches, replacement) as Promise<{ replaced: number }>,
+  },
+
   // Claude CLI
   claudeCli: {
     detectPath: () => ipcRenderer.invoke('claude:detectCliPath') as Promise<string | null>,

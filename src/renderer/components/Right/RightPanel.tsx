@@ -4,6 +4,7 @@ import { useUIStore } from '@/store/ui'
 import { useProjectsStore } from '@/store/projects'
 import { usePrStatus } from '@/store/prCache'
 import { FileTree } from './FileTree'
+import { SearchView } from './SearchView'
 import { ChangesView } from './ChangesView'
 import { TabbedTerminal } from './TabbedTerminal'
 import { SetupRunPanel } from './SetupRunPanel'
@@ -19,6 +20,7 @@ const SimulatorView = lazy(() => import('./SimulatorView').then((m) => ({ defaul
 const WindowCaptureView = lazy(() => import('./WindowCaptureView').then((m) => ({ default: m.WindowCaptureView })))
 import {
   IconFile,
+  IconSearch,
   IconDiff,
   IconClipboardCheck,
   IconBook,
@@ -59,6 +61,7 @@ export const RightPanel = memo(function RightPanel() {
 
   const TABS: { id: RightPanelTab; label: string; tooltip: string; badge?: number; icon: ComponentType<{ size?: number }> }[] = [
     { id: 'files', label: t('filesTab'), tooltip: t('filesTabTooltip'), icon: IconFile },
+    { id: 'search', label: t('searchTab'), tooltip: t('searchTabTooltip'), icon: IconSearch },
     { id: 'changes', label: t('changesTab'), tooltip: t('changesTabTooltip'), badge: changesCount, icon: IconDiff },
     { id: 'overview', label: t('checksTab'), tooltip: t('checksTabTooltip'), icon: IconClipboardCheck },
     { id: 'notes', label: t('notesTab'), tooltip: t('notesTabTooltip'), icon: IconBook },
@@ -99,6 +102,9 @@ export const RightPanel = memo(function RightPanel() {
           <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: activeTab === 'files' ? 'flex' : 'none', flex: 1, overflow: 'hidden' }}>
               <FileTree worktreePath={worktree.path} onFileSelect={openFile} />
+            </div>
+            <div style={{ display: activeTab === 'search' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+              <SearchView worktreePath={worktree.path} />
             </div>
             <div style={{ display: activeTab === 'changes' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
               <ChangesView key={worktree.path} worktreePath={worktree.path} />

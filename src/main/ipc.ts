@@ -12,10 +12,12 @@ import { ptyService } from './services/pty'
 import { githubService } from './services/github'
 import { sessionStorageService, PersistedSession } from './services/sessionStorage'
 import { filesService } from './services/files'
+import { searchService } from './services/search'
 import { simulatorService } from './services/simulator'
 import { detectScripts } from './services/scriptDetector'
 import { templatesService } from './services/templates'
 import type { TemplateKind, CreateTemplateArgs } from '../shared/templates'
+import type { SearchFileResult, SearchMatch, SearchOptions } from '../shared/search'
 import { windowCaptureService } from './services/windowCapture'
 import { claudeConfigService, ClaudePermissions, ClaudeHookConfig, SkillDetail, McpServerEntry, McpServerConfig } from './services/claudeConfig'
 import { notesService } from './services/notes'
@@ -449,6 +451,17 @@ export function registerIpcHandlers(): void {
   )
   ipcMain.handle('files:detectFramework', (_e, repoPath: string) =>
     filesService.detectMobileFramework(repoPath)
+  )
+
+  // Search
+  ipcMain.handle('search:content', (_e, worktreePath: string, query: string, options: SearchOptions) =>
+    searchService.searchContent(worktreePath, query, options)
+  )
+  ipcMain.handle('search:replace', (_e, worktreePath: string, results: SearchFileResult[], replacement: string) =>
+    searchService.replaceAll(worktreePath, results, replacement)
+  )
+  ipcMain.handle('search:replaceOne', (_e, worktreePath: string, relativePath: string, matches: SearchMatch[], replacement: string) =>
+    searchService.replaceInFile(worktreePath, relativePath, matches, replacement)
   )
 
   // Claude CLI detection — delegates to the single source of truth

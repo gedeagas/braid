@@ -236,13 +236,36 @@ export function FileViewer({ filePath, projectRoot = null, onDirtyChange }: Prop
     return () => window.removeEventListener('braid:saveFile', handler)
   }, [])
 
+  // Reveal-line (from search results). Pending ref covers the mount-gap when
+  // the editor for a just-opened file hasn't finished mounting yet.
+  const pendingRevealRef = useRef<{ path: string; line: number } | null>(null)
+  const tryReveal = useCallback(() => {
+    const p = pendingRevealRef.current
+    if (!p || !editorRef.current || p.path !== filePath) return
+    editorRef.current.revealLineInCenter(p.line)
+    editorRef.current.setPosition({ lineNumber: p.line, column: 1 })
+    editorRef.current.focus()
+    pendingRevealRef.current = null
+  }, [filePath])
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ path: string; line: number }>).detail
+      pendingRevealRef.current = detail
+      tryReveal()
+    }
+    window.addEventListener('braid:revealLine', handler)
+    return () => window.removeEventListener('braid:revealLine', handler)
+  }, [tryReveal])
+
   const handleEditorMount: OnMount = useCallback((editorInstance, monaco) => {
     editorRef.current = editorInstance
     editorInstance.addCommand(
       monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
       () => handleSaveRef.current()
     )
-  }, [])
+    tryReveal()
+  }, [tryReveal])
 
   const handleChange = useCallback((value: string | undefined) => {
     dispatch({ type: 'change', content: value ?? '', savedContent: state.savedContent })
