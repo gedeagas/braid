@@ -114,4 +114,33 @@ describe('parseMentions', () => {
     // The @-prefix causes the mention branch to win
     expect(parts[0]).toEqual({ type: 'mention', text: '@https://example.com' })
   })
+
+  it('strips trailing punctuation from URLs', () => {
+    const parts = extractParts(parseMentions('Check https://google.com.', 'cls'))
+    expect(parts).toEqual([
+      { type: 'text', text: 'Check ' },
+      { type: 'link', text: 'https://google.com', href: 'https://google.com' },
+      { type: 'text', text: '.' },
+    ])
+  })
+
+  it('strips trailing comma from URLs', () => {
+    const parts = extractParts(parseMentions('see https://example.com, thanks', 'cls'))
+    expect(parts[1]).toEqual({
+      type: 'link',
+      text: 'https://example.com',
+      href: 'https://example.com',
+    })
+    expect(parts[2]).toEqual({ type: 'text', text: ', thanks' })
+  })
+
+  it('does not linkify URLs in backdrop mode (mark tag)', () => {
+    const parts = extractParts(parseMentions('see https://example.com ok', 'cls', 'mark'))
+    // URL should be plain text, not a link
+    expect(parts).toEqual([
+      { type: 'text', text: 'see ' },
+      { type: 'text', text: 'https://example.com' },
+      { type: 'text', text: ' ok' },
+    ])
+  })
 })

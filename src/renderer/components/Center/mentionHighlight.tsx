@@ -2,7 +2,7 @@ import React from 'react'
 import { openExternalLink } from '@/lib/openExternalLink'
 
 /** Combined regex: @mentions (groups 1-2) and URLs (group 3) in a single pass */
-const MENTION_OR_URL_RE = /(?:(^|\s)(@\S+))|(https?:\/\/[^\s)>\]]+)/g
+const MENTION_OR_URL_RE = /(?:(^|\s)(@\S+))|(https?:\/\/[^\s)>\]]+(?<![.,!?:;]))/g
 
 /**
  * Parses text and returns React nodes with @mentions wrapped in highlighted spans
@@ -30,21 +30,25 @@ export function parseMentions(
       }
       parts.push(<Tag key={`m${start}`} className={className}>{mention}</Tag>)
     } else if (match[3]) {
-      // URL match
+      // URL match — only linkify in display contexts (span), not input backdrop (mark)
       const url = match[3]
       if (start > lastIndex) {
         parts.push(text.slice(lastIndex, start))
       }
-      parts.push(
-        <a
-          key={`u${start}`}
-          href={url}
-          className="chat-msg-inline-link"
-          onClick={(e) => openExternalLink(e, url)}
-        >
-          {url}
-        </a>
-      )
+      if (Tag === 'span') {
+        parts.push(
+          <a
+            key={`u${start}`}
+            href={url}
+            className="chat-msg-inline-link"
+            onClick={(e) => openExternalLink(e, url)}
+          >
+            {url}
+          </a>
+        )
+      } else {
+        parts.push(url)
+      }
     }
     lastIndex = start + match[0].length
   }
