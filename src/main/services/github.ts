@@ -105,6 +105,7 @@ export interface PrReviewComment {
   updatedAt: string
   htmlUrl: string
   inReplyToId: number | null
+  isResolved: boolean
 }
 
 export interface PrReviewData {

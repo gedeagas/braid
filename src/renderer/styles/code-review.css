@@ -228,10 +228,7 @@
   align-items: center;
   gap: var(--space-8);
   padding: var(--space-8) var(--space-16);
-  position: sticky;
-  top: 0;
-  background: var(--bg-primary);
-  z-index: var(--z-raised);
+  background: var(--bg-secondary);
 }
 
 .code-review-file-icon {
