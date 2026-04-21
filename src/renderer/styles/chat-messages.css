@@ -396,11 +396,62 @@
   line-height: 1.55;
 }
 
+/* When pre is inside a code-block-wrapper, the wrapper owns the margin */
+.chat-msg-assistant-content .code-block-wrapper {
+  margin: var(--space-12) 0;
+}
+
 .chat-msg-assistant-content pre code {
   background: transparent;
   border: none;
   padding: 0;
   font-size: inherit;
+}
+
+/* ============= Code Block Copy Button ============= */
+
+.code-block-wrapper {
+  position: relative;
+}
+
+.code-block-wrapper pre {
+  margin: 0;
+}
+
+.code-block-copy-btn {
+  position: absolute;
+  top: var(--space-8);
+  right: var(--space-8);
+  padding: var(--space-4);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--duration-normal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-base);
+}
+
+.code-block-wrapper:hover .code-block-copy-btn {
+  opacity: 1;
+}
+
+.code-block-copy-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.code-block-copy-btn--copied {
+  color: var(--green);
+  opacity: 1;
+}
+
+.code-block-copy-btn--copied:hover {
+  color: var(--green);
 }
 
 .chat-msg-assistant-content a,
@@ -736,15 +787,6 @@
 .turn-actions-btn:hover {
   color: var(--text-primary);
   background: var(--bg-hover);
-}
-
-.turn-actions-btn--copied {
-  color: var(--green);
-}
-
-.turn-actions-btn--copied:hover {
-  color: var(--green);
-  background: none;
 }
 
 .turn-actions-btn--disabled {

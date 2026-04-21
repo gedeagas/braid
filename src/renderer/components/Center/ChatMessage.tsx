@@ -1,10 +1,11 @@
-import { memo, useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react'
+import { memo, useState, useCallback, useRef, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import type { ContentBlock, Message, TurnUsage } from '@/types'
 import { useUIStore } from '@/store/ui'
 import { useSessionsStore } from '@/store/sessions'
 import { flash } from '@/store/flash'
+import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import { ToolCallGroup } from './ToolCallGroup'
 import { StreamingMarkdown } from './StreamingMarkdown'
 import { parseMentions } from './mentionHighlight'
@@ -17,27 +18,9 @@ import { parseDiffComments, parseSnippets, parseTerminalBlocks, stripAttachmentB
 import type { ParsedDiffComment, ParsedSnippet, ParsedTerminalBlock } from './diffCommentUtils'
 import { formatTokens } from '@/lib/constants'
 
-/** Renders text with @mentions highlighted as accent-coloured spans */
 function renderWithMentions(text: string): React.ReactNode {
   const parts = parseMentions(text, 'chat-msg-mention')
   return parts.length > 0 ? parts : text
-}
-
-function useCopyToClipboard(text: string) {
-  const [copied, setCopied] = useState(false)
-  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
-
-  useEffect(() => () => clearTimeout(timerRef.current), [])
-
-  const handleCopy = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation()
-    navigator.clipboard.writeText(text)
-    setCopied(true)
-    clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => setCopied(false), 2000)
-  }, [text])
-
-  return { copied, handleCopy }
 }
 
 function AssistantCopyButton({ text }: { text: string }) {
@@ -127,27 +110,16 @@ function RollbackButton({ messageId }: { messageId: string }) {
 }
 
 interface TurnActionsProps {
-  text: string
   durationMs?: number
   turnUsage?: TurnUsage
 }
 
-function TurnActions({ text, durationMs, turnUsage }: TurnActionsProps) {
-  const { t } = useTranslation('common')
-  const { copied, handleCopy } = useCopyToClipboard(text)
+function TurnActions({ durationMs, turnUsage }: TurnActionsProps) {
+  if (durationMs == null || durationMs <= 0) return null
 
   return (
     <div className="turn-actions">
-      {durationMs != null && durationMs > 0 && (
-        <TurnDuration durationMs={durationMs} turnUsage={turnUsage} />
-      )}
-      <button
-        className={`turn-actions-btn${copied ? ' turn-actions-btn--copied' : ''}`}
-        onClick={handleCopy}
-        title={copied ? t('copied') : t('copy')}
-      >
-        {copied ? <IconCheckmark size={14} /> : <IconCopy size={14} />}
-      </button>
+      <TurnDuration durationMs={durationMs} turnUsage={turnUsage} />
     </div>
   )
 }
@@ -334,7 +306,6 @@ export const ChatMessage = memo(function ChatMessage({ message }: Props) {
     const groupBlocks = blocks.slice(0, lastToolIdx + 1)
     const trailingBlocks = blocks.slice(lastToolIdx + 1)
     const trailingText = joinTextBlocks(trailingBlocks)
-    const allText = joinTextBlocks(blocks)
 
     return (
       <div className="chat-msg chat-msg-assistant">
@@ -346,8 +317,8 @@ export const ChatMessage = memo(function ChatMessage({ message }: Props) {
           </div>
         )}
         {!message.isPartial && <TurnFooter blocks={groupBlocks} />}
-        {!message.isPartial && allText && (
-          <TurnActions text={allText} durationMs={message.turnDurationMs} turnUsage={message.turnUsage} />
+        {!message.isPartial && (
+          <TurnActions durationMs={message.turnDurationMs} turnUsage={message.turnUsage} />
         )}
       </div>
     )
@@ -362,8 +333,8 @@ export const ChatMessage = memo(function ChatMessage({ message }: Props) {
           {!message.isPartial && <AssistantCopyButton text={message.content} />}
         </div>
       )}
-      {!message.isPartial && message.content && (
-        <TurnActions text={message.content} durationMs={message.turnDurationMs} turnUsage={message.turnUsage} />
+      {!message.isPartial && (
+        <TurnActions durationMs={message.turnDurationMs} turnUsage={message.turnUsage} />
       )}
     </div>
   )
