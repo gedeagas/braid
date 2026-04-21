@@ -9,7 +9,9 @@ export function useCopyToClipboard(text: string) {
 
   const handleCopy = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
-    navigator.clipboard.writeText(text).catch(() => {})
+    navigator.clipboard.writeText(text).catch((err) => {
+      console.error('Failed to copy to clipboard:', err)
+    })
     setCopied(true)
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => setCopied(false), 2000)
