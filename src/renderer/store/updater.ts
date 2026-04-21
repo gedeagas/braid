@@ -44,9 +44,12 @@ type UpdateAction =
 function updateReducer(state: UpdateState, action: UpdateAction): UpdateState {
   switch (action.type) {
     case 'available': {
+      // Don't downgrade from ready → available for the same version: the update
+      // is already downloaded and we'd lose that state on the next periodic check.
+      if (state.status === 'ready' && state.version === action.version) return state
       // Keep dismissed=true if the user already skipped this exact version
       const alreadyDismissed =
-        state.status === 'available' &&
+        (state.status === 'available' || state.status === 'ready') &&
         state.dismissed &&
         state.version === action.version
       return {
