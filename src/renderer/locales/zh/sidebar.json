@@ -130,5 +130,7 @@
   "quickStartNextjsFailed": "Next.js 项目脚手架创建失败。请查看控制台了解详情。",
   "quickStartNextjsToolMissing": "找不到 npx。请安装 Node.js（自带 npx）后重试。",
   "quickStartNextjsTimeout": "脚手架创建超时（10 分钟）。请检查网络后重试。",
-  "quickStartParentNotDirectory": "选择的位置不是目录或无法访问"
+  "quickStartParentNotDirectory": "选择的位置不是目录或无法访问",
+  "updateAvailable": "有可用更新 - v{{version}}",
+  "updateReady": "重启以更新 - v{{version}}"
 }
