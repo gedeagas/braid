@@ -52,15 +52,22 @@ export interface RtkRewriteResult {
  * Falls back to simple prefix if `rtk rewrite` is unavailable (version < 0.23.0).
  */
 /**
- * Resolve bare `rtk` prefix in rewrite output to the full binary path.
+ * Resolve bare `rtk` references in rewrite output to the full binary path.
  * The `rtk rewrite` subcommand outputs commands like "rtk git status"
+ * or compound commands like "rtk ls && rtk read file.txt"
  * but ~/Braid/binaries/rtk/ isn't in PATH, so we need the absolute path.
+ *
+ * Handles: leading `rtk`, and `rtk` after shell operators (&&, ||, ;, |).
  */
 function resolveRtkInOutput(rtkPath: string, output: string): string {
-  if (output === 'rtk' || output.startsWith('rtk ')) {
-    return rtkPath + output.slice(3)
+  // Replace leading `rtk ` or standalone `rtk`
+  let resolved = output
+  if (resolved === 'rtk' || resolved.startsWith('rtk ')) {
+    resolved = rtkPath + resolved.slice(3)
   }
-  return output
+  // Replace bare `rtk` after shell operators: && rtk, || rtk, ; rtk, | rtk
+  resolved = resolved.replace(/(\|\||&&|[;|])\s*rtk(?=\s|$)/g, `$1 ${rtkPath}`)
+  return resolved
 }
 
 export function rewriteCommand(rtkPath: string, command: string, debug = false): RtkRewriteResult {
@@ -68,6 +75,8 @@ export function rewriteCommand(rtkPath: string, command: string, debug = false):
     const result = execFileSync(rtkPath, ['rewrite', command], {
       encoding: 'utf-8',
       timeout: 5000,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env, RTK_SUPPRESS_HOOK_WARNING: '1' },
     })
     // Exit code 0 - rewrite found
     const rewritten = result.trim()

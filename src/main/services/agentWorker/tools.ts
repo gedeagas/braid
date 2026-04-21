@@ -59,7 +59,7 @@ export function createCanUseTool(
       const allAllow = [...globalAllow, ...projectAllow]
       if (allAllow.length > 0 && matchesRuleList(toolName, input, allAllow)) {
         log(sessionId, `canUseTool: auto-allowed by rules — ${toolName}`)
-        return Promise.resolve({ behavior: 'allow' as const })
+        return Promise.resolve({ behavior: 'allow' as const, updatedInput: input })
       }
     } catch (err) {
       log(sessionId, 'canUseTool: allow list check failed:', err)
@@ -67,7 +67,7 @@ export function createCanUseTool(
 
     // ── 4. Bypass mode — auto-allow everything else ─────────────────────
     if (bypassPermissions) {
-      return Promise.resolve({ behavior: 'allow' as const })
+      return Promise.resolve({ behavior: 'allow' as const, updatedInput: input })
     }
 
     // ── 5. Confirmation required — ask the user ─────────────────────────

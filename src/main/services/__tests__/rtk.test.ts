@@ -48,6 +48,24 @@ describe('RTK service', () => {
       expect(result).toEqual({ rewritten: false, command: 'git status' })
     })
 
+    it('resolves all bare rtk references in compound commands', () => {
+      mockExecFileSync.mockReturnValue('rtk ls /tmp && rtk read file.txt\n')
+      const result = rewriteCommand(rtkPath, 'ls /tmp && cat file.txt')
+      expect(result).toEqual({ rewritten: true, command: `${rtkPath} ls /tmp && ${rtkPath} read file.txt` })
+    })
+
+    it('resolves bare rtk after pipe operator', () => {
+      mockExecFileSync.mockReturnValue('rtk find . | rtk grep foo\n')
+      const result = rewriteCommand(rtkPath, 'find . | grep foo')
+      expect(result).toEqual({ rewritten: true, command: `${rtkPath} find . | ${rtkPath} grep foo` })
+    })
+
+    it('resolves bare rtk after semicolons and ||', () => {
+      mockExecFileSync.mockReturnValue('rtk ls; rtk cat a.txt || rtk echo done\n')
+      const result = rewriteCommand(rtkPath, 'ls; cat a.txt || echo done')
+      expect(result).toEqual({ rewritten: true, command: `${rtkPath} ls; ${rtkPath} cat a.txt || ${rtkPath} echo done` })
+    })
+
     it('returns unchanged on exit code 1 (no RTK equivalent)', () => {
       const err = new Error('exit 1') as Error & { status: number }
       err.status = 1
