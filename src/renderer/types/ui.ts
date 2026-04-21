@@ -9,7 +9,7 @@ import type {
 
 // ─── UI / Panel types ─────────────────────────────────────────────────────────
 
-export type RightPanelTab = 'files' | 'changes' | 'overview' | 'notes' | 'simulator' | 'windowCapture'
+export type RightPanelTab = 'files' | 'search' | 'changes' | 'overview' | 'notes' | 'simulator' | 'windowCapture'
 export type TabDisplayMode = 'icons' | 'labels' | 'both'
 
 export interface CaptureSource {
