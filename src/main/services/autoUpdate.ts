@@ -13,9 +13,24 @@
 
 import { autoUpdater, type UpdateInfo } from 'electron-updater'
 import { BrowserWindow, app } from 'electron'
+import { execFile } from 'child_process'
 import { logger } from '../lib/logger'
+import { enrichedEnv } from '../lib/enrichedEnv'
 
 const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000 // 4 hours
+
+/** Attempt to get a GH token from the gh CLI. Returns null on any failure. */
+async function getGhToken(): Promise<string | null> {
+  return new Promise((resolve) => {
+    execFile('gh', ['auth', 'token'], {
+      timeout: 5000,
+      encoding: 'utf8',
+      env: enrichedEnv(),
+    }, (err, stdout) => {
+      resolve(err ? null : stdout.trim() || null)
+    })
+  })
+}
 
 let checkTimer: ReturnType<typeof setTimeout> | null = null
 let checkInterval: ReturnType<typeof setInterval> | null = null
@@ -31,10 +46,15 @@ function sendToRenderer(window: BrowserWindow, channel: string, data: unknown): 
 }
 
 /**
- * Initialize the auto-updater. Call once from index.ts after createWindow(),
- * guarded by `if (app.isPackaged)`.
+ * Initialize the auto-updater. Call once from index.ts after createWindow().
+ * Skips all setup in dev mode - the renderer-side __simulateUpdate() still works.
  */
 export function initAutoUpdater(mainWindow: BrowserWindow): void {
+  if (!app.isPackaged) {
+    logger.info('[updater] Skipping auto-updater setup in dev mode')
+    return
+  }
+
   activeWindow = mainWindow
   autoUpdater.logger = logger
   autoUpdater.autoDownload = false
@@ -43,10 +63,23 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
 
   // Since we use @electron/packager (not electron-builder), there is no
   // auto-generated app-update.yml. Configure the feed URL explicitly.
-  autoUpdater.setFeedURL({
-    provider: 'github',
+  const feedConfig = {
+    provider: 'github' as const,
     owner: 'gedeagas',
     repo: 'braid',
+  }
+  // Set unauthenticated feed URL synchronously so manual checks work immediately.
+  autoUpdater.setFeedURL(feedConfig)
+
+  // Fetch GH token in parallel with the initial delay. If available,
+  // upgrade to authenticated requests (5,000 req/hr instead of 60).
+  const tokenPromise = getGhToken().then((token) => {
+    if (token) {
+      autoUpdater.setFeedURL({ ...feedConfig, token })
+      logger.info('[updater] Using authenticated GitHub token')
+    } else {
+      logger.info('[updater] No GH token available, using unauthenticated')
+    }
   })
 
   autoUpdater.on('update-available', (info: UpdateInfo) => {
@@ -91,8 +124,9 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
     sendToRenderer(mainWindow, 'updater:up-to-date', {})
   })
 
-  // Check after a short delay so the window is fully loaded
-  checkTimer = setTimeout(() => {
+  // Check after a short delay so the window is fully loaded and token is ready
+  checkTimer = setTimeout(async () => {
+    await tokenPromise
     autoUpdater.checkForUpdates().catch((err) => {
       logger.error('Auto-updater initial check failed', err)
       sendToRenderer(mainWindow, 'updater:error', { message: err.message })
@@ -136,6 +170,9 @@ export function checkForUpdates(): boolean {
   logger.info('[updater] Starting manual update check')
   autoUpdater.checkForUpdates().catch((err) => {
     logger.error('[updater] Manual update check failed', err)
+    if (activeWindow) {
+      sendToRenderer(activeWindow, 'updater:error', { message: err.message })
+    }
   })
   return true
 }
