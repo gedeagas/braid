@@ -44,6 +44,13 @@ export function initAgentEventListener(): () => void {
         return handleWaitingInput(ctx, ev)
       case 'error':
         return handleError(ctx, ev)
+      case 'retrying':
+        // Agent is auto-retrying after a network error - update activity
+        updateSession(store, sessionId, () => ({
+          status: 'running' as const,
+          activity: `Retrying (${ev.attempt}/${ev.maxAttempts})...`,
+        }))
+        return
       case 'user':
         return handleUser(ctx, ev)
       case 'assistant':

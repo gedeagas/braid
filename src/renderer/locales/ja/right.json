@@ -329,6 +329,8 @@
   "quickOpenPlaceholder": "ファイル名で検索...",
   "quickOpenNoResults": "一致するファイルがありません",
   "quickOpenOpen": "開いているファイル",
+  "offlineDisabled": "オフライン中は利用できません",
+
   "openIn": "開く",
   "copyPath": "パスをコピー",
   "revealInFinder": "Finderで表示",

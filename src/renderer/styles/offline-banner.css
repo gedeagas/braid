@@ -1,0 +1,65 @@
+/* ---------------------------------------------------------------------------
+   Offline banner - persistent amber bar at top of viewport
+   --------------------------------------------------------------------------- */
+
+.offline-banner {
+  position: fixed;
+  top: 52px; /* below the drag-region titlebar */
+  left: 0;
+  right: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  height: var(--space-32);
+  background: var(--amber-subtle, rgba(245, 158, 11, 0.12));
+  border-bottom: 1px solid var(--amber);
+  animation: offline-banner-slide-down var(--duration-fast) ease-out forwards;
+  -webkit-app-region: no-drag;
+}
+
+.offline-banner--reconnected {
+  background: var(--olive-subtle, rgba(34, 197, 94, 0.12));
+  border-bottom-color: var(--olive);
+}
+
+.offline-banner--dismissing {
+  animation: offline-banner-slide-up var(--duration-fast) ease-in forwards;
+  background: var(--olive-subtle, rgba(34, 197, 94, 0.12));
+  border-bottom-color: var(--olive);
+}
+
+.offline-banner__icon {
+  font-size: var(--text-md);
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.offline-banner:not(.offline-banner--reconnected):not(.offline-banner--dismissing) .offline-banner__icon {
+  color: var(--amber);
+}
+
+.offline-banner--reconnected .offline-banner__icon,
+.offline-banner--dismissing .offline-banner__icon {
+  color: var(--olive);
+}
+
+.offline-banner__text {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  user-select: none;
+}
+
+/* ── Animations ──────────────────────────────────────────────────────── */
+
+@keyframes offline-banner-slide-down {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes offline-banner-slide-up {
+  from { transform: translateY(0); opacity: 1; }
+  to   { transform: translateY(-100%); opacity: 0; }
+}

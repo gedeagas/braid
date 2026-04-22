@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
 import type { WorkerEvent, AgentSettings } from '../agentTypes'
 
 // ── SDK mock ──────────────────────────────────────────────────────────
@@ -835,6 +835,206 @@ describe('AgentWorker', () => {
       mockQuery.mockReturnValue(makeAsyncIterable([]))
       const result = await worker.generateSessionTitle('hi', 'hello', defaultSettings)
       expect(result).toBe('New Chat')
+    })
+  })
+
+  // ═════════════════════════════════════════════════════════════════════
+  // Network retry behavior
+  // ═════════════════════════════════════════════════════════════════════
+
+  describe('network retry — startSession', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('retries on network error and succeeds on second attempt', async () => {
+      let callCount = 0
+      mockQuery.mockImplementation(() => {
+        callCount++
+        if (callCount === 1) throw new Error('ENOTFOUND api.anthropic.com')
+        return makeAsyncIterable([{ type: 'assistant', message: { content: [{ type: 'text', text: 'ok' }] } }])
+      })
+
+      const promise = worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', defaultSettings)
+      // Advance past the first retry delay (2s)
+      await vi.advanceTimersByTimeAsync(2500)
+      await promise
+
+      const retrying = emitted.filter(e => e.type === 'retrying')
+      expect(retrying).toHaveLength(1)
+      expect(retrying[0]).toMatchObject({ attempt: 1, maxAttempts: 3 })
+
+      const errors = emitted.filter(e => e.type === 'error')
+      expect(errors).toHaveLength(0)
+
+      const done = emitted.filter(e => e.type === 'done')
+      expect(done).toHaveLength(1)
+    })
+
+    it('emits error after all retries exhausted', async () => {
+      mockQuery.mockImplementation(() => {
+        throw new Error('ECONNREFUSED 127.0.0.1:443')
+      })
+
+      const promise = worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', defaultSettings)
+      // Advance through all 3 retry delays: 2s + 4s + 8s
+      await vi.advanceTimersByTimeAsync(3000)  // retry 1
+      await vi.advanceTimersByTimeAsync(5000)  // retry 2
+      await vi.advanceTimersByTimeAsync(9000)  // retry 3
+      await vi.advanceTimersByTimeAsync(1000)  // final attempt fails
+      await promise
+
+      const retrying = emitted.filter(e => e.type === 'retrying')
+      expect(retrying).toHaveLength(3)
+      expect(retrying.map(e => (e as { attempt: number }).attempt)).toEqual([1, 2, 3])
+
+      const errors = emitted.filter(e => e.type === 'error')
+      expect(errors).toHaveLength(1)
+      expect(errors[0]).toMatchObject({ type: 'error', sessionId: 's1' })
+    })
+
+    it('emits retrying events with correct delay values', async () => {
+      let callCount = 0
+      mockQuery.mockImplementation(() => {
+        callCount++
+        if (callCount <= 2) throw new Error('ETIMEDOUT')
+        return makeAsyncIterable([])
+      })
+
+      const promise = worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', defaultSettings)
+      await vi.advanceTimersByTimeAsync(3000)  // retry 1 (2s delay)
+      await vi.advanceTimersByTimeAsync(5000)  // retry 2 (4s delay)
+      await promise
+
+      const retrying = emitted.filter(e => e.type === 'retrying') as Array<{ attempt: number; maxAttempts: number; delayMs: number }>
+      expect(retrying).toHaveLength(2)
+      expect(retrying[0]).toMatchObject({ attempt: 1, maxAttempts: 3, delayMs: 2000 })
+      expect(retrying[1]).toMatchObject({ attempt: 2, maxAttempts: 3, delayMs: 4000 })
+    })
+
+    it('emits done (not error) when user aborts during retry sleep', async () => {
+      mockQuery.mockImplementation(() => {
+        throw new Error('socket hang up')
+      })
+
+      const promise = worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', defaultSettings)
+      // Let the first retry start (wait past the throw, into the sleep)
+      await vi.advanceTimersByTimeAsync(100)
+      // User stops the session during the backoff sleep
+      await worker.stopSession('s1')
+      await vi.advanceTimersByTimeAsync(5000)
+      await promise
+
+      const errors = emitted.filter(e => e.type === 'error')
+      expect(errors).toHaveLength(0)
+
+      const done = emitted.filter(e => e.type === 'done')
+      expect(done.length).toBeGreaterThanOrEqual(1)
+    })
+
+    it('does not retry on non-network errors', async () => {
+      mockQuery.mockImplementation(() => {
+        throw new Error('SDK exploded unexpectedly')
+      })
+
+      await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', defaultSettings)
+
+      const retrying = emitted.filter(e => e.type === 'retrying')
+      expect(retrying).toHaveLength(0)
+
+      const errors = emitted.filter(e => e.type === 'error')
+      expect(errors).toHaveLength(1)
+    })
+
+    it('resets retry count after a successful session', async () => {
+      let callCount = 0
+      mockQuery.mockImplementation(() => {
+        callCount++
+        if (callCount === 1) throw new Error('ENOTFOUND')
+        return makeAsyncIterable([])
+      })
+
+      // First session: fails once, then succeeds
+      const p1 = worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', defaultSettings)
+      await vi.advanceTimersByTimeAsync(3000)
+      await p1
+
+      // Second session with same ID: should start fresh retry count
+      callCount = 0
+      emitted.length = 0
+      const p2 = worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi again', 'claude-sonnet-4-6', false, false, 'Chat', defaultSettings)
+      await vi.advanceTimersByTimeAsync(3000)
+      await p2
+
+      // Should get retry attempt 1 again (not 2)
+      const retrying = emitted.filter(e => e.type === 'retrying') as Array<{ attempt: number }>
+      expect(retrying).toHaveLength(1)
+      expect(retrying[0].attempt).toBe(1)
+    })
+  })
+
+  describe('network retry — sendMessage', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('retries on network error during resume and succeeds', async () => {
+      // First: create a session so sendMessage has state
+      mockQuery.mockReturnValue(makeAsyncIterable([
+        { type: 'system', subtype: 'init', session_id: 'sdk-1', slash_commands: [], skills: [] }
+      ]))
+      await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', defaultSettings)
+      emitted.length = 0
+
+      // Now sendMessage: fails once, then succeeds
+      let callCount = 0
+      mockQuery.mockImplementation(() => {
+        callCount++
+        if (callCount === 1) throw new Error('fetch failed')
+        return makeAsyncIterable([])
+      })
+
+      const promise = worker.sendMessage('s1', 'hello', 'sdk-1', '/tmp', 'claude-sonnet-4-6', false, 'Chat', defaultSettings)
+      await vi.advanceTimersByTimeAsync(3000)
+      await promise
+
+      const retrying = emitted.filter(e => e.type === 'retrying')
+      expect(retrying).toHaveLength(1)
+
+      const errors = emitted.filter(e => e.type === 'error')
+      expect(errors).toHaveLength(0)
+    })
+
+    it('emits done (not error) when user aborts during sendMessage retry', async () => {
+      mockQuery.mockReturnValue(makeAsyncIterable([
+        { type: 'system', subtype: 'init', session_id: 'sdk-1', slash_commands: [], skills: [] }
+      ]))
+      await worker.startSession('s1', 'wt-1', 'test', '/tmp', 'hi', 'claude-sonnet-4-6', false, false, 'Chat', defaultSettings)
+      emitted.length = 0
+
+      mockQuery.mockImplementation(() => {
+        throw new Error('ENETUNREACH')
+      })
+
+      const promise = worker.sendMessage('s1', 'hello', 'sdk-1', '/tmp', 'claude-sonnet-4-6', false, 'Chat', defaultSettings)
+      await vi.advanceTimersByTimeAsync(100)
+      await worker.stopSession('s1')
+      await vi.advanceTimersByTimeAsync(5000)
+      await promise
+
+      const errors = emitted.filter(e => e.type === 'error')
+      expect(errors).toHaveLength(0)
+
+      const done = emitted.filter(e => e.type === 'done')
+      expect(done.length).toBeGreaterThanOrEqual(1)
     })
   })
 

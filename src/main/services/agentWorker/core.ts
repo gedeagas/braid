@@ -23,6 +23,20 @@ import { createCanUseTool, fetchSlashCommands } from './tools'
 import { classifyError, classifyAuthType } from './errorClassifier'
 import type { SessionState, SlashCommand, WorkerEvent, AgentSettings } from '../agentTypes'
 
+// ── Network retry constants ──────────────────────────────────────────────────
+const MAX_NETWORK_RETRIES = 3
+const RETRY_BASE_MS = 2000
+
+/** Sleep that respects an AbortSignal. Rejects if aborted. */
+function abortableSleep(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) { reject(new Error('Aborted')); return }
+    const onAbort = () => { clearTimeout(timer); reject(new Error('Aborted')) }
+    const timer = setTimeout(() => { signal.removeEventListener('abort', onAbort); resolve() }, ms)
+    signal.addEventListener('abort', onAbort, { once: true })
+  })
+}
+
 const CONTEXT_1M_BETA = 'context-1m-2025-08-07' as const
 
 /**
@@ -289,6 +303,7 @@ export class AgentWorker {
       }
 
       this.log(sessionId, `Done. ${msgCount} messages total. sdkSessionId=${state.sdkSessionId}`)
+      this.networkRetryCount.delete(sessionId)
       this.emit({ type: 'done', sessionId })
     } catch (err: unknown) {
       if (abortController.signal.aborted) {
@@ -301,6 +316,22 @@ export class AgentWorker {
       if (err instanceof Error && err.stack) this.log(sessionId, 'Stack:', err.stack)
       const message = enrichExitError(rawMessage, stderrBuffer)
       const errorKind = classifyError(message)
+
+      // Auto-retry on network errors with exponential backoff
+      if (errorKind === 'network') {
+        const retried = await this.retryOnNetwork(sessionId, message, abortController.signal)
+        if (retried) {
+          await this.startSession(sessionId, worktreeId, projectName, worktreePath, prompt, model, thinking, planMode, sessionName, settings, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework)
+          return
+        }
+        // User aborted during backoff sleep - treat as clean stop, not error
+        if (abortController.signal.aborted) {
+          this.log(sessionId, 'Session stopped by user during network retry')
+          this.emit({ type: 'done', sessionId })
+          return
+        }
+      }
+
       this.emit({
         type: 'error', sessionId, message, errorKind,
         ...(errorKind === 'auth' ? { authType: classifyAuthType(message) } : {})
@@ -462,6 +493,7 @@ export class AgentWorker {
       }
 
       this.log(sessionId, `Resume done. ${msgCount} messages.`)
+      this.networkRetryCount.delete(sessionId)
       this.emit({ type: 'done', sessionId })
     } catch (err: unknown) {
       if (abortController.signal.aborted) {
@@ -489,6 +521,22 @@ export class AgentWorker {
       }
 
       const errorKind = classifyError(errMsg)
+
+      // Auto-retry on network errors with exponential backoff
+      if (errorKind === 'network') {
+        const retried = await this.retryOnNetwork(sessionId, errMsg, abortController.signal)
+        if (retried) {
+          await this.sendMessage(sessionId, message, sdkSessionId, cwd, model, planMode, sessionName, settings, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework)
+          return
+        }
+        // User aborted during backoff sleep - treat as clean stop, not error
+        if (abortController.signal.aborted) {
+          this.log(sessionId, 'Resume stopped by user during network retry')
+          this.emit({ type: 'done', sessionId })
+          return
+        }
+      }
+
       this.emit({
         type: 'error', sessionId, message: errMsg, errorKind,
         ...(errorKind === 'auth' ? { authType: classifyAuthType(errMsg) } : {})
@@ -496,10 +544,43 @@ export class AgentWorker {
     }
   }
 
+  /** Per-session retry counter for network errors (reset on success or new message). */
+  private networkRetryCount = new Map<string, number>()
+
+  /**
+   * Attempt to retry after a network error with exponential backoff.
+   * Returns true if a retry should proceed, false if retries are exhausted.
+   */
+  private async retryOnNetwork(sessionId: string, errorMsg: string, signal: AbortSignal): Promise<boolean> {
+    const count = this.networkRetryCount.get(sessionId) ?? 0
+    if (count >= MAX_NETWORK_RETRIES) {
+      this.log(sessionId, `Network retries exhausted (${MAX_NETWORK_RETRIES})`)
+      this.networkRetryCount.delete(sessionId)
+      return false
+    }
+
+    const attempt = count + 1
+    const delay = RETRY_BASE_MS * Math.pow(2, count)
+    this.log(sessionId, `Network error, retrying ${attempt}/${MAX_NETWORK_RETRIES} in ${delay}ms: ${errorMsg}`)
+    this.networkRetryCount.set(sessionId, attempt)
+    this.emit({ type: 'retrying', sessionId, attempt, maxAttempts: MAX_NETWORK_RETRIES, delayMs: delay })
+
+    try {
+      await abortableSleep(delay, signal)
+    } catch {
+      // Aborted during sleep - user stopped the session
+      this.networkRetryCount.delete(sessionId)
+      return false
+    }
+
+    return true
+  }
+
   async stopSession(sessionId: string): Promise<void> {
     this.log(sessionId, 'stopSession')
     this.pendingUserInput.delete(sessionId)
     this.pendingElicitation.delete(sessionId)
+    this.networkRetryCount.delete(sessionId)
     const state = this.sessions.get(sessionId)
     if (state?.abortController) {
       state.abortController.abort()
@@ -511,6 +592,7 @@ export class AgentWorker {
     this.log(sessionId, 'closeSession')
     this.pendingUserInput.delete(sessionId)
     this.pendingElicitation.delete(sessionId)
+    this.networkRetryCount.delete(sessionId)
     const state = this.sessions.get(sessionId)
     if (state?.abortController) state.abortController.abort()
     this.sessions.delete(sessionId)

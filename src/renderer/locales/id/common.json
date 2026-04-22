@@ -145,5 +145,11 @@
         "description": "Ketuk Nyalakan untuk memulai perangkat, lalu Hubungkan untuk streaming layarnya. Anda juga bisa menautkannya ke chat agar Claude bisa melihat UI."
       }
     }
-  }
+  },
+  "offline": {
+    "banner": "Anda sedang offline - beberapa fitur tidak tersedia",
+    "reconnected": "Kembali online",
+    "tooltip": "Tidak ada koneksi internet"
+  },
+  "cachedData": "Offline - menampilkan data tersimpan"
 }
