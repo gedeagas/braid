@@ -21,10 +21,10 @@ const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000 // 4 hours
 
 /** Attempt to get a GH token from the gh CLI. Returns null on any failure. */
 async function getGhToken(): Promise<string | null> {
-  const userShell = process.env.SHELL || '/bin/zsh'
   return new Promise((resolve) => {
-    execFile(userShell, ['-l', '-c', 'gh auth token'], {
+    execFile('gh', ['auth', 'token'], {
       timeout: 5000,
+      encoding: 'utf8',
       env: enrichedEnv(),
     }, (err, stdout) => {
       resolve(err ? null : stdout.trim() || null)
@@ -61,26 +61,25 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
   // Let the user control when to restart - don't silently install on quit
   autoUpdater.autoInstallOnAppQuit = false
 
-  // Fetch GH token in parallel with the initial delay. If available,
-  // authenticated requests get 5,000 req/hr instead of 60.
-  const tokenPromise = getGhToken()
-
   // Since we use @electron/packager (not electron-builder), there is no
   // auto-generated app-update.yml. Configure the feed URL explicitly.
-  // Token is applied asynchronously before the first check fires.
-  tokenPromise.then((token) => {
-    const feedConfig: Parameters<typeof autoUpdater.setFeedURL>[0] = {
-      provider: 'github',
-      owner: 'gedeagas',
-      repo: 'braid',
-    }
+  const feedConfig = {
+    provider: 'github' as const,
+    owner: 'gedeagas',
+    repo: 'braid',
+  }
+  // Set unauthenticated feed URL synchronously so manual checks work immediately.
+  autoUpdater.setFeedURL(feedConfig)
+
+  // Fetch GH token in parallel with the initial delay. If available,
+  // upgrade to authenticated requests (5,000 req/hr instead of 60).
+  const tokenPromise = getGhToken().then((token) => {
     if (token) {
-      ;(feedConfig as unknown as Record<string, unknown>).token = token
+      autoUpdater.setFeedURL({ ...feedConfig, token })
       logger.info('[updater] Using authenticated GitHub token')
     } else {
       logger.info('[updater] No GH token available, using unauthenticated')
     }
-    autoUpdater.setFeedURL(feedConfig)
   })
 
   autoUpdater.on('update-available', (info: UpdateInfo) => {
