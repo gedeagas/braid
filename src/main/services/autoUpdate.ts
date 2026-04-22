@@ -95,6 +95,7 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
   checkTimer = setTimeout(() => {
     autoUpdater.checkForUpdates().catch((err) => {
       logger.error('Auto-updater initial check failed', err)
+      sendToRenderer(mainWindow, 'updater:error', { message: err.message })
     })
   }, 10_000)
 
@@ -103,6 +104,7 @@ export function initAutoUpdater(mainWindow: BrowserWindow): void {
     if (isDownloading) return
     autoUpdater.checkForUpdates().catch((err) => {
       logger.error('Auto-updater periodic check failed', err)
+      sendToRenderer(mainWindow, 'updater:error', { message: err.message })
     })
   }, CHECK_INTERVAL_MS)
 }
