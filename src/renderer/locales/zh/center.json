@@ -163,6 +163,7 @@
   "folderTooManyFiles": "文件夹的跟踪文件过多（最多 {{max}} 个），仅附加前 {{max}} 个",
   "folderOutsideWorktree": "文件夹在当前工作树之外",
   "folderNoFiles": "文件夹中未找到跟踪文件",
+  "fileLimitReached": "已达到最大附件数（{{max}} 个）— 请移除一些后再添加",
   "snippetAttached_one": "已附加 1 个代码片段（{{lines}} 行）",
   "snippetAttached_other": "已附加 {{count}} 个代码片段（{{lines}} 行）",
   "imageLimitReached": "最多 5 张图片 - 移除一张后再添加",

@@ -163,6 +163,7 @@
   "folderTooManyFiles": "Folder has too many tracked files (max {{max}}), only first {{max}} attached",
   "folderOutsideWorktree": "Folder is outside the current worktree",
   "folderNoFiles": "No tracked files found in folder",
+  "fileLimitReached": "Maximum {{max}} files attached — remove some to add more",
   "snippetAttached_one": "1 snippet attached ({{lines}} lines)",
   "snippetAttached_other": "{{count}} snippets attached ({{lines}} lines)",
   "imageLimitReached": "Maximum 5 images — remove one to add more",

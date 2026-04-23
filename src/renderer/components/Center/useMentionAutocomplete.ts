@@ -8,13 +8,16 @@ import i18n from '@/lib/i18n'
 const MAX_FILE_SIZE = 100 * 1024 // 100 KB
 const MAX_RESULTS = 15
 const MAX_FOLDER_FILES = 20
+/** @internal Exported for unit tests only. */
+export const MAX_ATTACHED_FILES = 30
 
 /** Virtual path used for the "all terminals" mention entry. */
 export const TERMINAL_ENTRY = '__terminal__'
 
 // ─── State & Actions ─────────────────────────────────────────────────────────
 
-interface MentionState {
+/** @internal Exported for unit tests only. */
+export interface MentionState {
   showMention: boolean
   mentionFilter: string
   mentionIndex: number
@@ -23,7 +26,8 @@ interface MentionState {
   fetchedOnce: boolean
 }
 
-type MentionAction =
+/** @internal Exported for unit tests only. */
+export type MentionAction =
   | { type: 'OPEN'; filter: string }
   | { type: 'CLOSE' }
   | { type: 'SET_FILTER'; filter: string }
@@ -34,7 +38,7 @@ type MentionAction =
   | { type: 'REMOVE_FILE'; index: number }
   | { type: 'CLEAR_FILES' }
 
-const initialState: MentionState = {
+export const initialState: MentionState = {
   showMention: false,
   mentionFilter: '',
   mentionIndex: 0,
@@ -43,7 +47,8 @@ const initialState: MentionState = {
   fetchedOnce: false,
 }
 
-function reducer(state: MentionState, action: MentionAction): MentionState {
+/** @internal Exported for unit tests only. */
+export function reducer(state: MentionState, action: MentionAction): MentionState {
   switch (action.type) {
     case 'OPEN':
       return { ...state, showMention: true, mentionFilter: action.filter, mentionIndex: 0 }
@@ -56,14 +61,17 @@ function reducer(state: MentionState, action: MentionAction): MentionState {
     case 'SET_TRACKED_FILES':
       return { ...state, trackedFiles: action.files, fetchedOnce: true }
     case 'ADD_FILE':
-      // Deduplicate: skip if file already attached
+      if (state.attachedFiles.length >= MAX_ATTACHED_FILES) {
+        return { ...state, showMention: false, mentionFilter: '', mentionIndex: 0 }
+      }
       if (state.attachedFiles.some(f => f.path === action.file.path)) {
         return { ...state, showMention: false, mentionFilter: '', mentionIndex: 0 }
       }
       return { ...state, attachedFiles: [...state.attachedFiles, action.file], showMention: false, mentionFilter: '', mentionIndex: 0 }
     case 'ADD_FILES': {
       const existingPaths = new Set(state.attachedFiles.map(f => f.path))
-      const newFiles = action.files.filter(f => !existingPaths.has(f.path))
+      const remaining = MAX_ATTACHED_FILES - state.attachedFiles.length
+      const newFiles = action.files.filter(f => !existingPaths.has(f.path)).slice(0, remaining)
       if (newFiles.length === 0) return state
       return { ...state, attachedFiles: [...state.attachedFiles, ...newFiles] }
     }
@@ -125,7 +133,7 @@ export function useMentionAutocomplete(
   setInput: (value: string) => void
 ): UseMentionReturn {
   const [state, dispatch] = useReducer(reducer, initialState)
-  const fetchingRef = useRef(false)
+  const fetchPromiseRef = useRef<Promise<string[]> | null>(null)
   const triggerRef = useRef<{ start: number; filter: string } | null>(null)
   // Refs to avoid stale closures in async callbacks
   const inputRef = useRef(input)
@@ -139,15 +147,15 @@ export function useMentionAutocomplete(
   }, [session])
 
   const fetchTrackedFiles = useCallback(async (worktreePath: string): Promise<string[]> => {
-    if (fetchingRef.current) return []
-    fetchingRef.current = true
-    try {
-      const files = await ipc.git.getTrackedFiles(worktreePath)
+    if (fetchPromiseRef.current) return fetchPromiseRef.current
+    const promise = ipc.git.getTrackedFiles(worktreePath).then(files => {
       dispatch({ type: 'SET_TRACKED_FILES', files })
       return files
-    } finally {
-      fetchingRef.current = false
-    }
+    }).finally(() => {
+      fetchPromiseRef.current = null
+    })
+    fetchPromiseRef.current = promise
+    return promise
   }, [])
 
   // Compute filtered files once - used by both keyDown handler and component

@@ -163,6 +163,7 @@
   "folderTooManyFiles": "Folder memiliki terlalu banyak file terlacak (maks {{max}}), hanya {{max}} pertama yang dilampirkan",
   "folderOutsideWorktree": "Folder berada di luar worktree saat ini",
   "folderNoFiles": "Tidak ada file terlacak ditemukan di folder",
+  "fileLimitReached": "Maksimal {{max}} file terlampir — hapus beberapa untuk menambah lagi",
   "snippetAttached_one": "1 cuplikan terlampir ({{lines}} baris)",
   "snippetAttached_other": "{{count}} cuplikan terlampir ({{lines}} baris)",
   "imageLimitReached": "Maksimal 5 gambar — hapus satu untuk menambah lagi",

@@ -164,6 +164,7 @@
   "folderTooManyFiles": "フォルダのトラッキングファイルが多すぎます（最大{{max}}件）、最初の{{max}}件のみ添付",
   "folderOutsideWorktree": "フォルダが現在のワークツリー外にあります",
   "folderNoFiles": "フォルダ内にトラッキングファイルが見つかりません",
+  "fileLimitReached": "ファイルの最大添付数（{{max}}件）に達しました — 追加するにはいくつか削除してください",
   "snippetAttached_one": "1件のスニペット添付（{{lines}}行）",
   "snippetAttached_other": "{{count}}件のスニペット添付（{{lines}}行）",
   "imageLimitReached": "画像は最大5枚までです — 追加するには1枚削除してください",
