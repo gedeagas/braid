@@ -2,9 +2,12 @@ import { useReducer, useCallback, useRef, useMemo } from 'react'
 import type { AttachedFile, AgentSession } from '@/types'
 import * as ipc from '@/lib/ipc'
 import { sessionWorktreePaths } from '@/store/sessions/storage'
+import { flash } from '@/store/flash'
+import i18n from '@/lib/i18n'
 
 const MAX_FILE_SIZE = 100 * 1024 // 100 KB
 const MAX_RESULTS = 15
+const MAX_FOLDER_FILES = 20
 
 /** Virtual path used for the "all terminals" mention entry. */
 export const TERMINAL_ENTRY = '__terminal__'
@@ -27,6 +30,7 @@ type MentionAction =
   | { type: 'SET_INDEX'; index: number }
   | { type: 'SET_TRACKED_FILES'; files: string[] }
   | { type: 'ADD_FILE'; file: AttachedFile }
+  | { type: 'ADD_FILES'; files: AttachedFile[] }
   | { type: 'REMOVE_FILE'; index: number }
   | { type: 'CLEAR_FILES' }
 
@@ -57,6 +61,12 @@ function reducer(state: MentionState, action: MentionAction): MentionState {
         return { ...state, showMention: false, mentionFilter: '', mentionIndex: 0 }
       }
       return { ...state, attachedFiles: [...state.attachedFiles, action.file], showMention: false, mentionFilter: '', mentionIndex: 0 }
+    case 'ADD_FILES': {
+      const existingPaths = new Set(state.attachedFiles.map(f => f.path))
+      const newFiles = action.files.filter(f => !existingPaths.has(f.path))
+      if (newFiles.length === 0) return state
+      return { ...state, attachedFiles: [...state.attachedFiles, ...newFiles] }
+    }
     case 'REMOVE_FILE':
       return { ...state, attachedFiles: state.attachedFiles.filter((_, i) => i !== action.index) }
     case 'CLEAR_FILES':
@@ -103,6 +113,7 @@ export interface UseMentionReturn {
   handleInputChangeForMention: (value: string, cursorPos: number) => void
   handleMentionKeyDown: (e: React.KeyboardEvent) => boolean
   selectMention: (filePath: string) => void
+  addFilesByPath: (absolutePaths: string[]) => Promise<void>
   removeFile: (index: number) => void
   clearFiles: () => void
   buildPromptWithFiles: (text: string) => string
@@ -127,12 +138,13 @@ export function useMentionAutocomplete(
     return sessionWorktreePaths.get(session.id) ?? null
   }, [session])
 
-  const fetchTrackedFiles = useCallback(async (worktreePath: string) => {
-    if (fetchingRef.current) return
+  const fetchTrackedFiles = useCallback(async (worktreePath: string): Promise<string[]> => {
+    if (fetchingRef.current) return []
     fetchingRef.current = true
     try {
       const files = await ipc.git.getTrackedFiles(worktreePath)
       dispatch({ type: 'SET_TRACKED_FILES', files })
+      return files
     } finally {
       fetchingRef.current = false
     }
@@ -268,6 +280,51 @@ export function useMentionAutocomplete(
     }
   }, [state.showMention, state.mentionIndex, filteredFiles, selectMention])
 
+  const addFilesByPath = useCallback(async (absolutePaths: string[]) => {
+    const worktreePath = getWorktreePath()
+    if (!worktreePath) return
+
+    const relativePaths = await ipc.files.toRelativePaths(worktreePath, absolutePaths)
+    if (relativePaths.length === 0) {
+      flash('warning', i18n.t('folderOutsideWorktree', { ns: 'center' }))
+      return
+    }
+
+    // Always fetch fresh — IPC layer caches for 60s
+    const tracked = await fetchTrackedFiles(worktreePath)
+    if (tracked.length === 0) return
+
+    const matched = new Set<string>()
+    for (const relPath of relativePaths) {
+      const prefix = relPath.endsWith('/') ? relPath : relPath + '/'
+      for (const f of tracked) {
+        if (f.startsWith(prefix)) matched.add(f)
+      }
+    }
+
+    if (matched.size === 0) {
+      flash('info', i18n.t('folderNoFiles', { ns: 'center' }))
+      return
+    }
+
+    if (matched.size > MAX_FOLDER_FILES) {
+      flash('warning', i18n.t('folderTooManyFiles', { ns: 'center', max: MAX_FOLDER_FILES }))
+    }
+
+    const filesToRead = [...matched].slice(0, MAX_FOLDER_FILES)
+    const results = await Promise.allSettled(
+      filesToRead.map(fp => ipc.git.readFile(`${worktreePath}/${fp}`))
+    )
+    const attachments: AttachedFile[] = []
+    for (let i = 0; i < filesToRead.length; i++) {
+      const r = results[i]
+      if (r.status === 'fulfilled' && r.value.length <= MAX_FILE_SIZE) {
+        attachments.push({ path: filesToRead[i], content: r.value })
+      }
+    }
+    if (attachments.length > 0) dispatch({ type: 'ADD_FILES', files: attachments })
+  }, [getWorktreePath, fetchTrackedFiles])
+
   const removeFile = useCallback((index: number) => {
     dispatch({ type: 'REMOVE_FILE', index })
   }, [])
@@ -297,6 +354,7 @@ export function useMentionAutocomplete(
     handleInputChangeForMention,
     handleMentionKeyDown,
     selectMention,
+    addFilesByPath,
     removeFile,
     clearFiles,
     buildPromptWithFiles,

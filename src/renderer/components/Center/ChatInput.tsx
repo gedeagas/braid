@@ -158,8 +158,25 @@ export function ChatInput({
     e.preventDefault()
     dispatch({ type: 'SET_DRAG_OVER', value: false })
     const files = Array.from(e.dataTransfer.files)
-    const imageFiles = files.filter((f) => ACCEPTED_IMAGE_TYPES.includes(f.type))
-    const textFiles = files.filter((f) => !ACCEPTED_IMAGE_TYPES.includes(f.type))
+    const items = Array.from(e.dataTransfer.items)
+
+    // Separate folders from regular files
+    const folderPaths: string[] = []
+    const nonFolderFiles: File[] = []
+    for (let i = 0; i < files.length; i++) {
+      const entry = items[i]?.webkitGetAsEntry?.()
+      if (entry?.isDirectory) {
+        const path = (files[i] as File & { path: string }).path
+        if (path) folderPaths.push(path)
+      } else {
+        nonFolderFiles.push(files[i])
+      }
+    }
+
+    if (folderPaths.length > 0) await mention.addFilesByPath(folderPaths)
+
+    const imageFiles = nonFolderFiles.filter((f) => ACCEPTED_IMAGE_TYPES.includes(f.type))
+    const textFiles = nonFolderFiles.filter((f) => !ACCEPTED_IMAGE_TYPES.includes(f.type))
     if (imageFiles.length > 0) await onAddImages(imageFiles)
     if (textFiles.length > 0) {
       let currentCount = snippets.length
@@ -182,7 +199,7 @@ export function ChatInput({
         } catch { /* binary or unreadable — skip */ }
       }
     }
-  }, [onAddImages, activeSession.id, snippets.length, addDraftSnippet, dispatch, t])
+  }, [onAddImages, activeSession.id, snippets.length, addDraftSnippet, dispatch, t, mention.addFilesByPath])
 
   // ─── Paste ─────────────────────────────────────────────────────────────────
 
