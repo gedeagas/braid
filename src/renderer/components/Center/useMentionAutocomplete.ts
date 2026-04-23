@@ -72,8 +72,8 @@ export function reducer(state: MentionState, action: MentionAction): MentionStat
       const existingPaths = new Set(state.attachedFiles.map(f => f.path))
       const remaining = MAX_ATTACHED_FILES - state.attachedFiles.length
       const newFiles = action.files.filter(f => !existingPaths.has(f.path)).slice(0, remaining)
-      if (newFiles.length === 0) return state
-      return { ...state, attachedFiles: [...state.attachedFiles, ...newFiles] }
+      if (newFiles.length === 0) return { ...state, showMention: false, mentionFilter: '', mentionIndex: 0 }
+      return { ...state, attachedFiles: [...state.attachedFiles, ...newFiles], showMention: false, mentionFilter: '', mentionIndex: 0 }
     }
     case 'REMOVE_FILE':
       return { ...state, attachedFiles: state.attachedFiles.filter((_, i) => i !== action.index) }
@@ -302,12 +302,10 @@ export function useMentionAutocomplete(
     const tracked = await fetchTrackedFiles(worktreePath)
     if (tracked.length === 0) return
 
+    const prefixes: string[] = relativePaths.map((p: string) => p.endsWith('/') ? p : p + '/')
     const matched = new Set<string>()
-    for (const relPath of relativePaths) {
-      const prefix = relPath.endsWith('/') ? relPath : relPath + '/'
-      for (const f of tracked) {
-        if (f.startsWith(prefix)) matched.add(f)
-      }
+    for (const f of tracked) {
+      if (prefixes.some((pfx) => f.startsWith(pfx))) matched.add(f)
     }
 
     if (matched.size === 0) {

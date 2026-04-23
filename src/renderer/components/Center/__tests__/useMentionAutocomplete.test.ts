@@ -74,10 +74,11 @@ describe('reducer — ADD_FILES', () => {
     expect(next.attachedFiles.map(f => f.path)).toEqual(['a.ts', 'b.ts', 'c.ts'])
   })
 
-  it('returns same state reference when all files are duplicates', () => {
+  it('does not add when all files are duplicates', () => {
     const state = stateWith({ attachedFiles: [makeFile('a.ts')] })
     const next = reducer(state, { type: 'ADD_FILES', files: [makeFile('a.ts')] })
-    expect(next).toBe(state)
+    expect(next.attachedFiles).toHaveLength(1)
+    expect(next.showMention).toBe(false)
   })
 
   it('caps total attached files at MAX_ATTACHED_FILES', () => {
@@ -92,23 +93,25 @@ describe('reducer — ADD_FILES', () => {
     expect(next.attachedFiles.map(f => f.path)).not.toContain('new3.ts')
   })
 
-  it('returns same state when already at cap', () => {
+  it('does not add when already at cap', () => {
     const files = Array.from({ length: MAX_ATTACHED_FILES }, (_, i) => makeFile(`${i}.ts`))
     const state = stateWith({ attachedFiles: files })
     const next = reducer(state, { type: 'ADD_FILES', files: [makeFile('extra.ts')] })
-    expect(next).toBe(state)
+    expect(next.attachedFiles).toHaveLength(MAX_ATTACHED_FILES)
+    expect(next.attachedFiles.find(f => f.path === 'extra.ts')).toBeUndefined()
   })
 
-  it('handles empty files array', () => {
-    const state = stateWith({ attachedFiles: [makeFile('a.ts')] })
+  it('handles empty files array and closes autocomplete', () => {
+    const state = stateWith({ showMention: true, mentionFilter: 'foo', attachedFiles: [makeFile('a.ts')] })
     const next = reducer(state, { type: 'ADD_FILES', files: [] })
-    expect(next).toBe(state)
+    expect(next.showMention).toBe(false)
+    expect(next.mentionFilter).toBe('')
   })
 
-  it('does not close mention autocomplete (unlike ADD_FILE)', () => {
+  it('closes mention autocomplete on add', () => {
     const state = stateWith({ showMention: true, mentionFilter: 'foo' })
     const next = reducer(state, { type: 'ADD_FILES', files: [makeFile('a.ts')] })
-    expect(next.showMention).toBe(true)
-    expect(next.mentionFilter).toBe('foo')
+    expect(next.showMention).toBe(false)
+    expect(next.mentionFilter).toBe('')
   })
 })

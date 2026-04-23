@@ -157,19 +157,22 @@ export function ChatInput({
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault()
     dispatch({ type: 'SET_DRAG_OVER', value: false })
-    const files = Array.from(e.dataTransfer.files)
     const items = Array.from(e.dataTransfer.items)
 
-    // Separate folders from regular files
     const folderPaths: string[] = []
     const nonFolderFiles: File[] = []
-    for (let i = 0; i < files.length; i++) {
-      const entry = items[i]?.webkitGetAsEntry?.()
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      if (item.kind !== 'file') continue
+      const entry = item.webkitGetAsEntry?.()
+      const file = item.getAsFile()
+      if (!file) continue
+
       if (entry?.isDirectory) {
-        const path = (files[i] as File & { path: string }).path
+        const path = (file as File & { path: string }).path
         if (path) folderPaths.push(path)
       } else {
-        nonFolderFiles.push(files[i])
+        nonFolderFiles.push(file)
       }
     }
 
