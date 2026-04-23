@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   reducer,
   initialState,
@@ -6,6 +6,20 @@ import {
   type MentionState,
 } from '../useMentionAutocomplete'
 import type { AttachedFile } from '@/types'
+
+// ─── Mocks — must come before dynamic imports ────────────────────────────────
+
+vi.mock('@/lib/ipc', () => ({
+  files: { toRelativePaths: vi.fn() },
+  git: { getTrackedFiles: vi.fn(), readFile: vi.fn() },
+}))
+vi.mock('@/store/flash', () => ({ flash: vi.fn() }))
+vi.mock('@/lib/i18n', () => ({ default: { t: (key: string) => key } }))
+vi.mock('@/store/sessions/storage', () => ({
+  sessionWorktreePaths: new Map([['sess-1', '/repo']]),
+}))
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function makeFile(path: string): AttachedFile {
   return { path, content: `content of ${path}` }
@@ -87,7 +101,6 @@ describe('reducer — ADD_FILES', () => {
     const newFiles = [makeFile('new1.ts'), makeFile('new2.ts'), makeFile('new3.ts'), makeFile('new4.ts')]
     const next = reducer(state, { type: 'ADD_FILES', files: newFiles })
     expect(next.attachedFiles).toHaveLength(MAX_ATTACHED_FILES)
-    // Only first 2 of the 4 new files should be added (remaining = 2)
     expect(next.attachedFiles.map(f => f.path)).toContain('new1.ts')
     expect(next.attachedFiles.map(f => f.path)).toContain('new2.ts')
     expect(next.attachedFiles.map(f => f.path)).not.toContain('new3.ts')
@@ -113,5 +126,114 @@ describe('reducer — ADD_FILES', () => {
     const next = reducer(state, { type: 'ADD_FILES', files: [makeFile('a.ts')] })
     expect(next.showMention).toBe(false)
     expect(next.mentionFilter).toBe('')
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════
+// addFilesByPath — integration tests with mocked IPC
+// ═══════════════════════════════════════════════════════════════════════
+
+describe('addFilesByPath', () => {
+  let ipc: typeof import('@/lib/ipc')
+  let flashMod: typeof import('@/store/flash')
+  let renderHook: typeof import('@testing-library/react')['renderHook']
+  let act: typeof import('@testing-library/react')['act']
+  let useMentionAutocomplete: typeof import('../useMentionAutocomplete')['useMentionAutocomplete']
+
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    ipc = await import('@/lib/ipc')
+    flashMod = await import('@/store/flash')
+    const rtl = await import('@testing-library/react')
+    renderHook = rtl.renderHook
+    act = rtl.act
+    const mod = await import('../useMentionAutocomplete')
+    useMentionAutocomplete = mod.useMentionAutocomplete
+  })
+
+  function setupHook() {
+    const session = { id: 'sess-1' } as import('@/types').AgentSession
+    let inputVal = ''
+    const setInput = (v: string) => { inputVal = v }
+    return renderHook(() => useMentionAutocomplete(session, inputVal, setInput))
+  }
+
+  it('attaches tracked files from a dropped folder', async () => {
+    vi.mocked(ipc.files.toRelativePaths).mockResolvedValue(['src/'])
+    vi.mocked(ipc.git.getTrackedFiles).mockResolvedValue(['src/a.ts', 'src/b.ts', 'lib/c.ts'])
+    vi.mocked(ipc.git.readFile).mockImplementation(async (p: string) => `content of ${p}`)
+
+    const { result } = setupHook()
+
+    await act(async () => {
+      await result.current.addFilesByPath(['/repo/src'])
+    })
+
+    expect(result.current.attachedFiles).toHaveLength(2)
+    expect(result.current.attachedFiles.map(f => f.path)).toEqual(['src/a.ts', 'src/b.ts'])
+  })
+
+  it('flashes warning when folder is outside worktree', async () => {
+    vi.mocked(ipc.files.toRelativePaths).mockResolvedValue([])
+
+    const { result } = setupHook()
+
+    await act(async () => {
+      await result.current.addFilesByPath(['/outside/folder'])
+    })
+
+    expect(flashMod.flash).toHaveBeenCalledWith('warning', 'folderOutsideWorktree')
+    expect(result.current.attachedFiles).toHaveLength(0)
+  })
+
+  it('flashes info when folder has no tracked files', async () => {
+    vi.mocked(ipc.files.toRelativePaths).mockResolvedValue(['empty/'])
+    vi.mocked(ipc.git.getTrackedFiles).mockResolvedValue(['src/a.ts'])
+    vi.mocked(ipc.git.readFile).mockResolvedValue('content')
+
+    const { result } = setupHook()
+
+    await act(async () => {
+      await result.current.addFilesByPath(['/repo/empty'])
+    })
+
+    expect(flashMod.flash).toHaveBeenCalledWith('info', 'folderNoFiles')
+    expect(result.current.attachedFiles).toHaveLength(0)
+  })
+
+  it('skips files exceeding MAX_FILE_SIZE', async () => {
+    vi.mocked(ipc.files.toRelativePaths).mockResolvedValue(['src/'])
+    vi.mocked(ipc.git.getTrackedFiles).mockResolvedValue(['src/big.ts', 'src/small.ts'])
+    vi.mocked(ipc.git.readFile).mockImplementation(async (p: string) => {
+      if (p.includes('big')) return 'x'.repeat(200_000) // over 100KB
+      return 'small content'
+    })
+
+    const { result } = setupHook()
+
+    await act(async () => {
+      await result.current.addFilesByPath(['/repo/src'])
+    })
+
+    expect(result.current.attachedFiles).toHaveLength(1)
+    expect(result.current.attachedFiles[0].path).toBe('src/small.ts')
+  })
+
+  it('skips unreadable files', async () => {
+    vi.mocked(ipc.files.toRelativePaths).mockResolvedValue(['src/'])
+    vi.mocked(ipc.git.getTrackedFiles).mockResolvedValue(['src/ok.ts', 'src/broken.ts'])
+    vi.mocked(ipc.git.readFile).mockImplementation(async (p: string) => {
+      if (p.includes('broken')) throw new Error('read failed')
+      return 'ok content'
+    })
+
+    const { result } = setupHook()
+
+    await act(async () => {
+      await result.current.addFilesByPath(['/repo/src'])
+    })
+
+    expect(result.current.attachedFiles).toHaveLength(1)
+    expect(result.current.attachedFiles[0].path).toBe('src/ok.ts')
   })
 })

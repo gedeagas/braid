@@ -292,9 +292,16 @@ export function useMentionAutocomplete(
     const worktreePath = getWorktreePath()
     if (!worktreePath) return
 
-    const relativePaths = await ipc.files.toRelativePaths(worktreePath, absolutePaths)
+    const rawRelative = await ipc.files.toRelativePaths(worktreePath, absolutePaths)
+    // Normalize to POSIX separators (git ls-files always uses '/')
+    const relativePaths = rawRelative.map((p: string) => p.replace(/\\/g, '/'))
     if (relativePaths.length === 0) {
       flash('warning', i18n.t('folderOutsideWorktree', { ns: 'center' }))
+      return
+    }
+
+    if (state.attachedFiles.length >= MAX_ATTACHED_FILES) {
+      flash('warning', i18n.t('fileLimitReached', { ns: 'center', max: MAX_ATTACHED_FILES }))
       return
     }
 
@@ -329,7 +336,7 @@ export function useMentionAutocomplete(
       }
     }
     if (attachments.length > 0) dispatch({ type: 'ADD_FILES', files: attachments })
-  }, [getWorktreePath, fetchTrackedFiles])
+  }, [getWorktreePath, fetchTrackedFiles, state.attachedFiles.length])
 
   const removeFile = useCallback((index: number) => {
     dispatch({ type: 'REMOVE_FILE', index })
