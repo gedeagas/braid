@@ -1,4 +1,4 @@
-import { useReducer, useEffect, useRef, useCallback } from 'react'
+import { useReducer, useEffect, useLayoutEffect, useRef, useCallback, useState } from 'react'
 import Editor, { useMonaco, type OnMount } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
 import { useShallow } from 'zustand/react/shallow'
@@ -19,6 +19,7 @@ import { LspInstallNudge } from './LspInstallNudge'
 import { DiagnosticsPanel } from './DiagnosticsPanel'
 import { BinaryImagePreview, BinaryPlaceholder } from './BinaryFilePreview'
 import { isBinaryFile, isImageFile } from '@/lib/binaryFile'
+import { pendingReveal } from '@/lib/pendingReveal'
 
 interface Props {
   filePath: string | null
@@ -191,13 +192,33 @@ export function FileViewer({ filePath, projectRoot = null, onDirtyChange }: Prop
     return () => disposable.dispose()
   }, [monacoInstance, filePath])
 
-  // Load file content whenever filePath changes
-  useEffect(() => {
+  const pendingRevealRef = useRef<{ path: string; line: number } | null>(null)
+  const [revealing, setRevealing] = useState(false)
+
+  // NOTE:
+  // Load file content + pick up any pending reveal whenever filePath changes.
+  // useLayoutEffect (not useEffect) so the loadStart dispatch and the
+  // revealing flag are committed synchronously, before the browser paints.
+  // Otherwise the Editor from the previous file briefly shows under the new
+  // filePath, producing the flicker reported on rapid A→B switches.
+  useLayoutEffect(() => {
     if (!filePath) return
-    // Binary files are handled by a dedicated viewer, skip Monaco loading
+
+    editorRef.current = null
     if (isBinaryFile(filePath)) {
+      // NOTE:
+      // Binary files render via BinaryFilePreview, never through Monaco, so
+      // a pending reveal target is meaningless here. Drop it without
+      // toggling `revealing`, otherwise the flag would never clear.
+      pendingReveal.consume(filePath)
+      pendingRevealRef.current = null
       dispatch({ type: 'loadDone', content: '' })
       return
+    }
+    const target = pendingReveal.consume(filePath)
+    if (target) {
+      pendingRevealRef.current = target
+      setRevealing(true)
     }
     dispatch({ type: 'loadStart' })
     ipc.git
@@ -236,16 +257,14 @@ export function FileViewer({ filePath, projectRoot = null, onDirtyChange }: Prop
     return () => window.removeEventListener('braid:saveFile', handler)
   }, [])
 
-  // Reveal-line (from search results). Pending ref covers the mount-gap when
-  // the editor for a just-opened file hasn't finished mounting yet.
-  const pendingRevealRef = useRef<{ path: string; line: number } | null>(null)
   const tryReveal = useCallback(() => {
     const p = pendingRevealRef.current
     if (!p || !editorRef.current || p.path !== filePath) return
-    editorRef.current.revealLineInCenter(p.line)
+    editorRef.current.revealLineInCenter(p.line, 1)
     editorRef.current.setPosition({ lineNumber: p.line, column: 1 })
     editorRef.current.focus()
     pendingRevealRef.current = null
+    setRevealing(false)
   }, [filePath])
 
   useEffect(() => {
@@ -264,7 +283,18 @@ export function FileViewer({ filePath, projectRoot = null, onDirtyChange }: Prop
       monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
       () => handleSaveRef.current()
     )
-    tryReveal()
+    // NOTE
+    // Defer the reveal: at onMount time Monaco's viewport hasn't laid out
+    // yet, so revealLineInCenter has no real height to center against and
+    // ends up scrolling the line to the top. Force a layout, then wait one
+    // animation frame for the DOM to settle before centering. The wrapper
+    // div is already hidden via the `revealing` state, so the user sees a
+    // single committed paint of the centered line.
+    requestAnimationFrame(() => {
+      editorInstance.layout()
+      tryReveal()
+      setRevealing(false)
+    })
   }, [tryReveal])
 
   const handleChange = useCallback((value: string | undefined) => {
@@ -382,24 +412,30 @@ export function FileViewer({ filePath, projectRoot = null, onDirtyChange }: Prop
             <StreamingMarkdown content={state.currentContent} enableAnimation={false} />
           </div>
         ) : (
-          <Editor
-            height="100%"
-            language={toMonacoLanguage(languageId)}
-            defaultValue={state.savedContent}
-            theme={MONACO_THEME_NAME}
-            onMount={handleEditorMount}
-            onChange={handleChange}
-            options={{
-              minimap: { enabled: false },
-              fontSize: 14,
-              lineNumbers: 'on',
-              scrollBeyondLastLine: false,
-              renderWhitespace: 'selection',
-              wordWrap: 'on',
-              padding: { top: 10 },
-              tabSize: 2,
-            }}
-          />
+          // Wrap the Editor so we can toggle visibility from React state.
+          // While `revealing` is true the user wouldn't see meaningful
+          // content anyway (the reveal is one rAF away), and hiding here
+          // guarantees Monaco never gets a chance to paint at line 1.
+          <div style={{ height: '100%', visibility: revealing ? 'hidden' : 'visible' }}>
+            <Editor
+              height="100%"
+              language={toMonacoLanguage(languageId)}
+              defaultValue={state.savedContent}
+              theme={MONACO_THEME_NAME}
+              onMount={handleEditorMount}
+              onChange={handleChange}
+              options={{
+                minimap: { enabled: false },
+                fontSize: 14,
+                lineNumbers: 'on',
+                scrollBeyondLastLine: false,
+                renderWhitespace: 'selection',
+                wordWrap: 'on',
+                padding: { top: 10 },
+                tabSize: 2,
+              }}
+            />
+          </div>
         )}
       </div>
 

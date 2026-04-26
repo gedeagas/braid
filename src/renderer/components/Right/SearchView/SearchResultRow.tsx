@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import type { SearchFileResult, SearchMatch } from '@shared/search'
 import { useUIStore } from '@/store/ui'
+import { pendingReveal } from '@/lib/pendingReveal'
 
 interface Props {
   file: SearchFileResult
@@ -16,13 +17,16 @@ export function SearchResultRow({ file, match, showReplace, onReplaceOne }: Prop
   const after = match.lineText.slice(match.matchEnd)
 
   const handleClick = () => {
+    // Stash the target in a module-level ref before opening the file. The
+    // FileViewer is lazy-loaded, so on the first open its event listener
+    // doesn't exist yet — the event would be lost. FileViewer reads from this
+    // ref once it mounts. The event below remains as a fast-path for the case
+    // where FileViewer is already mounted with the same file.
+    const target = { path: file.path, line: match.lineNumber }
+    pendingReveal.set(target)
     useUIStore.getState().openFile(file.path)
     requestAnimationFrame(() => {
-      window.dispatchEvent(
-        new CustomEvent('braid:revealLine', {
-          detail: { path: file.path, line: match.lineNumber },
-        }),
-      )
+      window.dispatchEvent(new CustomEvent('braid:revealLine', { detail: target }))
     })
   }
 
