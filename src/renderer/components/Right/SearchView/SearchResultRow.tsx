@@ -17,9 +17,10 @@ export function SearchResultRow({ file, match, showReplace, onReplaceOne }: Prop
   const after = match.lineText.slice(match.matchEnd)
 
   const handleClick = () => {
+    // NOTE:
     // Stash the target in a module-level ref before opening the file. The
     // FileViewer is lazy-loaded, so on the first open its event listener
-    // doesn't exist yet — the event would be lost. FileViewer reads from this
+    // doesn't exist yet and the event would be lost. FileViewer reads from this
     // ref once it mounts. The event below remains as a fast-path for the case
     // where FileViewer is already mounted with the same file.
     const target = { path: file.path, line: match.lineNumber }
