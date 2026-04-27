@@ -1,6 +1,6 @@
 import { useReducer, useEffect, useLayoutEffect, useRef, useCallback, useState } from 'react'
 import Editor, { useMonaco, type OnMount } from '@monaco-editor/react'
-import type { editor } from 'monaco-editor'
+import { editor } from 'monaco-editor'
 import { useShallow } from 'zustand/react/shallow'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { StreamingMarkdown } from '@/components/Center/StreamingMarkdown'
@@ -205,6 +205,9 @@ export function FileViewer({ filePath, projectRoot = null, onDirtyChange }: Prop
     if (!filePath) return
 
     editorRef.current = null
+    pendingRevealRef.current = null
+    setRevealing(false)
+
     if (isBinaryFile(filePath)) {
       // NOTE:
       // Binary files render via BinaryFilePreview, never through Monaco, so
@@ -260,7 +263,7 @@ export function FileViewer({ filePath, projectRoot = null, onDirtyChange }: Prop
   const tryReveal = useCallback(() => {
     const p = pendingRevealRef.current
     if (!p || !editorRef.current || p.path !== filePath) return
-    editorRef.current.revealLineInCenter(p.line, 1)
+    editorRef.current.revealLineInCenter(p.line, editor.ScrollType.Immediate)
     editorRef.current.setPosition({ lineNumber: p.line, column: 1 })
     editorRef.current.focus()
     pendingRevealRef.current = null
@@ -291,6 +294,8 @@ export function FileViewer({ filePath, projectRoot = null, onDirtyChange }: Prop
     // div is already hidden via the `revealing` state, so the user sees a
     // single committed paint of the centered line.
     requestAnimationFrame(() => {
+      if (editorRef.current !== editorInstance) return
+      
       editorInstance.layout()
       tryReveal()
       setRevealing(false)
