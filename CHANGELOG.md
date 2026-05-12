@@ -5,6 +5,23 @@ All notable changes to Braid are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [26.1.12] - 2026-05-12
+
+### Added
+
+- support folder drag-and-drop as file mentions (#81)
+- add GitHub auth token for higher rate limits (#79)
+
+### Fixed
+
+- clicking a search result row gets stuck at the top of the editor (#82)
+
+### Contributors
+
+Thanks to [@eplnh](https://github.com/eplnh), [@gedeagas](https://github.com/gedeagas), [@RiskyFeryansyahP](https://github.com/RiskyFeryansyahP) for their contributions to this release!
+
+---
+
 ## [26.1.11] - 2026-04-22
 
 No notable app changes.
