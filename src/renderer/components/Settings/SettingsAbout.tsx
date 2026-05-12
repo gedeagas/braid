@@ -9,6 +9,7 @@ const CONTRIBUTORS = [
   { name: 'Agastya Darma', github: 'gedeagas' },
   { name: 'Eko Prasetyo L. N. H.', github: 'eplnh' },
   { name: 'Hanif NR', github: 'hanifnr' },
+  { name: 'Risky Feryansyah Pribadi', github: 'RiskyFeryansyahP' },
 ]
 
 export function SettingsAbout() {
