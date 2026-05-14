@@ -15,7 +15,7 @@
   align-items: center;
   gap: var(--space-10);
   padding: 0 var(--space-14);
-  height: 38px;
+  height: var(--toolbar-height);
   flex-shrink: 0;
   -webkit-app-region: drag;
   animation: pr-merge-fadein var(--duration-slow) ease-out;

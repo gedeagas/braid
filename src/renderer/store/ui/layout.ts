@@ -3,6 +3,15 @@ import type { RightPanelTab } from '@/types'
 import type { UIState } from './types'
 import { SK } from '@/lib/storageKeys'
 import { loadStr, loadBool, loadInt } from './helpers'
+import {
+  ACTIVITY_BAR_WIDTH,
+  RESIZE_HANDLE_WIDTH,
+  CENTER_MIN_WIDTH,
+  SIDEBAR_MIN_WIDTH,
+  SIDEBAR_MAX_WIDTH,
+  RIGHT_PANEL_MIN_WIDTH,
+  RIGHT_PANEL_MAX_WIDTH,
+} from '@/lib/layoutConstants'
 
 export type CenterView =
   | { type: 'session'; sessionId: string }
@@ -161,6 +170,7 @@ export interface LayoutSlice {
   persistSidebarWidth: () => void
   setRightPanelWidth: (width: number) => void
   persistRightPanelWidth: () => void
+  reclampPanelWidths: () => void
   setChangesCount: (worktreePath: string, count: number) => void
   bumpDiffRevision: (worktreePath: string) => void
   cleanupWorktreeState: (worktreeId: string, worktreePath: string) => void
@@ -581,11 +591,12 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
   },
 
   setSidebarWidth: (width) => {
-    // Reserve space for center panel (300px min) + activity bar (48px) + resize handles (8px)
     const { rightPanelVisible, rightPanelWidth } = get()
-    const reserved = 48 + 300 + 8 + (rightPanelVisible ? rightPanelWidth : 0)
-    const maxAllowed = Math.max(180, Math.min(500, window.innerWidth - reserved))
-    const clamped = Math.max(180, Math.min(maxAllowed, Math.round(width)))
+    // sidebar handle (4px) is always present when resizing the sidebar
+    const reserved = ACTIVITY_BAR_WIDTH + CENTER_MIN_WIDTH + RESIZE_HANDLE_WIDTH
+      + (rightPanelVisible ? rightPanelWidth + RESIZE_HANDLE_WIDTH : 0)
+    const maxAllowed = Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, window.innerWidth - reserved))
+    const clamped = Math.max(SIDEBAR_MIN_WIDTH, Math.min(maxAllowed, Math.round(width)))
     set({ sidebarWidth: clamped })
   },
 
@@ -594,16 +605,44 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
   },
 
   setRightPanelWidth: (width) => {
-    // Reserve space for center panel (300px min) + activity bar (48px) + resize handles (8px)
     const { sidebarPanelOpen, sidebarWidth } = get()
-    const reserved = 48 + 300 + 8 + (sidebarPanelOpen ? sidebarWidth : 0)
-    const maxAllowed = Math.max(240, Math.min(700, window.innerWidth - reserved))
-    const clamped = Math.max(240, Math.min(maxAllowed, Math.round(width)))
+    // right-panel handle (4px) is always present when resizing the right panel
+    const reserved = ACTIVITY_BAR_WIDTH + CENTER_MIN_WIDTH + RESIZE_HANDLE_WIDTH
+      + (sidebarPanelOpen ? sidebarWidth + RESIZE_HANDLE_WIDTH : 0)
+    const maxAllowed = Math.max(RIGHT_PANEL_MIN_WIDTH, Math.min(RIGHT_PANEL_MAX_WIDTH, window.innerWidth - reserved))
+    const clamped = Math.max(RIGHT_PANEL_MIN_WIDTH, Math.min(maxAllowed, Math.round(width)))
     set({ rightPanelWidth: clamped })
   },
 
   persistRightPanelWidth: () => {
     localStorage.setItem(SK.rightPanelWidth, String(get().rightPanelWidth))
+  },
+
+  reclampPanelWidths: () => {
+    // Re-clamp both panel widths to current viewport. Called on window resize.
+    const { sidebarPanelOpen, sidebarWidth, rightPanelVisible, rightPanelWidth } = get()
+    if (sidebarPanelOpen) {
+      const reserved = ACTIVITY_BAR_WIDTH + CENTER_MIN_WIDTH + RESIZE_HANDLE_WIDTH
+        + (rightPanelVisible ? rightPanelWidth + RESIZE_HANDLE_WIDTH : 0)
+      const maxAllowed = Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, window.innerWidth - reserved))
+      const clampedSidebar = Math.max(SIDEBAR_MIN_WIDTH, Math.min(maxAllowed, sidebarWidth))
+      if (clampedSidebar !== sidebarWidth) {
+        set({ sidebarWidth: clampedSidebar })
+        localStorage.setItem(SK.sidebarWidth, String(clampedSidebar))
+      }
+    }
+    if (rightPanelVisible) {
+      // Re-read sidebar in case it was just clamped above
+      const currentSidebar = get().sidebarWidth
+      const reserved = ACTIVITY_BAR_WIDTH + CENTER_MIN_WIDTH + RESIZE_HANDLE_WIDTH
+        + (sidebarPanelOpen ? currentSidebar + RESIZE_HANDLE_WIDTH : 0)
+      const maxAllowed = Math.max(RIGHT_PANEL_MIN_WIDTH, Math.min(RIGHT_PANEL_MAX_WIDTH, window.innerWidth - reserved))
+      const clampedRight = Math.max(RIGHT_PANEL_MIN_WIDTH, Math.min(maxAllowed, rightPanelWidth))
+      if (clampedRight !== rightPanelWidth) {
+        set({ rightPanelWidth: clampedRight })
+        localStorage.setItem(SK.rightPanelWidth, String(clampedRight))
+      }
+    }
   },
 
   setChangesCount: (worktreePath, count) => {

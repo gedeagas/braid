@@ -1,6 +1,15 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { useUIStore } from '../store'
 import { SK } from '@/lib/storageKeys'
+import {
+  ACTIVITY_BAR_WIDTH,
+  RESIZE_HANDLE_WIDTH,
+  CENTER_MIN_WIDTH,
+  SIDEBAR_MIN_WIDTH,
+  SIDEBAR_MAX_WIDTH,
+  RIGHT_PANEL_MIN_WIDTH,
+  RIGHT_PANEL_MAX_WIDTH,
+} from '@/lib/layoutConstants'
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -145,5 +154,212 @@ describe('cleanupWorktreeState', () => {
     useUIStore.getState().cleanupWorktreeState(WT_ID, WT_PATH)
     expect(localStorage.getItem(filesKey)).toBeNull()
     expect(localStorage.getItem(tabsKey)).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// setSidebarWidth - viewport-aware clamping
+// ---------------------------------------------------------------------------
+
+describe('setSidebarWidth', () => {
+  const VIEWPORT = 1400
+
+  beforeEach(() => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(VIEWPORT)
+    useUIStore.setState({
+      sidebarWidth: 290,
+      rightPanelVisible: false,
+      rightPanelWidth: 400,
+      sidebarPanelOpen: true,
+    })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('clamps to SIDEBAR_MIN_WIDTH when set below minimum', () => {
+    useUIStore.getState().setSidebarWidth(100)
+    expect(useUIStore.getState().sidebarWidth).toBe(SIDEBAR_MIN_WIDTH)
+  })
+
+  it('clamps to SIDEBAR_MAX_WIDTH when set above maximum', () => {
+    useUIStore.getState().setSidebarWidth(800)
+    expect(useUIStore.getState().sidebarWidth).toBe(SIDEBAR_MAX_WIDTH)
+  })
+
+  it('allows valid widths within the range', () => {
+    useUIStore.getState().setSidebarWidth(350)
+    expect(useUIStore.getState().sidebarWidth).toBe(350)
+  })
+
+  it('accounts for right panel width when visible', () => {
+    useUIStore.setState({ rightPanelVisible: true, rightPanelWidth: 400 })
+    // Max allowed = viewport - activityBar - centerMin - sidebarHandle - rightPanel - rightHandle
+    const expectedMax = VIEWPORT - ACTIVITY_BAR_WIDTH - CENTER_MIN_WIDTH
+      - RESIZE_HANDLE_WIDTH - 400 - RESIZE_HANDLE_WIDTH
+    useUIStore.getState().setSidebarWidth(999)
+    const result = useUIStore.getState().sidebarWidth
+    expect(result).toBe(Math.min(SIDEBAR_MAX_WIDTH, expectedMax))
+    // Center panel should have at least CENTER_MIN_WIDTH remaining
+    const centerWidth = VIEWPORT - ACTIVITY_BAR_WIDTH - result
+      - RESIZE_HANDLE_WIDTH - 400 - RESIZE_HANDLE_WIDTH
+    expect(centerWidth).toBeGreaterThanOrEqual(CENTER_MIN_WIDTH)
+  })
+
+  it('accounts for both resize handles when both panels are open', () => {
+    useUIStore.setState({ rightPanelVisible: true, rightPanelWidth: 400 })
+    // Verify both handles (4px each = 8px total) are subtracted
+    const reserved = ACTIVITY_BAR_WIDTH + CENTER_MIN_WIDTH
+      + RESIZE_HANDLE_WIDTH + 400 + RESIZE_HANDLE_WIDTH
+    const maxAllowed = Math.min(SIDEBAR_MAX_WIDTH, VIEWPORT - reserved)
+    useUIStore.getState().setSidebarWidth(maxAllowed + 50)
+    expect(useUIStore.getState().sidebarWidth).toBe(maxAllowed)
+  })
+
+  it('rounds fractional widths', () => {
+    useUIStore.getState().setSidebarWidth(300.7)
+    expect(useUIStore.getState().sidebarWidth).toBe(301)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// setRightPanelWidth - viewport-aware clamping
+// ---------------------------------------------------------------------------
+
+describe('setRightPanelWidth', () => {
+  const VIEWPORT = 1400
+
+  beforeEach(() => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(VIEWPORT)
+    useUIStore.setState({
+      rightPanelWidth: 400,
+      sidebarPanelOpen: false,
+      sidebarWidth: 290,
+      rightPanelVisible: true,
+    })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('clamps to RIGHT_PANEL_MIN_WIDTH when set below minimum', () => {
+    useUIStore.getState().setRightPanelWidth(100)
+    expect(useUIStore.getState().rightPanelWidth).toBe(RIGHT_PANEL_MIN_WIDTH)
+  })
+
+  it('clamps to RIGHT_PANEL_MAX_WIDTH when set above maximum', () => {
+    useUIStore.getState().setRightPanelWidth(900)
+    expect(useUIStore.getState().rightPanelWidth).toBe(RIGHT_PANEL_MAX_WIDTH)
+  })
+
+  it('allows valid widths within the range', () => {
+    useUIStore.getState().setRightPanelWidth(500)
+    expect(useUIStore.getState().rightPanelWidth).toBe(500)
+  })
+
+  it('accounts for sidebar width when open', () => {
+    useUIStore.setState({ sidebarPanelOpen: true, sidebarWidth: 290 })
+    const expectedMax = VIEWPORT - ACTIVITY_BAR_WIDTH - CENTER_MIN_WIDTH
+      - RESIZE_HANDLE_WIDTH - 290 - RESIZE_HANDLE_WIDTH
+    useUIStore.getState().setRightPanelWidth(999)
+    const result = useUIStore.getState().rightPanelWidth
+    expect(result).toBe(Math.min(RIGHT_PANEL_MAX_WIDTH, expectedMax))
+    const centerWidth = VIEWPORT - ACTIVITY_BAR_WIDTH - 290
+      - RESIZE_HANDLE_WIDTH - result - RESIZE_HANDLE_WIDTH
+    expect(centerWidth).toBeGreaterThanOrEqual(CENTER_MIN_WIDTH)
+  })
+
+  it('accounts for both resize handles when sidebar is open', () => {
+    useUIStore.setState({ sidebarPanelOpen: true, sidebarWidth: 290 })
+    const reserved = ACTIVITY_BAR_WIDTH + CENTER_MIN_WIDTH
+      + RESIZE_HANDLE_WIDTH + 290 + RESIZE_HANDLE_WIDTH
+    const maxAllowed = Math.min(RIGHT_PANEL_MAX_WIDTH, VIEWPORT - reserved)
+    useUIStore.getState().setRightPanelWidth(maxAllowed + 50)
+    expect(useUIStore.getState().rightPanelWidth).toBe(maxAllowed)
+  })
+
+  it('rounds fractional widths', () => {
+    useUIStore.getState().setRightPanelWidth(450.3)
+    expect(useUIStore.getState().rightPanelWidth).toBe(450)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// reclampPanelWidths - re-clamp on viewport change
+// ---------------------------------------------------------------------------
+
+describe('reclampPanelWidths', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('shrinks sidebar when viewport gets smaller', () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(800)
+    useUIStore.setState({
+      sidebarPanelOpen: true,
+      sidebarWidth: 450,
+      rightPanelVisible: true,
+      rightPanelWidth: 300,
+    })
+    useUIStore.getState().reclampPanelWidths()
+    const s = useUIStore.getState()
+    const centerWidth = 800 - ACTIVITY_BAR_WIDTH - s.sidebarWidth
+      - RESIZE_HANDLE_WIDTH - s.rightPanelWidth - RESIZE_HANDLE_WIDTH
+    expect(centerWidth).toBeGreaterThanOrEqual(CENTER_MIN_WIDTH)
+  })
+
+  it('does not change widths when viewport is large enough', () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(2000)
+    useUIStore.setState({
+      sidebarPanelOpen: true,
+      sidebarWidth: 290,
+      rightPanelVisible: true,
+      rightPanelWidth: 400,
+    })
+    useUIStore.getState().reclampPanelWidths()
+    const s = useUIStore.getState()
+    expect(s.sidebarWidth).toBe(290)
+    expect(s.rightPanelWidth).toBe(400)
+  })
+
+  it('skips sidebar clamp when sidebar is closed', () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(600)
+    useUIStore.setState({
+      sidebarPanelOpen: false,
+      sidebarWidth: 500,
+      rightPanelVisible: true,
+      rightPanelWidth: 400,
+    })
+    useUIStore.getState().reclampPanelWidths()
+    // Sidebar width is untouched since sidebar is closed
+    expect(useUIStore.getState().sidebarWidth).toBe(500)
+  })
+
+  it('skips right panel clamp when right panel is hidden', () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(600)
+    useUIStore.setState({
+      sidebarPanelOpen: true,
+      sidebarWidth: 200,
+      rightPanelVisible: false,
+      rightPanelWidth: 600,
+    })
+    useUIStore.getState().reclampPanelWidths()
+    // Right panel width is untouched since panel is hidden
+    expect(useUIStore.getState().rightPanelWidth).toBe(600)
+  })
+
+  it('persists clamped values to localStorage', () => {
+    vi.spyOn(window, 'innerWidth', 'get').mockReturnValue(700)
+    useUIStore.setState({
+      sidebarPanelOpen: true,
+      sidebarWidth: 400,
+      rightPanelVisible: false,
+      rightPanelWidth: 400,
+    })
+    useUIStore.getState().reclampPanelWidths()
+    const stored = localStorage.getItem(SK.sidebarWidth)
+    expect(stored).toBe(String(useUIStore.getState().sidebarWidth))
   })
 })
