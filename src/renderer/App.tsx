@@ -186,7 +186,7 @@ export default function App() {
     <ErrorBoundary>
       <div className="app">
         <ActivityBar />
-        <div className="sidebar-panel" style={{ width: sidebarPanelOpen ? sidebarWidth : 0 }}>
+        <div className="sidebar-panel" style={{ width: sidebarPanelOpen ? sidebarWidth : 0, minWidth: sidebarPanelOpen ? 180 : 0 }}>
           <SidebarView />
         </div>
         {sidebarPanelOpen && <ResizeHandle direction="horizontal" onResize={handleSidebarResize} onResizeEnd={persistSidebarWidth} />}
@@ -194,7 +194,7 @@ export default function App() {
         <div style={{ display: (missionControlActive || webAppActive) ? 'none' : 'contents' }}>
           <CenterPanel />
           {rightPanelVisible && <ResizeHandle direction="horizontal" onResize={handleRightResize} onResizeEnd={persistRightWidth} />}
-          <div className="right-panel" style={{ width: rightPanelVisible ? rightWidth : 0 }}>
+          <div className="right-panel" style={{ width: rightPanelVisible ? rightWidth : 0, minWidth: rightPanelVisible ? 240 : 0 }}>
             <RightPanel />
           </div>
         </div>

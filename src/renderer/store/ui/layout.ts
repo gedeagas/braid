@@ -581,7 +581,11 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
   },
 
   setSidebarWidth: (width) => {
-    const clamped = Math.max(180, Math.min(500, Math.round(width)))
+    // Reserve space for center panel (300px min) + activity bar (48px) + resize handles (8px)
+    const { rightPanelVisible, rightPanelWidth } = get()
+    const reserved = 48 + 300 + 8 + (rightPanelVisible ? rightPanelWidth : 0)
+    const maxAllowed = Math.max(180, Math.min(500, window.innerWidth - reserved))
+    const clamped = Math.max(180, Math.min(maxAllowed, Math.round(width)))
     set({ sidebarWidth: clamped })
   },
 
@@ -590,7 +594,11 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
   },
 
   setRightPanelWidth: (width) => {
-    const clamped = Math.max(240, Math.min(700, Math.round(width)))
+    // Reserve space for center panel (300px min) + activity bar (48px) + resize handles (8px)
+    const { sidebarPanelOpen, sidebarWidth } = get()
+    const reserved = 48 + 300 + 8 + (sidebarPanelOpen ? sidebarWidth : 0)
+    const maxAllowed = Math.max(240, Math.min(700, window.innerWidth - reserved))
+    const clamped = Math.max(240, Math.min(maxAllowed, Math.round(width)))
     set({ rightPanelWidth: clamped })
   },
 

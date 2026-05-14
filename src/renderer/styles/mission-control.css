@@ -14,7 +14,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 var(--space-16) 0 var(--space-40);
-  height: 52px;
+  height: 38px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   position: relative;

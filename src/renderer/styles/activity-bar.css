@@ -10,7 +10,7 @@
 
 .activity-bar-drag-region {
   -webkit-app-region: drag;
-  height: 52px;
+  height: 38px;
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
 }
@@ -61,7 +61,7 @@
 
 /* Spacer in sidebar panel to clear macOS traffic lights vertically */
 .sidebar-panel-spacer {
-  height: 52px;
+  height: 38px;
   flex-shrink: 0;
   -webkit-app-region: drag;
   border-bottom: 1px solid var(--border);
