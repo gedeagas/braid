@@ -11,6 +11,7 @@ import { createDraftActions } from './handlers/draftActions'
 import { createWorktreeLinkActions } from './handlers/worktreeLinkActions'
 import { createUserInputActions } from './handlers/userInputActions'
 import { createAuthErrorActions } from './handlers/authErrorActions'
+import { createNetworkErrorActions } from './handlers/networkErrorActions'
 import { createRollbackActions } from './handlers/rollbackActions'
 import type { SessionsState } from './storeTypes'
 
@@ -40,6 +41,7 @@ export const useSessionsStore = create<SessionsState>((set, get, api) => ({
   ...createWorktreeLinkActions(set, get, api),
   ...createUserInputActions(set, get, api),
   ...createAuthErrorActions(set, get, api),
+  ...createNetworkErrorActions(set, get, api),
   ...createRollbackActions(set, get, api),
 
   // ---------------------------------------------------------------------------

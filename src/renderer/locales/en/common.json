@@ -145,5 +145,11 @@
         "description": "Tap Boot to start a device, then Connect to stream its screen. You can also link it to your chat so Claude can see the UI."
       }
     }
-  }
+  },
+  "offline": {
+    "banner": "You're offline - some features are unavailable",
+    "reconnected": "Back online",
+    "tooltip": "No internet connection"
+  },
+  "cachedData": "Offline - showing cached data"
 }

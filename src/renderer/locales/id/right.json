@@ -329,6 +329,8 @@
   "quickOpenPlaceholder": "Cari file berdasarkan nama...",
   "quickOpenNoResults": "Tidak ada file yang cocok",
   "quickOpenOpen": "Terbuka",
+  "offlineDisabled": "Tidak tersedia saat offline",
+
   "openIn": "Buka",
   "copyPath": "Salin jalur",
   "revealInFinder": "Tampilkan di Finder",

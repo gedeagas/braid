@@ -20,6 +20,7 @@ import { MissionControl } from '@/components/MissionControl/MissionControl'
 import { WebAppOverlay } from '@/components/Center/WebAppOverlay'
 import { ToastContainer } from '@/components/shared/ToastContainer'
 import { FlashToastContainer } from '@/components/shared/FlashToastContainer'
+import { OfflineBanner } from '@/components/shared/OfflineBanner'
 import { OnboardingOverlay } from '@/components/Onboarding/OnboardingOverlay'
 import { FeatureTour } from '@/components/Onboarding/FeatureTour'
 import { SimulatorTour } from '@/components/Onboarding/SimulatorTour'
@@ -193,6 +194,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
+      <OfflineBanner />
       <div className="app">
         <ActivityBar />
         <div className="sidebar-panel" style={{ width: sidebarPanelOpen ? sidebarWidth : 0, minWidth: sidebarPanelOpen ? SIDEBAR_MIN_WIDTH : 0 }}>

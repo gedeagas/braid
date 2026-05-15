@@ -17,6 +17,7 @@ import { LinkedWorktreeChips } from './LinkedWorktreeChips'
 import { ExitPlanModePrompt } from './ExitPlanModePrompt'
 import { ToolPermissionPrompt } from './ToolPermissionPrompt'
 import { AuthErrorPrompt } from './AuthErrorPrompt'
+import { NetworkErrorPrompt } from './NetworkErrorPrompt'
 import { ElicitationPrompt } from './ElicitationPrompt'
 import type { AgentSession, SlashCommand, SnippetAttachment } from '@/types'
 import { parseSnippets, stripAttachmentBlocks } from './diffCommentUtils'
@@ -28,6 +29,7 @@ import type { ChatViewAction, ChatViewState } from './ChatView'
 import { TERMINAL_ENTRY, type UseMentionReturn } from './useMentionAutocomplete'
 import { QueuedMessageBanner } from './QueuedMessageBanner'
 import { getContextWindow } from '@/lib/constants'
+import { useOnlineStatus } from '@/lib/online'
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 export const ACCEPTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
@@ -70,6 +72,7 @@ export function ChatInput({
   variant = 'default',
 }: ChatInputProps) {
   const { t } = useTranslation('center')
+  const online = useOnlineStatus()
   const { attachedImages, isDragOver, showSlash, slashFilter, slashIndex, editingQueue, queueEditValue } = state
 
   const setDraftInput = useSessionsStore((s) => s.setDraftInput)
@@ -85,6 +88,8 @@ export function ChatInput({
   const alwaysAllowTool = useSessionsStore((s) => s.alwaysAllowTool)
   const retryAfterAuth = useSessionsStore((s) => s.retryAfterAuth)
   const dismissAuthError = useSessionsStore((s) => s.dismissAuthError)
+  const retryAfterNetworkError = useSessionsStore((s) => s.retryAfterNetworkError)
+  const dismissNetworkError = useSessionsStore((s) => s.dismissNetworkError)
   const answerElicitation = useSessionsStore((s) => s.answerElicitation)
   const addDraftSnippet = useSessionsStore((s) => s.addDraftSnippet)
   const removeDraftSnippet = useSessionsStore((s) => s.removeDraftSnippet)
@@ -445,6 +450,12 @@ export function ChatInput({
           onDismiss={() => dismissAuthError(activeSession.id)}
         />
       )}
+      {variant === 'default' && activeSession.status === 'error' && activeSession.pendingNetworkError && (
+        <NetworkErrorPrompt
+          onRetry={() => retryAfterNetworkError(activeSession.id)}
+          onDismiss={() => dismissNetworkError(activeSession.id)}
+        />
+      )}
       {variant === 'default' && isWaitingInput && activeSession.pendingElicitation && (
         <ElicitationPrompt
           pendingElicitation={activeSession.pendingElicitation}
@@ -555,7 +566,10 @@ export function ChatInput({
             rows={1}
           />
         </div>
-        {!(isRunning && queuedMessage !== null) && !isWaitingInput && !input && (
+        {!online && !isRunning && !isWaitingInput && (
+          <span className="chat-input-hint chat-input-hint--offline">{t('offlineHint')}</span>
+        )}
+        {online && !(isRunning && queuedMessage !== null) && !isWaitingInput && !input && (
           <span className="chat-input-hint">{t('focusHint')}</span>
         )}
       </div>
