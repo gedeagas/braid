@@ -42,16 +42,13 @@ export function AskUserQuestionPrompt({ pendingQuestion, onSubmit }: Props) {
 
   const handleSubmit = () => {
     // SDK keys answers by question text, not header (AskUserQuestionOutput in
-    // @anthropic-ai/claude-agent-sdk). Free-text "other" overrides selections.
+    // @anthropic-ai/claude-agent-sdk).
     const final: Record<string, string> = {}
     for (const q of pendingQuestion.questions) {
+      const answers = (selections[q.header] ?? []).filter((l) => l !== '__other__')
       const other = otherValues[q.header]?.trim()
-      if (other) {
-        final[q.question] = other
-        continue
-      }
-      const labels = (selections[q.header] ?? []).filter((l) => l !== '__other__')
-      if (labels.length) final[q.question] = labels.join(', ')
+      if (other) answers.push(other)
+      if (answers.length) final[q.question] = answers.join(', ')
     }
     onSubmit(final)
   }
