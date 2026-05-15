@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useRef } from 'react'
+import { SIDEBAR_MIN_WIDTH, RIGHT_PANEL_MIN_WIDTH } from '@/lib/layoutConstants'
 import { ActivityBar } from '@/components/Sidebar/ActivityBar'
 import { SidebarView } from '@/components/Sidebar/SidebarView'
 import { CenterPanel } from '@/components/Center/CenterPanel'
@@ -83,6 +84,14 @@ export default function App() {
   // Apply UI zoom on mount
   useEffect(() => {
     try { appWindow.setZoomFactor(useUIStore.getState().uiZoom) } catch {}
+  }, [])
+
+  // Re-clamp persisted panel widths on mount and window resize
+  useEffect(() => {
+    const reclamp = () => useUIStore.getState().reclampPanelWidths()
+    reclamp() // initial clamp in case persisted widths exceed current viewport
+    window.addEventListener('resize', reclamp)
+    return () => window.removeEventListener('resize', reclamp)
   }, [])
 
   useEffect(() => {
@@ -186,7 +195,7 @@ export default function App() {
     <ErrorBoundary>
       <div className="app">
         <ActivityBar />
-        <div className="sidebar-panel" style={{ width: sidebarPanelOpen ? sidebarWidth : 0 }}>
+        <div className="sidebar-panel" style={{ width: sidebarPanelOpen ? sidebarWidth : 0, minWidth: sidebarPanelOpen ? SIDEBAR_MIN_WIDTH : 0 }}>
           <SidebarView />
         </div>
         {sidebarPanelOpen && <ResizeHandle direction="horizontal" onResize={handleSidebarResize} onResizeEnd={persistSidebarWidth} />}
@@ -194,7 +203,7 @@ export default function App() {
         <div style={{ display: (missionControlActive || webAppActive) ? 'none' : 'contents' }}>
           <CenterPanel />
           {rightPanelVisible && <ResizeHandle direction="horizontal" onResize={handleRightResize} onResizeEnd={persistRightWidth} />}
-          <div className="right-panel" style={{ width: rightPanelVisible ? rightWidth : 0 }}>
+          <div className="right-panel" style={{ width: rightPanelVisible ? rightWidth : 0, minWidth: rightPanelVisible ? RIGHT_PANEL_MIN_WIDTH : 0 }}>
             <RightPanel />
           </div>
         </div>
