@@ -49,8 +49,12 @@ export const CenterPanel = memo(function CenterPanel() {
   const showFile = activeCenterView?.type === 'file'
   const showTerminal = activeCenterView?.type === 'terminal'
   const showCodeReview = activeCenterView?.type === 'codeReview'
-  const bigTerminals = useUIStore((s) => selectedWorktreeId ? (s.bigTerminalsByWorktree[selectedWorktreeId] ?? []) : [])
-  const hasBigTerminals = bigTerminals.length > 0
+  const hasBigTerminals = useUIStore((s) => selectedWorktreeId ? (s.bigTerminalsByWorktree[selectedWorktreeId]?.length ?? 0) > 0 : false)
+  const activeTerminalId = showTerminal ? activeCenterView.terminalId : null
+  const initialCommand = useUIStore((s) => {
+    if (!activeTerminalId || !selectedWorktreeId) return undefined
+    return s.bigTerminalsByWorktree[selectedWorktreeId]?.find((t) => t.id === activeTerminalId)?.initialCommand
+  })
   const hasNoTabs = sessionsLoaded && sessions.length === 0 && openFilePaths.length === 0 && !changesOpen && !hasBigTerminals && !showCodeReview
 
   const handleNewChat = useCallback(() => {
