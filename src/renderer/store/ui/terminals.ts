@@ -5,6 +5,8 @@ import { SK } from '@/lib/storageKeys'
 export interface BigTerminalTab {
   id: string
   label: string
+  /** Command to auto-run when the PTY first spawns (e.g. "claude"). Not re-run on restore. */
+  initialCommand?: string
 }
 
 // Module-level counter to keep terminal ids unique even within the same ms
@@ -47,7 +49,7 @@ function loadInitial(): Record<string, BigTerminalTab[]> {
 
 export interface TerminalsSlice {
   bigTerminalsByWorktree: Record<string, BigTerminalTab[]>
-  createBigTerminal: (worktreeId: string, label?: string) => string
+  createBigTerminal: (worktreeId: string, label?: string, initialCommand?: string) => string
   renameBigTerminal: (worktreeId: string, id: string, label: string) => void
   closeBigTerminal: (worktreeId: string, id: string) => void
   reorderBigTerminals: (worktreeId: string, fromIndex: number, toIndex: number) => void
@@ -60,7 +62,7 @@ export interface TerminalsSlice {
 export const createTerminalsSlice: StateCreator<UIState, [], [], TerminalsSlice> = (set, get) => ({
   bigTerminalsByWorktree: loadInitial(),
 
-  createBigTerminal: (worktreeId, label) => {
+  createBigTerminal: (worktreeId, label, initialCommand) => {
     const id = nextBigTerminalId()
     set((s) => {
       const existing = s.bigTerminalsByWorktree[worktreeId] ?? []
@@ -69,7 +71,9 @@ export const createTerminalsSlice: StateCreator<UIState, [], [], TerminalsSlice>
         return m ? Math.max(max, Number(m[1])) : max
       }, 0)
       const nextLabel = label ?? `Terminal ${maxNum + 1}`
-      const next = [...existing, { id, label: nextLabel }]
+      const tab: BigTerminalTab = { id, label: nextLabel }
+      if (initialCommand) tab.initialCommand = initialCommand
+      const next = [...existing, tab]
       saveBigTerminalsFor(worktreeId, next)
       return { bigTerminalsByWorktree: { ...s.bigTerminalsByWorktree, [worktreeId]: next } }
     })

@@ -49,7 +49,8 @@ export const CenterPanel = memo(function CenterPanel() {
   const showFile = activeCenterView?.type === 'file'
   const showTerminal = activeCenterView?.type === 'terminal'
   const showCodeReview = activeCenterView?.type === 'codeReview'
-  const hasBigTerminals = useUIStore((s) => selectedWorktreeId ? (s.bigTerminalsByWorktree[selectedWorktreeId]?.length ?? 0) > 0 : false)
+  const bigTerminals = useUIStore((s) => selectedWorktreeId ? (s.bigTerminalsByWorktree[selectedWorktreeId] ?? []) : [])
+  const hasBigTerminals = bigTerminals.length > 0
   const hasNoTabs = sessionsLoaded && sessions.length === 0 && openFilePaths.length === 0 && !changesOpen && !hasBigTerminals && !showCodeReview
 
   const handleNewChat = useCallback(() => {
@@ -103,6 +104,7 @@ export const CenterPanel = memo(function CenterPanel() {
               <BigTerminalView
                 terminalId={activeCenterView.terminalId}
                 worktreePath={worktree?.path ?? ''}
+                initialCommand={bigTerminals.find((t) => t.id === activeCenterView.terminalId)?.initialCommand}
               />
             ) : showCodeReview ? (
               <Suspense fallback={<Spinner size="md" />}>

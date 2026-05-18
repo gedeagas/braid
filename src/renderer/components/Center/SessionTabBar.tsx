@@ -470,18 +470,19 @@ export function SessionTabBar() {
               },
             },
             {
+              label: t('newClaudeCode'),
+              onClick: () => {
+                if (!selectedWorktreeId) return
+                const id = createBigTerminal(selectedWorktreeId, 'Claude Code', 'claude')
+                setActiveCenterView({ type: 'terminal', terminalId: id })
+              },
+            },
+            {
               label: t('newBigTerminal'),
               onClick: () => {
                 if (!selectedWorktreeId) return
                 const id = createBigTerminal(selectedWorktreeId)
                 setActiveCenterView({ type: 'terminal', terminalId: id })
-              },
-            },
-            {
-              label: t('newClaudeCode'),
-              onClick: () => {
-                const id = createSession(selectedWorktreeId, worktree.path)
-                setActiveCenterView({ type: 'session', sessionId: id })
               },
             },
           ]}

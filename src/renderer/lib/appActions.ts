@@ -95,14 +95,11 @@ export function newBigTerminal(): void {
   ui.setActiveCenterView({ type: 'terminal', terminalId: id })
 }
 
-export function newChatWithClaude(): void {
-  const { selectedWorktreeId, selectedProjectId, setActiveCenterView } = useUIStore.getState()
-  if (!selectedWorktreeId || !selectedProjectId) return
-  const project = useProjectsStore.getState().projects.find((p) => p.id === selectedProjectId)
-  const worktree = project?.worktrees.find((w) => w.id === selectedWorktreeId)
-  if (!worktree) return
-  const sessionId = useSessionsStore.getState().createSession(selectedWorktreeId, worktree.path)
-  setActiveCenterView({ type: 'session', sessionId })
+export function newClaudeCode(): void {
+  const ui = useUIStore.getState()
+  if (!ui.selectedWorktreeId) return
+  const id = ui.createBigTerminal(ui.selectedWorktreeId, 'Claude Code', 'claude')
+  ui.setActiveCenterView({ type: 'terminal', terminalId: id })
 }
 
 /**

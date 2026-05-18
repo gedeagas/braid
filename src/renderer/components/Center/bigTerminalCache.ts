@@ -29,8 +29,11 @@ function ensureFinderRegistered(): void {
   })
 }
 
-/** Return existing entry or build a new one: create xterm, replay scrollback, spawn PTY. */
-export function getOrCreate(terminalId: string, worktreePath: string): BigTermEntry {
+/**
+ * Return existing entry or build a new one: create xterm, replay scrollback, spawn PTY.
+ * Pass `initialCommand` to auto-run a command after the first PTY spawn (not on restore).
+ */
+export function getOrCreate(terminalId: string, worktreePath: string, initialCommand?: string): BigTermEntry {
   ensureFinderRegistered()
   const existing = cache.get(terminalId)
   if (existing) return existing
@@ -49,9 +52,11 @@ export function getOrCreate(terminalId: string, worktreePath: string): BigTermEn
   cache.set(terminalId, entry)
 
   entry.spawnPromise = (async () => {
+    let hasScrollback = false
     try {
       const scrollback = await ipc.pty.readScrollback(terminalId)
       if (scrollback && scrollback.length > 0) {
+        hasScrollback = true
         term.write(scrollback)
         term.write('\r\n\x1b[2m[history restored]\x1b[0m\r\n')
       }
@@ -74,6 +79,10 @@ export function getOrCreate(terminalId: string, worktreePath: string): BigTermEn
       term.onData((d) => {
         if (entry.ptyId && !entry.disposed) ipc.pty.write(entry.ptyId, d)
       })
+      // Auto-run initialCommand only on fresh terminals (no restored scrollback)
+      if (initialCommand && !hasScrollback) {
+        ipc.pty.write(ptyId, initialCommand + '\n')
+      }
     } catch (err) {
       if (!entry.disposed) {
         term.write(`\r\n\x1b[31m[failed to spawn pty]\x1b[0m\r\n`)

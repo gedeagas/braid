@@ -8,9 +8,10 @@ import '@xterm/xterm/css/xterm.css'
 interface Props {
   terminalId: string
   worktreePath: string
+  initialCommand?: string
 }
 
-export function BigTerminalView({ terminalId, worktreePath }: Props) {
+export function BigTerminalView({ terminalId, worktreePath, initialCommand }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const entryRef = useRef<BigTermEntry | null>(null)
 
@@ -18,7 +19,7 @@ export function BigTerminalView({ terminalId, worktreePath }: Props) {
     const el = containerRef.current
     if (!el) return
 
-    const entry = getOrCreate(terminalId, worktreePath)
+    const entry = getOrCreate(terminalId, worktreePath, initialCommand)
     entryRef.current = entry
 
     // Attach xterm to DOM (open on first mount, re-append on remount).
