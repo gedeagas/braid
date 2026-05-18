@@ -108,7 +108,7 @@ export const CenterPanel = memo(function CenterPanel() {
               <BigTerminalView
                 terminalId={activeCenterView.terminalId}
                 worktreePath={worktree?.path ?? ''}
-                initialCommand={bigTerminals.find((t) => t.id === activeCenterView.terminalId)?.initialCommand}
+                initialCommand={initialCommand}
               />
             ) : showCodeReview ? (
               <Suspense fallback={<Spinner size="md" />}>
