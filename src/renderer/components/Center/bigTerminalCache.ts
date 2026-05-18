@@ -1,5 +1,6 @@
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
+import type { SearchAddon } from '@xterm/addon-search'
 import * as ipc from '@/lib/ipc'
 import { createTerminal, registerPtyFinder } from '@/components/Right/terminalCache'
 
@@ -8,6 +9,7 @@ export interface BigTermEntry {
   worktreePath: string
   term: Terminal
   fitAddon: FitAddon
+  searchAddon: SearchAddon
   ptyId: string | null
   resizeObserver: ResizeObserver | null
   spawnPromise: Promise<void>
@@ -38,12 +40,13 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
   const existing = cache.get(terminalId)
   if (existing) return existing
 
-  const { term, fitAddon } = createTerminal()
+  const { term, fitAddon, searchAddon } = createTerminal()
   const entry: BigTermEntry = {
     terminalId,
     worktreePath,
     term,
     fitAddon,
+    searchAddon,
     ptyId: null,
     resizeObserver: null,
     spawnPromise: Promise.resolve(),

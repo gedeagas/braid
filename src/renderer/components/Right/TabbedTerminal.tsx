@@ -9,7 +9,7 @@ import { RunPanel } from './RunPanel'
 import { TerminalTabRow } from './TerminalTabRow'
 import {
   SETUP_TAB_ID, RUN_TAB_ID,
-  terminalCache, nextTabId, createTerminal,
+  terminalCache, nextTabId, createTerminal, activateWebgl,
   type TermTab, type RenameState,
 } from './terminalCache'
 import { useTerminalLifecycle } from './useTerminalLifecycle'
@@ -160,7 +160,7 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
 
   // ── Terminal operations ─────────────────────────────────────────────────
   const attachTerm = useCallback((tab: TermTab, el: HTMLDivElement) => {
-    if (!tab.term.element) { tab.term.open(el) } else { el.appendChild(tab.term.element) }
+    if (!tab.term.element) { tab.term.open(el); activateWebgl(tab.term) } else { el.appendChild(tab.term.element) }
     requestAnimationFrame(() => {
       try { tab.fitAddon.fit(); if (tab.ptyId) ipc.pty.resize(tab.ptyId, tab.term.cols, tab.term.rows) }
       catch { /* ignore */ }

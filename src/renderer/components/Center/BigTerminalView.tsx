@@ -1,8 +1,10 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import * as ipc from '@/lib/ipc'
 import { getTerminalTheme } from '@/themes/terminal'
 import { useUIStore } from '@/store/ui'
 import { getOrCreate, type BigTermEntry } from './bigTerminalCache'
+import { activateWebgl } from '@/components/Right/terminalCache'
+import { TerminalSearch } from '@/components/shared/TerminalSearch'
 import '@xterm/xterm/css/xterm.css'
 
 interface Props {
@@ -14,6 +16,16 @@ interface Props {
 export function BigTerminalView({ terminalId, worktreePath, initialCommand }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const entryRef = useRef<BigTermEntry | null>(null)
+  const [searchOpen, setSearchOpen] = useState(false)
+
+  // Cmd+F / Ctrl+F opens terminal search
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+      e.preventDefault()
+      e.stopPropagation()
+      setSearchOpen(true)
+    }
+  }, [])
 
   useEffect(() => {
     const el = containerRef.current
@@ -25,6 +37,7 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand }: Pr
     // Attach xterm to DOM (open on first mount, re-append on remount).
     if (!entry.term.element) {
       entry.term.open(el)
+      activateWebgl(entry.term)
     } else if (!el.contains(entry.term.element)) {
       el.appendChild(entry.term.element)
     }
@@ -92,5 +105,15 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand }: Pr
     return unsub
   }, [])
 
-  return <div className="big-terminal-container" ref={containerRef} />
+  return (
+    <div className="big-terminal-container" style={{ position: 'relative' }} onKeyDown={handleKeyDown}>
+      {searchOpen && entryRef.current && (
+        <TerminalSearch
+          searchAddon={entryRef.current.searchAddon}
+          onClose={() => setSearchOpen(false)}
+        />
+      )}
+      <div ref={containerRef} style={{ flex: 1, minHeight: 0, overflow: 'hidden' }} />
+    </div>
+  )
 }

@@ -1,5 +1,10 @@
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
+import { WebglAddon } from '@xterm/addon-webgl'
+import { WebLinksAddon } from '@xterm/addon-web-links'
+import { Unicode11Addon } from '@xterm/addon-unicode11'
+import { SearchAddon } from '@xterm/addon-search'
+import { LigaturesAddon } from '@xterm/addon-ligatures'
 import * as ipc from '@/lib/ipc'
 import { getTerminalTheme } from '@/themes/terminal'
 import { useUIStore } from '@/store/ui'
@@ -88,7 +93,7 @@ export function cleanupTerminals(worktreePath: string): void {
   terminalCache.delete(worktreePath)
 }
 
-export function createTerminal(): { term: Terminal; fitAddon: FitAddon } {
+export function createTerminal(): { term: Terminal; fitAddon: FitAddon; searchAddon: SearchAddon } {
   const term = new Terminal({
     theme: getTerminalTheme(),
     fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', monospace",
@@ -98,7 +103,37 @@ export function createTerminal(): { term: Terminal; fitAddon: FitAddon } {
   })
   const fitAddon = new FitAddon()
   term.loadAddon(fitAddon)
-  return { term, fitAddon }
+
+  // Clickable URLs
+  term.loadAddon(new WebLinksAddon())
+
+  // Full-width CJK / emoji rendering
+  const unicode11 = new Unicode11Addon()
+  term.loadAddon(unicode11)
+  term.unicode.activeVersion = '11'
+
+  // Find in terminal
+  const searchAddon = new SearchAddon()
+  term.loadAddon(searchAddon)
+
+  // Font ligatures (can fail if font metrics unavailable)
+  try { term.loadAddon(new LigaturesAddon()) } catch { /* ignore */ }
+
+  return { term, fitAddon, searchAddon }
+}
+
+/**
+ * Activate GPU-accelerated WebGL renderer. Must be called AFTER term.open(el).
+ * Falls back silently to the default canvas renderer on failure.
+ */
+export function activateWebgl(term: Terminal): void {
+  try {
+    const webgl = new WebglAddon()
+    webgl.onContextLoss(() => { webgl.dispose() })
+    term.loadAddon(webgl)
+  } catch {
+    // WebGL unavailable - canvas renderer is fine
+  }
 }
 
 /** Re-theme all cached terminals when the app theme changes */
