@@ -201,7 +201,7 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   bottomTerminalEnabled: loadBool(SK.bottomTerminalEnabled, false),
   experimentalNoVirtualization: loadBool(SK.noVirtualization, true),
   magicTrackpad: loadBool(SK.magicTrackpad, false),
-  bigTerminalEnabled: loadBool(SK.bigTerminalEnabled, false),
+  bigTerminalEnabled: loadBool(SK.bigTerminalEnabled, true),
   rollbackHistory: loadBool(SK.rollbackHistory, false),
 
   onboardingComplete: loadBool(SK.onboardingComplete, false),

@@ -16,7 +16,6 @@ import { useSessionsStore } from '@/store/sessions'
 import { useProjectsStore } from '@/store/projects'
 import { navigateTab, getUnifiedTabs, activateTab, activateTabByIndex } from '@/lib/tabNavigation'
 import { disposeBigTerminal } from '@/components/Center/bigTerminalCache'
-import { flash } from '@/store/flash'
 import i18n from '@/lib/i18n'
 import { appWindow } from '@/lib/ipc'
 
@@ -91,13 +90,19 @@ export function newChatTab(): void {
 
 export function newBigTerminal(): void {
   const ui = useUIStore.getState()
-  if (!ui.bigTerminalEnabled) {
-    flash('info', i18n.t('bigTerminalDisabledHint', { ns: 'center' }))
-    return
-  }
   if (!ui.selectedWorktreeId) return
   const id = ui.createBigTerminal(ui.selectedWorktreeId)
   ui.setActiveCenterView({ type: 'terminal', terminalId: id })
+}
+
+export function newChatWithClaude(): void {
+  const { selectedWorktreeId, selectedProjectId, setActiveCenterView } = useUIStore.getState()
+  if (!selectedWorktreeId || !selectedProjectId) return
+  const project = useProjectsStore.getState().projects.find((p) => p.id === selectedProjectId)
+  const worktree = project?.worktrees.find((w) => w.id === selectedWorktreeId)
+  if (!worktree) return
+  const sessionId = useSessionsStore.getState().createSession(selectedWorktreeId, worktree.path)
+  setActiveCenterView({ type: 'session', sessionId })
 }
 
 /**

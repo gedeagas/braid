@@ -57,7 +57,6 @@ export function SessionTabBar() {
   const createBigTerminal = useUIStore((s) => s.createBigTerminal)
   const closeBigTerminalAction = useUIStore((s) => s.closeBigTerminal)
   const renameBigTerminal = useUIStore((s) => s.renameBigTerminal)
-  const bigTerminalEnabled = useUIStore((s) => s.bigTerminalEnabled)
 
   const closeTerminalFully = useCallback(
     (terminalId: string) => {
@@ -436,18 +435,13 @@ export function SessionTabBar() {
         return null
       })}
 
-      <Tooltip content={bigTerminalEnabled ? t('newTabTooltip') : t('newChat')} position="bottom">
+      <Tooltip content={t('newTabTooltip')} position="bottom">
         <button
           className="tab tab--add"
-          aria-label={t('newChat')}
+          aria-label={t('newTabTooltip')}
           onClick={(e) => {
-            if (bigTerminalEnabled) {
-              const rect = (e.target as HTMLElement).getBoundingClientRect()
-              setLocal({ addMenu: { x: rect.left, y: rect.bottom + 4 } })
-            } else {
-              const id = createSession(selectedWorktreeId, worktree.path)
-              setActiveCenterView({ type: 'session', sessionId: id })
-            }
+            const rect = (e.target as HTMLElement).getBoundingClientRect()
+            setLocal({ addMenu: { x: rect.left, y: rect.bottom + 4 } })
           }}
         >
           +
@@ -481,6 +475,13 @@ export function SessionTabBar() {
                 if (!selectedWorktreeId) return
                 const id = createBigTerminal(selectedWorktreeId)
                 setActiveCenterView({ type: 'terminal', terminalId: id })
+              },
+            },
+            {
+              label: t('newClaudeCode'),
+              onClick: () => {
+                const id = createSession(selectedWorktreeId, worktree.path)
+                setActiveCenterView({ type: 'session', sessionId: id })
               },
             },
           ]}
