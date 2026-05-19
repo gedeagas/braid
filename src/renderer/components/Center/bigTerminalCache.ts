@@ -7,7 +7,8 @@ import { createTerminal, registerPtyFinder } from '@/components/Right/terminalCa
 import { registerAgentStatusOsc } from '@/lib/agentStatusOsc'
 import { registerTitleDetection } from '@/lib/agentTitleDetection'
 import { replayIntoTerminal, isReplaying, POST_REPLAY_MODE_RESET } from '@/lib/replayGuard'
-import type { AgentStatusState } from '@/lib/agentStatus'
+import type { AgentStatusPayload } from '@/lib/agentStatus'
+import { createCompletionCoordinator, type CompletionCoordinator } from '@/lib/agentCompletionCoordinator'
 import { useUIStore } from '@/store/ui'
 
 export interface BigTermEntry {
@@ -24,6 +25,8 @@ export interface BigTermEntry {
   webglDisabledAfterContextLoss: boolean
   /** rAF ID for pending fit(), used to coalesce ResizeObserver callbacks. */
   pendingFitRafId: number | null
+  /** Completion coordinator for agent task completion detection. */
+  completionCoordinator: CompletionCoordinator
   spawnPromise: Promise<void>
   /** Set by disposeBigTerminal so the in-flight spawn can bail out. */
   disposed: boolean
@@ -46,6 +49,10 @@ function ensureFinderRegistered(): void {
 /**
  * Return existing entry or build a new one: create xterm, replay scrollback, spawn PTY.
  * Pass `initialCommand` to auto-run a command after the first PTY spawn (not on restore).
+ *
+ * Agent status tracking (OSC 9999 + title-based) is registered on ALL terminals,
+ * not just Claude Code. Any agent (Gemini, Codex, Aider, etc.) started in a
+ * terminal will be detected via title patterns or OSC hooks.
  */
 export function getOrCreate(terminalId: string, worktreePath: string, initialCommand?: string): BigTermEntry {
   ensureFinderRegistered()
@@ -53,6 +60,15 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
   if (existing) return existing
 
   const { term, fitAddon, searchAddon } = createTerminal()
+
+  // Completion coordinator fires when an agent finishes a task.
+  // Currently logs - can be wired to toast notifications or dock badge later.
+  const completionCoordinator = createCompletionCoordinator({
+    onComplete: (source, interrupted) => {
+      console.debug(`[terminal:${terminalId}] Agent completed (source=${source}, interrupted=${interrupted})`)
+    }
+  })
+
   const entry: BigTermEntry = {
     terminalId,
     worktreePath,
@@ -64,19 +80,28 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
     webglAddon: null,
     webglDisabledAfterContextLoss: false,
     pendingFitRafId: null,
+    completionCoordinator,
     spawnPromise: Promise.resolve(),
     disposed: false
   }
   cache.set(terminalId, entry)
 
-  // Register agent status tracking for Claude Code terminals
-  const isClaudeCode = initialCommand?.startsWith('claude')
-  if (isClaudeCode) {
-    const updateStatus = (s: AgentStatusState) =>
-      useUIStore.getState().setBigTerminalStatus(terminalId, s)
-    registerAgentStatusOsc(term, (payload) => updateStatus(payload.state))
-    registerTitleDetection(term, updateStatus)
-  }
+  // Register agent status tracking on ALL terminals.
+  // OSC 9999: handles any agent that emits custom hook sequences.
+  // Title detection: handles Claude (braille spinners), Gemini (✦/◇/✋),
+  // Codex, Aider, and any agent with keyword-based titles.
+  const updateStatus = (payload: AgentStatusPayload) =>
+    useUIStore.getState().updateBigTerminalStatus(terminalId, payload)
+
+  registerAgentStatusOsc(term, (payload) => {
+    updateStatus(payload)
+    completionCoordinator.observeHookStatus(payload.state, payload.interrupted)
+  })
+
+  registerTitleDetection(term, (result) => {
+    updateStatus({ state: result.state, agentType: result.agentType ?? undefined })
+    completionCoordinator.observeTitleStatus(result.state)
+  })
 
   entry.spawnPromise = (async () => {
     let hasScrollback = false
@@ -141,6 +166,7 @@ export function disposeBigTerminal(terminalId: string): void {
   }
   try { entry.webglAddon?.dispose() } catch {}
   entry.webglAddon = null
+  entry.completionCoordinator.reset()
   if (entry.ptyId) {
     try { ipc.pty.kill(entry.ptyId) } catch {}
   }
