@@ -159,7 +159,7 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand }: Pr
           onClose={() => setSearchOpen(false)}
         />
       )}
-      <div ref={containerRef} style={{ flex: 1, minHeight: 0, overflow: 'hidden' }} />
+      <div ref={containerRef} style={{ width: '100%', height: '100%', overflow: 'hidden' }} />
     </div>
   )
 }
