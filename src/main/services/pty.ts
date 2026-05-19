@@ -4,6 +4,7 @@ import { homedir } from 'os'
 import { join } from 'path'
 import { execFileSync } from 'child_process'
 import { mainSettings } from '../ipc'
+import { getHookServerPort, getHookServerToken } from './agentHookServer'
 
 // ── Big Terminal scrollback persistence ──────────────────────────────────────
 
@@ -61,8 +62,9 @@ export interface TerminalOutput {
 }
 
 export interface IPtyService {
-  /** Spawn a new interactive terminal session in the given directory. Returns a session ID. */
-  spawn(cwd: string): Promise<string>
+  /** Spawn a new interactive terminal session in the given directory. Returns a session ID.
+   *  Optional envOverrides are merged into the PTY environment (e.g. BRAID_TERMINAL_ID). */
+  spawn(cwd: string, envOverrides?: Record<string, string>): Promise<string>
   /** Write raw input to the terminal session. */
   write(id: string, data: string): void
   /** Resize the terminal session to the given dimensions. */
@@ -125,11 +127,22 @@ class PtyService implements IPtyService {
     return '/bin/zsh'
   }
 
-  async spawn(cwd: string): Promise<string> {
+  async spawn(cwd: string, envOverrides?: Record<string, string>): Promise<string> {
     const nodePty = await import('node-pty')
     const id = `pty-${++this.counter}`
     const shell = this.resolveShell()
     const safeCwd = existsSync(cwd) ? cwd : homedir()
+
+    // Build PTY environment: base env + hook server details + caller overrides
+    const hookPort = getHookServerPort()
+    const hookToken = getHookServerToken()
+    const env: Record<string, string> = {
+      ...process.env as Record<string, string>,
+      TERM: 'xterm-256color',
+      BRAID_TERMINAL: '1',
+      ...(hookPort > 0 ? { BRAID_HOOK_PORT: String(hookPort), BRAID_HOOK_TOKEN: hookToken } : {}),
+      ...envOverrides,
+    }
 
     let ptyProcess: import('node-pty').IPty
     try {
@@ -138,7 +151,7 @@ class PtyService implements IPtyService {
         cols: 80,
         rows: 24,
         cwd: safeCwd,
-        env: { ...process.env, TERM: 'xterm-256color' } as Record<string, string>
+        env,
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)

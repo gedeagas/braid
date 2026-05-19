@@ -105,7 +105,7 @@ export const agent = {
 }
 
 export const pty = {
-  spawn: (cwd: string) => api().pty.spawn(cwd),
+  spawn: (cwd: string, envOverrides?: Record<string, string>) => api().pty.spawn(cwd, envOverrides),
   write: (id: string, data: string) => api().pty.write(id, data),
   resize: (id: string, cols: number, rows: number) => api().pty.resize(id, cols, rows),
   kill: (id: string) => api().pty.kill(id),
@@ -116,6 +116,8 @@ export const pty = {
   registerBigTerminal: (ptyId: string, terminalId: string) => api().pty.registerBigTerminal(ptyId, terminalId),
   readScrollback: (terminalId: string) => api().pty.readScrollback(terminalId) as Promise<string>,
   deleteScrollback: (terminalId: string) => api().pty.deleteScrollback(terminalId),
+  onAgentHookStatus: (callback: (status: { terminalId: string; state: string; agentType: string; toolName?: string; interrupted?: boolean }) => void) =>
+    api().pty.onAgentHookStatus(callback),
 }
 
 export const simulator = {

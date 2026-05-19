@@ -3,6 +3,7 @@ import type { BoardCardData } from '@/types'
 import { useMissionControlStore } from '@/store/missionControl'
 import { SessionCard } from './SessionCard'
 import { PrCard } from './PrCard'
+import { TerminalCard } from './TerminalCard'
 import { useTranslation } from 'react-i18next'
 
 interface Props {
@@ -49,11 +50,13 @@ function cardKey(card: BoardCardData): string {
   switch (card.kind) {
     case 'session': return `s-${card.sessionId}`
     case 'pr': return `pr-${card.worktreeId}`
+    case 'terminal': return `t-${card.terminalId}`
   }
 }
 
 const BoardCard = memo(function BoardCard({ data }: { data: BoardCardData }) {
   const dismissSession = useMissionControlStore((s) => s.dismissSession)
+  const dismissTerminal = useMissionControlStore((s) => s.dismissTerminal)
 
   switch (data.kind) {
     case 'session': {
@@ -61,6 +64,12 @@ const BoardCard = memo(function BoardCard({ data }: { data: BoardCardData }) {
         ? () => dismissSession(data.sessionId)
         : undefined
       return <SessionCard data={data} onDismiss={onDismiss} />
+    }
+    case 'terminal': {
+      const onDismiss = data.column === 'need_attention'
+        ? () => dismissTerminal(data.terminalId)
+        : undefined
+      return <TerminalCard data={data} onDismiss={onDismiss} />
     }
     case 'pr': return <PrCard data={data} />
   }

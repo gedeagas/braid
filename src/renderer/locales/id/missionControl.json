@@ -64,5 +64,11 @@
   "mergeConflicts": "Ada konflik",
   "mergeBlocked": "Diblokir",
   "prDraft": "Draf",
-  "openInGitHub": "Buka di GitHub"
+  "openInGitHub": "Buka di GitHub",
+  "terminalWorking": "Berjalan",
+  "terminalBlocked": "Diblokir",
+  "terminalWaiting": "Menunggu input",
+  "terminalDone": "Selesai",
+  "terminalTool": "{{tool}}",
+  "dismissTerminal": "Tandai selesai"
 }

@@ -933,3 +933,14 @@
 .mc-hover-link:hover {
   color: var(--accent);
 }
+
+/* ── Terminal Card (agent status from big terminals) ──────────────────── */
+
+.mc-terminal-card {
+  background: color-mix(in srgb, var(--bg-primary) 95%, var(--accent) 5%);
+}
+
+.mc-terminal-card .mc-card-status svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}

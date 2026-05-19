@@ -64,5 +64,11 @@
   "mergeConflicts": "存在冲突",
   "mergeBlocked": "已阻止",
   "prDraft": "草稿",
-  "openInGitHub": "在 GitHub 中打开"
+  "openInGitHub": "在 GitHub 中打开",
+  "terminalWorking": "运行中",
+  "terminalBlocked": "已阻止",
+  "terminalWaiting": "等待输入",
+  "terminalDone": "已完成",
+  "terminalTool": "{{tool}}",
+  "dismissTerminal": "标记为完成"
 }
