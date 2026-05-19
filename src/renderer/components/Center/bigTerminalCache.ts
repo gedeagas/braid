@@ -1,5 +1,6 @@
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
+import type { WebglAddon } from '@xterm/addon-webgl'
 import type { SearchAddon } from '@xterm/addon-search'
 import * as ipc from '@/lib/ipc'
 import { createTerminal, registerPtyFinder } from '@/components/Right/terminalCache'
@@ -12,6 +13,12 @@ export interface BigTermEntry {
   searchAddon: SearchAddon
   ptyId: string | null
   resizeObserver: ResizeObserver | null
+  /** Live WebGL addon instance, or null if using canvas renderer. */
+  webglAddon: WebglAddon | null
+  /** True if WebGL context was lost - prevents retry loops. */
+  webglDisabledAfterContextLoss: boolean
+  /** rAF ID for pending fit(), used to coalesce ResizeObserver callbacks. */
+  pendingFitRafId: number | null
   spawnPromise: Promise<void>
   /** Set by disposeBigTerminal so the in-flight spawn can bail out. */
   disposed: boolean
@@ -49,6 +56,9 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
     searchAddon,
     ptyId: null,
     resizeObserver: null,
+    webglAddon: null,
+    webglDisabledAfterContextLoss: false,
+    pendingFitRafId: null,
     spawnPromise: Promise.resolve(),
     disposed: false
   }
@@ -106,6 +116,12 @@ export function disposeBigTerminal(terminalId: string): void {
   }
   entry.disposed = true
   try { entry.resizeObserver?.disconnect() } catch {}
+  if (entry.pendingFitRafId !== null) {
+    cancelAnimationFrame(entry.pendingFitRafId)
+    entry.pendingFitRafId = null
+  }
+  try { entry.webglAddon?.dispose() } catch {}
+  entry.webglAddon = null
   if (entry.ptyId) {
     try { ipc.pty.kill(entry.ptyId) } catch {}
   }

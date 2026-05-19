@@ -4,7 +4,7 @@ import { useTerminalFileDrop } from '@/hooks/useTerminalFileDrop'
 import { getTerminalTheme } from '@/themes/terminal'
 import { useUIStore } from '@/store/ui'
 import { getOrCreate, type BigTermEntry } from './bigTerminalCache'
-import { activateWebgl } from '@/components/Right/terminalCache'
+import { activateWebgl, disposeWebgl } from '@/components/Right/terminalCache'
 import { TerminalSearch } from '@/components/shared/TerminalSearch'
 import '@xterm/xterm/css/xterm.css'
 
@@ -40,9 +40,7 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand }: Pr
     const el = containerRef.current
     if (!el) return
 
-    // Detach any previously attached terminal element (tab switch).
-    // This prevents stacking multiple WebGL canvases in one container,
-    // which causes ResizeObserver loops and GPU context fights.
+    // Clear container of any stale children (safety net for tab switch).
     while (el.firstChild) el.removeChild(el.firstChild)
 
     const entry = getOrCreate(terminalId, worktreePath, initialCommand)
@@ -51,39 +49,62 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand }: Pr
     // Attach xterm to DOM (open on first mount, re-append on remount).
     if (!entry.term.element) {
       entry.term.open(el)
-      activateWebgl(entry.term)
+      // First mount - activate WebGL, track addon on entry.
+      entry.webglAddon = activateWebgl(entry.term, () => {
+        // Context loss callback - permanently disable WebGL for this pane.
+        console.warn('[terminal] WebGL context lost for', terminalId, '- falling back to canvas')
+        entry.webglDisabledAfterContextLoss = true
+        entry.webglAddon = null
+      })
     } else {
+      // Re-mount after tab switch. DOM reparenting can silently invalidate
+      // WebGL context without firing contextlost, so reattach after append.
       el.appendChild(entry.term.element)
+      if (!entry.webglDisabledAfterContextLoss && !entry.webglAddon) {
+        entry.webglAddon = activateWebgl(entry.term, () => {
+          entry.webglDisabledAfterContextLoss = true
+          entry.webglAddon = null
+        })
+      }
     }
 
-    // Guard against re-entrant ResizeObserver -> fit() -> resize -> ResizeObserver loops.
-    let fitting = false
-    const doFit = () => {
-      if (fitting) return
-      fitting = true
-      try {
-        entry.fitAddon.fit()
-        if (entry.ptyId) ipc.pty.resize(entry.ptyId, entry.term.cols, entry.term.rows)
-      } catch { /* ignore */ }
-      fitting = false
+    // rAF-coalesced fit: ResizeObserver can fire many times during a single
+    // frame (e.g. split resize drag). Coalesce into one rAF to avoid loops
+    // and keep fit() off the pointermove hot path.
+    const scheduleFit = () => {
+      if (entry.pendingFitRafId !== null) return
+      entry.pendingFitRafId = requestAnimationFrame(() => {
+        entry.pendingFitRafId = null
+        try {
+          entry.fitAddon.fit()
+          if (entry.ptyId) ipc.pty.resize(entry.ptyId, entry.term.cols, entry.term.rows)
+        } catch { /* ignore */ }
+      })
     }
 
-    requestAnimationFrame(doFit)
+    scheduleFit()
 
-    const observer = new ResizeObserver(doFit)
+    const observer = new ResizeObserver(scheduleFit)
     observer.observe(el)
     entry.resizeObserver?.disconnect()
     entry.resizeObserver = observer
 
     // After PTY spawn completes, fit again (dimensions may have changed).
-    entry.spawnPromise.then(() => {
-      requestAnimationFrame(doFit)
-    })
+    entry.spawnPromise.then(scheduleFit)
 
     return () => {
-      // Do NOT dispose — tab may be reactivated. Just detach observer and element.
+      // Do NOT dispose xterm - tab may be reactivated.
       observer.disconnect()
       if (entry.resizeObserver === observer) entry.resizeObserver = null
+      // Cancel any pending fit rAF
+      if (entry.pendingFitRafId !== null) {
+        cancelAnimationFrame(entry.pendingFitRafId)
+        entry.pendingFitRafId = null
+      }
+      // Dispose WebGL BEFORE detaching from DOM to avoid silent context
+      // corruption. Will reattach on next mount.
+      disposeWebgl(entry.webglAddon)
+      entry.webglAddon = null
       // Detach terminal element from container without disposing xterm
       if (entry.term.element && el.contains(entry.term.element)) {
         el.removeChild(entry.term.element)

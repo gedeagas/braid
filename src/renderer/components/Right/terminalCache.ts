@@ -124,17 +124,33 @@ export function createTerminal(): { term: Terminal; fitAddon: FitAddon; searchAd
 
 /**
  * Activate GPU-accelerated WebGL renderer. Must be called AFTER term.open(el).
- * Falls back silently to the default canvas renderer on failure.
+ * Returns the addon instance (for later dispose/reattach), or null on failure.
  */
-export function activateWebgl(term: Terminal): void {
+export function activateWebgl(term: Terminal, onContextLoss?: () => void): WebglAddon | null {
   try {
     const webgl = new WebglAddon()
-    webgl.onContextLoss(() => { webgl.dispose() })
+    webgl.onContextLoss(() => {
+      onContextLoss?.()
+      webgl.dispose()
+    })
     term.loadAddon(webgl)
+    // Repaint immediately so the terminal isn't blank after attach
+    try { term.refresh(0, term.rows - 1) } catch { /* ignore */ }
     console.debug('[terminal] WebGL renderer activated')
+    return webgl
   } catch (e) {
     console.debug('[terminal] WebGL unavailable, using canvas renderer', e)
+    return null
   }
+}
+
+/**
+ * Safely dispose a WebGL addon. Call before DOM reparenting to avoid
+ * silent context corruption (Chromium can invalidate without firing contextlost).
+ */
+export function disposeWebgl(addon: WebglAddon | null): void {
+  if (!addon) return
+  try { addon.dispose() } catch { /* ignore */ }
 }
 
 /** Re-theme all cached terminals when the app theme changes */
