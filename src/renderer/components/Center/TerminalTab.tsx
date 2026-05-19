@@ -10,6 +10,7 @@ interface Props {
   isEditing: boolean
   isDragSource: boolean
   isDraggedOver: boolean
+  statusClass?: string
   editValue: string
   inputRef: RefObject<HTMLInputElement | null>
   onDragStart: (k: string) => (e: React.DragEvent) => void
@@ -29,7 +30,7 @@ interface Props {
 
 export function TerminalTab({
   tab, tabKey, isActive, isEditing, isDragSource, isDraggedOver,
-  editValue, inputRef,
+  statusClass, editValue, inputRef,
   onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd,
   onActivate, onKeyDown, onContextMenu, onClose,
   onStartEdit, onEditValueChange, onCommitEdit, onCancelEdit
@@ -38,7 +39,7 @@ export function TerminalTab({
     <button
       role="tab"
       aria-selected={isActive}
-      className={`tab tab-terminal${isActive ? ' active' : ''}${isDraggedOver ? ' tab--drop-target' : ''}${isDragSource ? ' tab--dragging' : ''}`}
+      className={`tab tab-terminal${isActive ? ' active' : ''}${statusClass ?? ''}${isDraggedOver ? ' tab--drop-target' : ''}${isDragSource ? ' tab--dragging' : ''}`}
       draggable={!isEditing}
       onDragStart={onDragStart(tabKey)}
       onDragOver={onDragOver(tabKey)}

@@ -10,6 +10,7 @@ import { ContextMenu, type ContextMenuItem } from '@/components/shared/ContextMe
 import { IconMessageBubble, IconTerminal, IconClaude } from '@/components/shared/icons'
 import type { AgentSession } from '@/types'
 import { getSessionTitle } from '@/lib/sessionTitle'
+import { agentStatusToTabClass } from '@/lib/agentStatus'
 import { disposeBigTerminal } from './bigTerminalCache'
 import { SessionTab } from './SessionTab'
 import { TerminalTab } from './TerminalTab'
@@ -58,6 +59,7 @@ export function SessionTabBar() {
   const createBigTerminal = useUIStore((s) => s.createBigTerminal)
   const closeBigTerminalAction = useUIStore((s) => s.closeBigTerminal)
   const renameBigTerminal = useUIStore((s) => s.renameBigTerminal)
+  const terminalStatuses = useUIStore((s) => s.bigTerminalStatusById)
   const lastNewTabAction = useUIStore((s) => s.lastNewTabAction)
   const setLastNewTabAction = useUIStore((s) => s.setLastNewTabAction)
 
@@ -458,6 +460,7 @@ export function SessionTabBar() {
               isEditing={isEditing}
               isDragSource={isDragSource}
               isDraggedOver={isDraggedOver}
+              statusClass={agentStatusToTabClass(terminalStatuses[tab.id] ?? null)}
               editValue={local.editValue}
               inputRef={inputRef}
               onDragStart={onDragStart}

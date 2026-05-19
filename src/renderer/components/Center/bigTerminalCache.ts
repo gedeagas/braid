@@ -4,6 +4,11 @@ import type { WebglAddon } from '@xterm/addon-webgl'
 import type { SearchAddon } from '@xterm/addon-search'
 import * as ipc from '@/lib/ipc'
 import { createTerminal, registerPtyFinder } from '@/components/Right/terminalCache'
+import { registerAgentStatusOsc } from '@/lib/agentStatusOsc'
+import { registerTitleDetection } from '@/lib/agentTitleDetection'
+import { replayIntoTerminal, isReplaying, POST_REPLAY_MODE_RESET } from '@/lib/replayGuard'
+import type { AgentStatusState } from '@/lib/agentStatus'
+import { useUIStore } from '@/store/ui'
 
 export interface BigTermEntry {
   terminalId: string
@@ -64,14 +69,26 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
   }
   cache.set(terminalId, entry)
 
+  // Register agent status tracking for Claude Code terminals
+  const isClaudeCode = initialCommand?.startsWith('claude')
+  if (isClaudeCode) {
+    const updateStatus = (s: AgentStatusState) =>
+      useUIStore.getState().setBigTerminalStatus(terminalId, s)
+    registerAgentStatusOsc(term, (payload) => updateStatus(payload.state))
+    registerTitleDetection(term, updateStatus)
+  }
+
   entry.spawnPromise = (async () => {
     let hasScrollback = false
     try {
       const scrollback = await ipc.pty.readScrollback(terminalId)
       if (scrollback && scrollback.length > 0) {
         hasScrollback = true
-        term.write(scrollback)
-        term.write('\r\n\x1b[2m[history restored]\x1b[0m\r\n')
+        // Replay under guard to suppress xterm auto-replies (DA1, DECRQM, etc.)
+        replayIntoTerminal(terminalId, term, scrollback)
+        replayIntoTerminal(terminalId, term, '\r\n\x1b[2m[history restored]\x1b[0m\r\n')
+        // Clear stale terminal modes (cursor, mouse, focus, bracketed paste)
+        replayIntoTerminal(terminalId, term, POST_REPLAY_MODE_RESET)
       }
     } catch {
       // ignore: best-effort replay
@@ -90,6 +107,8 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
       entry.ptyId = ptyId
       ipc.pty.registerBigTerminal(ptyId, terminalId)
       term.onData((d) => {
+        // Suppress xterm auto-replies during scrollback replay
+        if (isReplaying(terminalId)) return
         if (entry.ptyId && !entry.disposed) ipc.pty.write(entry.ptyId, d)
       })
       // Auto-run initialCommand only on fresh terminals (no restored scrollback)
@@ -128,6 +147,8 @@ export function disposeBigTerminal(terminalId: string): void {
   try { entry.term.dispose() } catch {}
   cache.delete(terminalId)
   try { ipc.pty.deleteScrollback(terminalId) } catch {}
+  // Clear ephemeral agent status from store
+  try { useUIStore.getState().clearBigTerminalStatus(terminalId) } catch {}
 }
 
 /** Dispose many at once (e.g. on worktree removal). */

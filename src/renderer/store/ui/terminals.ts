@@ -1,5 +1,7 @@
 import { type StateCreator } from 'zustand'
 import type { UIState } from './types'
+import type { AgentStatusEntry, AgentStatusPayload } from '@/lib/agentStatus'
+import { createAgentStatusEntry, updateAgentStatusEntry } from '@/lib/agentStatus'
 import { SK } from '@/lib/storageKeys'
 
 export interface BigTerminalTab {
@@ -49,10 +51,15 @@ function loadInitial(): Record<string, BigTerminalTab[]> {
 
 export interface TerminalsSlice {
   bigTerminalsByWorktree: Record<string, BigTerminalTab[]>
+  /** In-memory agent status map with full entry (not persisted). Keyed by terminalId. */
+  bigTerminalStatusById: Record<string, AgentStatusEntry>
   createBigTerminal: (worktreeId: string, label?: string, initialCommand?: string) => string
   renameBigTerminal: (worktreeId: string, id: string, label: string) => void
   closeBigTerminal: (worktreeId: string, id: string) => void
   reorderBigTerminals: (worktreeId: string, fromIndex: number, toIndex: number) => void
+  /** Update agent status for a big terminal. Creates entry if not present, merges otherwise. */
+  updateBigTerminalStatus: (terminalId: string, payload: AgentStatusPayload) => void
+  clearBigTerminalStatus: (terminalId: string) => void
   /** Called internally by layout.selectWorktree to hydrate when switching worktrees. */
   restoreBigTerminalsForWorktree: (worktreeId: string) => void
   /** Called on worktree removal. */
@@ -61,6 +68,7 @@ export interface TerminalsSlice {
 
 export const createTerminalsSlice: StateCreator<UIState, [], [], TerminalsSlice> = (set, get) => ({
   bigTerminalsByWorktree: loadInitial(),
+  bigTerminalStatusById: {},
 
   createBigTerminal: (worktreeId, label, initialCommand) => {
     const id = nextBigTerminalId()
@@ -95,7 +103,13 @@ export const createTerminalsSlice: StateCreator<UIState, [], [], TerminalsSlice>
       const existing = s.bigTerminalsByWorktree[worktreeId] ?? []
       const next = existing.filter((t) => t.id !== id)
       saveBigTerminalsFor(worktreeId, next)
-      return { bigTerminalsByWorktree: { ...s.bigTerminalsByWorktree, [worktreeId]: next } }
+      // Clean up ephemeral agent status
+      const statusNext = { ...s.bigTerminalStatusById }
+      delete statusNext[id]
+      return {
+        bigTerminalsByWorktree: { ...s.bigTerminalsByWorktree, [worktreeId]: next },
+        bigTerminalStatusById: statusNext
+      }
     })
   },
 
@@ -107,6 +121,24 @@ export const createTerminalsSlice: StateCreator<UIState, [], [], TerminalsSlice>
       existing.splice(toIndex, 0, moved)
       saveBigTerminalsFor(worktreeId, existing)
       return { bigTerminalsByWorktree: { ...s.bigTerminalsByWorktree, [worktreeId]: existing } }
+    })
+  },
+
+  updateBigTerminalStatus: (terminalId, payload) => {
+    set((s) => {
+      const prev = s.bigTerminalStatusById[terminalId]
+      const next = prev
+        ? updateAgentStatusEntry(prev, payload)
+        : createAgentStatusEntry(payload.state, payload.agentType)
+      return { bigTerminalStatusById: { ...s.bigTerminalStatusById, [terminalId]: next } }
+    })
+  },
+
+  clearBigTerminalStatus: (terminalId) => {
+    set((s) => {
+      const next = { ...s.bigTerminalStatusById }
+      delete next[terminalId]
+      return { bigTerminalStatusById: next }
     })
   },
 
