@@ -142,7 +142,7 @@
   "branchRenameFailed": "分支重命名失败",
   "contextDisplay": "上下文 ({{percent}}%) ({{used}}/{{total}})",
   "emptyStateHeading": "没有打开的标签页",
-  "emptyStateHint": "开始一个新的聊天",
+  "emptyStateHint": "打开新标签页以开始",
   "toggleSidebar": "切换侧边栏",
   "toggleRightPanel": "切换右侧面板",
   "removeFile": "移除文件",

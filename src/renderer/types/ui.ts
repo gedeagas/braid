@@ -11,6 +11,7 @@ import type {
 
 export type RightPanelTab = 'files' | 'search' | 'changes' | 'overview' | 'notes' | 'simulator' | 'windowCapture'
 export type TabDisplayMode = 'icons' | 'labels' | 'both'
+export type NewTabAction = 'chat' | 'claudeCode' | 'terminal'
 
 export interface CaptureSource {
   id: string

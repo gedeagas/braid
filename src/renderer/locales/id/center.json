@@ -142,7 +142,7 @@
   "branchRenameFailed": "Gagal mengubah nama cabang",
   "contextDisplay": "Context ({{percent}}%) ({{used}}/{{total}})",
   "emptyStateHeading": "Tidak ada tab terbuka",
-  "emptyStateHint": "Mulai chat baru untuk memulai",
+  "emptyStateHint": "Buka tab baru untuk memulai",
   "toggleSidebar": "Tampilkan/Sembunyikan Sidebar",
   "toggleRightPanel": "Tampilkan/Sembunyikan Panel Kanan",
   "removeFile": "Hapus file",

@@ -1,5 +1,5 @@
 import { type StateCreator } from 'zustand'
-import type { ModelId, EffortLevel, SettingsSection, ToastSize, ToastPosition, ToastDuration, TabDisplayMode } from '@/types'
+import type { ModelId, EffortLevel, SettingsSection, ToastSize, ToastPosition, ToastDuration, TabDisplayMode, NewTabAction } from '@/types'
 import type { UIState } from './types'
 import { SK } from '@/lib/storageKeys'
 import { DEFAULT_EFFORT, EFFORT_LEVELS } from '@/lib/constants'
@@ -8,6 +8,7 @@ import { loadStr, loadBool, loadInt, loadFloat } from './helpers'
 const VALID_MODEL_IDS: readonly string[] = ['claude-opus-4-7', 'claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5-20251001']
 const VALID_EFFORT_LEVELS = new Set<string>(EFFORT_LEVELS.map((l) => l.id))
 const DEFAULT_MODEL: ModelId = 'claude-sonnet-4-6'
+const VALID_NEW_TAB_ACTIONS = new Set<string>(['chat', 'claudeCode', 'terminal'])
 
 const DEFAULT_DISCOVERY_PATTERNS = [
   '.env*', '.envrc', '.secret', '.secrets',
@@ -72,6 +73,7 @@ export interface SettingsSlice {
   toastDuration: ToastDuration
 
   // UI preferences
+  lastNewTabAction: NewTabAction
   streamingAnimation: boolean
   tabDisplayMode: TabDisplayMode
   chatCompactMode: boolean
@@ -125,6 +127,7 @@ export interface SettingsSlice {
   setToastSize: (size: ToastSize) => void
   setToastPosition: (position: ToastPosition) => void
   setToastDuration: (duration: ToastDuration) => void
+  setLastNewTabAction: (action: NewTabAction) => void
   setStreamingAnimation: (v: boolean) => void
   setTabDisplayMode: (mode: TabDisplayMode) => void
   setChatCompactMode: (v: boolean) => void
@@ -188,6 +191,10 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
     return (v === 5 || v === 10 || v === 15) ? v as ToastDuration : 10
   })(),
 
+  lastNewTabAction: (() => {
+    const v = loadStr(SK.lastNewTabAction, 'chat')
+    return VALID_NEW_TAB_ACTIONS.has(v) ? v as NewTabAction : 'chat'
+  })(),
   streamingAnimation: loadBool(SK.streamingAnimation, true),
 
   tabDisplayMode: (() => {
@@ -295,6 +302,7 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   setToastSize: (size) => { localStorage.setItem(SK.toastSize, size); set({ toastSize: size }) },
   setToastPosition: (position) => { localStorage.setItem(SK.toastPosition, position); set({ toastPosition: position }) },
   setToastDuration: (duration) => { localStorage.setItem(SK.toastDuration, String(duration)); set({ toastDuration: duration }) },
+  setLastNewTabAction: (action) => { localStorage.setItem(SK.lastNewTabAction, action); set({ lastNewTabAction: action }) },
   setStreamingAnimation: (v) => { localStorage.setItem(SK.streamingAnimation, String(v)); set({ streamingAnimation: v }) },
   setTabDisplayMode: (mode) => { localStorage.setItem(SK.tabDisplayMode, mode); set({ tabDisplayMode: mode }) },
   setChatCompactMode: (v) => { localStorage.setItem(SK.chatCompactMode, String(v)); set({ chatCompactMode: v }) },

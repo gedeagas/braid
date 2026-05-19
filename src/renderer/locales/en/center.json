@@ -142,7 +142,7 @@
   "branchRenameFailed": "Failed to rename branch",
   "contextDisplay": "Context ({{percent}}%) ({{used}}/{{total}})",
   "emptyStateHeading": "No open tabs",
-  "emptyStateHint": "Start a new chat to begin",
+  "emptyStateHint": "Open a new tab to get started",
   "toggleSidebar": "Toggle Sidebar",
   "toggleRightPanel": "Toggle Right Panel",
   "removeFile": "Remove file",

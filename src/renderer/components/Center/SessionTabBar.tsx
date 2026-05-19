@@ -1,4 +1,4 @@
-import { useReducer, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useReducer, useRef, useEffect, useCallback, useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSessionsStore, useSessionsForWorktree, getLastActiveForWorktree } from '@/store/sessions'
 import { useUIStore, selectChangesOpen, selectActiveCenterView, selectCodeReviewOpen } from '@/store/ui'
@@ -58,6 +58,8 @@ export function SessionTabBar() {
   const createBigTerminal = useUIStore((s) => s.createBigTerminal)
   const closeBigTerminalAction = useUIStore((s) => s.closeBigTerminal)
   const renameBigTerminal = useUIStore((s) => s.renameBigTerminal)
+  const lastNewTabAction = useUIStore((s) => s.lastNewTabAction)
+  const setLastNewTabAction = useUIStore((s) => s.setLastNewTabAction)
 
   const closeTerminalFully = useCallback(
     (terminalId: string) => {
@@ -252,6 +254,51 @@ export function SessionTabBar() {
       }
     ]
   }, [local.menu, unifiedTabs, closeSingleTab, closeManyTabs, t])
+
+  // Build + menu items, sorted so the last-used action is first
+  const addMenuItems = useMemo((): ContextMenuItem[] => {
+    const allItems: Array<{ key: string; icon: ReactNode; label: string; onClick: () => void }> = [
+      {
+        key: 'chat',
+        icon: <IconMessageBubble size={14} />,
+        label: t('newChat'),
+        onClick: () => {
+          setLastNewTabAction('chat')
+          const id = createSession(selectedWorktreeId!, worktree!.path)
+          setActiveCenterView({ type: 'session', sessionId: id })
+        },
+      },
+      {
+        key: 'claudeCode',
+        icon: <IconClaude size={14} />,
+        label: t('newClaudeCode'),
+        onClick: () => {
+          if (!selectedWorktreeId) return
+          setLastNewTabAction('claudeCode')
+          const id = createBigTerminal(selectedWorktreeId, 'Claude Code', 'claude')
+          setActiveCenterView({ type: 'terminal', terminalId: id })
+        },
+      },
+      {
+        key: 'terminal',
+        icon: <IconTerminal size={14} />,
+        label: t('newBigTerminal'),
+        onClick: () => {
+          if (!selectedWorktreeId) return
+          setLastNewTabAction('terminal')
+          const id = createBigTerminal(selectedWorktreeId)
+          setActiveCenterView({ type: 'terminal', terminalId: id })
+        },
+      },
+    ]
+    // Move last-used action to the top
+    const idx = allItems.findIndex((item) => item.key === lastNewTabAction)
+    if (idx > 0) {
+      const [preferred] = allItems.splice(idx, 1)
+      allItems.unshift(preferred)
+    }
+    return allItems
+  }, [lastNewTabAction, selectedWorktreeId, worktree, createSession, createBigTerminal, setActiveCenterView, setLastNewTabAction, t])
 
   if (!selectedWorktreeId || !worktree) return null
 
@@ -462,34 +509,7 @@ export function SessionTabBar() {
         <ContextMenu
           x={local.addMenu.x}
           y={local.addMenu.y}
-          items={[
-            {
-              icon: <IconMessageBubble size={14} />,
-              label: t('newChat'),
-              onClick: () => {
-                const id = createSession(selectedWorktreeId, worktree.path)
-                setActiveCenterView({ type: 'session', sessionId: id })
-              },
-            },
-            {
-              icon: <IconClaude size={14} />,
-              label: t('newClaudeCode'),
-              onClick: () => {
-                if (!selectedWorktreeId) return
-                const id = createBigTerminal(selectedWorktreeId, 'Claude Code', 'claude')
-                setActiveCenterView({ type: 'terminal', terminalId: id })
-              },
-            },
-            {
-              icon: <IconTerminal size={14} />,
-              label: t('newBigTerminal'),
-              onClick: () => {
-                if (!selectedWorktreeId) return
-                const id = createBigTerminal(selectedWorktreeId)
-                setActiveCenterView({ type: 'terminal', terminalId: id })
-              },
-            },
-          ]}
+          items={addMenuItems}
           onClose={() => setLocal({ addMenu: null })}
         />
       )}
