@@ -13,6 +13,8 @@ import {
   type TermTab, type RenameState,
 } from './terminalCache'
 import { useTerminalLifecycle } from './useTerminalLifecycle'
+import { FILE_PATH_MIME } from '@/lib/fileDragMime'
+import { shellEscapePath } from '@/lib/shellEscapePath'
 import '@xterm/xterm/css/xterm.css'
 
 export { cleanupTerminals } from './terminalCache'
@@ -359,6 +361,33 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
               }}
               className="terminal-container"
               style={{ position: 'absolute', inset: 0, display: (!isSpecialTab && activeTabId === tab.id) ? 'block' : 'none' }}
+              onDragOver={(e) => {
+                if (e.dataTransfer.types.includes(FILE_PATH_MIME)) {
+                  e.preventDefault()
+                  e.dataTransfer.dropEffect = 'copy'
+                }
+              }}
+              onDragEnter={(e) => {
+                if (e.dataTransfer.types.includes(FILE_PATH_MIME)) {
+                  e.currentTarget.classList.add('terminal-drop-target')
+                }
+              }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                  e.currentTarget.classList.remove('terminal-drop-target')
+                }
+              }}
+              onDrop={(e) => {
+                const filePath = e.dataTransfer.getData(FILE_PATH_MIME)
+                if (!filePath) return
+                e.preventDefault()
+                e.stopPropagation()
+                e.currentTarget.classList.remove('terminal-drop-target')
+                if (tab.ptyId) {
+                  ipc.pty.write(tab.ptyId, shellEscapePath(filePath) + ' ')
+                  tab.term.focus()
+                }
+              }}
             />
           ))}
         </div>

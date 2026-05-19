@@ -567,6 +567,13 @@
   background: var(--bg);
 }
 
+/* Drop-target highlight when dragging a file from the file tree */
+.terminal-drop-target {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
 /* Terminal search bar overlay */
 .terminal-search-bar {
   position: absolute;

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import * as ipc from '@/lib/ipc'
+import { FILE_PATH_MIME } from '@/lib/fileDragMime'
+import { shellEscapePath } from '@/lib/shellEscapePath'
 import { getTerminalTheme } from '@/themes/terminal'
 import { useUIStore } from '@/store/ui'
 import { getOrCreate, type BigTermEntry } from './bigTerminalCache'
@@ -106,7 +108,39 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand }: Pr
   }, [])
 
   return (
-    <div className="big-terminal-container" style={{ position: 'relative' }} onKeyDown={handleKeyDown}>
+    <div
+      className="big-terminal-container"
+      style={{ position: 'relative' }}
+      onKeyDown={handleKeyDown}
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes(FILE_PATH_MIME)) {
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'copy'
+        }
+      }}
+      onDragEnter={(e) => {
+        if (e.dataTransfer.types.includes(FILE_PATH_MIME)) {
+          e.currentTarget.classList.add('terminal-drop-target')
+        }
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+          e.currentTarget.classList.remove('terminal-drop-target')
+        }
+      }}
+      onDrop={(e) => {
+        const filePath = e.dataTransfer.getData(FILE_PATH_MIME)
+        if (!filePath) return
+        e.preventDefault()
+        e.stopPropagation()
+        e.currentTarget.classList.remove('terminal-drop-target')
+        const entry = entryRef.current
+        if (entry?.ptyId) {
+          ipc.pty.write(entry.ptyId, shellEscapePath(filePath) + ' ')
+          entry.term.focus()
+        }
+      }}
+    >
       {searchOpen && entryRef.current && (
         <TerminalSearch
           searchAddon={entryRef.current.searchAddon}
