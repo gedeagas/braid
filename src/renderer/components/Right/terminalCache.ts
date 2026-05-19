@@ -131,8 +131,9 @@ export function activateWebgl(term: Terminal): void {
     const webgl = new WebglAddon()
     webgl.onContextLoss(() => { webgl.dispose() })
     term.loadAddon(webgl)
-  } catch {
-    // WebGL unavailable - canvas renderer is fine
+    console.debug('[terminal] WebGL renderer activated')
+  } catch (e) {
+    console.debug('[terminal] WebGL unavailable, using canvas renderer', e)
   }
 }
 

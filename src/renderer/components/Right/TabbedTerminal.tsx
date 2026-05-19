@@ -13,8 +13,7 @@ import {
   type TermTab, type RenameState,
 } from './terminalCache'
 import { useTerminalLifecycle } from './useTerminalLifecycle'
-import { FILE_PATH_MIME } from '@/lib/fileDragMime'
-import { shellEscapePath } from '@/lib/shellEscapePath'
+import { useTerminalFileDrop } from '@/hooks/useTerminalFileDrop'
 import '@xterm/xterm/css/xterm.css'
 
 export { cleanupTerminals } from './terminalCache'
@@ -114,6 +113,14 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
   worktreePathRef.current = worktreePath
   const pendingCommandRef = useRef<string | null>(null)
   const { onMouseDown: tabBarMouseDown, isDragging: tabBarDragging, preventClickAfterDrag } = useDragScroll(tabBarRef)
+
+  // File-drop onto active terminal tab
+  const getFileDropTarget = useCallback(() => {
+    const tab = tabsRef.current.find((t) => t.id === activeTabIdRef.current)
+    if (!tab) return null
+    return { ptyId: tab.ptyId, focus: () => tab.term.focus() }
+  }, [])
+  const fileDrop = useTerminalFileDrop(getFileDropTarget)
 
   // Convert vertical wheel scroll to horizontal scroll on the tab bar
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -361,33 +368,10 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
               }}
               className="terminal-container"
               style={{ position: 'absolute', inset: 0, display: (!isSpecialTab && activeTabId === tab.id) ? 'block' : 'none' }}
-              onDragOver={(e) => {
-                if (e.dataTransfer.types.includes(FILE_PATH_MIME)) {
-                  e.preventDefault()
-                  e.dataTransfer.dropEffect = 'copy'
-                }
-              }}
-              onDragEnter={(e) => {
-                if (e.dataTransfer.types.includes(FILE_PATH_MIME)) {
-                  e.currentTarget.classList.add('terminal-drop-target')
-                }
-              }}
-              onDragLeave={(e) => {
-                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                  e.currentTarget.classList.remove('terminal-drop-target')
-                }
-              }}
-              onDrop={(e) => {
-                const filePath = e.dataTransfer.getData(FILE_PATH_MIME)
-                if (!filePath) return
-                e.preventDefault()
-                e.stopPropagation()
-                e.currentTarget.classList.remove('terminal-drop-target')
-                if (tab.ptyId) {
-                  ipc.pty.write(tab.ptyId, shellEscapePath(filePath) + ' ')
-                  tab.term.focus()
-                }
-              }}
+              onDragOver={fileDrop.onDragOver}
+              onDragEnter={fileDrop.onDragEnter}
+              onDragLeave={fileDrop.onDragLeave}
+              onDrop={fileDrop.onDrop}
             />
           ))}
         </div>

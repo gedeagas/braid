@@ -1,7 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import * as ipc from '@/lib/ipc'
-import { FILE_PATH_MIME } from '@/lib/fileDragMime'
-import { shellEscapePath } from '@/lib/shellEscapePath'
+import { useTerminalFileDrop } from '@/hooks/useTerminalFileDrop'
 import { getTerminalTheme } from '@/themes/terminal'
 import { useUIStore } from '@/store/ui'
 import { getOrCreate, type BigTermEntry } from './bigTerminalCache'
@@ -20,6 +19,14 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand }: Pr
   const entryRef = useRef<BigTermEntry | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
 
+  // File-drop onto big terminal
+  const getFileDropTarget = useCallback(() => {
+    const entry = entryRef.current
+    if (!entry) return null
+    return { ptyId: entry.ptyId, focus: () => entry.term.focus() }
+  }, [])
+  const fileDrop = useTerminalFileDrop(getFileDropTarget)
+
   // Cmd+F / Ctrl+F opens terminal search
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
@@ -33,6 +40,11 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand }: Pr
     const el = containerRef.current
     if (!el) return
 
+    // Detach any previously attached terminal element (tab switch).
+    // This prevents stacking multiple WebGL canvases in one container,
+    // which causes ResizeObserver loops and GPU context fights.
+    while (el.firstChild) el.removeChild(el.firstChild)
+
     const entry = getOrCreate(terminalId, worktreePath, initialCommand)
     entryRef.current = entry
 
@@ -40,39 +52,42 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand }: Pr
     if (!entry.term.element) {
       entry.term.open(el)
       activateWebgl(entry.term)
-    } else if (!el.contains(entry.term.element)) {
+    } else {
       el.appendChild(entry.term.element)
     }
 
-    requestAnimationFrame(() => {
-      try {
-        entry.fitAddon.fit()
-        if (entry.ptyId) ipc.pty.resize(entry.ptyId, entry.term.cols, entry.term.rows)
-      } catch { /* container not ready */ }
-    })
-
-    const observer = new ResizeObserver(() => {
+    // Guard against re-entrant ResizeObserver -> fit() -> resize -> ResizeObserver loops.
+    let fitting = false
+    const doFit = () => {
+      if (fitting) return
+      fitting = true
       try {
         entry.fitAddon.fit()
         if (entry.ptyId) ipc.pty.resize(entry.ptyId, entry.term.cols, entry.term.rows)
       } catch { /* ignore */ }
-    })
+      fitting = false
+    }
+
+    requestAnimationFrame(doFit)
+
+    const observer = new ResizeObserver(doFit)
     observer.observe(el)
     entry.resizeObserver?.disconnect()
     entry.resizeObserver = observer
 
     // After PTY spawn completes, fit again (dimensions may have changed).
     entry.spawnPromise.then(() => {
-      try {
-        entry.fitAddon.fit()
-        if (entry.ptyId) ipc.pty.resize(entry.ptyId, entry.term.cols, entry.term.rows)
-      } catch { /* ignore */ }
+      requestAnimationFrame(doFit)
     })
 
     return () => {
-      // Do NOT dispose — tab may be reactivated. Just detach observer.
+      // Do NOT dispose — tab may be reactivated. Just detach observer and element.
       observer.disconnect()
       if (entry.resizeObserver === observer) entry.resizeObserver = null
+      // Detach terminal element from container without disposing xterm
+      if (entry.term.element && el.contains(entry.term.element)) {
+        el.removeChild(entry.term.element)
+      }
     }
   }, [terminalId, worktreePath])
 
@@ -112,34 +127,10 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand }: Pr
       className="big-terminal-container"
       style={{ position: 'relative' }}
       onKeyDown={handleKeyDown}
-      onDragOver={(e) => {
-        if (e.dataTransfer.types.includes(FILE_PATH_MIME)) {
-          e.preventDefault()
-          e.dataTransfer.dropEffect = 'copy'
-        }
-      }}
-      onDragEnter={(e) => {
-        if (e.dataTransfer.types.includes(FILE_PATH_MIME)) {
-          e.currentTarget.classList.add('terminal-drop-target')
-        }
-      }}
-      onDragLeave={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-          e.currentTarget.classList.remove('terminal-drop-target')
-        }
-      }}
-      onDrop={(e) => {
-        const filePath = e.dataTransfer.getData(FILE_PATH_MIME)
-        if (!filePath) return
-        e.preventDefault()
-        e.stopPropagation()
-        e.currentTarget.classList.remove('terminal-drop-target')
-        const entry = entryRef.current
-        if (entry?.ptyId) {
-          ipc.pty.write(entry.ptyId, shellEscapePath(filePath) + ' ')
-          entry.term.focus()
-        }
-      }}
+      onDragOver={fileDrop.onDragOver}
+      onDragEnter={fileDrop.onDragEnter}
+      onDragLeave={fileDrop.onDragLeave}
+      onDrop={fileDrop.onDrop}
     >
       {searchOpen && entryRef.current && (
         <TerminalSearch
