@@ -7,6 +7,7 @@ import { useDragScroll } from '@/hooks/useDragScroll'
 import { useTabReorder } from '@/hooks/useTabReorder'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { ContextMenu, type ContextMenuItem } from '@/components/shared/ContextMenu'
+import { IconMessageBubble, IconTerminal, IconClaude } from '@/components/shared/icons'
 import type { AgentSession } from '@/types'
 import { getSessionTitle } from '@/lib/sessionTitle'
 import { disposeBigTerminal } from './bigTerminalCache'
@@ -463,6 +464,7 @@ export function SessionTabBar() {
           y={local.addMenu.y}
           items={[
             {
+              icon: <IconMessageBubble size={14} />,
               label: t('newChat'),
               onClick: () => {
                 const id = createSession(selectedWorktreeId, worktree.path)
@@ -470,6 +472,7 @@ export function SessionTabBar() {
               },
             },
             {
+              icon: <IconClaude size={14} />,
               label: t('newClaudeCode'),
               onClick: () => {
                 if (!selectedWorktreeId) return
@@ -478,6 +481,7 @@ export function SessionTabBar() {
               },
             },
             {
+              icon: <IconTerminal size={14} />,
               label: t('newBigTerminal'),
               onClick: () => {
                 if (!selectedWorktreeId) return
