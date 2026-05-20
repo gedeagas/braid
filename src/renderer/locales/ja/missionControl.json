@@ -64,5 +64,11 @@
   "mergeConflicts": "競合あり",
   "mergeBlocked": "ブロック中",
   "prDraft": "ドラフト",
-  "openInGitHub": "GitHubで開く"
+  "openInGitHub": "GitHubで開く",
+  "terminalWorking": "実行中",
+  "terminalBlocked": "ブロック中",
+  "terminalWaiting": "入力待ち",
+  "terminalDone": "完了",
+  "terminalTool": "{{tool}}",
+  "dismissTerminal": "完了にする"
 }

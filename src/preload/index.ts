@@ -109,7 +109,7 @@ const api = {
 
   // PTY
   pty: {
-    spawn: (cwd: string) => ipcRenderer.invoke('pty:spawn', cwd),
+    spawn: (cwd: string, envOverrides?: Record<string, string>) => ipcRenderer.invoke('pty:spawn', cwd, envOverrides),
     write: (id: string, data: string) => ipcRenderer.send('pty:write', id, data),
     resize: (id: string, cols: number, rows: number) => ipcRenderer.send('pty:resize', id, cols, rows),
     kill: (id: string) => ipcRenderer.invoke('pty:kill', id),
@@ -131,6 +131,11 @@ const api = {
       ipcRenderer.invoke('pty:readScrollback', terminalId) as Promise<string>,
     deleteScrollback: (terminalId: string) =>
       ipcRenderer.send('pty:deleteScrollback', terminalId),
+    onAgentHookStatus: (callback: (status: { terminalId: string; state: string; agentType: string; toolName?: string; interrupted?: boolean }) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, status: { terminalId: string; state: string; agentType: string; toolName?: string; interrupted?: boolean }) => callback(status)
+      ipcRenderer.on('agent-hook:status', handler)
+      return () => ipcRenderer.removeListener('agent-hook:status', handler)
+    },
   },
 
   // Simulator

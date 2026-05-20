@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 export interface ContextMenuItem {
   /** Use '---' as the label to render a separator line */
   label: string
+  icon?: React.ReactNode
   danger?: boolean
   disabled?: boolean
   onClick: () => void
@@ -71,6 +72,7 @@ export function ContextMenu({ x, y, items, onClose }: Props) {
               }
             }}
           >
+            {item.icon && <span className="context-menu-icon">{item.icon}</span>}
             {item.label}
           </button>
         )

@@ -345,5 +345,11 @@
   "reviewUnresolved_one": "{{count}} terbuka",
   "reviewUnresolved_other": "{{count}} terbuka",
   "reviewResolved_one": "{{count}} terselesaikan",
-  "reviewResolved_other": "{{count}} terselesaikan"
+  "reviewResolved_other": "{{count}} terselesaikan",
+  "terminalSearchPlaceholder": "Cari…",
+  "terminalSearchPrevious": "Sebelumnya (Shift+Enter)",
+  "terminalSearchNext": "Berikutnya (Enter)",
+  "terminalSearchClose": "Tutup (Esc)",
+  "terminalSearchMatchOf": "{{current}} dari {{total}}",
+  "terminalSearchNoResults": "Tidak ada hasil"
 }

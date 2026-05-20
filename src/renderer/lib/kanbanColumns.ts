@@ -1,4 +1,5 @@
 import type { SessionColumnId, PrColumnId, SessionStatus } from '@/types'
+import type { AgentStatusState } from './agentStatus'
 
 export interface KanbanColumnDef {
   id: SessionColumnId | PrColumnId
@@ -49,6 +50,35 @@ export function assignSessionColumn(
   if (status === 'idle' && runCompletedAt != null) {
     if (now - runCompletedAt >= DONE_EXPIRY_MS) return 'idle'
     if (doneLastClearedAt != null && runCompletedAt <= doneLastClearedAt) return 'idle'
+    return 'done'
+  }
+  return 'idle'
+}
+
+/**
+ * Assign a big-terminal agent status to a session-style kanban column.
+ *
+ * working              -> running
+ * blocked | waiting    -> need_attention (unless dismissed -> done expiry path)
+ * done                 -> done (auto-expires to idle after DONE_EXPIRY_MS)
+ */
+export function assignTerminalColumn(
+  agentState: AgentStatusState,
+  updatedAt: number,
+  dismissedAt: number | null,
+  now = Date.now(),
+  doneLastClearedAt: number | null = null
+): SessionColumnId {
+  if (agentState === 'working') return 'running'
+  if (agentState === 'blocked' || agentState === 'waiting') {
+    if (dismissedAt == null) return 'need_attention'
+    if (doneLastClearedAt != null && dismissedAt <= doneLastClearedAt) return 'idle'
+    if (now - dismissedAt >= DONE_EXPIRY_MS) return 'idle'
+    return 'done'
+  }
+  if (agentState === 'done') {
+    if (now - updatedAt >= DONE_EXPIRY_MS) return 'idle'
+    if (doneLastClearedAt != null && updatedAt <= doneLastClearedAt) return 'idle'
     return 'done'
   }
   return 'idle'

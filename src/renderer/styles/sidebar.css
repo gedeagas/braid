@@ -432,7 +432,9 @@
 }
 
 .context-menu-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
   width: 100%;
   padding: var(--space-7) var(--space-14);
   background: none;
@@ -443,6 +445,13 @@
   text-align: left;
   cursor: pointer;
   transition: background var(--duration-instant);
+}
+
+.context-menu-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  opacity: 0.7;
 }
 
 .context-menu-item:hover {

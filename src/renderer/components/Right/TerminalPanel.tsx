@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Terminal } from '@xterm/xterm'
-import { FitAddon } from '@xterm/addon-fit'
+import type { Terminal } from '@xterm/xterm'
 import * as ipc from '@/lib/ipc'
 import { getTerminalTheme } from '@/themes/terminal'
 import { useUIStore } from '@/store/ui'
+import { createTerminal, activateWebgl } from './terminalCache'
 import '@xterm/xterm/css/xterm.css'
 
 interface Props {
@@ -20,17 +20,9 @@ export function TerminalPanel({ worktreePath }: Props) {
   useEffect(() => {
     if (!containerRef.current) return
 
-    const term = new Terminal({
-      theme: getTerminalTheme(),
-      fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', monospace",
-      fontSize: useUIStore.getState().terminalFontSize,
-      cursorBlink: true,
-      allowProposedApi: true
-    })
-
-    const fitAddon = new FitAddon()
-    term.loadAddon(fitAddon)
+    const { term, fitAddon } = createTerminal()
     term.open(containerRef.current)
+    activateWebgl(term)
     termRef.current = term
 
     requestAnimationFrame(() => {
