@@ -93,7 +93,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.4.0",
-    "electron": "https://github.com/castlabs/electron-releases#v39.8.0+wvcus",
+    "electron": "https://github.com/castlabs/electron-releases#v41.5.0+wvcus",
     "electron-installer-dmg": "^5.0.1",
     "electron-vite": "^3.0.0",
     "jsdom": "^29.0.1",
