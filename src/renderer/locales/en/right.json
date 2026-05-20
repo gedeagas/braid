@@ -345,5 +345,11 @@
   "reviewUnresolved_one": "{{count}} open",
   "reviewUnresolved_other": "{{count}} open",
   "reviewResolved_one": "{{count}} resolved",
-  "reviewResolved_other": "{{count}} resolved"
+  "reviewResolved_other": "{{count}} resolved",
+  "terminalSearchPlaceholder": "Find…",
+  "terminalSearchPrevious": "Previous (Shift+Enter)",
+  "terminalSearchNext": "Next (Enter)",
+  "terminalSearchClose": "Close (Esc)",
+  "terminalSearchMatchOf": "{{current}} of {{total}}",
+  "terminalSearchNoResults": "No results"
 }

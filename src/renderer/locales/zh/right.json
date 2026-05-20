@@ -345,5 +345,11 @@
   "reviewUnresolved_one": "{{count}} 个未解决",
   "reviewUnresolved_other": "{{count}} 个未解决",
   "reviewResolved_one": "{{count}} 个已解决",
-  "reviewResolved_other": "{{count}} 个已解决"
+  "reviewResolved_other": "{{count}} 个已解决",
+  "terminalSearchPlaceholder": "查找…",
+  "terminalSearchPrevious": "上一个 (Shift+Enter)",
+  "terminalSearchNext": "下一个 (Enter)",
+  "terminalSearchClose": "关闭 (Esc)",
+  "terminalSearchMatchOf": "{{current}} / {{total}}",
+  "terminalSearchNoResults": "无结果"
 }

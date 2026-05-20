@@ -624,6 +624,14 @@
   color: var(--text-primary);
 }
 
+.terminal-search-count {
+  font-size: var(--text-2xs);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  padding: 0 var(--space-4);
+  user-select: none;
+}
+
 /* xterm.js scrollbar theming — override the hardcoded #000 background */
 .xterm .xterm-viewport::-webkit-scrollbar {
   width: 8px;
