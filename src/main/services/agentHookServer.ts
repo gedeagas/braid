@@ -75,10 +75,12 @@ export async function startAgentHookServer(): Promise<{ port: number; token: str
 
       // Read body
       let body = ''
+      let rejected = false
       req.on('data', (chunk: Buffer) => {
         body += chunk.toString()
         // Limit body size to prevent abuse
-        if (body.length > 16_384) {
+        if (!rejected && body.length > 16_384) {
+          rejected = true
           res.writeHead(413)
           res.end()
           req.destroy()
@@ -86,6 +88,7 @@ export async function startAgentHookServer(): Promise<{ port: number; token: str
       })
 
       req.on('end', () => {
+        if (rejected) return
         res.writeHead(200)
         res.end('ok')
 

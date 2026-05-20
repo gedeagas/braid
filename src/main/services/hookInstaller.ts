@@ -16,7 +16,7 @@ import type { ClaudeHookConfig } from './claudeConfig'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const HOOK_VERSION = 2
+const HOOK_VERSION = 3
 const HOOK_DIR = join(homedir(), '.braid', 'hooks')
 const HOOK_PATH = join(HOOK_DIR, 'agent-status.sh')
 const HOOK_COMMAND = '~/.braid/hooks/agent-status.sh'
@@ -61,6 +61,10 @@ tool=""
 # Extract is_interrupt for Stop events
 is_interrupt="false"
 [[ "$input" =~ \\"is_interrupt\\"[[:space:]]*:[[:space:]]*true ]] && is_interrupt="true"
+
+# Sanitize extracted values: strip any quotes/backslashes to prevent JSON injection
+event="\${event//[\\\\\\"\\']/}"
+tool="\${tool//[\\\\\\"\\']/}"
 
 # Build JSON payload for Braid server
 json="{\\"terminalId\\":\\"$BRAID_TERMINAL_ID\\",\\"event\\":\\"$event\\""

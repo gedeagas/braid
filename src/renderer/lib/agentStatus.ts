@@ -88,7 +88,7 @@ export function updateAgentStatusEntry(
   return {
     state: payload.state,
     agentType: payload.agentType ?? prev.agentType,
-    toolName: payload.toolName ?? null,
+    toolName: payload.toolName !== undefined ? payload.toolName : prev.toolName,
     stateHistory: history,
     updatedAt: now
   }
