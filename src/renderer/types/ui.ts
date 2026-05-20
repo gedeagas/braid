@@ -6,11 +6,13 @@ import type {
   PendingAuthError,
   PendingPlanApproval
 } from './session'
+import type { AgentStatusState, AgentType } from '@/lib/agentStatus'
 
 // ─── UI / Panel types ─────────────────────────────────────────────────────────
 
 export type RightPanelTab = 'files' | 'search' | 'changes' | 'overview' | 'notes' | 'simulator' | 'windowCapture'
 export type TabDisplayMode = 'icons' | 'labels' | 'both'
+export type NewTabAction = 'chat' | 'claudeCode' | 'terminal'
 
 export interface CaptureSource {
   id: string
@@ -66,7 +68,23 @@ export interface PrCardData {
   column: PrColumnId
 }
 
-export type BoardCardData = SessionCardData | PrCardData
+export interface TerminalCardData {
+  kind: 'terminal'
+  terminalId: string
+  terminalLabel: string
+  worktreeId: string
+  projectId: string
+  projectName: string
+  branch: string
+  path: string
+  agentState: AgentStatusState
+  agentType: AgentType | null
+  toolName: string | null
+  updatedAt: number
+  column: SessionColumnId
+}
+
+export type BoardCardData = SessionCardData | PrCardData | TerminalCardData
 
 // ─── Embedded Web Apps ────────────────────────────────────────────────────────
 

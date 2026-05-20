@@ -18,9 +18,11 @@ interface MissionControlState {
   checksStatus: Record<string, ChecksSummary>
   /** Whether a full refresh is in progress */
   refreshing: boolean
-  /** Session IDs manually dismissed from Need Attention → Done, mapped to dismiss timestamp */
+  /** Session IDs manually dismissed from Need Attention -> Done, mapped to dismiss timestamp */
   dismissedSessionIds: Map<string, number>
-  /** Timestamp of the last "Clear Done" action — sessions completed before this move to Idle */
+  /** Terminal IDs manually dismissed from Need Attention -> Done, mapped to dismiss timestamp */
+  dismissedTerminalIds: Map<string, number>
+  /** Timestamp of the last "Clear Done" action - sessions/terminals completed before this move to Idle */
   doneLastClearedAt: number | null
 
   /** Text search filter (empty = no filter) */
@@ -33,6 +35,8 @@ interface MissionControlState {
   refreshChecks: (worktreePath: string) => Promise<void>
   dismissSession: (sessionId: string) => void
   undismissSession: (sessionId: string) => void
+  dismissTerminal: (terminalId: string) => void
+  undismissTerminal: (terminalId: string) => void
   clearDone: () => void
   setFilterQuery: (query: string) => void
   toggleFilterProject: (projectId: string) => void
@@ -72,6 +76,7 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
   checksStatus: {},
   refreshing: false,
   dismissedSessionIds: new Map<string, number>(),
+  dismissedTerminalIds: new Map<string, number>(),
   doneLastClearedAt: null,
   filterQuery: '',
   filterProjectIds: new Set<string>(),
@@ -129,6 +134,22 @@ export const useMissionControlStore = create<MissionControlState>((set, get) => 
       const next = new Map(s.dismissedSessionIds)
       next.delete(sessionId)
       return { dismissedSessionIds: next }
+    })
+  },
+
+  dismissTerminal: (terminalId) => {
+    set((s) => {
+      const next = new Map(s.dismissedTerminalIds)
+      next.set(terminalId, Date.now())
+      return { dismissedTerminalIds: next }
+    })
+  },
+
+  undismissTerminal: (terminalId) => {
+    set((s) => {
+      const next = new Map(s.dismissedTerminalIds)
+      next.delete(terminalId)
+      return { dismissedTerminalIds: next }
     })
   },
 

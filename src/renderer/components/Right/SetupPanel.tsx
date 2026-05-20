@@ -1,11 +1,14 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
+import { WebLinksAddon } from '@xterm/addon-web-links'
+import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { useTranslation } from 'react-i18next'
 import * as ipc from '@/lib/ipc'
 import { useUIStore } from '@/store/ui'
 import { useProjectsStore } from '@/store/projects'
 import { getTerminalTheme } from '@/themes/terminal'
+import { activateWebgl } from './terminalCache'
 import { IconWrench } from '@/components/shared/icons'
 import { Button, EmptyState } from '@/components/ui'
 import '@xterm/xterm/css/xterm.css'
@@ -42,6 +45,10 @@ function getOrCreateCache(worktreePath: string): CachedSetup {
   })
   const fitAddon = new FitAddon()
   term.loadAddon(fitAddon)
+  term.loadAddon(new WebLinksAddon())
+  const unicode11 = new Unicode11Addon()
+  term.loadAddon(unicode11)
+  term.unicode.activeVersion = '11'
 
   const cached: CachedSetup = { term, fitAddon, ptyId: null, running: false, cleanupListeners: [] }
   setupCache.set(worktreePath, cached)
@@ -132,6 +139,7 @@ export function SetupPanel({ worktreePath, projectId, hidden }: Props) {
 
       if (!cached.term.element) {
         cached.term.open(el)
+        activateWebgl(cached.term)
       } else {
         el.appendChild(cached.term.element)
       }

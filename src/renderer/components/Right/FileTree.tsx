@@ -4,6 +4,7 @@ import { FileIcon, DefaultFolderOpenedIcon } from '@react-symbols/icons/utils'
 import { Folder } from '@react-symbols/icons/folders'
 import type { FileEntry } from '@/types'
 import * as ipc from '@/lib/ipc'
+import { FILE_PATH_MIME } from '@/lib/fileDragMime'
 import { IconRefresh, IconTreeChevron, IconSearch } from '@/components/shared/icons'
 import { ContextMenu, type ContextMenuItem } from '@/components/shared/ContextMenu'
 import { loadStr } from '@/store/ui/helpers'
@@ -57,6 +58,11 @@ function TreeNode({ entry, worktreePath, selectedPath, onFileSelect, onExpand, o
     <div>
       <div
         className={`file-entry ${isSelected ? 'selected' : ''}`}
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.setData(FILE_PATH_MIME, fullPath)
+          e.dataTransfer.effectAllowed = 'copy'
+        }}
         onClick={handleClick}
         onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, fullPath, entry.isDirectory) }}
       >

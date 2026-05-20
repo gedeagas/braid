@@ -106,6 +106,7 @@ export function CommandPalette() {
 
     // Navigation
     { id: 'newChatTab', category: 'navigation', execute: actions.newChatTab },
+    { id: 'newBigTerminal', category: 'navigation', execute: actions.newBigTerminal },
     { id: 'closeTab', category: 'navigation', execute: actions.closeCurrentTab },
     { id: 'previousTab', category: 'navigation', execute: actions.previousTab },
     { id: 'nextTab', category: 'navigation', execute: actions.nextTab },

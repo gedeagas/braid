@@ -1,5 +1,10 @@
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
+import { WebglAddon } from '@xterm/addon-webgl'
+import { WebLinksAddon } from '@xterm/addon-web-links'
+import { Unicode11Addon } from '@xterm/addon-unicode11'
+import { SearchAddon } from '@xterm/addon-search'
+import { LigaturesAddon } from '@xterm/addon-ligatures'
 import * as ipc from '@/lib/ipc'
 import { getTerminalTheme } from '@/themes/terminal'
 import { useUIStore } from '@/store/ui'
@@ -88,7 +93,7 @@ export function cleanupTerminals(worktreePath: string): void {
   terminalCache.delete(worktreePath)
 }
 
-export function createTerminal(): { term: Terminal; fitAddon: FitAddon } {
+export function createTerminal(): { term: Terminal; fitAddon: FitAddon; searchAddon: SearchAddon } {
   const term = new Terminal({
     theme: getTerminalTheme(),
     fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', monospace",
@@ -98,7 +103,54 @@ export function createTerminal(): { term: Terminal; fitAddon: FitAddon } {
   })
   const fitAddon = new FitAddon()
   term.loadAddon(fitAddon)
-  return { term, fitAddon }
+
+  // Clickable URLs
+  term.loadAddon(new WebLinksAddon())
+
+  // Full-width CJK / emoji rendering
+  const unicode11 = new Unicode11Addon()
+  term.loadAddon(unicode11)
+  term.unicode.activeVersion = '11'
+
+  // Find in terminal
+  const searchAddon = new SearchAddon()
+  term.loadAddon(searchAddon)
+
+  // Font ligatures (can fail if font metrics unavailable)
+  try { term.loadAddon(new LigaturesAddon()) } catch { /* ignore */ }
+
+  return { term, fitAddon, searchAddon }
+}
+
+/**
+ * Activate GPU-accelerated WebGL renderer. Must be called AFTER term.open(el).
+ * Returns the addon instance (for later dispose/reattach), or null on failure.
+ */
+export function activateWebgl(term: Terminal, onContextLoss?: () => void): WebglAddon | null {
+  try {
+    const webgl = new WebglAddon()
+    webgl.onContextLoss(() => {
+      onContextLoss?.()
+      webgl.dispose()
+    })
+    term.loadAddon(webgl)
+    // Repaint immediately so the terminal isn't blank after attach
+    try { term.refresh(0, term.rows - 1) } catch { /* ignore */ }
+    console.debug('[terminal] WebGL renderer activated')
+    return webgl
+  } catch (e) {
+    console.debug('[terminal] WebGL unavailable, using canvas renderer', e)
+    return null
+  }
+}
+
+/**
+ * Safely dispose a WebGL addon. Call before DOM reparenting to avoid
+ * silent context corruption (Chromium can invalidate without firing contextlost).
+ */
+export function disposeWebgl(addon: WebglAddon | null): void {
+  if (!addon) return
+  try { addon.dispose() } catch { /* ignore */ }
 }
 
 /** Re-theme all cached terminals when the app theme changes */

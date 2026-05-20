@@ -1,4 +1,4 @@
-import { useReducer, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useReducer, useRef, useEffect, useCallback, useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSessionsStore, useSessionsForWorktree, getLastActiveForWorktree } from '@/store/sessions'
 import { useUIStore, selectChangesOpen, selectActiveCenterView, selectCodeReviewOpen } from '@/store/ui'
@@ -7,8 +7,10 @@ import { useDragScroll } from '@/hooks/useDragScroll'
 import { useTabReorder } from '@/hooks/useTabReorder'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { ContextMenu, type ContextMenuItem } from '@/components/shared/ContextMenu'
+import { IconMessageBubble, IconTerminal, IconClaude } from '@/components/shared/icons'
 import type { AgentSession } from '@/types'
 import { getSessionTitle } from '@/lib/sessionTitle'
+import { agentStatusToTabClass } from '@/lib/agentStatus'
 import { disposeBigTerminal } from './bigTerminalCache'
 import { SessionTab } from './SessionTab'
 import { TerminalTab } from './TerminalTab'
@@ -57,7 +59,9 @@ export function SessionTabBar() {
   const createBigTerminal = useUIStore((s) => s.createBigTerminal)
   const closeBigTerminalAction = useUIStore((s) => s.closeBigTerminal)
   const renameBigTerminal = useUIStore((s) => s.renameBigTerminal)
-  const bigTerminalEnabled = useUIStore((s) => s.bigTerminalEnabled)
+  const terminalStatuses = useUIStore((s) => s.bigTerminalStatusById)
+  const lastNewTabAction = useUIStore((s) => s.lastNewTabAction)
+  const setLastNewTabAction = useUIStore((s) => s.setLastNewTabAction)
 
   const closeTerminalFully = useCallback(
     (terminalId: string) => {
@@ -253,6 +257,51 @@ export function SessionTabBar() {
     ]
   }, [local.menu, unifiedTabs, closeSingleTab, closeManyTabs, t])
 
+  // Build + menu items, sorted so the last-used action is first
+  const addMenuItems = useMemo((): ContextMenuItem[] => {
+    const allItems: Array<{ key: string; icon: ReactNode; label: string; onClick: () => void }> = [
+      {
+        key: 'chat',
+        icon: <IconMessageBubble size={14} />,
+        label: t('newChat'),
+        onClick: () => {
+          setLastNewTabAction('chat')
+          const id = createSession(selectedWorktreeId!, worktree!.path)
+          setActiveCenterView({ type: 'session', sessionId: id })
+        },
+      },
+      {
+        key: 'claudeCode',
+        icon: <IconClaude size={14} />,
+        label: t('newClaudeCode'),
+        onClick: () => {
+          if (!selectedWorktreeId) return
+          setLastNewTabAction('claudeCode')
+          const id = createBigTerminal(selectedWorktreeId, 'Claude Code', 'claude')
+          setActiveCenterView({ type: 'terminal', terminalId: id })
+        },
+      },
+      {
+        key: 'terminal',
+        icon: <IconTerminal size={14} />,
+        label: t('newBigTerminal'),
+        onClick: () => {
+          if (!selectedWorktreeId) return
+          setLastNewTabAction('terminal')
+          const id = createBigTerminal(selectedWorktreeId)
+          setActiveCenterView({ type: 'terminal', terminalId: id })
+        },
+      },
+    ]
+    // Move last-used action to the top
+    const idx = allItems.findIndex((item) => item.key === lastNewTabAction)
+    if (idx > 0) {
+      const [preferred] = allItems.splice(idx, 1)
+      allItems.unshift(preferred)
+    }
+    return allItems
+  }, [lastNewTabAction, selectedWorktreeId, worktree, createSession, createBigTerminal, setActiveCenterView, setLastNewTabAction, t])
+
   if (!selectedWorktreeId || !worktree) return null
 
   return (
@@ -411,6 +460,7 @@ export function SessionTabBar() {
               isEditing={isEditing}
               isDragSource={isDragSource}
               isDraggedOver={isDraggedOver}
+              statusClass={agentStatusToTabClass(terminalStatuses[tab.id] ?? null)}
               editValue={local.editValue}
               inputRef={inputRef}
               onDragStart={onDragStart}
@@ -436,18 +486,13 @@ export function SessionTabBar() {
         return null
       })}
 
-      <Tooltip content={bigTerminalEnabled ? t('newTabTooltip') : t('newChat')} position="bottom">
+      <Tooltip content={t('newTabTooltip')} position="bottom">
         <button
           className="tab tab--add"
-          aria-label={t('newChat')}
+          aria-label={t('newTabTooltip')}
           onClick={(e) => {
-            if (bigTerminalEnabled) {
-              const rect = (e.target as HTMLElement).getBoundingClientRect()
-              setLocal({ addMenu: { x: rect.left, y: rect.bottom + 4 } })
-            } else {
-              const id = createSession(selectedWorktreeId, worktree.path)
-              setActiveCenterView({ type: 'session', sessionId: id })
-            }
+            const rect = (e.target as HTMLElement).getBoundingClientRect()
+            setLocal({ addMenu: { x: rect.left, y: rect.bottom + 4 } })
           }}
         >
           +
@@ -467,23 +512,7 @@ export function SessionTabBar() {
         <ContextMenu
           x={local.addMenu.x}
           y={local.addMenu.y}
-          items={[
-            {
-              label: t('newChat'),
-              onClick: () => {
-                const id = createSession(selectedWorktreeId, worktree.path)
-                setActiveCenterView({ type: 'session', sessionId: id })
-              },
-            },
-            {
-              label: t('newBigTerminal'),
-              onClick: () => {
-                if (!selectedWorktreeId) return
-                const id = createBigTerminal(selectedWorktreeId)
-                setActiveCenterView({ type: 'terminal', terminalId: id })
-              },
-            },
-          ]}
+          items={addMenuItems}
           onClose={() => setLocal({ addMenu: null })}
         />
       )}

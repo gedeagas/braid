@@ -64,5 +64,11 @@
   "mergeConflicts": "Has conflicts",
   "mergeBlocked": "Blocked",
   "prDraft": "Draft",
-  "openInGitHub": "Open in GitHub"
+  "openInGitHub": "Open in GitHub",
+  "terminalWorking": "Working",
+  "terminalBlocked": "Blocked",
+  "terminalWaiting": "Waiting for input",
+  "terminalDone": "Done",
+  "terminalTool": "{{tool}}",
+  "dismissTerminal": "Mark as done"
 }

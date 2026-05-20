@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef, lazy, Suspense } from 'react'
+import { memo, useCallback, useRef, useMemo, lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SessionTabBar } from './SessionTabBar'
 import { ChatView } from './ChatView'
@@ -8,7 +8,7 @@ import { useProjectsStore } from '@/store/projects'
 import { useSessionsStore, useSessionsForWorktree } from '@/store/sessions'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { OpenInDropdown } from '@/components/shared/OpenInDropdown'
-import { IconSidebarRight, IconMessagePlus, IconPencil, IconArrowLeft } from '@/components/shared/icons'
+import { IconSidebarRight, IconMessagePlus, IconPencil, IconArrowLeft, IconTerminal, IconClaude } from '@/components/shared/icons'
 import { BottomTerminalStrip } from '@/components/shared/BottomTerminalStrip'
 import { Button, EmptyState, Spinner } from '@/components/ui'
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation'
@@ -50,13 +50,39 @@ export const CenterPanel = memo(function CenterPanel() {
   const showTerminal = activeCenterView?.type === 'terminal'
   const showCodeReview = activeCenterView?.type === 'codeReview'
   const hasBigTerminals = useUIStore((s) => selectedWorktreeId ? (s.bigTerminalsByWorktree[selectedWorktreeId]?.length ?? 0) > 0 : false)
+  const activeTerminalId = showTerminal ? activeCenterView.terminalId : null
+  const initialCommand = useUIStore((s) => {
+    if (!activeTerminalId || !selectedWorktreeId) return undefined
+    return s.bigTerminalsByWorktree[selectedWorktreeId]?.find((t) => t.id === activeTerminalId)?.initialCommand
+  })
   const hasNoTabs = sessionsLoaded && sessions.length === 0 && openFilePaths.length === 0 && !changesOpen && !hasBigTerminals && !showCodeReview
 
-  const handleNewChat = useCallback(() => {
+  const lastNewTabAction = useUIStore((s) => s.lastNewTabAction)
+  const createBigTerminal = useUIStore((s) => s.createBigTerminal)
+
+  const handleNewTab = useCallback(() => {
     if (!selectedWorktreeId || !worktree) return
-    const id = createSession(selectedWorktreeId, worktree.path)
-    setActiveCenterView({ type: 'session', sessionId: id })
-  }, [selectedWorktreeId, worktree, createSession, setActiveCenterView])
+    if (lastNewTabAction === 'claudeCode') {
+      const id = createBigTerminal(selectedWorktreeId, 'Claude Code', 'claude')
+      setActiveCenterView({ type: 'terminal', terminalId: id })
+    } else if (lastNewTabAction === 'terminal') {
+      const id = createBigTerminal(selectedWorktreeId)
+      setActiveCenterView({ type: 'terminal', terminalId: id })
+    } else {
+      const id = createSession(selectedWorktreeId, worktree.path)
+      setActiveCenterView({ type: 'session', sessionId: id })
+    }
+  }, [selectedWorktreeId, worktree, lastNewTabAction, createSession, createBigTerminal, setActiveCenterView])
+
+  const emptyStateProps = useMemo(() => {
+    if (lastNewTabAction === 'claudeCode') {
+      return { icon: <IconClaude size={28} />, label: t('newClaudeCode') }
+    }
+    if (lastNewTabAction === 'terminal') {
+      return { icon: <IconTerminal size={28} />, label: t('newBigTerminal') }
+    }
+    return { icon: <IconPencil size={13} />, label: t('newChat') }
+  }, [lastNewTabAction, t])
 
   const handleDirtyChange = useCallback((path: string, dirty: boolean) => {
     setFileDirty(path, dirty)
@@ -89,7 +115,7 @@ export const CenterPanel = memo(function CenterPanel() {
                 icon={<IconMessagePlus />}
                 title={t('emptyStateHeading')}
                 hint={t('emptyStateHint')}
-                action={<Button variant="primary" onClick={handleNewChat}><IconPencil size={13} />{t('newChat')}</Button>}
+                action={<Button variant="primary" onClick={handleNewTab}>{emptyStateProps.icon}{emptyStateProps.label}</Button>}
               />
             ) : showFile ? (
               <Suspense fallback={<Spinner size="md" />}>
@@ -103,6 +129,7 @@ export const CenterPanel = memo(function CenterPanel() {
               <BigTerminalView
                 terminalId={activeCenterView.terminalId}
                 worktreePath={worktree?.path ?? ''}
+                initialCommand={initialCommand}
               />
             ) : showCodeReview ? (
               <Suspense fallback={<Spinner size="md" />}>

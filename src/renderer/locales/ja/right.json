@@ -345,5 +345,11 @@
   "reviewUnresolved_one": "{{count}} 未解決",
   "reviewUnresolved_other": "{{count}} 未解決",
   "reviewResolved_one": "{{count}} 解決済み",
-  "reviewResolved_other": "{{count}} 解決済み"
+  "reviewResolved_other": "{{count}} 解決済み",
+  "terminalSearchPlaceholder": "検索…",
+  "terminalSearchPrevious": "前へ (Shift+Enter)",
+  "terminalSearchNext": "次へ (Enter)",
+  "terminalSearchClose": "閉じる (Esc)",
+  "terminalSearchMatchOf": "{{current}} / {{total}}",
+  "terminalSearchNoResults": "結果なし"
 }

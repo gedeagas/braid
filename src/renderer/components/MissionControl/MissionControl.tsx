@@ -1,13 +1,13 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useTranslation } from 'react-i18next'
-import type { SessionColumnId, PrColumnId, SessionCardData, PrCardData, MissionControlTab } from '@/types'
+import type { SessionColumnId, PrColumnId, SessionCardData, PrCardData, TerminalCardData, BoardCardData, MissionControlTab } from '@/types'
 import { useProjectsStore } from '@/store/projects'
 import { useSessionsStore } from '@/store/sessions'
 import { useUIStore } from '@/store/ui'
 import { usePrCacheStore } from '@/store/prCache'
 import { useMissionControlStore } from '@/store/missionControl'
-import { SESSION_COLUMNS, PR_COLUMNS, assignSessionColumn, assignPrColumn } from '@/lib/kanbanColumns'
+import { SESSION_COLUMNS, PR_COLUMNS, assignSessionColumn, assignPrColumn, assignTerminalColumn } from '@/lib/kanbanColumns'
 import { getSessionTitle } from '@/lib/sessionTitle'
 import { IconTerminal, IconGitFork } from '@/components/shared/icons'
 import { KanbanColumn } from './KanbanColumn'
@@ -167,6 +167,63 @@ function usePrBoardData(): Map<PrColumnId, PrCardData[]> {
   }, [projects, prCache, gitStats, checksStatus, filterQuery, filterProjectIds])
 }
 
+function useTerminalBoardData(active: boolean): Map<SessionColumnId, TerminalCardData[]> {
+  const projects = useProjectsStore((s) => s.projects)
+  const bigTerminalsByWorktree = useUIStore((s) => s.bigTerminalsByWorktree)
+  const bigTerminalStatusById = useUIStore((s) => s.bigTerminalStatusById)
+  const dismissedTerminalIds = useMissionControlStore((s) => s.dismissedTerminalIds)
+  const doneLastClearedAt = useMissionControlStore((s) => s.doneLastClearedAt)
+  const filterQuery = useMissionControlStore((s) => s.filterQuery)
+  const filterProjectIds = useMissionControlStore((s) => s.filterProjectIds)
+  const minuteTick = useMinuteTick(active)
+
+  return useMemo(() => {
+    const now = minuteTick * 60_000
+    const columns = new Map<SessionColumnId, TerminalCardData[]>()
+    for (const col of SESSION_COLUMNS) columns.set(col.id as SessionColumnId, [])
+
+    for (const project of projects) {
+      if (filterProjectIds.size > 0 && !filterProjectIds.has(project.id)) continue
+
+      for (const wt of project.worktrees) {
+        const tabs = bigTerminalsByWorktree[wt.id] ?? []
+        for (const tab of tabs) {
+          const statusEntry = bigTerminalStatusById[tab.id]
+          // Only show terminals with a detected agent status
+          if (!statusEntry) continue
+
+          if (filterQuery && !matchesQuery(filterQuery, wt.branch, tab.label, project.name)) continue
+
+          const dismissedAt = dismissedTerminalIds.get(tab.id) ?? null
+          const col = assignTerminalColumn(statusEntry.state, statusEntry.updatedAt, dismissedAt, now, doneLastClearedAt)
+          columns.get(col)!.push({
+            kind: 'terminal',
+            terminalId: tab.id,
+            terminalLabel: tab.label,
+            worktreeId: wt.id,
+            projectId: project.id,
+            projectName: project.name,
+            branch: wt.branch,
+            path: wt.path,
+            agentState: statusEntry.state,
+            agentType: statusEntry.agentType,
+            toolName: statusEntry.toolName,
+            updatedAt: statusEntry.updatedAt,
+            column: col,
+          })
+        }
+      }
+    }
+
+    // Sort by most recently updated
+    for (const [, cards] of columns) {
+      cards.sort((a, b) => b.updatedAt - a.updatedAt)
+    }
+
+    return columns
+  }, [projects, bigTerminalsByWorktree, bigTerminalStatusById, dismissedTerminalIds, doneLastClearedAt, minuteTick, filterQuery, filterProjectIds])
+}
+
 export function MissionControl() {
   const { t } = useTranslation('missionControl')
   const missionControlActive = useUIStore((s) => s.missionControlActive)
@@ -194,6 +251,20 @@ export function MissionControl() {
       }
     }
   }, [sessions, dismissedSessionIds, undismissSession])
+
+  // Auto-undismiss terminals that go back to working
+  const bigTerminalStatusById = useUIStore((s) => s.bigTerminalStatusById)
+  const dismissedTerminalIds = useMissionControlStore((s) => s.dismissedTerminalIds)
+  const undismissTerminal = useMissionControlStore((s) => s.undismissTerminal)
+
+  useEffect(() => {
+    for (const id of dismissedTerminalIds.keys()) {
+      const status = bigTerminalStatusById[id]
+      if (status && status.state === 'working') {
+        undismissTerminal(id)
+      }
+    }
+  }, [bigTerminalStatusById, dismissedTerminalIds, undismissTerminal])
 
   // Clear Done: reset dismissed error/waiting_input sessions to idle, then clear timestamp
   const clearDone = useCallback(() => {
@@ -250,11 +321,25 @@ export function MissionControl() {
   }, [missionControlActive, worktreePaths, trackPath, untrackPath, refreshAll])
 
   const sessionData = useSessionBoardData(missionControlActive)
+  const terminalData = useTerminalBoardData(missionControlActive)
   const prData = usePrBoardData()
 
+  // Merge session + terminal cards per column for the Sessions tab
+  const mergedSessionColumns = useMemo(() => {
+    const merged = new Map<SessionColumnId, BoardCardData[]>()
+    for (const col of SESSION_COLUMNS) {
+      const colId = col.id as SessionColumnId
+      merged.set(colId, [
+        ...(sessionData.get(colId) ?? []),
+        ...(terminalData.get(colId) ?? []),
+      ])
+    }
+    return merged
+  }, [sessionData, terminalData])
+
   const sessionCount = useMemo(
-    () => Array.from(sessionData.values()).reduce((sum, cards) => sum + cards.length, 0),
-    [sessionData]
+    () => Array.from(mergedSessionColumns.values()).reduce((sum, cards) => sum + cards.length, 0),
+    [mergedSessionColumns]
   )
   const prCount = useMemo(
     () => Array.from(prData.values()).reduce((sum, cards) => sum + cards.length, 0),
@@ -334,7 +419,7 @@ export function MissionControl() {
                     key={col.id}
                     labelKey={col.labelKey}
                     color={col.color}
-                    cards={sessionData.get(col.id as SessionColumnId) ?? []}
+                    cards={mergedSessionColumns.get(col.id as SessionColumnId) ?? []}
                     onClear={col.id === 'done' ? clearDone : undefined}
                   />
                 ))}

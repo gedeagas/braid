@@ -27,6 +27,8 @@ import { windowCaptureService } from './services/windowCapture'
 import { lspService } from './services/lsp'
 import { initAutoUpdater, stopAutoUpdater } from './services/autoUpdate'
 import { waitForEnrichedEnv } from './lib/enrichedEnv'
+import { ensureBraidHooks } from './services/hookInstaller'
+import { startAgentHookServer, stopAgentHookServer } from './services/agentHookServer'
 
 // Prevent EPIPE errors from crashing the process when stdout/stderr pipes break
 // (common in Electron when the renderer detaches or during hot-reload).
@@ -182,6 +184,13 @@ app.whenReady().then(async () => {
   })
 
   registerIpcHandlers()
+
+  // Start the agent hook HTTP server, then install Claude Code hooks.
+  // The server must be running before hooks are installed so the port is known.
+  startAgentHookServer()
+    .then(() => ensureBraidHooks())
+    .catch((err) => console.warn('[agentHookServer] Failed to start:', err))
+
   createWindow()
   createAppMenu(mainWindow!)
 
@@ -211,6 +220,7 @@ app.on('before-quit', () => {
     app.dock.setBadge('')
   }
   stopAutoUpdater()
+  stopAgentHookServer()
   lspService.shutdownAll()
 })
 

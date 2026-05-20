@@ -157,7 +157,7 @@ export function registerIpcHandlers(): void {
   )
 
   // PTY
-  ipcMain.handle('pty:spawn', (_e, cwd: string) => ptyService.spawn(cwd))
+  ipcMain.handle('pty:spawn', (_e, cwd: string, envOverrides?: Record<string, string>) => ptyService.spawn(cwd, envOverrides))
   ipcMain.on('pty:write', (_e, id: string, data: string) => ptyService.write(id, data))
   ipcMain.on('pty:resize', (_e, id: string, cols: number, rows: number) => ptyService.resize(id, cols, rows))
 
