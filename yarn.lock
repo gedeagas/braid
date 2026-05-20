@@ -2769,12 +2769,21 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:*, @types/node@npm:^22.7.7":
+"@types/node@npm:*":
   version: 22.19.15
   resolution: "@types/node@npm:22.19.15"
   dependencies:
     undici-types: "npm:~6.21.0"
   checksum: 10c0/f17eaf3d0d1da5e93ad9e287efb78201f8a5282973c004c5f70d91675c5c6b926a23acaa7b158a42b3d7e27e36b349d65a531710c91c308fca53dd7fa280ef98
+  languageName: node
+  linkType: hard
+
+"@types/node@npm:^24.9.0":
+  version: 24.12.4
+  resolution: "@types/node@npm:24.12.4"
+  dependencies:
+    undici-types: "npm:~7.16.0"
+  checksum: 10c0/d2c36b78b6050d8677769fa05a32243061675e81ddc2bb43955d91a671af3465506ef2731a24c0c9ab42b6b679bd5c1513de45bbe9ea278c2c07ee63b564b61b
   languageName: node
   linkType: hard
 
@@ -3379,7 +3388,7 @@ __metadata:
     "@xterm/addon-webgl": "npm:^0.19.0"
     "@xterm/xterm": "npm:^6.0.0"
     ansi-to-html: "npm:^0.7.2"
-    electron: "https://github.com/castlabs/electron-releases#v39.8.0+wvcus"
+    electron: "https://github.com/castlabs/electron-releases#v41.5.0+wvcus"
     electron-installer-dmg: "npm:^5.0.1"
     electron-log: "npm:^5.4.3"
     electron-updater: "npm:6.8.3"
@@ -4088,16 +4097,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron@https://github.com/castlabs/electron-releases#v39.8.0+wvcus":
-  version: 39.8.0+wvcus
-  resolution: "electron@https://github.com/castlabs/electron-releases.git#commit=a2a7639f5eca11fc13b263328de7ed720f67325c"
+"electron@https://github.com/castlabs/electron-releases#v41.5.0+wvcus":
+  version: 41.5.0+wvcus
+  resolution: "electron@https://github.com/castlabs/electron-releases.git#commit=0527cd626b3a8611343c8861a2cec5c6a7b8e421"
   dependencies:
     "@electron/get": "npm:^2.0.0"
-    "@types/node": "npm:^22.7.7"
+    "@types/node": "npm:^24.9.0"
     extract-zip: "npm:^2.0.1"
   bin:
     electron: cli.js
-  checksum: 10c0/57d84871498cfb732f200d257502f15704e2a755796018e9e607cd3003108b9765a79a795e520ccd78b34c8d7832e685045d7eaac920e4681e0fe1bec0f6163b
+  checksum: 10c0/edba09ecf953895c1afa9f5957d49f361a161f26ae88e12fd1ee99fff7d2233297e41499999db286304b86e0bf6d71905f26364bde94d37f84add63fbc6aeabf
   languageName: node
   linkType: hard
 
@@ -9013,6 +9022,13 @@ __metadata:
   version: 6.21.0
   resolution: "undici-types@npm:6.21.0"
   checksum: 10c0/c01ed51829b10aa72fc3ce64b747f8e74ae9b60eafa19a7b46ef624403508a54c526ffab06a14a26b3120d055e1104d7abe7c9017e83ced038ea5cf52f8d5e04
+  languageName: node
+  linkType: hard
+
+"undici-types@npm:~7.16.0":
+  version: 7.16.0
+  resolution: "undici-types@npm:7.16.0"
+  checksum: 10c0/3033e2f2b5c9f1504bdc5934646cb54e37ecaca0f9249c983f7b1fc2e87c6d18399ebb05dc7fd5419e02b2e915f734d872a65da2e3eeed1813951c427d33cc9a
   languageName: node
   linkType: hard
 
