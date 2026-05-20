@@ -49,6 +49,25 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
   const skipDeleteConfirm = useUIStore((s) => s.skipDeleteWorktreeConfirm)
   const setSkipDeleteConfirm = useUIStore((s) => s.setSkipDeleteWorktreeConfirm)
   const sessions = useSessionsForWorktree(worktree.id)
+  // Primitive selectors for big terminal agent status.
+  // Each returns a number or boolean so Object.is comparison is stable (no infinite loops).
+  const activeTerminalCount = useUIStore((s) => {
+    const tabs = s.bigTerminalsByWorktree[worktree.id]
+    if (!tabs) return 0
+    let n = 0
+    for (const t of tabs) { const e = s.bigTerminalStatusById[t.id]; if (e && e.state !== 'done') n++ }
+    return n
+  })
+  const hasWorkingAgent = useUIStore((s) => {
+    const tabs = s.bigTerminalsByWorktree[worktree.id]
+    if (!tabs) return false
+    return tabs.some(t => s.bigTerminalStatusById[t.id]?.state === 'working')
+  })
+  const hasWaitingAgent = useUIStore((s) => {
+    const tabs = s.bigTerminalsByWorktree[worktree.id]
+    if (!tabs) return false
+    return tabs.some(t => { const st = s.bigTerminalStatusById[t.id]?.state; return st === 'waiting' || st === 'blocked' })
+  })
   const { t } = useTranslation('sidebar')
 
   const clearNewlyAdded = useUIStore((s) => s.setNewlyAddedWorktreeId)
@@ -79,8 +98,8 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
   const { menu, showDeleteConfirm, dontAskAgain } = rowState
 
   let status: SessionStatus = 'inactive'
-  if (sessions.some((s) => s.status === 'running')) status = 'running'
-  else if (sessions.some((s) => s.status === 'waiting_input')) status = 'waiting_input'
+  if (sessions.some((s) => s.status === 'running') || hasWorkingAgent) status = 'running'
+  else if (sessions.some((s) => s.status === 'waiting_input') || hasWaitingAgent) status = 'waiting_input'
   else if (sessions.some((s) => s.status === 'error')) status = 'error'
   else if (sessions.some((s) => s.status === 'idle')) status = 'idle'
 
@@ -161,7 +180,7 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
           }
           position="right"
         >
-          <StatusDot status={status} count={sessions.length} />
+          <StatusDot status={status} count={sessions.length + activeTerminalCount} />
         </Tooltip>
         <div className="worktree-name-stack">
           <span className="worktree-branch-name">

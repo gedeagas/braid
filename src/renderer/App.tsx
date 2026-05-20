@@ -102,10 +102,12 @@ export default function App() {
     loadPersistedSessions()
       .then(() => {
         console.log('[Braid] Persisted sessions loaded')
-        // Set initial badge from any persisted sessions already in waiting_input
-        const count = Object.values(useSessionsStore.getState().sessions)
+        // Set initial badge from sessions + big terminal agents needing attention
+        const sessionCount = Object.values(useSessionsStore.getState().sessions)
           .filter(s => s.status === 'waiting_input').length
-        dock.setBadgeCount(count)
+        const terminalCount = Object.values(useUIStore.getState().bigTerminalStatusById)
+          .filter(e => e.state === 'waiting' || e.state === 'blocked').length
+        dock.setBadgeCount(sessionCount + terminalCount)
       })
       .catch((e) => console.error('[Braid] Failed to load sessions:', e))
 
@@ -131,13 +133,22 @@ export default function App() {
     const cleanup = initAgentEventListener()
     const cleanupUpdater = initUpdateListeners()
 
-    // Keep dock badge in sync with sessions needing attention
-    const unsubBadge = useSessionsStore.subscribe((state, prevState) => {
-      const count = Object.values(state.sessions).filter(s => s.status === 'waiting_input').length
-      const prevCount = Object.values(prevState.sessions).filter(s => s.status === 'waiting_input').length
-      if (count !== prevCount) {
-        dock.setBadgeCount(count)
-      }
+    // Keep dock badge in sync with sessions + big terminal agents needing attention
+    const computeBadge = () => {
+      const sessionCount = Object.values(useSessionsStore.getState().sessions)
+        .filter(s => s.status === 'waiting_input').length
+      const terminalCount = Object.values(useUIStore.getState().bigTerminalStatusById)
+        .filter(e => e.state === 'waiting' || e.state === 'blocked').length
+      return sessionCount + terminalCount
+    }
+    let lastBadge = computeBadge()
+    const unsubBadge = useSessionsStore.subscribe(() => {
+      const next = computeBadge()
+      if (next !== lastBadge) { lastBadge = next; dock.setBadgeCount(next) }
+    })
+    const unsubTerminalBadge = useUIStore.subscribe(() => {
+      const next = computeBadge()
+      if (next !== lastBadge) { lastBadge = next; dock.setBadgeCount(next) }
     })
 
     return () => {
@@ -145,6 +156,7 @@ export default function App() {
       unsubSettings()
       cleanupUpdater()
       unsubBadge()
+      unsubTerminalBadge()
     }
   }, [loadProjects, loadPersistedSessions])
 
