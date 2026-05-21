@@ -5,6 +5,23 @@ All notable changes to Braid are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [26.1.13] - 2026-05-21
+
+### Added
+
+- add xterm addons, search, auto-run commands, and layout fixes (#85)
+
+### Fixed
+
+- submit AskUserQuestion answers keyed by question text (#84)
+- adjust toolbar heights and panel resize constraints (#83)
+
+### Contributors
+
+Thanks to [@gedeagas](https://github.com/gedeagas), [@hanifnr](https://github.com/hanifnr) for their contributions to this release!
+
+---
+
 ## [26.1.12] - 2026-05-12
 
 ### Added
