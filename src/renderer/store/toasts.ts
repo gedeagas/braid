@@ -51,7 +51,7 @@ export const useToastsStore = create<ToastsState>((set) => ({
       // Prevent duplicate: key by terminalId+type for terminal toasts, sessionId+type otherwise
       const isDupe = data.terminalId
         ? s.toasts.some((t) => t.terminalId === data.terminalId && t.type === data.type)
-        : s.toasts.some((t) => t.sessionId === data.sessionId && t.type === data.type)
+        : s.toasts.some((t) => !t.terminalId && t.sessionId === data.sessionId && t.type === data.type)
       if (isDupe) return s
 
       // Play notification sound (outside state update to avoid side-effect issues)

@@ -35,6 +35,7 @@ const DEFAULT_UI_STATE = {
     'wt-2': [{ id: 'bt-2', label: 'Claude Code' }],
   },
   activeCenterViewByWorktree: {},
+  selectedWorktreeId: 'wt-1',
   notifyOnDone: true,
   notifyOnWaitingInput: true,
   inAppNotifications: true,
@@ -58,7 +59,7 @@ beforeEach(() => {
   clearTerminalNotificationState('bt-1')
   clearTerminalNotificationState('bt-2')
   // Restore default mock implementations
-  vi.mocked(useUIStore.getState).mockReturnValue(DEFAULT_UI_STATE as ReturnType<typeof useUIStore.getState>)
+  vi.mocked(useUIStore.getState).mockReturnValue(DEFAULT_UI_STATE as unknown as ReturnType<typeof useUIStore.getState>)
   vi.mocked(useProjectsStore.getState).mockReturnValue(DEFAULT_PROJECTS_STATE as ReturnType<typeof useProjectsStore.getState>)
 })
 
@@ -120,7 +121,7 @@ describe('notifyTerminalStateChange', () => {
     expect(mockAddToast).toHaveBeenCalledTimes(2)
   })
 
-  it('skips done toast when terminal is focused', () => {
+  it('skips done toast and desktop notification when terminal is focused', () => {
     vi.mocked(useUIStore.getState).mockReturnValue({
       bigTerminalsByWorktree: {
         'wt-1': [{ id: 'bt-1', label: 'Terminal 1' }],
@@ -128,13 +129,35 @@ describe('notifyTerminalStateChange', () => {
       activeCenterViewByWorktree: {
         'wt-1': { type: 'terminal', terminalId: 'bt-1' },
       },
+      selectedWorktreeId: 'wt-1',
       notifyOnDone: true,
       notifyOnWaitingInput: true,
       inAppNotifications: true,
-    } as ReturnType<typeof useUIStore.getState>)
+    } as unknown as ReturnType<typeof useUIStore.getState>)
 
     notifyTerminalStateChange('bt-1', 'done')
     expect(mockAddToast).not.toHaveBeenCalled()
+    expect(mockNotify).not.toHaveBeenCalled()
+  })
+
+  it('fires done notification when terminal view is active but different worktree is selected', () => {
+    vi.mocked(useUIStore.getState).mockReturnValue({
+      bigTerminalsByWorktree: {
+        'wt-1': [{ id: 'bt-1', label: 'Terminal 1' }],
+        'wt-2': [{ id: 'bt-2', label: 'Claude Code' }],
+      },
+      activeCenterViewByWorktree: {
+        'wt-1': { type: 'terminal', terminalId: 'bt-1' },
+      },
+      selectedWorktreeId: 'wt-2',
+      notifyOnDone: true,
+      notifyOnWaitingInput: true,
+      inAppNotifications: true,
+    } as unknown as ReturnType<typeof useUIStore.getState>)
+
+    notifyTerminalStateChange('bt-1', 'done')
+    expect(mockAddToast).toHaveBeenCalledOnce()
+    expect(mockNotify).toHaveBeenCalledOnce()
   })
 
   it('still fires waiting_input when terminal is focused', () => {
@@ -145,10 +168,11 @@ describe('notifyTerminalStateChange', () => {
       activeCenterViewByWorktree: {
         'wt-1': { type: 'terminal', terminalId: 'bt-1' },
       },
+      selectedWorktreeId: 'wt-1',
       notifyOnDone: true,
       notifyOnWaitingInput: true,
       inAppNotifications: true,
-    } as ReturnType<typeof useUIStore.getState>)
+    } as unknown as ReturnType<typeof useUIStore.getState>)
 
     notifyTerminalStateChange('bt-1', 'waiting')
     expect(mockAddToast).toHaveBeenCalledOnce()
@@ -160,10 +184,11 @@ describe('notifyTerminalStateChange', () => {
         'wt-1': [{ id: 'bt-1', label: 'Terminal 1' }],
       },
       activeCenterViewByWorktree: {},
+      selectedWorktreeId: 'wt-1',
       notifyOnDone: false,
       notifyOnWaitingInput: true,
       inAppNotifications: true,
-    } as ReturnType<typeof useUIStore.getState>)
+    } as unknown as ReturnType<typeof useUIStore.getState>)
 
     notifyTerminalStateChange('bt-1', 'done')
     expect(mockAddToast).not.toHaveBeenCalled()
@@ -175,10 +200,11 @@ describe('notifyTerminalStateChange', () => {
         'wt-1': [{ id: 'bt-1', label: 'Terminal 1' }],
       },
       activeCenterViewByWorktree: {},
+      selectedWorktreeId: 'wt-1',
       notifyOnDone: true,
       notifyOnWaitingInput: true,
       inAppNotifications: false,
-    } as ReturnType<typeof useUIStore.getState>)
+    } as unknown as ReturnType<typeof useUIStore.getState>)
 
     notifyTerminalStateChange('bt-1', 'done')
     expect(mockAddToast).not.toHaveBeenCalled()

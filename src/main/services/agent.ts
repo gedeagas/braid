@@ -275,6 +275,11 @@ class AgentCoordinator {
       }
     }
     this.maybeNotify(sessionId, type, errorMessage, reason)
+
+    // Clean up ephemeral meta to avoid polluting uniqueProjects count
+    if (!this.sessionProcesses.has(sessionId)) {
+      this.sessionMeta.delete(sessionId)
+    }
   }
 
   answerToolInput(sessionId: string, result: Record<string, unknown>): void {

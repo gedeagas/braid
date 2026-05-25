@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import type { AgentStatusState } from '@/lib/agentStatus'
+import type { CenterView } from '@/store/ui/layout'
 import { useUIStore } from '@/store/ui'
 import { useProjectsStore } from '@/store/projects'
 import { useToastsStore } from '@/store/toasts'
@@ -12,15 +13,17 @@ import * as ipc from '@/lib/ipc'
 const lastNotifiedState = new Map<string, AgentStatusState>()
 
 /** Find which worktree owns a given terminalId and return context for notifications. */
-function resolveTerminalContext(terminalId: string): {
+function resolveTerminalContext(
+  terminalId: string,
+  bigTerminalsByWorktree: Record<string, { id: string; label: string }[]>
+): {
   worktreeId: string
   branch: string
   projectId: string
   projectName: string
   label: string
 } | null {
-  const ui = useUIStore.getState()
-  for (const [worktreeId, tabs] of Object.entries(ui.bigTerminalsByWorktree)) {
+  for (const [worktreeId, tabs] of Object.entries(bigTerminalsByWorktree)) {
     const tab = tabs.find((t) => t.id === terminalId)
     if (!tab) continue
     const project = useProjectsStore.getState().projects.find((p) =>
@@ -40,10 +43,16 @@ function resolveTerminalContext(terminalId: string): {
 }
 
 /** Check if the user is currently viewing this terminal in the center panel. */
-function isTerminalFocused(terminalId: string, worktreeId: string): boolean {
-  const view = useUIStore.getState().activeCenterViewByWorktree[worktreeId]
+function isTerminalFocused(
+  terminalId: string,
+  worktreeId: string,
+  selectedWorktreeId: string | null,
+  activeCenterViewByWorktree: Record<string, CenterView | null>
+): boolean {
+  if (selectedWorktreeId !== worktreeId) return false
+  const view = activeCenterViewByWorktree[worktreeId]
   if (!view || view.type !== 'terminal') return false
-  return (view as { type: 'terminal'; terminalId: string }).terminalId === terminalId
+  return view.terminalId === terminalId
 }
 
 /**
@@ -56,25 +65,27 @@ export function notifyTerminalStateChange(terminalId: string, state: AgentStatus
   if (lastNotifiedState.get(terminalId) === state) return
   lastNotifiedState.set(terminalId, state)
 
-  // Only notify for actionable states
-  const type: 'done' | 'waiting_input' | null =
+  // Only notify for actionable states (done, error, waiting/blocked)
+  const type: 'done' | 'error' | 'waiting_input' | null =
     state === 'done' ? 'done'
     : (state === 'waiting' || state === 'blocked') ? 'waiting_input'
     : null
   if (!type) return
 
-  // Check user preferences
+  // Read UI state once and thread it through
   const ui = useUIStore.getState()
   if (type === 'done' && !ui.notifyOnDone) return
   if (type === 'waiting_input' && !ui.notifyOnWaitingInput) return
 
-  const ctx = resolveTerminalContext(terminalId)
+  const ctx = resolveTerminalContext(terminalId, ui.bigTerminalsByWorktree)
   if (!ctx) return
 
   // Skip if user is actively viewing this terminal (except for waiting_input)
-  if (type !== 'waiting_input' && isTerminalFocused(terminalId, ctx.worktreeId)) return
+  if (type !== 'waiting_input' && isTerminalFocused(
+    terminalId, ctx.worktreeId,
+    ui.selectedWorktreeId ?? null, ui.activeCenterViewByWorktree
+  )) return
 
-  // Skip in-app toast if disabled
   if (ui.inAppNotifications) {
     const projectCount = useProjectsStore.getState().projects.length
     useToastsStore.getState().addToast({

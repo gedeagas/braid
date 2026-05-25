@@ -98,7 +98,7 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
   const { term, fitAddon, searchAddon } = createTerminal()
 
   // Completion coordinator fires when an agent finishes a task.
-  // Currently logs - can be wired to toast notifications or dock badge later.
+  // Toast + desktop notifications are handled by notifyTerminalStateChange.
   const completionCoordinator = createCompletionCoordinator({
     onComplete: (source, interrupted) => {
       console.debug(`[terminal:${terminalId}] Agent completed (source=${source}, interrupted=${interrupted})`)
