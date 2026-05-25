@@ -41,6 +41,8 @@ export const SK = {
   openFilePathsPrefix:        `${prefix}:openFilePaths:`,
   /** Prefix — unified tab order (sessions + files interleaved), keyed by worktree ID */
   tabOrderPrefix:             `${prefix}:tabOrder:`,
+  /** Prefix — active center view (session/file/terminal/changes), keyed by worktree ID */
+  activeCenterViewPrefix:     `${prefix}:activeCenterView:`,
 
   // ── Settings — AI ──────────────────────────────────────────────────────
   defaultModel:               `${prefix}:defaultModel`,
