@@ -86,8 +86,8 @@ const api = {
       ipcRenderer.invoke('agent:sendMessage', sessionId, message, sdkSessionId, cwd, model, extendedContext, effortLevel, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework, resumeSessionAt),
     updateSessionName: (sessionId: string, name: string) =>
       ipcRenderer.invoke('agent:updateSessionName', sessionId, name),
-    notify: (sessionId: string, type: 'done' | 'error' | 'waiting_input', sessionName?: string, errorMessage?: string, reason?: 'question' | 'plan_approval') =>
-      ipcRenderer.invoke('agent:notify', sessionId, type, sessionName, errorMessage, reason),
+    notify: (sessionId: string, type: 'done' | 'error' | 'waiting_input', sessionName?: string, errorMessage?: string, reason?: 'question' | 'plan_approval', branch?: string, projectName?: string) =>
+      ipcRenderer.invoke('agent:notify', sessionId, type, sessionName, errorMessage, reason, branch, projectName),
     getSlashCommands: (cwd: string) =>
       ipcRenderer.invoke('agent:getSlashCommands', cwd),
     answerToolInput: (sessionId: string, result: Record<string, unknown>) =>

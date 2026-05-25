@@ -20,6 +20,10 @@ export interface Toast {
   projectId: string
   /** Non-empty only when 2+ projects are open (avoids noise for single-project users) */
   projectName: string
+  /** Present when toast is for a big terminal (not a chat session) */
+  terminalId?: string
+  /** Display label for the terminal, e.g. "Terminal 1", "Claude Code" */
+  terminalLabel?: string
   createdAt: number
 }
 
@@ -29,6 +33,7 @@ interface ToastsState {
   dismissToast: (id: string) => void
   dismissByType: (type: Toast['type']) => void
   dismissBySession: (sessionId: string) => void
+  dismissByTerminal: (terminalId: string) => void
 }
 
 let counter = 0
@@ -43,10 +48,11 @@ export const useToastsStore = create<ToastsState>((set) => ({
     const toast: Toast = { ...data, id, createdAt: Date.now() }
 
     set((s) => {
-      // Prevent duplicate: same session + same type already exists
-      if (s.toasts.some((t) => t.sessionId === data.sessionId && t.type === data.type)) {
-        return s
-      }
+      // Prevent duplicate: key by terminalId+type for terminal toasts, sessionId+type otherwise
+      const isDupe = data.terminalId
+        ? s.toasts.some((t) => t.terminalId === data.terminalId && t.type === data.type)
+        : s.toasts.some((t) => !t.terminalId && t.sessionId === data.sessionId && t.type === data.type)
+      if (isDupe) return s
 
       // Play notification sound (outside state update to avoid side-effect issues)
       if (useUIStore.getState().notificationSound) {
@@ -77,5 +83,9 @@ export const useToastsStore = create<ToastsState>((set) => ({
 
   dismissBySession: (sessionId) => {
     set((s) => ({ toasts: s.toasts.filter((t) => t.sessionId !== sessionId) }))
+  },
+
+  dismissByTerminal: (terminalId) => {
+    set((s) => ({ toasts: s.toasts.filter((t) => t.terminalId !== terminalId) }))
   }
 }))
