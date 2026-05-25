@@ -192,8 +192,8 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   })(),
 
   lastNewTabAction: (() => {
-    const v = loadStr(SK.lastNewTabAction, 'chat')
-    return VALID_NEW_TAB_ACTIONS.has(v) ? v as NewTabAction : 'chat'
+    const v = loadStr(SK.lastNewTabAction, 'claudeCode')
+    return VALID_NEW_TAB_ACTIONS.has(v) ? v as NewTabAction : 'claudeCode'
   })(),
   streamingAnimation: loadBool(SK.streamingAnimation, true),
 
