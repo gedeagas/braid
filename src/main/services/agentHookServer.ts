@@ -13,7 +13,13 @@
 
 import http from 'http'
 import { randomUUID } from 'crypto'
+import { mkdirSync, writeFileSync, unlinkSync } from 'fs'
+import { join } from 'path'
+import { homedir } from 'os'
 import { BrowserWindow } from 'electron'
+
+/** Well-known config file path. Hook scripts read this to get the current port/token. */
+const HOOK_CONFIG_PATH = join(homedir(), '.braid', 'hooks', 'hook-server.json')
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -126,6 +132,10 @@ export async function startAgentHookServer(): Promise<{ port: number; token: str
       if (typeof addr === 'object' && addr) {
         serverPort = addr.port
         server = srv
+        // Write port/token to a well-known config file so hook scripts in
+        // surviving daemon PTY sessions can discover the new server after
+        // Electron restarts (env vars in those sessions are stale).
+        writeHookConfig(serverPort, serverToken)
         console.log(`[agentHookServer] Listening on 127.0.0.1:${serverPort}`)
         resolve({ port: serverPort, token: serverToken })
       } else {
@@ -142,7 +152,24 @@ export function stopAgentHookServer(): void {
     server = null
     serverPort = 0
     serverToken = ''
+    removeHookConfig()
   }
+}
+
+/** Write port/token to a well-known file so hook scripts can read the current values. */
+function writeHookConfig(port: number, token: string): void {
+  try {
+    const dir = join(homedir(), '.braid', 'hooks')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(HOOK_CONFIG_PATH, JSON.stringify({ port, token }), { mode: 0o600 })
+  } catch {
+    // Non-fatal - hooks may fail for surviving daemon sessions but fresh spawns still work via env vars
+  }
+}
+
+/** Remove the hook config file on server stop. */
+function removeHookConfig(): void {
+  try { unlinkSync(HOOK_CONFIG_PATH) } catch { /* may not exist */ }
 }
 
 /** Get the current server port (0 if not started). */

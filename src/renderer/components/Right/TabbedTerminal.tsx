@@ -189,8 +189,25 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
   }, [])
 
   const spawnTab = useCallback(async (tab: TermTab) => {
+    // Attempt warm reattach to daemon session first
     try {
-      const id = await ipc.pty.spawn(worktreePathRef.current)
+      const result = await ipc.pty.reattach(tab.id)
+      if (result && result.snapshot) {
+        tab.ptyId = result.sessionId
+        tab.term.write(result.snapshot)
+        tab.term.write('\r\n\x1b[2m[session reconnected]\x1b[0m\r\n')
+        tab.term.onData((data: string) => ipc.pty.write(result.sessionId, data))
+        requestAnimationFrame(() => {
+          try { tab.fitAddon.fit(); ipc.pty.resize(result.sessionId, tab.term.cols, tab.term.rows) } catch { /* ignore */ }
+        })
+        return
+      }
+    } catch {
+      // Reattach not available - fall through to fresh spawn
+    }
+
+    try {
+      const id = await ipc.pty.spawn(worktreePathRef.current, { BRAID_TERMINAL_ID: tab.id })
       tab.ptyId = id
       tab.term.onData((data: string) => ipc.pty.write(id, data))
       requestAnimationFrame(() => {

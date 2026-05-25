@@ -175,6 +175,18 @@ export function registerIpcHandlers(): void {
     ptyService.registerBigTerminal(ptyId, terminalId))
   ipcMain.handle('pty:readScrollback', (_e, terminalId: string) => ptyService.readScrollback(terminalId))
   ipcMain.on('pty:deleteScrollback', (_e, terminalId: string) => ptyService.deleteScrollback(terminalId))
+  ipcMain.handle('pty:reattach', (_e, sessionId: string) => {
+    if ('reattach' in ptyService && typeof ptyService.reattach === 'function') {
+      return ptyService.reattach(sessionId)
+    }
+    return null
+  })
+  ipcMain.handle('pty:listSessions', () => {
+    if ('listSessions' in ptyService && typeof ptyService.listSessions === 'function') {
+      return ptyService.listSessions()
+    }
+    return []
+  })
 
   // GitHub
   ipcMain.handle('github:getPrStatus', (_e, worktreePath: string, forceRefresh?: boolean) =>

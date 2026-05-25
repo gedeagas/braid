@@ -87,12 +87,12 @@ export interface IPtyService {
   dumpAllScrollbacks(): void
 }
 
-// ── Service ──────────────────────────────────────────────────────────────────
+// ── Legacy in-process service ────────────────────────────────────────────────
 
 class PtyService implements IPtyService {
   private instances = new Map<string, PtyInstance>()
   private counter = 0
-  /** Mapping ptyId → terminalId for big terminal PTYs (for scrollback persistence). */
+  /** Mapping ptyId -> terminalId for big terminal PTYs (for scrollback persistence). */
   private bigTerminalByPty = new Map<string, string>()
 
   private getWindow(): BrowserWindow | null {
@@ -251,7 +251,7 @@ class PtyService implements IPtyService {
     try {
       unlinkSync(scrollbackPath(terminalId))
     } catch {
-      // File may not exist — ignore
+      // File may not exist - ignore
     }
   }
 
@@ -307,9 +307,33 @@ class PtyService implements IPtyService {
   }
 }
 
-export const ptyService = new PtyService()
+// ── Service creation with daemon fallback ────────────────────────────────────
+
+import { PtyDaemonAdapter } from './ptyDaemon'
+
+/**
+ * Create the PTY service. Uses PtyDaemonAdapter by default, which spawns
+ * a standalone daemon process so terminals survive app restarts.
+ * Falls back to in-process PtyService if the daemon fails to initialize.
+ */
+function createPtyService(): IPtyService & { reattach?: (sessionId: string) => Promise<import('./ptyDaemon').ReattachResult | null>; listSessions?: () => Promise<import('./ptyDaemon').SessionInfo[]>; disconnectFromDaemon?: () => void; ensureDaemon?: () => Promise<void> } {
+  try {
+    const adapter = new PtyDaemonAdapter()
+    console.log('[pty] Using daemon adapter')
+    return adapter
+  } catch (err) {
+    console.warn('[pty] Failed to create daemon adapter, falling back to in-process:', err)
+    return new PtyService()
+  }
+}
+
+export const ptyService = createPtyService()
 
 // Flush all big-terminal scrollbacks on graceful app quit so next launch can replay.
 app.on('before-quit', () => {
   ptyService.dumpAllScrollbacks()
+  // Disconnect from daemon (don't kill it - it should outlive us)
+  if ('disconnectFromDaemon' in ptyService && typeof ptyService.disconnectFromDaemon === 'function') {
+    ptyService.disconnectFromDaemon()
+  }
 })

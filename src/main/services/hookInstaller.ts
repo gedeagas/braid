@@ -16,7 +16,7 @@ import type { ClaudeHookConfig } from './claudeConfig'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const HOOK_VERSION = 3
+const HOOK_VERSION = 4
 const HOOK_DIR = join(homedir(), '.braid', 'hooks')
 const HOOK_PATH = join(HOOK_DIR, 'agent-status.sh')
 const HOOK_COMMAND = '~/.braid/hooks/agent-status.sh'
@@ -43,6 +43,16 @@ const HOOK_SCRIPT = `#!/bin/bash
 # Braid agent status hook - POSTs status to Braid's loopback HTTP server.
 # Managed by Braid. Do not edit - changes will be overwritten on next launch.
 # BRAID_HOOK_VERSION=${HOOK_VERSION}
+
+# Resolve hook server port and token.
+# Prefer the config file (survives Electron restart for daemon PTY sessions)
+# over env vars (which become stale after restart).
+HOOK_CONFIG=~/.braid/hooks/hook-server.json
+if [ -f "$HOOK_CONFIG" ]; then
+  cfg=$(cat "$HOOK_CONFIG" 2>/dev/null)
+  [[ "$cfg" =~ \\"port\\"[[:space:]]*:[[:space:]]*([0-9]+) ]] && BRAID_HOOK_PORT="\${BASH_REMATCH[1]}"
+  [[ "$cfg" =~ \\"token\\"[[:space:]]*:[[:space:]]*\\"([^\\"]+)\\" ]] && BRAID_HOOK_TOKEN="\${BASH_REMATCH[1]}"
+fi
 
 # Guard: only run inside Braid big terminals
 [ -z "$BRAID_HOOK_PORT" ] && exit 0

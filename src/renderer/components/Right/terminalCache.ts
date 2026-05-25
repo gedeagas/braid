@@ -8,6 +8,7 @@ import { LigaturesAddon } from '@xterm/addon-ligatures'
 import * as ipc from '@/lib/ipc'
 import { getTerminalTheme } from '@/themes/terminal'
 import { useUIStore } from '@/store/ui'
+import { SK } from '@/lib/storageKeys'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -42,7 +43,7 @@ export const terminalCache = new Map<string, CachedTerminals>()
 let _tabCounter = 0
 export function nextTabId(): string {
   _tabCounter++
-  return `tab-${_tabCounter}`
+  return `rt-${Date.now()}-${_tabCounter}`
 }
 
 
@@ -151,6 +152,39 @@ export function activateWebgl(term: Terminal, onContextLoss?: () => void): Webgl
 export function disposeWebgl(addon: WebglAddon | null): void {
   if (!addon) return
   try { addon.dispose() } catch { /* ignore */ }
+}
+
+// ── Right-panel tab ID persistence (for daemon reattach across reloads) ──────
+
+interface PersistedTabInfo {
+  id: string
+  label: string
+}
+
+/** Save right-panel tab metadata for a worktree to localStorage. */
+export function saveRightTerminalTabs(worktreePath: string, tabs: TermTab[]): void {
+  try {
+    const data: PersistedTabInfo[] = tabs
+      .filter((t) => t.id !== SETUP_TAB_ID && t.id !== RUN_TAB_ID)
+      .map((t) => ({ id: t.id, label: t.label }))
+    localStorage.setItem(SK.rightTerminalTabsPrefix + worktreePath, JSON.stringify(data))
+  } catch { /* ignore */ }
+}
+
+/** Load persisted right-panel tab metadata for a worktree. */
+export function loadRightTerminalTabs(worktreePath: string): PersistedTabInfo[] {
+  try {
+    const raw = localStorage.getItem(SK.rightTerminalTabsPrefix + worktreePath)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .filter((x): x is { id: unknown; label: unknown } =>
+        typeof x === 'object' && x !== null && 'id' in x && 'label' in x)
+      .map((x) => ({ id: String(x.id), label: String(x.label) }))
+  } catch {
+    return []
+  }
 }
 
 /** Re-theme all cached terminals when the app theme changes */
