@@ -6,7 +6,7 @@
  * IPC protocol (pty:spawn, pty:write, pty:data, etc.).
  */
 import { BrowserWindow, app } from 'electron'
-import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'fs'
+import { existsSync, lstatSync, accessSync, constants as fsConstants, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
 import { fork, execFileSync } from 'child_process'
@@ -14,7 +14,7 @@ import { mainSettings } from '../../ipc'
 import { getHookServerPort, getHookServerToken } from '../agentHookServer'
 import { DaemonClient } from './client'
 import { isDaemonRunning, removeSocketFile } from './lifecycle'
-import { SOCKET_PATH, BUFFER_MAX_LENGTH } from './protocol'
+import { SOCKET_PATH } from './protocol'
 import { RingBuffer } from './sessionHost'
 import type { IPtyService, TerminalOutput } from '../pty'
 import type { ReattachResult, SessionInfo } from './types'
@@ -36,12 +36,11 @@ function scrollbackPath(terminalId: string): string {
 
 function isExecutable(path: string): boolean {
   try {
-    const { lstatSync, accessSync, constants } = require('fs')
     const stat = lstatSync(path)
     if (stat.isSymbolicLink()) {
       if (!existsSync(path)) return false
     }
-    accessSync(path, constants.X_OK)
+    accessSync(path, fsConstants.X_OK)
     return true
   } catch {
     return false
@@ -70,6 +69,8 @@ export class PtyDaemonAdapter implements IPtyService {
   private bigTerminalBySession = new Map<string, string>()
   /** Local RingBuffer mirror per session - keeps readTerminalOutput() working synchronously. */
   private buffers = new Map<string, RingBuffer>()
+  /** Serializes concurrent ensureDaemon() calls to prevent spawning duplicate daemons. */
+  private pendingEnsure: Promise<void> | null = null
 
   constructor() {
     this.client = new DaemonClient()
@@ -110,6 +111,18 @@ export class PtyDaemonAdapter implements IPtyService {
 
   /** Ensure the daemon is running and the client is connected. */
   async ensureDaemon(): Promise<void> {
+    if (this.client.connected) return
+
+    // Serialize concurrent calls so we don't spawn duplicate daemons
+    if (this.pendingEnsure) return this.pendingEnsure
+
+    this.pendingEnsure = this.doEnsureDaemon().finally(() => {
+      this.pendingEnsure = null
+    })
+    return this.pendingEnsure
+  }
+
+  private async doEnsureDaemon(): Promise<void> {
     if (this.client.connected) return
 
     const pid = isDaemonRunning()
@@ -334,6 +347,16 @@ export class PtyDaemonAdapter implements IPtyService {
       const buffer = new RingBuffer()
       buffer.push(result.snapshot)
       this.buffers.set(sessionId, buffer)
+      // Populate cwdBySession from the daemon's session list if we don't have it
+      if (!this.cwdBySession.has(sessionId)) {
+        try {
+          const sessions = await this.client.list()
+          const info = sessions.find((s) => s.sessionId === sessionId)
+          if (info) this.cwdBySession.set(sessionId, info.cwd)
+        } catch {
+          // Non-fatal - readTerminalOutput() just won't match this session
+        }
+      }
       return { sessionId, snapshot: result.snapshot }
     } catch {
       return null
