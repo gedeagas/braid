@@ -80,13 +80,14 @@ export function notifyTerminalStateChange(terminalId: string, state: AgentStatus
   const ctx = resolveTerminalContext(terminalId, ui.bigTerminalsByWorktree)
   if (!ctx) return
 
-  // Skip if user is actively viewing this terminal (except for waiting_input)
-  if (type !== 'waiting_input' && isTerminalFocused(
+  // Focus check only suppresses the in-app toast, not the desktop notification.
+  // The desktop path (maybeNotify) has its own window-focus check.
+  const focused = type !== 'waiting_input' && isTerminalFocused(
     terminalId, ctx.worktreeId,
     ui.selectedWorktreeId ?? null, ui.activeCenterViewByWorktree
-  )) return
+  )
 
-  if (ui.inAppNotifications) {
+  if (ui.inAppNotifications && !focused) {
     const projectCount = useProjectsStore.getState().projects.length
     useToastsStore.getState().addToast({
       type,

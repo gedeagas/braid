@@ -217,7 +217,16 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
     return []
   })(),
   dirtyFilePaths: new Set(),
-  activeCenterViewByWorktree: {},
+  activeCenterViewByWorktree: (() => {
+    try {
+      const wtId = loadStr(SK.selectedWorktreeId, '')
+      if (wtId) {
+        const raw = localStorage.getItem(SK.activeCenterViewPrefix + wtId)
+        if (raw) return { [wtId]: JSON.parse(raw) as CenterView }
+      }
+    } catch {}
+    return {}
+  })(),
   skipDeleteWorktreeConfirm: localStorage.getItem(SK.skipDeleteWorktreeConfirm) === 'true',
   newlyAddedWorktreeId: null,
   projectAvatarVisible: loadBool(SK.projectAvatarVisible, true),

@@ -121,7 +121,7 @@ describe('notifyTerminalStateChange', () => {
     expect(mockAddToast).toHaveBeenCalledTimes(2)
   })
 
-  it('skips done toast and desktop notification when terminal is focused', () => {
+  it('skips done toast but still fires desktop notification when terminal is focused', () => {
     vi.mocked(useUIStore.getState).mockReturnValue({
       bigTerminalsByWorktree: {
         'wt-1': [{ id: 'bt-1', label: 'Terminal 1' }],
@@ -137,7 +137,8 @@ describe('notifyTerminalStateChange', () => {
 
     notifyTerminalStateChange('bt-1', 'done')
     expect(mockAddToast).not.toHaveBeenCalled()
-    expect(mockNotify).not.toHaveBeenCalled()
+    // Desktop notification still fires - maybeNotify has its own window-focus check
+    expect(mockNotify).toHaveBeenCalledOnce()
   })
 
   it('fires done notification when terminal view is active but different worktree is selected', () => {
