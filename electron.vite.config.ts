@@ -10,7 +10,8 @@ export default defineConfig({
         external: ['node-pty'],
         input: {
           index: resolve('src/main/index.ts'),
-          agentProcess: resolve('src/main/services/agentProcess.ts')
+          agentProcess: resolve('src/main/services/agentProcess.ts'),
+          daemonMain: resolve('src/main/services/ptyDaemon/daemonMain.ts')
         },
         output: {
           entryFileNames: '[name].js'

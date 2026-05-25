@@ -29,6 +29,7 @@ import { initAutoUpdater, stopAutoUpdater } from './services/autoUpdate'
 import { waitForEnrichedEnv } from './lib/enrichedEnv'
 import { ensureBraidHooks } from './services/hookInstaller'
 import { startAgentHookServer, stopAgentHookServer } from './services/agentHookServer'
+import { ptyService } from './services/pty'
 
 // Prevent EPIPE errors from crashing the process when stdout/stderr pipes break
 // (common in Electron when the renderer detaches or during hot-reload).
@@ -184,6 +185,13 @@ app.whenReady().then(async () => {
   })
 
   registerIpcHandlers()
+
+  // Ensure the PTY daemon is running (non-blocking)
+  if ('ensureDaemon' in ptyService && typeof ptyService.ensureDaemon === 'function') {
+    ptyService.ensureDaemon().catch((err: unknown) =>
+      console.warn('[pty-daemon] Failed to start daemon:', err)
+    )
+  }
 
   // Start the agent hook HTTP server, then install Claude Code hooks.
   // The server must be running before hooks are installed so the port is known.

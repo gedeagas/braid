@@ -1,0 +1,352 @@
+/**
+ * PtyDaemonAdapter - implements IPtyService by proxying to the daemon.
+ *
+ * This replaces the in-process PtyService when the daemon is available.
+ * The renderer is completely unaware of the daemon - it uses the same
+ * IPC protocol (pty:spawn, pty:write, pty:data, etc.).
+ */
+import { BrowserWindow, app } from 'electron'
+import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'fs'
+import { homedir } from 'os'
+import { join } from 'path'
+import { fork, execFileSync } from 'child_process'
+import { mainSettings } from '../../ipc'
+import { getHookServerPort, getHookServerToken } from '../agentHookServer'
+import { DaemonClient } from './client'
+import { isDaemonRunning, removeSocketFile } from './lifecycle'
+import { SOCKET_PATH, BUFFER_MAX_LENGTH } from './protocol'
+import { RingBuffer } from './sessionHost'
+import type { IPtyService, TerminalOutput } from '../pty'
+import type { ReattachResult, SessionInfo } from './types'
+
+// ── Scrollback helpers (same as PtyService) ──────────────────────────────────
+
+function scrollbackDir(): string {
+  return join(homedir(), 'Braid', 'bigTerminals')
+}
+
+function scrollbackPath(terminalId: string): string {
+  if (!/^bt-\d+-\d+$/.test(terminalId)) {
+    throw new Error(`Invalid terminal id: ${terminalId}`)
+  }
+  return join(scrollbackDir(), `${terminalId}.scrollback`)
+}
+
+// ── Shell resolution (same as PtyService) ────────────────────────────────────
+
+function isExecutable(path: string): boolean {
+  try {
+    const { lstatSync, accessSync, constants } = require('fs')
+    const stat = lstatSync(path)
+    if (stat.isSymbolicLink()) {
+      if (!existsSync(path)) return false
+    }
+    accessSync(path, constants.X_OK)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function resolveShell(): string {
+  const configured = mainSettings.terminalShell
+  if (configured && isExecutable(configured)) return configured
+  if (process.env.SHELL && isExecutable(process.env.SHELL)) return process.env.SHELL
+  try {
+    const result = execFileSync('dscl', ['.', '-read', `/Users/${process.env.USER ?? 'root'}`, 'UserShell'], { encoding: 'utf8', timeout: 2000 })
+    const match = result.match(/UserShell:\s*(\S+)/)
+    if (match && isExecutable(match[1])) return match[1]
+  } catch { /* ignore */ }
+  return '/bin/zsh'
+}
+
+// ── Adapter ──────────────────────────────────────────────────────────────────
+
+export class PtyDaemonAdapter implements IPtyService {
+  private client: DaemonClient
+  /** Mapping daemon sessionId to the cwd it was spawned with. */
+  private cwdBySession = new Map<string, string>()
+  /** Mapping daemon sessionId to big-terminal id (for scrollback). */
+  private bigTerminalBySession = new Map<string, string>()
+  /** Local RingBuffer mirror per session - keeps readTerminalOutput() working synchronously. */
+  private buffers = new Map<string, RingBuffer>()
+
+  constructor() {
+    this.client = new DaemonClient()
+
+    // Forward daemon data/exit events to the renderer via IPC,
+    // and mirror output into local RingBuffers for readTerminalOutput().
+    this.client.on('data', (sessionId, data) => {
+      this.buffers.get(sessionId)?.push(data)
+      const win = this.getWindow()
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('pty:data', sessionId, data)
+      }
+    })
+
+    this.client.on('exit', (sessionId, exitCode) => {
+      // Persist scrollback for big terminals before cleaning up (matches legacy behavior)
+      const terminalId = this.bigTerminalBySession.get(sessionId)
+      const buffer = this.buffers.get(sessionId)
+      if (terminalId && buffer) {
+        this.writeScrollbackFile(terminalId, buffer.read())
+      }
+      this.cwdBySession.delete(sessionId)
+      this.bigTerminalBySession.delete(sessionId)
+      this.buffers.delete(sessionId)
+      const win = this.getWindow()
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('pty:exit', sessionId, exitCode)
+      }
+    })
+  }
+
+  private getWindow(): BrowserWindow | null {
+    const windows = BrowserWindow.getAllWindows()
+    return windows[0] ?? null
+  }
+
+  // ── Daemon lifecycle ───────────────────────────────────────────────────
+
+  /** Ensure the daemon is running and the client is connected. */
+  async ensureDaemon(): Promise<void> {
+    if (this.client.connected) return
+
+    const pid = isDaemonRunning()
+    if (!pid) {
+      await this.spawnDaemon()
+    }
+
+    try {
+      await this.client.connect()
+    } catch {
+      // Socket may be stale, try spawning a fresh daemon
+      removeSocketFile()
+      await this.spawnDaemon()
+      await this.client.connect()
+    }
+  }
+
+  private async spawnDaemon(): Promise<void> {
+    // Find the daemon entry point - adjacent to this file in the build output
+    const daemonPath = join(__dirname, 'daemonMain.js')
+
+    const child = fork(daemonPath, [], {
+      detached: true,
+      stdio: 'ignore',
+      env: {
+        ...process.env,
+        // Pass through the shell so the daemon uses the same shell
+        SHELL: resolveShell(),
+      },
+    })
+    child.unref()
+
+    // Wait for the socket to appear (daemon needs a moment to start)
+    await this.waitForSocket(5_000)
+  }
+
+  private waitForSocket(timeoutMs: number): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const start = Date.now()
+      const check = (): void => {
+        if (existsSync(SOCKET_PATH)) {
+          resolve()
+          return
+        }
+        if (Date.now() - start > timeoutMs) {
+          reject(new Error('Timed out waiting for daemon socket'))
+          return
+        }
+        setTimeout(check, 100)
+      }
+      check()
+    })
+  }
+
+  /** Disconnect from the daemon (don't kill it). Called on app quit. */
+  disconnectFromDaemon(): void {
+    this.client.disconnect()
+  }
+
+  // ── IPtyService implementation ─────────────────────────────────────────
+
+  async spawn(cwd: string, envOverrides?: Record<string, string>): Promise<string> {
+    await this.ensureDaemon()
+
+    const shell = resolveShell()
+    const safeCwd = existsSync(cwd) ? cwd : homedir()
+
+    // Generate a session ID that matches the format the renderer expects
+    const sessionId = `pty-d-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
+    const hookPort = getHookServerPort()
+    const hookToken = getHookServerToken()
+    const env: Record<string, string> = {
+      TERM: 'xterm-256color',
+      BRAID_TERMINAL: '1',
+      ...(hookPort > 0 ? { BRAID_HOOK_PORT: String(hookPort), BRAID_HOOK_TOKEN: hookToken } : {}),
+      ...envOverrides,
+    }
+
+    await this.client.spawn(sessionId, safeCwd, 80, 24, shell, env)
+    this.cwdBySession.set(sessionId, safeCwd)
+    this.buffers.set(sessionId, new RingBuffer())
+    return sessionId
+  }
+
+  write(id: string, data: string): void {
+    this.client.write(id, data)
+  }
+
+  resize(id: string, cols: number, rows: number): void {
+    this.client.resize(id, cols, rows)
+  }
+
+  kill(id: string): void {
+    // Persist scrollback for big terminals before killing (onExit may not fire reliably)
+    const terminalId = this.bigTerminalBySession.get(id)
+    const buffer = this.buffers.get(id)
+    if (terminalId && buffer) {
+      this.writeScrollbackFile(terminalId, buffer.read())
+    }
+    this.client.kill(id).catch(() => {
+      // Session may already be dead
+    })
+    this.cwdBySession.delete(id)
+    this.bigTerminalBySession.delete(id)
+    this.buffers.delete(id)
+  }
+
+  killAll(): void {
+    // Persist scrollback for all big terminals before killing
+    for (const [sessionId, terminalId] of this.bigTerminalBySession) {
+      const buffer = this.buffers.get(sessionId)
+      if (buffer) this.writeScrollbackFile(terminalId, buffer.read())
+    }
+    for (const sessionId of this.cwdBySession.keys()) {
+      this.client.kill(sessionId).catch(() => {})
+    }
+    this.cwdBySession.clear()
+    this.bigTerminalBySession.clear()
+    this.buffers.clear()
+  }
+
+  readTerminalOutput(worktreePath: string): TerminalOutput[] {
+    const results: TerminalOutput[] = []
+    for (const [sessionId, cwd] of this.cwdBySession) {
+      if (cwd === worktreePath) {
+        const buffer = this.buffers.get(sessionId)
+        results.push({ ptyId: sessionId, output: buffer?.read() ?? '' })
+      }
+    }
+    return results
+  }
+
+  // ── Big Terminal scrollback persistence ────────────────────────────────
+
+  registerBigTerminal(ptyId: string, terminalId: string): void {
+    this.bigTerminalBySession.set(ptyId, terminalId)
+  }
+
+  readScrollback(terminalId: string): string {
+    try {
+      return readFileSync(scrollbackPath(terminalId), { encoding: 'utf8' })
+    } catch {
+      return ''
+    }
+  }
+
+  deleteScrollback(terminalId: string): void {
+    try {
+      unlinkSync(scrollbackPath(terminalId))
+    } catch {
+      // File may not exist
+    }
+  }
+
+  dumpAllScrollbacks(): void {
+    for (const [sessionId, terminalId] of this.bigTerminalBySession) {
+      const buffer = this.buffers.get(sessionId)
+      if (buffer) this.writeScrollbackFile(terminalId, buffer.read())
+    }
+  }
+
+  private writeScrollbackFile(terminalId: string, data: string): void {
+    try {
+      mkdirSync(scrollbackDir(), { recursive: true })
+      writeFileSync(scrollbackPath(terminalId), data, { encoding: 'utf8', mode: 0o600 })
+    } catch (err) {
+      console.warn('[pty-daemon] Failed to persist scrollback for', terminalId, err)
+    }
+  }
+
+  /** Run a command non-interactively. This stays in-process (ephemeral, no persistence needed). */
+  async runScript(cwd: string, command: string, timeoutMs = 30_000): Promise<{ exitCode: number }> {
+    // runScript is ephemeral - use in-process node-pty directly
+    const nodePty = await import('node-pty')
+    const shell = resolveShell()
+    const safeCwd = existsSync(cwd) ? cwd : homedir()
+
+    return new Promise((resolve, reject) => {
+      let ptyProcess: import('node-pty').IPty
+      try {
+        ptyProcess = nodePty.spawn(shell, ['-l', '-c', command], {
+          name: 'xterm-256color',
+          cols: 80,
+          rows: 24,
+          cwd: safeCwd,
+          env: { ...process.env, TERM: 'xterm-256color' } as Record<string, string>,
+        })
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        reject(new Error(`Failed to spawn script (shell: ${shell}, cwd: ${safeCwd}): ${msg}`))
+        return
+      }
+
+      let settled = false
+      const timer = setTimeout(() => {
+        if (!settled) {
+          settled = true
+          ptyProcess.kill()
+          resolve({ exitCode: -1 })
+        }
+      }, timeoutMs)
+
+      ptyProcess.onExit(({ exitCode }: { exitCode: number }) => {
+        if (!settled) {
+          settled = true
+          clearTimeout(timer)
+          resolve({ exitCode })
+        }
+      })
+    })
+  }
+
+  // ── Daemon-specific operations ─────────────────────────────────────────
+
+  /** Reattach to an existing daemon session. Returns snapshot or null. */
+  async reattach(sessionId: string): Promise<ReattachResult | null> {
+    try {
+      await this.ensureDaemon()
+      const result = await this.client.attach(sessionId)
+      // Initialize local buffer with snapshot so readTerminalOutput works
+      const buffer = new RingBuffer()
+      buffer.push(result.snapshot)
+      this.buffers.set(sessionId, buffer)
+      return { sessionId, snapshot: result.snapshot }
+    } catch {
+      return null
+    }
+  }
+
+  /** List all active sessions in the daemon. */
+  async listSessions(): Promise<SessionInfo[]> {
+    try {
+      await this.ensureDaemon()
+      return await this.client.list()
+    } catch {
+      return []
+    }
+  }
+}

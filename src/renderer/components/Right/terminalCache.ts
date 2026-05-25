@@ -42,7 +42,7 @@ export const terminalCache = new Map<string, CachedTerminals>()
 let _tabCounter = 0
 export function nextTabId(): string {
   _tabCounter++
-  return `tab-${_tabCounter}`
+  return `rt-${Date.now()}-${_tabCounter}`
 }
 
 

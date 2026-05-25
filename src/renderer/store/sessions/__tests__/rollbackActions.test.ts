@@ -31,10 +31,10 @@ vi.mock('@/store/ui', () => ({
 // useSessionsStore with a ref that we patch per-test to point at the test store.
 const storeRef = { current: null as unknown }
 vi.mock('../store', () => ({
-  useSessionsStore: new Proxy({} as Record<string, unknown>, {
-    get(_target, prop) {
-      const s = storeRef.current as Record<string, unknown>
-      return s?.[prop]
+  useSessionsStore: new Proxy({} as Record<string | symbol, unknown>, {
+    get(_target, prop: string | symbol) {
+      const s = storeRef.current as Record<string | symbol, unknown>
+      return s?.[prop as string]
     }
   })
 }))
@@ -254,8 +254,8 @@ describe('rollbackToUserMessage', () => {
       const msg = makeMsg({ id: 'msg-1', role: 'user', snapshotSha: 'snap1' })
       const { actions, getSession: get } = createActions({
         messages: [msg],
-        pendingQuestion: { question: 'test' } as AgentSession['pendingQuestion'],
-        pendingPlanApproval: { planContent: 'test' } as AgentSession['pendingPlanApproval'],
+        pendingQuestion: { toolUseId: 'tu-1', questions: [{ question: 'test', header: '', options: [], multiSelect: false }] } as AgentSession['pendingQuestion'],
+        pendingPlanApproval: { toolUseId: 'tu-2' } as AgentSession['pendingPlanApproval'],
       })
       await actions.rollbackToUserMessage('sess-1', 'msg-1')
       expect(get().pendingQuestion).toBeUndefined()
