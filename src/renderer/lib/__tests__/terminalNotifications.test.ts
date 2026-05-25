@@ -114,6 +114,12 @@ describe('notifyTerminalStateChange', () => {
     expect(mockAddToast).toHaveBeenCalledOnce()
   })
 
+  it('deduplicates blocked after waiting (same notification type)', () => {
+    notifyTerminalStateChange('bt-1', 'waiting')
+    notifyTerminalStateChange('bt-1', 'blocked')
+    expect(mockAddToast).toHaveBeenCalledOnce()
+  })
+
   it('allows notification after state change', () => {
     notifyTerminalStateChange('bt-1', 'done')
     notifyTerminalStateChange('bt-1', 'working')  // skip (working)

@@ -61,14 +61,18 @@ function isTerminalFocused(
  * ensures only one notification per state transition.
  */
 export function notifyTerminalStateChange(terminalId: string, state: AgentStatusState): void {
-  // Dedup: skip if we already saw this exact state (across detection sources)
-  if (lastNotifiedState.get(terminalId) === state) return
-  lastNotifiedState.set(terminalId, state)
+  // Normalize blocked -> waiting for dedup: both map to the same notification
+  // type, and different detection sources can emit either for the same event.
+  const normalized: AgentStatusState = state === 'blocked' ? 'waiting' : state
+
+  // Dedup: skip if we already saw this state (across detection sources)
+  if (lastNotifiedState.get(terminalId) === normalized) return
+  lastNotifiedState.set(terminalId, normalized)
 
   // Only notify for actionable states (done, error, waiting/blocked)
   const type: 'done' | 'error' | 'waiting_input' | null =
-    state === 'done' ? 'done'
-    : (state === 'waiting' || state === 'blocked') ? 'waiting_input'
+    normalized === 'done' ? 'done'
+    : normalized === 'waiting' ? 'waiting_input'
     : null
   if (!type) return
 

@@ -706,6 +706,7 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
     // Also clear persisted per-worktree localStorage entries
     try { localStorage.removeItem(SK.openFilePathsPrefix + worktreeId) } catch {}
     try { localStorage.removeItem(SK.tabOrderPrefix + worktreeId) } catch {}
+    try { localStorage.removeItem(SK.activeCenterViewPrefix + worktreeId) } catch {}
   },
 })
 
