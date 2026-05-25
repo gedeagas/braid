@@ -190,8 +190,10 @@ export class PtyDaemonAdapter implements IPtyService {
     const shell = resolveShell()
     const safeCwd = existsSync(cwd) ? cwd : homedir()
 
-    // Generate a session ID that matches the format the renderer expects
-    const sessionId = `pty-d-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    // Use the renderer's stable terminal ID as the daemon session key when provided.
+    // This makes reattach work: the renderer calls reattach(terminalId) and the daemon
+    // can find the session because it was keyed by the same ID.
+    const sessionId = envOverrides?.BRAID_TERMINAL_ID ?? `pty-d-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
     const hookPort = getHookServerPort()
     const hookToken = getHookServerToken()

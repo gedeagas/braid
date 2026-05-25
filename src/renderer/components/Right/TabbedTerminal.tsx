@@ -207,7 +207,7 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
     }
 
     try {
-      const id = await ipc.pty.spawn(worktreePathRef.current)
+      const id = await ipc.pty.spawn(worktreePathRef.current, { BRAID_TERMINAL_ID: tab.id })
       tab.ptyId = id
       tab.term.onData((data: string) => ipc.pty.write(id, data))
       requestAnimationFrame(() => {

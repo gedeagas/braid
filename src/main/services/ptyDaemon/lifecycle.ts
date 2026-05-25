@@ -7,7 +7,7 @@ import { PID_FILE_PATH, SOCKET_PATH } from './protocol'
 
 /** Write the current process PID to the PID file. */
 export function writePidFile(): void {
-  mkdirSync(dirname(PID_FILE_PATH), { recursive: true })
+  mkdirSync(dirname(PID_FILE_PATH), { recursive: true, mode: 0o700 })
   writeFileSync(PID_FILE_PATH, String(process.pid), { mode: 0o600 })
 }
 

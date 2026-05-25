@@ -34,6 +34,8 @@ export class DaemonClient extends EventEmitter<DaemonClientEvents> {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private _connected = false
   private _closed = false
+  /** Session IDs this client is attached to. Re-attached on reconnect. */
+  private attachedSessions = new Set<string>()
 
   get connected(): boolean {
     return this._connected
@@ -48,6 +50,8 @@ export class DaemonClient extends EventEmitter<DaemonClientEvents> {
       this.socket.on('connect', () => {
         this._connected = true
         this.reconnectAttempts = 0
+        // Re-attach to all previously attached sessions so data events resume
+        this.reattachAll()
         this.emit('connected')
         resolve()
       })
@@ -96,10 +100,12 @@ export class DaemonClient extends EventEmitter<DaemonClientEvents> {
 
   async spawn(sessionId: string, cwd: string, cols: number, rows: number, shell: string, env?: Record<string, string>): Promise<void> {
     await this.request({ type: 'spawn', sessionId, cwd, cols, rows, shell, env } as Omit<DaemonRequest, 'id'> & { type: 'spawn' })
+    this.attachedSessions.add(sessionId)
   }
 
   async attach(sessionId: string): Promise<{ snapshot: string }> {
     const result = await this.request({ type: 'attach', sessionId } as Omit<DaemonRequest, 'id'> & { type: 'attach' })
+    this.attachedSessions.add(sessionId)
     return result as { snapshot: string }
   }
 
@@ -114,6 +120,7 @@ export class DaemonClient extends EventEmitter<DaemonClientEvents> {
   }
 
   async kill(sessionId: string): Promise<void> {
+    this.attachedSessions.delete(sessionId)
     await this.request({ type: 'kill', sessionId } as Omit<DaemonRequest, 'id'> & { type: 'kill' })
   }
 
@@ -196,6 +203,7 @@ export class DaemonClient extends EventEmitter<DaemonClientEvents> {
         this.emit('data', event.sessionId, event.data)
       } else if (msg.type === 'exit') {
         const event = msg as ExitEvent
+        this.attachedSessions.delete(event.sessionId)
         this.emit('exit', event.sessionId, event.exitCode)
       }
     }
@@ -206,6 +214,14 @@ export class DaemonClient extends EventEmitter<DaemonClientEvents> {
       clearTimeout(pending.timer)
       pending.reject(new Error(reason))
       this.pending.delete(id)
+    }
+  }
+
+  /** Re-attach to all tracked sessions after a reconnect. */
+  private reattachAll(): void {
+    for (const sessionId of this.attachedSessions) {
+      // Fire-and-forget: we don't need the snapshot here, just re-subscribe to data events
+      this.send({ type: 'attach', sessionId })
     }
   }
 

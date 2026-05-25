@@ -11,6 +11,9 @@ import { dirname } from 'path'
 import { SOCKET_PATH, encode, decode, type DaemonRequest, type DaemonEvent } from './protocol'
 import type { SessionHost } from './sessionHost'
 
+/** Maximum NDJSON line length (1 MB). Prevents memory exhaustion from malformed input. */
+const MAX_LINE_LENGTH = 1_024 * 1_024
+
 // ── Client tracking ──────────────────────────────────────────────────────────
 
 interface ClientState {
@@ -42,7 +45,7 @@ export class SocketServer {
 
   /** Start listening on the Unix domain socket. */
   async start(): Promise<void> {
-    mkdirSync(dirname(SOCKET_PATH), { recursive: true })
+    mkdirSync(dirname(SOCKET_PATH), { recursive: true, mode: 0o700 })
 
     // Remove stale socket file if present
     if (existsSync(SOCKET_PATH)) {
@@ -102,6 +105,11 @@ export class SocketServer {
 
     socket.on('data', (chunk: Buffer) => {
       client.lineBuffer += chunk.toString()
+      // Guard against memory exhaustion from missing newlines
+      if (client.lineBuffer.length > MAX_LINE_LENGTH && !client.lineBuffer.includes('\n')) {
+        client.lineBuffer = ''
+        return
+      }
       this.processLines(client)
     })
 

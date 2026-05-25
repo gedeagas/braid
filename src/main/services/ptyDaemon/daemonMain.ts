@@ -5,13 +5,19 @@
  * the Electron main process via child_process.fork(). It runs
  * independently and survives Electron restarts.
  */
+import { createWriteStream, mkdirSync } from 'fs'
+import { join } from 'path'
 import { SessionHost } from './sessionHost'
 import { SocketServer } from './socketServer'
 import { writePidFile, removePidFile } from './lifecycle'
 import { startCheckpointing, stopCheckpointing, loadCheckpoints } from './checkpoint'
-import { IDLE_SHUTDOWN_MS, SOCKET_PATH } from './protocol'
+import { IDLE_SHUTDOWN_MS, SOCKET_PATH, DAEMON_DIR } from './protocol'
 
 let shuttingDown = false
+
+// Redirect daemon logs to a file for troubleshooting
+mkdirSync(DAEMON_DIR, { recursive: true, mode: 0o700 })
+const logStream = createWriteStream(join(DAEMON_DIR, 'daemon.log'), { flags: 'a', mode: 0o600 })
 
 async function main(): Promise<void> {
   const host = new SessionHost()
@@ -96,11 +102,12 @@ async function main(): Promise<void> {
 
 function log(msg: string): void {
   const ts = new Date().toISOString()
-  // Write to stderr so stdout stays clean for potential future use
-  process.stderr.write(`[pty-daemon ${ts}] ${msg}\n`)
+  const line = `[pty-daemon ${ts}] ${msg}\n`
+  logStream.write(line)
 }
 
 main().catch((err) => {
-  process.stderr.write(`[pty-daemon] Fatal: ${err}\n`)
+  const line = `[pty-daemon] Fatal: ${err}\n`
+  logStream.write(line)
   process.exit(1)
 })

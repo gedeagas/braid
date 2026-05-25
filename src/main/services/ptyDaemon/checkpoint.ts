@@ -16,7 +16,7 @@ let intervalHandle: ReturnType<typeof setInterval> | null = null
 export function startCheckpointing(host: SessionHost): void {
   if (intervalHandle) return
 
-  mkdirSync(CHECKPOINT_DIR, { recursive: true })
+  mkdirSync(CHECKPOINT_DIR, { recursive: true, mode: 0o700 })
 
   intervalHandle = setInterval(() => {
     flushCheckpoints(host)
@@ -41,7 +41,7 @@ export function flushCheckpoints(host: SessionHost): void {
   const checkpoints = host.getCheckpoints()
   const activeIds = new Set(checkpoints.map((cp) => cp.sessionId))
 
-  mkdirSync(CHECKPOINT_DIR, { recursive: true })
+  mkdirSync(CHECKPOINT_DIR, { recursive: true, mode: 0o700 })
 
   // Write active session checkpoints
   for (const cp of checkpoints) {
@@ -67,9 +67,14 @@ export function flushCheckpoints(host: SessionHost): void {
   }
 }
 
+/** Sanitize a session ID for safe use in file paths. */
+function safeFileName(sessionId: string): string {
+  return sessionId.replace(/[^a-zA-Z0-9-]/g, '_')
+}
+
 /** Write a single checkpoint atomically. */
 function writeCheckpoint(data: CheckpointData): void {
-  const filePath = join(CHECKPOINT_DIR, `${data.sessionId}.json`)
+  const filePath = join(CHECKPOINT_DIR, `${safeFileName(data.sessionId)}.json`)
   const tmpPath = filePath + '.tmp'
   try {
     writeFileSync(tmpPath, JSON.stringify(data), { mode: 0o600 })
@@ -108,7 +113,7 @@ export function loadCheckpoints(): CheckpointData[] {
 /** Delete a specific checkpoint file. */
 export function deleteCheckpoint(sessionId: string): void {
   try {
-    unlinkSync(join(CHECKPOINT_DIR, `${sessionId}.json`))
+    unlinkSync(join(CHECKPOINT_DIR, `${safeFileName(sessionId)}.json`))
   } catch {
     // May not exist
   }
