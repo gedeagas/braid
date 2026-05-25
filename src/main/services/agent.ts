@@ -256,11 +256,23 @@ class AgentCoordinator {
     type: 'done' | 'error' | 'waiting_input',
     sessionName?: string,
     errorMessage?: string,
-    reason?: 'question' | 'plan_approval'
+    reason?: 'question' | 'plan_approval',
+    branch?: string,
+    projectName?: string
   ): void {
     if (sessionName) {
       const meta = this.sessionMeta.get(sessionId)
-      if (meta) meta.sessionName = sessionName
+      if (meta) {
+        meta.sessionName = sessionName
+      } else {
+        // Create ephemeral meta for terminal-originated notifications
+        this.sessionMeta.set(sessionId, {
+          sessionName,
+          cwd: '',
+          branch: branch ?? '',
+          projectName: projectName ?? ''
+        })
+      }
     }
     this.maybeNotify(sessionId, type, errorMessage, reason)
   }

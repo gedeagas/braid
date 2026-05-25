@@ -9,7 +9,9 @@ import { registerTitleDetection } from '@/lib/agentTitleDetection'
 import { replayIntoTerminal, isReplaying, POST_REPLAY_MODE_RESET } from '@/lib/replayGuard'
 import type { AgentStatusPayload, AgentStatusState } from '@/lib/agentStatus'
 import { createCompletionCoordinator, type CompletionCoordinator } from '@/lib/agentCompletionCoordinator'
+import { notifyTerminalStateChange, clearTerminalNotificationState } from '@/lib/terminalNotifications'
 import { useUIStore } from '@/store/ui'
+import { useToastsStore } from '@/store/toasts'
 
 export interface BigTermEntry {
   terminalId: string
@@ -73,6 +75,7 @@ function ensureHookListener(): void {
       payload.state,
       interrupted ?? false
     )
+    notifyTerminalStateChange(terminalId, payload.state)
   })
 }
 
@@ -129,11 +132,13 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
   registerAgentStatusOsc(term, (payload) => {
     updateStatus(payload)
     completionCoordinator.observeHookStatus(payload.state, payload.interrupted)
+    notifyTerminalStateChange(terminalId, payload.state)
   })
 
   registerTitleDetection(term, (result) => {
     updateStatus({ state: result.state, agentType: result.agentType ?? undefined })
     completionCoordinator.observeTitleStatus(result.state)
+    notifyTerminalStateChange(terminalId, result.state)
   })
 
   // OSC 9 (Braid hooks): Claude Code hooks return terminalSequence with
@@ -141,6 +146,7 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
   registerBraidOsc9(term, (payload) => {
     updateStatus(payload)
     completionCoordinator.observeHookStatus(payload.state, false)
+    notifyTerminalStateChange(terminalId, payload.state)
   })
 
   entry.spawnPromise = (async () => {
@@ -217,6 +223,9 @@ export function disposeBigTerminal(terminalId: string): void {
   try { ipc.pty.deleteScrollback(terminalId) } catch {}
   // Clear ephemeral agent status from store
   try { useUIStore.getState().clearBigTerminalStatus(terminalId) } catch {}
+  // Dismiss any toasts and clear dedup state for this terminal
+  try { useToastsStore.getState().dismissByTerminal(terminalId) } catch {}
+  clearTerminalNotificationState(terminalId)
 }
 
 /** Dispose many at once (e.g. on worktree removal). */
