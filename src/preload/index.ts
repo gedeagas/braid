@@ -131,6 +131,10 @@ const api = {
       ipcRenderer.invoke('pty:readScrollback', terminalId) as Promise<string>,
     deleteScrollback: (terminalId: string) =>
       ipcRenderer.send('pty:deleteScrollback', terminalId),
+    reattach: (sessionId: string) =>
+      ipcRenderer.invoke('pty:reattach', sessionId) as Promise<{ sessionId: string; snapshot: string } | null>,
+    listSessions: () =>
+      ipcRenderer.invoke('pty:listSessions') as Promise<Array<{ sessionId: string; cwd: string; cols: number; rows: number; createdAt: number }>>,
     onAgentHookStatus: (callback: (status: { terminalId: string; state: string; agentType: string; toolName?: string; interrupted?: boolean }) => void) => {
       const handler = (_event: Electron.IpcRendererEvent, status: { terminalId: string; state: string; agentType: string; toolName?: string; interrupted?: boolean }) => callback(status)
       ipcRenderer.on('agent-hook:status', handler)

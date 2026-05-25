@@ -118,8 +118,10 @@ export const SK = {
   noVirtualization:           `${prefix}:noVirtualization`,
   magicTrackpad:              `${prefix}:magicTrackpad`,
   bigTerminalEnabled:         `${prefix}:bigTerminalEnabled`,
-  /** Prefix — append worktreeId to get the full key, e.g. SK.bigTerminalTabsPrefix + worktreeId */
+  /** Prefix - append worktreeId to get the full key, e.g. SK.bigTerminalTabsPrefix + worktreeId */
   bigTerminalTabsPrefix:      `${prefix}:bigTerminalTabs:`,
+  /** Prefix - append worktreeId for right-panel terminal tab IDs (daemon reattach). */
+  rightTerminalTabsPrefix:    `${prefix}:rightTerminalTabs:`,
   rollbackHistory:            `${prefix}:rollbackHistory`,
   lastNewTabAction:           `${prefix}:lastNewTabAction`,
   webAppsEnabled:             `${prefix}:webAppsEnabled`,

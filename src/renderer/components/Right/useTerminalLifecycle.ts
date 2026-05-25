@@ -4,6 +4,7 @@ import { useUIStore } from '@/store/ui'
 import {
   SETUP_TAB_ID,
   terminalCache, nextTabId, createTerminal, initGlobalPtyRouting, reThemeAllTerminals,
+  saveRightTerminalTabs, loadRightTerminalTabs,
   type TermTab,
 } from './terminalCache'
 
@@ -116,6 +117,8 @@ export function useTerminalLifecycle({
       tab.resizeObserver = null
     }
     terminalCache.set(path, { tabs: currentTabs, activeTabId: activeTabIdRef.current })
+    // Persist tab IDs to localStorage so daemon sessions can be reattached after app restart
+    saveRightTerminalTabs(path, currentTabs)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Lifecycle: worktree switch ───────────────────────────────────────────
@@ -147,11 +150,29 @@ export function useTerminalLifecycle({
         }
       })
     } else {
-      setTabs([])
-      tabsRef.current = []
-      setActiveTabId(null)
-      activeTabIdRef.current = null
-      addTab()
+      // No in-memory cache - try restoring from localStorage (app restart with daemon alive)
+      const persisted = loadRightTerminalTabs(worktreePath)
+      if (persisted.length > 0) {
+        const restoredTabs: TermTab[] = persisted.map((p) => {
+          const { term, fitAddon } = createTerminal()
+          return { id: p.id, label: p.label, ptyId: null, term, fitAddon, resizeObserver: null }
+        })
+        setTabs(restoredTabs)
+        tabsRef.current = restoredTabs
+        const firstId = restoredTabs[0]?.id ?? null
+        setActiveTabId(firstId)
+        activeTabIdRef.current = firstId
+        // Mark all as pending attach so they get spawned/reattached when the DOM ref fires
+        for (const tab of restoredTabs) {
+          pendingAttach.current.set(tab.id, tab)
+        }
+      } else {
+        setTabs([])
+        tabsRef.current = []
+        setActiveTabId(null)
+        activeTabIdRef.current = null
+        addTab()
+      }
     }
     // Capture worktreePath in closure — cleanup runs after the next render
     // has already updated worktreePathRef, so we need the closed-over value

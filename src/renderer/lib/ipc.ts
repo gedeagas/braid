@@ -116,6 +116,8 @@ export const pty = {
   registerBigTerminal: (ptyId: string, terminalId: string) => api().pty.registerBigTerminal(ptyId, terminalId),
   readScrollback: (terminalId: string) => api().pty.readScrollback(terminalId) as Promise<string>,
   deleteScrollback: (terminalId: string) => api().pty.deleteScrollback(terminalId),
+  reattach: (sessionId: string) => api().pty.reattach(sessionId) as Promise<{ sessionId: string; snapshot: string } | null>,
+  listSessions: () => api().pty.listSessions() as Promise<Array<{ sessionId: string; cwd: string; cols: number; rows: number; createdAt: number }>>,
   onAgentHookStatus: (callback: (status: { terminalId: string; state: string; agentType: string; toolName?: string; interrupted?: boolean }) => void) =>
     api().pty.onAgentHookStatus(callback),
 }

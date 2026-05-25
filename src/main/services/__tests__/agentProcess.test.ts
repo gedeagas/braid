@@ -216,6 +216,7 @@ describe('agentProcess entry point', () => {
         sendCommand({
           type: 'startSession', sessionId: 's-epipe', worktreeId: 'wt-epipe', projectName: 'test',
           worktreePath: '/tmp', prompt: 'hello', model: 'claude-sonnet-4-6', thinking: false,
+          extendedContext: false, effortLevel: 'high',
           planMode: false, sessionName: 'Test', settings: defaultSettings
         })
         setTimeout(resolve, 200)

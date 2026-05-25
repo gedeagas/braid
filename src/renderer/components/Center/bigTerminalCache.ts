@@ -151,6 +151,31 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
 
   entry.spawnPromise = (async () => {
     let hasScrollback = false
+
+    // Attempt warm reattach to daemon session first
+    let reattached = false
+    try {
+      const result = await ipc.pty.reattach(terminalId)
+      if (result && result.snapshot) {
+        reattached = true
+        hasScrollback = true
+        entry.ptyId = result.sessionId
+        replayIntoTerminal(terminalId, term, result.snapshot)
+        replayIntoTerminal(terminalId, term, '\r\n\x1b[2m[session reconnected]\x1b[0m\r\n')
+        replayIntoTerminal(terminalId, term, POST_REPLAY_MODE_RESET)
+        ipc.pty.registerBigTerminal(result.sessionId, terminalId)
+        term.onData((d) => {
+          if (isReplaying(terminalId)) return
+          if (entry.ptyId && !entry.disposed) ipc.pty.write(entry.ptyId, d)
+        })
+      }
+    } catch {
+      // Reattach not available or failed - fall through to normal spawn
+    }
+
+    if (reattached || entry.disposed) return
+
+    // Fall back to scrollback file replay + fresh spawn
     try {
       const scrollback = await ipc.pty.readScrollback(terminalId)
       if (scrollback && scrollback.length > 0) {
