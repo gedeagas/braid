@@ -217,7 +217,16 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
     return []
   })(),
   dirtyFilePaths: new Set(),
-  activeCenterViewByWorktree: {},
+  activeCenterViewByWorktree: (() => {
+    try {
+      const wtId = loadStr(SK.selectedWorktreeId, '')
+      if (wtId) {
+        const raw = localStorage.getItem(SK.activeCenterViewPrefix + wtId)
+        if (raw) return { [wtId]: JSON.parse(raw) as CenterView }
+      }
+    } catch {}
+    return {}
+  })(),
   skipDeleteWorktreeConfirm: localStorage.getItem(SK.skipDeleteWorktreeConfirm) === 'true',
   newlyAddedWorktreeId: null,
   projectAvatarVisible: loadBool(SK.projectAvatarVisible, true),
@@ -243,6 +252,10 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
       try {
         localStorage.setItem(SK.openFilePathsPrefix + prevWorktreeId, JSON.stringify(get().openFilePaths))
         localStorage.setItem(SK.tabOrderPrefix + prevWorktreeId, JSON.stringify(get().tabOrder))
+        const prevView = get().activeCenterViewByWorktree[prevWorktreeId]
+        if (prevView) {
+          localStorage.setItem(SK.activeCenterViewPrefix + prevWorktreeId, JSON.stringify(prevView))
+        }
       } catch {}
     }
 
@@ -264,10 +277,23 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
       }
     } catch {}
 
+    let restoredCenterView: CenterView | null = null
+    try {
+      const raw = localStorage.getItem(SK.activeCenterViewPrefix + worktreeId)
+      if (raw) {
+        restoredCenterView = JSON.parse(raw) as CenterView
+      }
+    } catch {}
+
     try {
       localStorage.setItem(SK.selectedProjectId, projectId)
       localStorage.setItem(SK.selectedWorktreeId, worktreeId)
     } catch {}
+
+    const nextActiveCenterView = { ...get().activeCenterViewByWorktree }
+    if (restoredCenterView) {
+      nextActiveCenterView[worktreeId] = restoredCenterView
+    }
 
     set({
       selectedProjectId: projectId,
@@ -276,6 +302,7 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
       openFilePaths: restoredFiles,
       tabOrder: restoredTabOrder,
       dirtyFilePaths: new Set(),
+      activeCenterViewByWorktree: nextActiveCenterView,
     })
     // Hydrate persisted big terminal tabs for the target worktree (idempotent)
     get().restoreBigTerminalsForWorktree(worktreeId)
@@ -468,6 +495,9 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
   setActiveCenterView: (view) => {
     const wtId = get().selectedWorktreeId ?? ''
     set({ activeCenterViewByWorktree: { ...get().activeCenterViewByWorktree, [wtId]: view } })
+    if (wtId) {
+      try { localStorage.setItem(SK.activeCenterViewPrefix + wtId, JSON.stringify(view)) } catch {}
+    }
   },
 
   setFileDirty: (path, dirty) => {
@@ -676,6 +706,7 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
     // Also clear persisted per-worktree localStorage entries
     try { localStorage.removeItem(SK.openFilePathsPrefix + worktreeId) } catch {}
     try { localStorage.removeItem(SK.tabOrderPrefix + worktreeId) } catch {}
+    try { localStorage.removeItem(SK.activeCenterViewPrefix + worktreeId) } catch {}
   },
 })
 

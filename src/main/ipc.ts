@@ -131,8 +131,8 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('agent:updateSessionName', (_e, sessionId: string, name: string) =>
     agentService.updateSessionName(sessionId, name)
   )
-  ipcMain.handle('agent:notify', (_e, sessionId: string, type: 'done' | 'error' | 'waiting_input', sessionName?: string, errorMessage?: string, reason?: 'question' | 'plan_approval') =>
-    agentService.notify(sessionId, type, sessionName, errorMessage, reason)
+  ipcMain.handle('agent:notify', (_e, sessionId: string, type: 'done' | 'error' | 'waiting_input', sessionName?: string, errorMessage?: string, reason?: 'question' | 'plan_approval', branch?: string, projectName?: string) =>
+    agentService.notify(sessionId, type, sessionName, errorMessage, reason, branch, projectName)
   )
   ipcMain.handle('agent:getSlashCommands', (_e, cwd: string) =>
     agentService.getSlashCommands(cwd)

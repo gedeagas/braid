@@ -23,8 +23,12 @@ function dismissReducer(state: Set<string>, action: Action): Set<string> {
 
 function navigateToSession(toast: ToastType): void {
   useUIStore.getState().selectWorktree(toast.projectId, toast.worktreeId)
-  useSessionsStore.getState().setActiveSession(toast.sessionId)
-  useUIStore.getState().setActiveCenterView({ type: 'session', sessionId: toast.sessionId })
+  if (toast.terminalId) {
+    useUIStore.getState().setActiveCenterView({ type: 'terminal', terminalId: toast.terminalId })
+  } else {
+    useSessionsStore.getState().setActiveSession(toast.sessionId)
+    useUIStore.getState().setActiveCenterView({ type: 'session', sessionId: toast.sessionId })
+  }
   useUIStore.getState().setMissionControlActive(false)
 }
 
