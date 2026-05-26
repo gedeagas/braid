@@ -35,6 +35,8 @@ class AgentCoordinator {
   private slashCommandsCache = new Map<string, SlashCommand[]>()
   /** Set during app quit to suppress spurious "process exited" errors. */
   private shuttingDown = false
+  /** External event listeners (e.g. mobile companion server). */
+  private eventListeners = new Set<(sessionId: string, event: unknown) => void>()
 
   constructor() {
     app.on('before-quit', () => {
@@ -420,11 +422,19 @@ class AgentCoordinator {
     return windows[0] ?? null
   }
 
+  /** Register a listener for all agent events across all sessions. Returns unsubscribe fn. */
+  onEvent(callback: (sessionId: string, event: unknown) => void): () => void {
+    this.eventListeners.add(callback)
+    return () => { this.eventListeners.delete(callback) }
+  }
+
   private sendEvent(sessionId: string, event: unknown): void {
     const win = this.getWindow()
     if (win && !win.isDestroyed()) {
       win.webContents.send('agent:event', { sessionId, event })
     }
+    // Notify external listeners (mobile companion)
+    for (const cb of this.eventListeners) cb(sessionId, event)
   }
 
   private maybeNotify(

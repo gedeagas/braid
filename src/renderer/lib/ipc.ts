@@ -320,6 +320,15 @@ export const settings = {
   getSystemPromptSuffix: () => api().settings.getSystemPromptSuffix(),
 }
 
+export const mobile = {
+  getStatus: () => api().mobile.getStatus(),
+  start: () => api().mobile.start(),
+  stop: () => api().mobile.stop(),
+  generatePairingOffer: () => api().mobile.generatePairingOffer(),
+  getDevices: () => api().mobile.getDevices(),
+  removeDevice: (deviceId: string) => api().mobile.removeDevice(deviceId),
+}
+
 export const notes = {
   load: (worktreeId: string) => api().notes.load(worktreeId),
   save: (worktreeId: string, content: string) => api().notes.save(worktreeId, content),

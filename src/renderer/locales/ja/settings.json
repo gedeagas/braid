@@ -19,6 +19,7 @@
     "jira": "Jira",
     "analytics": "アナリティクス",
     "about": "このアプリについて",
+    "mobile": "モバイルコンパニオン",
     "experimental": "実験的機能"
   },
   "groups": {
@@ -420,6 +421,22 @@
     "magicTrackpadHint": "トラックパッドで2本指の水平スワイプでタブを切り替えます。左にスワイプで次のタブ、右にスワイプで前のタブに移動します。",
     "otherFlags": "その他のフラグ",
     "previewTab": "タブ {{n}}"
+  },
+  "mobile": {
+    "serverHeader": "サーバー",
+    "enableServer": "無効",
+    "enableServerDesc": "ローカルネットワーク経由でスマートフォンをBraidに接続します。コンパニオンサーバーを有効にし、BraidモバイルアプリでQRコードをスキャンしてペアリングします。",
+    "running": "ポート {{port}} で実行中",
+    "pairingHeader": "デバイスのペアリング",
+    "generateQr": "QRコードを生成",
+    "regenerateQr": "再生成",
+    "pairingHint": "BraidモバイルアプリでこのQRコードをスキャンしてください。各コードは1回限り有効です。",
+    "devicesHeader": "ペアリング済みデバイス",
+    "noDevices": "ペアリング済みのデバイスはありません",
+    "unnamed": "名前なしデバイス",
+    "lastSeen": "最終接続",
+    "never": "なし",
+    "remove": "削除"
   },
   "claudeSkills": {
     "title": "スキル",

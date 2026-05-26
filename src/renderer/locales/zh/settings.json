@@ -19,6 +19,7 @@
     "jira": "Jira",
     "analytics": "分析",
     "about": "关于",
+    "mobile": "移动伴侣",
     "experimental": "实验性功能"
   },
   "groups": {
@@ -420,6 +421,22 @@
     "magicTrackpadHint": "在触控板上双指水平滑动来切换标签页。左滑下一个标签页，右滑上一个标签页。",
     "otherFlags": "其他标志",
     "previewTab": "标签页 {{n}}"
+  },
+  "mobile": {
+    "serverHeader": "服务器",
+    "enableServer": "已禁用",
+    "enableServerDesc": "通过本地网络将手机连接到 Braid。启用伴侣服务器，然后使用 Braid 移动应用扫描二维码进行配对。",
+    "running": "在端口 {{port}} 上运行",
+    "pairingHeader": "配对设备",
+    "generateQr": "生成二维码",
+    "regenerateQr": "重新生成",
+    "pairingHint": "使用 Braid 移动应用扫描此二维码。每个代码仅限一次使用。",
+    "devicesHeader": "已配对设备",
+    "noDevices": "尚未配对任何设备",
+    "unnamed": "未命名设备",
+    "lastSeen": "最后在线",
+    "never": "从未",
+    "remove": "移除"
   },
   "claudeSkills": {
     "title": "技能",

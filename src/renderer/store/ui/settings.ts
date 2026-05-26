@@ -89,6 +89,10 @@ export interface SettingsSlice {
   bigTerminalEnabled: boolean
   rollbackHistory: boolean
 
+  // Mobile Companion
+  mobileServerEnabled: boolean
+  setMobileServerEnabled: (v: boolean) => void
+
   // Onboarding
   onboardingComplete: boolean
   featureTourComplete: boolean
@@ -214,6 +218,8 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   bigTerminalEnabled: loadBool(SK.bigTerminalEnabled, true),
   rollbackHistory: loadBool(SK.rollbackHistory, false),
 
+  mobileServerEnabled: loadBool(SK.mobileServerEnabled, false),
+
   onboardingComplete: loadBool(SK.onboardingComplete, false),
   featureTourComplete: loadBool(SK.featureTourComplete, false),
   simulatorTourComplete: loadBool(SK.simulatorTourComplete, false),
@@ -315,6 +321,7 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   setMagicTrackpad: (v) => { localStorage.setItem(SK.magicTrackpad, String(v)); set({ magicTrackpad: v }) },
   setBigTerminalEnabled: (v) => { localStorage.setItem(SK.bigTerminalEnabled, String(v)); set({ bigTerminalEnabled: v }) },
   setRollbackHistory: (v) => { localStorage.setItem(SK.rollbackHistory, String(v)); set({ rollbackHistory: v }) },
+  setMobileServerEnabled: (v) => { localStorage.setItem(SK.mobileServerEnabled, String(v)); set({ mobileServerEnabled: v }) },
   setOnboardingComplete: (v) => { localStorage.setItem(SK.onboardingComplete, String(v)); set({ onboardingComplete: v }) },
   setFeatureTourComplete: (v) => { localStorage.setItem(SK.featureTourComplete, String(v)); set({ featureTourComplete: v }) },
   setSimulatorTourComplete: (v) => { localStorage.setItem(SK.simulatorTourComplete, String(v)); set({ simulatorTourComplete: v }) },

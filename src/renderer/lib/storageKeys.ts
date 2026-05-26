@@ -127,6 +127,9 @@ export const SK = {
   webAppsEnabled:             `${prefix}:webAppsEnabled`,
   embeddedApps:               `${prefix}:embeddedApps`,
   webAppLastUrls:             `${prefix}:webAppLastUrls`,
+
+  // ── Mobile Companion ────────────────────────────────────────────────────
+  mobileServerEnabled:        `${prefix}:mobileServerEnabled`,
 } as const
 
 export type StorageKey = (typeof SK)[keyof typeof SK]

@@ -85,6 +85,12 @@ export interface IPtyService {
   deleteScrollback(terminalId: string): void
   /** Flush all live big-terminal PTYs' RingBuffers to disk. Called on app quit. */
   dumpAllScrollbacks(): void
+  /** Subscribe to raw data from a PTY. Returns an unsubscribe function. */
+  onData(ptyId: string, callback: (ptyId: string, data: string) => void): () => void
+  /** Subscribe to exit events from a PTY. Returns an unsubscribe function. */
+  onExit(ptyId: string, callback: (ptyId: string, exitCode: number) => void): () => void
+  /** List active PTY instances, optionally filtered by worktree path. */
+  listInstances(worktreePath?: string): Array<{ ptyId: string; cwd: string }>
 }
 
 // ── Legacy in-process service ────────────────────────────────────────────────
@@ -94,6 +100,10 @@ class PtyService implements IPtyService {
   private counter = 0
   /** Mapping ptyId -> terminalId for big terminal PTYs (for scrollback persistence). */
   private bigTerminalByPty = new Map<string, string>()
+  /** External data listeners (e.g. mobile companion server). */
+  private dataListeners = new Map<string, Set<(ptyId: string, data: string) => void>>()
+  /** External exit listeners (e.g. mobile companion server). */
+  private exitListeners = new Map<string, Set<(ptyId: string, exitCode: number) => void>>()
 
   private getWindow(): BrowserWindow | null {
     const windows = BrowserWindow.getAllWindows()
@@ -170,6 +180,8 @@ class PtyService implements IPtyService {
       if (win && !win.isDestroyed()) {
         win.webContents.send('pty:data', id, data)
       }
+      // Notify external listeners (mobile companion)
+      for (const cb of this.dataListeners.get(id) ?? []) cb(id, data)
     })
 
     ptyProcess.onExit(({ exitCode }: { exitCode: number }) => {
@@ -180,8 +192,13 @@ class PtyService implements IPtyService {
       if (win && !win.isDestroyed()) {
         win.webContents.send('pty:exit', id, exitCode)
       }
+      // Notify external listeners (mobile companion)
+      for (const cb of this.exitListeners.get(id) ?? []) cb(id, exitCode)
       this.instances.delete(id)
       this.bigTerminalByPty.delete(id)
+      // Clean up listener sets
+      this.dataListeners.delete(id)
+      this.exitListeners.delete(id)
     })
 
     this.instances.set(id, instance)
@@ -217,6 +234,33 @@ class PtyService implements IPtyService {
     for (const [id, instance] of this.instances) {
       if (instance.cwd === worktreePath) {
         results.push({ ptyId: id, output: instance.buffer.read() })
+      }
+    }
+    return results
+  }
+
+  // ── External event subscriptions (mobile companion) ────────────────────────
+
+  /** Subscribe to data events for a specific PTY. Returns an unsubscribe function. */
+  onData(ptyId: string, callback: (ptyId: string, data: string) => void): () => void {
+    if (!this.dataListeners.has(ptyId)) this.dataListeners.set(ptyId, new Set())
+    this.dataListeners.get(ptyId)!.add(callback)
+    return () => { this.dataListeners.get(ptyId)?.delete(callback) }
+  }
+
+  /** Subscribe to exit events for a specific PTY. Returns an unsubscribe function. */
+  onExit(ptyId: string, callback: (ptyId: string, exitCode: number) => void): () => void {
+    if (!this.exitListeners.has(ptyId)) this.exitListeners.set(ptyId, new Set())
+    this.exitListeners.get(ptyId)!.add(callback)
+    return () => { this.exitListeners.get(ptyId)?.delete(callback) }
+  }
+
+  /** List all active PTY instances, optionally filtered by worktree path. */
+  listInstances(worktreePath?: string): Array<{ ptyId: string; cwd: string }> {
+    const results: Array<{ ptyId: string; cwd: string }> = []
+    for (const [id, instance] of this.instances) {
+      if (!worktreePath || instance.cwd === worktreePath) {
+        results.push({ ptyId: id, cwd: instance.cwd })
       }
     }
     return results

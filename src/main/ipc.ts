@@ -22,6 +22,7 @@ import type { SearchFileResult, SearchMatch, SearchOptions } from '../shared/sea
 import { windowCaptureService } from './services/windowCapture'
 import { claudeConfigService, ClaudePermissions, ClaudeHookConfig, SkillDetail, McpServerEntry, McpServerConfig } from './services/claudeConfig'
 import { notesService } from './services/notes'
+import { mobileServer, deviceStore } from './services/mobileServer'
 import { lspService, LspServerConfig } from './services/lsp'
 import { jiraService } from './services/jira'
 import { githubAuthService } from './services/githubAuth'
@@ -43,6 +44,8 @@ export const mainSettings = {
   notificationSound: true,
   /** When true, all non-denied tools run without a confirmation prompt. */
   bypassPermissions: true,
+  /** When true, the mobile companion WebSocket server is running. */
+  mobileServerEnabled: false,
 }
 
 export function registerIpcHandlers(): void {
@@ -577,6 +580,21 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('notes:load', (_e, worktreeId: string) => notesService.load(worktreeId))
   ipcMain.handle('notes:save', (_e, worktreeId: string, content: string) => notesService.save(worktreeId, content))
   ipcMain.handle('notes:delete', (_e, worktreeId: string) => notesService.delete(worktreeId))
+
+  // Mobile Companion Server
+  ipcMain.handle('mobile:getStatus', () => mobileServer.getStatus())
+  ipcMain.handle('mobile:start', async () => {
+    const result = await mobileServer.start()
+    mainSettings.mobileServerEnabled = true
+    return result
+  })
+  ipcMain.handle('mobile:stop', () => {
+    mobileServer.stop()
+    mainSettings.mobileServerEnabled = false
+  })
+  ipcMain.handle('mobile:generatePairingOffer', () => mobileServer.generatePairingOffer())
+  ipcMain.handle('mobile:getDevices', () => deviceStore.load())
+  ipcMain.handle('mobile:removeDevice', (_e, deviceId: string) => deviceStore.removeDevice(deviceId))
 
   // LSP
   ipcMain.handle('lsp:detectServers', (_e, projectPath: string, userConfigs: LspServerConfig[]) =>
