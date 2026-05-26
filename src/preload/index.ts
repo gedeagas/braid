@@ -301,6 +301,11 @@ const api = {
       ipcRenderer.invoke('search:replaceOne', worktreePath, relativePath, matches, replacement) as Promise<{ replaced: number }>,
   },
 
+  // Clipboard
+  clipboard: {
+    saveImageAsTempFile: () => ipcRenderer.invoke('clipboard:saveImageAsTempFile') as Promise<string | null>,
+  },
+
   // Claude CLI
   claudeCli: {
     detectPath: () => ipcRenderer.invoke('claude:detectCliPath') as Promise<string | null>,

@@ -1,7 +1,8 @@
 import { logger } from './lib/logger'
-import { ipcMain, dialog, shell, app, nativeImage, BrowserWindow } from 'electron'
+import { ipcMain, dialog, shell, app, nativeImage, clipboard, BrowserWindow } from 'electron'
 import { existsSync } from 'fs'
 import { writeFile } from 'fs/promises'
+import { randomUUID } from 'crypto'
 import { execFile } from 'child_process'
 import { tmpdir, homedir } from 'os'
 import { join } from 'path'
@@ -481,6 +482,21 @@ export function registerIpcHandlers(): void {
 
   // Claude CLI detection — delegates to the single source of truth
   ipcMain.handle('claude:detectCliPath', (): string | null => resolveCliPath() ?? null)
+
+  // Clipboard
+  ipcMain.handle('clipboard:saveImageAsTempFile', async () => {
+    try {
+      const image = clipboard.readImage()
+      if (image.isEmpty()) return null
+      const filename = `braid-paste-${Date.now()}-${randomUUID().slice(0, 8)}.png`
+      const tempPath = join(app.getPath('temp'), filename)
+      await writeFile(tempPath, image.toPNG(), { mode: 0o600 })
+      return tempPath
+    } catch (err) {
+      logger.error('[IPC] Failed to save clipboard image as temp file:', err)
+      return null
+    }
+  })
 
   // Dialog
   ipcMain.handle('dialog:openDirectory', async () => {

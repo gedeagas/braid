@@ -1,7 +1,7 @@
-import type { SessionStatus } from '@/types'
+import type { WorktreeStatus } from '@/types'
 
 interface Props {
-  status: SessionStatus
+  status: WorktreeStatus
   count?: number
 }
 
