@@ -7,26 +7,28 @@
 import * as claude from './claude'
 import * as gemini from './gemini'
 import * as antigravity from './antigravity'
-import * as codex from './codex'
 import * as copilot from './copilot'
 import * as cursor from './cursor'
 import * as grok from './grok'
 import * as droid from './droid'
-import * as hermes from './hermes'
 import type { AgentHookService } from './types'
 
 export type { AgentHookTarget, AgentHookService } from './types'
 
+// Agents that use the standard JSON hooks format and can be auto-installed.
+// Not included:
+//   - codex: requires TOML trust entries in a managed Codex home directory
+//   - hermes: uses a Python plugin system + YAML config, not JSON hooks
+// These agents still have server-side event mappings so they work if hooks
+// are installed by other means (e.g. manually or via the agent's own tooling).
 const ALL_SERVICES: { name: string; service: AgentHookService }[] = [
   { name: 'claude', service: claude },
   { name: 'gemini', service: gemini },
   { name: 'antigravity', service: antigravity },
-  { name: 'codex', service: codex },
   { name: 'copilot', service: copilot },
   { name: 'cursor', service: cursor },
   { name: 'grok', service: grok },
   { name: 'droid', service: droid },
-  { name: 'hermes', service: hermes },
 ]
 
 /**
