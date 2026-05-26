@@ -9,7 +9,8 @@ const VALID_MODEL_IDS: readonly string[] = ['claude-opus-4-7', 'claude-sonnet-4-
 const VALID_EFFORT_LEVELS = new Set<string>(EFFORT_LEVELS.map((l) => l.id))
 const DEFAULT_MODEL: ModelId = 'claude-sonnet-4-6'
 function isValidNewTabAction(v: string): boolean {
-  return v === 'chat' || v === 'claudeCode' || v === 'terminal' || v.startsWith('agent:')
+  if (v === 'chat' || v === 'claudeCode' || v === 'terminal') return true
+  return /^agent:[a-zA-Z0-9-]+$/.test(v)
 }
 
 const DEFAULT_DISCOVERY_PATTERNS = [

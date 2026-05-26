@@ -261,7 +261,6 @@ export function SessionTabBar() {
 
   // Auto-detected CLI agents
   const detectedAgents = useDetectedAgents()
-  console.log('[SessionTabBar] detectedAgents=%d items=%s', detectedAgents.length, detectedAgents.map(a => a.id).join(','))
 
   // Build + menu items: Chat, separator, detected agents, separator, Terminal.
   // Last-used action floats to the very top.
@@ -336,7 +335,6 @@ export function SessionTabBar() {
       }
     }
 
-    console.log('[SessionTabBar] addMenuItems built %d items: %s', result.length, result.map(r => r.label).join(', '))
     return result
   }, [lastNewTabAction, selectedWorktreeId, worktree, detectedAgents, createSession, createBigTerminal, setActiveCenterView, setLastNewTabAction, t])
 

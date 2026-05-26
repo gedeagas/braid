@@ -133,7 +133,7 @@ export default function App() {
 
     const cleanup = initAgentEventListener()
     const cleanupUpdater = initUpdateListeners()
-    initAgentDetection()
+    const cleanupAgentDetection = initAgentDetection()
 
     // Keep dock badge in sync with sessions + big terminal agents needing attention
     const computeBadge = () => {
@@ -157,6 +157,7 @@ export default function App() {
       cleanup()
       unsubSettings()
       cleanupUpdater()
+      cleanupAgentDetection()
       unsubBadge()
       unsubTerminalBadge()
     }

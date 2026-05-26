@@ -13,7 +13,7 @@ import { shell } from './ipc'
 const RECHECK_THROTTLE_MS = 60_000
 const INIT_RETRY_DELAY_MS = 3_000
 const MAX_RETRIES = 3
-// Check agents in batches to avoid spawning 29 login shells simultaneously
+// Check agents in batches to limit concurrent IPC calls
 const BATCH_SIZE = 5
 
 // ── Module-level singleton cache ─────────────────────────────────────────────
@@ -22,13 +22,14 @@ let _detected: AgentCatalogEntry[] = []
 let _lastCheckAt = 0
 let _checking = false
 let _retryCount = 0
+let _initialized = false
 const _listeners = new Set<() => void>()
 
 function notify() {
   for (const fn of _listeners) fn()
 }
 
-/** Run checkTool in batches of BATCH_SIZE to avoid overwhelming the system */
+/** Run checkTool in batches of BATCH_SIZE to limit concurrent IPC calls */
 async function checkAllAgents(): Promise<AgentCatalogEntry[]> {
   const available: AgentCatalogEntry[] = []
   for (let i = 0; i < AGENT_CATALOG.length; i += BATCH_SIZE) {
@@ -45,10 +46,7 @@ async function checkAllAgents(): Promise<AgentCatalogEntry[]> {
       })
     )
     for (const r of results) {
-      if (r) {
-        console.log('[agentDetection] found: %s (%s)', r.id, r.detectCmd)
-        available.push(r)
-      }
+      if (r) available.push(r)
     }
   }
   return available
@@ -60,17 +58,12 @@ async function runDetection() {
   _checking = true
   _lastCheckAt = now
 
-  console.log('[agentDetection] starting detection for %d agents (batch=%d)...', AGENT_CATALOG.length, BATCH_SIZE)
-
   try {
     const available = await checkAllAgents()
-
-    console.log('[agentDetection] detected %d agents: %s', available.length, available.map(a => a.id).join(', ') || '(none)')
 
     // If nothing was detected, IPC may not have been ready. Retry.
     if (available.length === 0 && _retryCount < MAX_RETRIES) {
       _retryCount++
-      console.log('[agentDetection] zero results, scheduling retry %d/%d in %dms', _retryCount, MAX_RETRIES, INIT_RETRY_DELAY_MS)
       _checking = false
       _lastCheckAt = 0
       setTimeout(() => runDetection(), INIT_RETRY_DELAY_MS)
@@ -87,11 +80,17 @@ async function runDetection() {
 /**
  * Call once from App.tsx to kick off agent detection at boot.
  * Also installs a window focus listener for re-checks (throttled to 60s).
+ * Returns a cleanup function to remove the listener on unmount.
+ * Idempotent - safe to call multiple times (React StrictMode).
  */
-export function initAgentDetection() {
-  console.log('[agentDetection] init called, retryCount=%d', _retryCount)
-  runDetection()
-  window.addEventListener('focus', () => runDetection())
+export function initAgentDetection(): () => void {
+  if (!_initialized) {
+    _initialized = true
+    runDetection()
+  }
+  const handler = () => runDetection()
+  window.addEventListener('focus', handler)
+  return () => window.removeEventListener('focus', handler)
 }
 
 // ── React hook ───────────────────────────────────────────────────────────────

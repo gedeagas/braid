@@ -61,7 +61,7 @@ export function AgentIcon({ agentId, size = 14 }: { agentId?: string; size?: num
   if (agentId === 'claude') return <IconClaude size={size} />
   if (agentId === 'codex') return <IconCodex size={size} />
   // Letter-in-circle fallback for agents without dedicated icons
-  const letter = agentId.charAt(0).toUpperCase()
+  const letter = (agentId.charAt(0) || '?').toUpperCase()
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
       <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" strokeWidth="1.5" />

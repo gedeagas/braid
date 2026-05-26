@@ -24,11 +24,14 @@ const DELIM_END = '__BRAID_PATH_END__'
 // Strip ANSI escape sequences (colored prompts, powerlevel10k, starship, etc.)
 const ANSI_RE = /\x1b\[[0-9;]*[A-Za-z]|\x1b\][^\x07]*\x07/g
 
-// Prepend common Homebrew paths as immediate fallback before probe settles
-const HOMEBREW_PATHS = ['/opt/homebrew/bin', '/usr/local/bin']
-for (const p of HOMEBREW_PATHS) {
-  if (!process.env.PATH?.includes(p)) {
-    process.env.PATH = `${p}:${process.env.PATH ?? ''}`
+// Prepend common Homebrew paths as immediate fallback before probe settles (macOS only)
+if (process.platform !== 'win32') {
+  const HOMEBREW_PATHS = ['/opt/homebrew/bin', '/usr/local/bin']
+  const currentSegments = new Set((process.env.PATH ?? '').split(':'))
+  for (const p of HOMEBREW_PATHS) {
+    if (!currentSegments.has(p)) {
+      process.env.PATH = process.env.PATH ? `${p}:${process.env.PATH}` : p
+    }
   }
 }
 
@@ -52,10 +55,11 @@ function probe(): Promise<void> {
         const shellPath = raw.slice(startIdx + DELIM_START.length, endIdx).trim()
         if (shellPath) {
           // Merge new segments into process.env.PATH, deduplicating
-          const existing = new Set((process.env.PATH ?? '').split(':'))
+          const existing = new Set((process.env.PATH ?? '').split(':').filter(Boolean))
           const newSegments = shellPath.split(':').filter((s) => s && !existing.has(s))
           if (newSegments.length > 0) {
-            process.env.PATH = [...newSegments, process.env.PATH ?? ''].join(':')
+            const currentPath = process.env.PATH ? [process.env.PATH] : []
+            process.env.PATH = [...newSegments, ...currentPath].join(':')
           }
           console.log('[enrichedEnv] hydrated PATH with %d new segments', newSegments.length)
         }

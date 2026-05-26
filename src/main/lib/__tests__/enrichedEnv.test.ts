@@ -21,7 +21,8 @@ describe('enrichedEnv', () => {
 
   afterEach(() => {
     // Restore PATH since probe now mutates process.env.PATH
-    process.env.PATH = savedPath
+    if (savedPath === undefined) delete process.env.PATH
+    else process.env.PATH = savedPath
   })
 
   it('uses login-shell PATH when probe succeeds with delimiters', async () => {
