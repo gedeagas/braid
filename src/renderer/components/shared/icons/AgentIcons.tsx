@@ -2,7 +2,7 @@
  * Agent icon components - brand SVGs for hero agents, Google favicon fallback,
  * and letter-in-rounded-rect for unknown agents.
  */
-import { useId } from 'react'
+import { useId, useState } from 'react'
 import { IconClaude, IconCodex } from './FillIcons'
 import { getAgentEntry } from '@/lib/agentCatalog'
 
@@ -89,9 +89,15 @@ const BRAND_ICON_MAP: Record<string, (props: { size: number }) => React.JSX.Elem
 
 // ─── Google favicon component ────────────────────────────────────────────────
 
-function AgentFaviconIcon({ domain, size }: { domain: string; size: number }) {
+function AgentFaviconIcon({ domain, size, fallbackLetter }: { domain: string; size: number; fallbackLetter: string }) {
+  const [hasError, setHasError] = useState(false)
   const fetchSize = size >= 28 ? 64 : 32
-  const src = `https://www.google.com/s2/favicons?domain=${domain}&sz=${fetchSize}`
+  const src = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=${fetchSize}`
+
+  if (hasError) {
+    return <AgentLetterIcon letter={fallbackLetter} size={size} />
+  }
+
   return (
     <img
       src={src}
@@ -101,6 +107,7 @@ function AgentFaviconIcon({ domain, size }: { domain: string; size: number }) {
       style={{ borderRadius: 3, display: 'block' }}
       loading="lazy"
       crossOrigin="anonymous"
+      onError={() => setHasError(true)}
     />
   )
 }
@@ -132,11 +139,11 @@ export function AgentIcon({ agentId, size = 14 }: { agentId?: string; size?: num
 
   // Tier 2: Google favicon via catalog domain
   const entry = getAgentEntry(agentId)
+  const letter = (agentId.charAt(0) || '?').toUpperCase()
   if (entry?.faviconDomain) {
-    return <AgentFaviconIcon domain={entry.faviconDomain} size={size} />
+    return <AgentFaviconIcon domain={entry.faviconDomain} size={size} fallbackLetter={letter} />
   }
 
   // Tier 3: letter-in-rounded-rect fallback
-  const letter = (agentId.charAt(0) || '?').toUpperCase()
   return <AgentLetterIcon letter={letter} size={size} />
 }
