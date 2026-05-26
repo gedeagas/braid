@@ -4,6 +4,7 @@
  * Each session has a node-pty instance and a RingBuffer holding
  * the last N characters of output for snapshot/reattach.
  */
+import { accessSync, existsSync, constants as fsConstants } from 'fs'
 import { BUFFER_MAX_LENGTH } from './protocol'
 import type { DaemonSession, CheckpointData, SessionInfo } from './types'
 
@@ -80,6 +81,50 @@ export class SessionHost {
     }
   }
 
+  /**
+   * Spawn a PTY with a single retry and enriched diagnostics on failure.
+   * Transient posix_spawn failures (fd exhaustion, resource contention) often
+   * resolve after a brief delay.
+   */
+  private async spawnPty(
+    shell: string,
+    args: string[],
+    opts: { cols: number; rows: number; cwd: string; env: Record<string, string> },
+  ): Promise<import('node-pty').IPty> {
+    const nodePty = await import('node-pty')
+    const maxAttempts = 2
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return nodePty.spawn(shell, args, { name: 'xterm-256color', ...opts })
+      } catch (err) {
+        if (attempt < maxAttempts) {
+          await new Promise((r) => setTimeout(r, 200))
+          continue
+        }
+        const msg = err instanceof Error ? err.message : String(err)
+        const diag = this.collectSpawnDiagnostics(shell, opts.cwd)
+        throw new Error(
+          `PTY spawn failed (shell: ${shell}, cwd: ${opts.cwd}, sessions: ${this.sessions.size}${diag}): ${msg}`,
+        )
+      }
+    }
+    throw new Error('unreachable')
+  }
+
+  private collectSpawnDiagnostics(shell: string, cwd: string): string {
+    const parts: string[] = []
+    try {
+      accessSync(shell, fsConstants.X_OK)
+    } catch {
+      parts.push('shell-check: not-executable')
+    }
+    if (!existsSync(cwd)) {
+      parts.push('cwd-check: not-found')
+    }
+    return parts.length > 0 ? ', ' + parts.join(', ') : ''
+  }
+
   /** Spawn a new PTY session. Throws if sessionId already exists. */
   async spawn(
     sessionId: string,
@@ -93,9 +138,7 @@ export class SessionHost {
       throw new Error(`Session already exists: ${sessionId}`)
     }
 
-    const nodePty = await import('node-pty')
-    const ptyProcess = nodePty.spawn(shell, ['-l'], {
-      name: 'xterm-256color',
+    const ptyProcess = await this.spawnPty(shell, ['-l'], {
       cols,
       rows,
       cwd,
@@ -138,9 +181,7 @@ export class SessionHost {
   async restore(checkpoint: CheckpointData, shell: string): Promise<void> {
     if (this.sessions.has(checkpoint.sessionId)) return
 
-    const nodePty = await import('node-pty')
-    const ptyProcess = nodePty.spawn(shell, ['-l'], {
-      name: 'xterm-256color',
+    const ptyProcess = await this.spawnPty(shell, ['-l'], {
       cols: checkpoint.cols,
       rows: checkpoint.rows,
       cwd: checkpoint.cwd,

@@ -204,7 +204,12 @@ export class PtyDaemonAdapter implements IPtyService {
       ...envOverrides,
     }
 
-    await this.client.spawn(sessionId, safeCwd, 80, 24, shell, env)
+    try {
+      await this.client.spawn(sessionId, safeCwd, 80, 24, shell, env)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      throw new Error(`Terminal spawn failed (shell: ${shell}, cwd: ${safeCwd}): ${msg}`)
+    }
     this.cwdBySession.set(sessionId, safeCwd)
     this.buffers.set(sessionId, new RingBuffer())
     return sessionId
