@@ -8,9 +8,11 @@ import { FILE_PATH_MIME } from '@/lib/fileDragMime'
 // ---------------------------------------------------------------------------
 
 const mockPtyWrite = vi.fn()
+const mockGetPathForFile = vi.fn()
 
 vi.mock('@/lib/ipc', () => ({
   pty: { write: (...args: unknown[]) => mockPtyWrite(...args) },
+  drag: { getPathForFile: (f: File) => mockGetPathForFile(f) },
 }))
 
 // ---------------------------------------------------------------------------
@@ -24,7 +26,7 @@ function makeTarget(ptyId: string | null = 'pty-1') {
 type DragEventInit = {
   types?: string[]
   getData?: (type: string) => string
-  files?: Array<{ path: string }>
+  files?: File[]
 }
 
 function makeDragEvent(init: DragEventInit = {}) {
@@ -51,6 +53,11 @@ function makeDragEventNoTransfer() {
     stopPropagation: vi.fn(),
     currentTarget: el,
   } as unknown as React.DragEvent
+}
+
+/** Create a minimal File-like object for use with the mock getPathForFile. */
+function fakeFile(name: string): File {
+  return new File([''], name)
 }
 
 // ---------------------------------------------------------------------------
@@ -143,27 +150,37 @@ describe('useTerminalFileDrop', () => {
       expect(target.focus).toHaveBeenCalled()
     })
 
-    it('writes native file paths to PTY', () => {
+    it('writes native file paths to PTY via getPathForFile', () => {
       const target = makeTarget('pty-2')
       const { result } = renderHook(() => useTerminalFileDrop(() => target))
+      const f1 = fakeFile('a.txt')
+      const f2 = fakeFile('b.txt')
+      mockGetPathForFile.mockImplementation((f: File) => {
+        if (f === f1) return '/tmp/a.txt'
+        if (f === f2) return '/tmp/b.txt'
+        return ''
+      })
       const event = makeDragEvent({
         types: ['Files'],
-        files: [{ path: '/tmp/a.txt' }, { path: '/tmp/b.txt' }],
+        files: [f1, f2],
       })
 
       result.current.onDrop(event)
 
       expect(event.preventDefault).toHaveBeenCalled()
+      expect(mockGetPathForFile).toHaveBeenCalledWith(f1)
+      expect(mockGetPathForFile).toHaveBeenCalledWith(f2)
       expect(mockPtyWrite).toHaveBeenCalledWith('pty-2', '/tmp/a.txt /tmp/b.txt ')
       expect(target.focus).toHaveBeenCalled()
     })
 
-    it('calls preventDefault even when native files have no .path', () => {
+    it('calls preventDefault even when getPathForFile returns empty', () => {
       const target = makeTarget('pty-1')
       const { result } = renderHook(() => useTerminalFileDrop(() => target))
+      mockGetPathForFile.mockReturnValue('')
       const event = makeDragEvent({
         types: ['Files'],
-        files: [{ path: '' }],
+        files: [fakeFile('empty.txt')],
       })
 
       result.current.onDrop(event)
@@ -201,10 +218,11 @@ describe('useTerminalFileDrop', () => {
     it('prefers internal FileTree drag over native Files', () => {
       const target = makeTarget('pty-1')
       const { result } = renderHook(() => useTerminalFileDrop(() => target))
+      mockGetPathForFile.mockReturnValue('/other/file.ts')
       const event = makeDragEvent({
         types: [FILE_PATH_MIME, 'Files'],
         getData: (type: string) => type === FILE_PATH_MIME ? '/src/index.ts' : '',
-        files: [{ path: '/other/file.ts' }],
+        files: [fakeFile('file.ts')],
       })
 
       result.current.onDrop(event)

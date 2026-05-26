@@ -22,6 +22,7 @@ import type { AgentSession, SlashCommand, SnippetAttachment } from '@/types'
 import { parseSnippets, stripAttachmentBlocks } from './diffCommentUtils'
 import type { AttachedFile } from '@/types'
 import { IconArrowDown, IconClose } from '@/components/shared/icons'
+import { drag } from '@/lib/ipc'
 import { flash } from '@/store/flash'
 import { useTranslation } from 'react-i18next'
 import type { ChatViewAction, ChatViewState } from './ChatView'
@@ -169,7 +170,7 @@ export function ChatInput({
       if (!file) continue
 
       if (entry?.isDirectory) {
-        const path = (file as File & { path: string }).path
+        const path = drag.getPathForFile(file)
         if (path) folderPaths.push(path)
       } else {
         nonFolderFiles.push(file)
