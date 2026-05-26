@@ -4,7 +4,6 @@
 // via OSC 2 with Unicode markers or keywords indicating their status.
 // This module detects those patterns and returns both status and agent type.
 //
-// Follows Orca's agent-detection.ts patterns for all supported agents.
 // OSC 9999 (agentStatusOsc.ts) provides richer data when available via hooks.
 
 import type { Terminal } from '@xterm/xterm'

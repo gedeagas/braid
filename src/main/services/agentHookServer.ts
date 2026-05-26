@@ -3,7 +3,7 @@
 // Lightweight loopback HTTP server that receives status callbacks from
 // Claude Code hooks running inside Braid's big terminals.
 //
-// Architecture (mirrors Orca):
+// Architecture:
 //   1. Hook script POSTs JSON to http://127.0.0.1:<port>/hook/agent
 //   2. Server maps the Claude Code hook event to an agent status state
 //   3. Forwards the status update to the renderer via BrowserWindow IPC

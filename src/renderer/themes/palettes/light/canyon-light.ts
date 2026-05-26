@@ -33,5 +33,23 @@ export const canyonLight: ThemePalette = {
     hlVariable: '#5c6773',
     hlTag: '#55b4d4',
     hlAttr: '#f2ae49'
+  },
+  terminal: {
+    black: '#5c6773',
+    red: '#f07171',
+    green: '#86b300',
+    yellow: '#f29718',
+    blue: '#399ee6',
+    magenta: '#a37acc',
+    cyan: '#4cbf99',
+    white: '#abb0b6',
+    brightBlack: '#828c99',
+    brightRed: '#f58c8c',
+    brightGreen: '#99c411',
+    brightYellow: '#f5a832',
+    brightBlue: '#55b4d4',
+    brightMagenta: '#b593d6',
+    brightCyan: '#60ccaa',
+    brightWhite: '#fafafa'
   }
 }

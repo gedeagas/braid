@@ -9,8 +9,7 @@
 // generated while parsing replayed bytes are suppressed. Real user keystrokes
 // typed after replay completes are never affected.
 //
-// Follows the same pattern as Orca's replay-guard.ts but simplified for
-// Braid's single-pane-per-terminal model (no splits).
+// Simplified for Braid's single-pane-per-terminal model (no splits).
 
 import type { Terminal } from '@xterm/xterm'
 

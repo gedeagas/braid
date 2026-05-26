@@ -33,5 +33,23 @@ export const sunrise: ThemePalette = {
     hlVariable: '#c05820',
     hlTag: '#d3423e',
     hlAttr: '#679c10'
+  },
+  terminal: {
+    black: '#2d2a2e',
+    red: '#d3423e',
+    green: '#679c10',
+    yellow: '#c89014',
+    blue: '#1691a5',
+    magenta: '#7a57c2',
+    cyan: '#1691a5',
+    white: '#908e92',
+    brightBlack: '#5b585d',
+    brightRed: '#e05753',
+    brightGreen: '#7aaf24',
+    brightYellow: '#daa22c',
+    brightBlue: '#28a3b7',
+    brightMagenta: '#8d6bd0',
+    brightCyan: '#28a3b7',
+    brightWhite: '#fafaf8'
   }
 }

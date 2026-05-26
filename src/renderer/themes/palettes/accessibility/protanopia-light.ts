@@ -33,5 +33,23 @@ export const protanopiaLight: ThemePalette = {
     hlVariable: '#b35d00',
     hlTag: '#0860bf',
     hlAttr: '#7b40c0'
+  },
+  terminal: {
+    black: '#2c3240',
+    red: '#0860bf',
+    green: '#b35d00',
+    yellow: '#8a6d00',
+    blue: '#0860bf',
+    magenta: '#7b40c0',
+    cyan: '#0550a0',
+    white: '#8690a0',
+    brightBlack: '#5a6170',
+    brightRed: '#1a78d4',
+    brightGreen: '#c87218',
+    brightYellow: '#a08218',
+    brightBlue: '#1a78d4',
+    brightMagenta: '#9058d0',
+    brightCyan: '#1668b8',
+    brightWhite: '#fafbfc'
   }
 }

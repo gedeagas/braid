@@ -33,5 +33,23 @@ export const canyonDark: ThemePalette = {
     hlVariable: '#e6e1cf',
     hlTag: '#59c2ff',
     hlAttr: '#ffb454'
+  },
+  terminal: {
+    black: '#0f1419',
+    red: '#f07178',
+    green: '#aad94c',
+    yellow: '#ffb454',
+    blue: '#39bae6',
+    magenta: '#d2a6ff',
+    cyan: '#95e6cb',
+    white: '#e6e1cf',
+    brightBlack: '#5c6773',
+    brightRed: '#ff8f89',
+    brightGreen: '#bae66c',
+    brightYellow: '#ffc46b',
+    brightBlue: '#59c2ff',
+    brightMagenta: '#dcb8ff',
+    brightCyan: '#a8edda',
+    brightWhite: '#f0ede4'
   }
 }

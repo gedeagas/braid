@@ -3,7 +3,7 @@
 // Creates a hook script at ~/.braid/hooks/agent-status.sh and installs
 // references into ~/.claude/settings.json. When Claude Code runs inside
 // a Braid big terminal, hooks fire HTTP callbacks to the loopback server
-// in Braid's main process (Orca-style architecture).
+// in Braid's main process.
 //
 // The hook script guards on BRAID_HOOK_PORT env var, so it's a no-op when
 // Claude Code runs outside Braid's big terminals.

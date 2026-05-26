@@ -8,7 +8,6 @@
 //   2. Title-based    - watches working -> non-working transitions.
 //
 // De-duplicates completions so the same event doesn't fire twice.
-// Follows the same architecture as Orca's agent-completion-coordinator.ts.
 
 import type { AgentStatusState } from './agentStatus'
 

@@ -1,8 +1,8 @@
 // ── Agent Status Types ────────────────────────────────────────────────────────
 //
 // Shared types for terminal agent status tracking via OSC 9999 sequences
-// and title-based detection. Mirrors Orca's agent-status-types.ts with
-// support for Claude, Codex, Gemini, Aider, Copilot, and other CLI agents.
+// and title-based detection. Supports Claude, Codex, Gemini, Aider, Copilot,
+// and other CLI agents.
 
 // ── Agent types ──────────────────────────────────────────────────────────────
 

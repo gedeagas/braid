@@ -1,5 +1,24 @@
 export type ThemeGroup = 'default' | 'dark' | 'light' | 'accessibility'
 
+export interface TerminalColors {
+  black: string
+  red: string
+  green: string
+  yellow: string
+  blue: string
+  magenta: string
+  cyan: string
+  white: string
+  brightBlack: string
+  brightRed: string
+  brightGreen: string
+  brightYellow: string
+  brightBlue: string
+  brightMagenta: string
+  brightCyan: string
+  brightWhite: string
+}
+
 export interface ThemePalette {
   id: string
   name: string
@@ -35,4 +54,5 @@ export interface ThemePalette {
     hlTag: string // HTML/XML tags
     hlAttr: string // HTML/XML attributes
   }
+  terminal?: TerminalColors
 }

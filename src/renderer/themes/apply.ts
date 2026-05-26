@@ -1,4 +1,5 @@
 import type { ThemePalette } from './palettes'
+import { deriveTerminalColors } from './deriveTerminal'
 
 /** Convert hex color + opacity (0-100) to hex with alpha channel */
 export function hexAlpha(hex: string, opacity: number): string {
@@ -140,6 +141,27 @@ export function applyTheme(palette: ThemePalette): void {
     '--hljs-variable': c.hlVariable,
     '--hljs-tag': c.hlTag,
     '--hljs-attr': c.hlAttr
+  })
+
+  // Terminal ANSI colors
+  const term = palette.terminal ?? deriveTerminalColors(palette)
+  setVars({
+    '--term-black': term.black,
+    '--term-red': term.red,
+    '--term-green': term.green,
+    '--term-yellow': term.yellow,
+    '--term-blue': term.blue,
+    '--term-magenta': term.magenta,
+    '--term-cyan': term.cyan,
+    '--term-white': term.white,
+    '--term-bright-black': term.brightBlack,
+    '--term-bright-red': term.brightRed,
+    '--term-bright-green': term.brightGreen,
+    '--term-bright-yellow': term.brightYellow,
+    '--term-bright-blue': term.brightBlue,
+    '--term-bright-magenta': term.brightMagenta,
+    '--term-bright-cyan': term.brightCyan,
+    '--term-bright-white': term.brightWhite
   })
 
   // Set data-theme attribute for any CSS-only selectors
