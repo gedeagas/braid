@@ -18,7 +18,7 @@ setErrorReporter((msg, err) => log.error(msg, err ?? ''))
 process.on('uncaughtException', (err) => logger.error('Uncaught exception', err))
 process.on('unhandledRejection', (reason) => logger.error('Unhandled rejection', reason))
 
-import { app, BrowserWindow, clipboard, components, desktopCapturer, Menu, session, shell, nativeImage, dialog } from 'electron'
+import { app, BrowserWindow, clipboard, components, desktopCapturer, Menu, session, shell, nativeImage } from 'electron'
 import { join } from 'path'
 import { APP_DISPLAY_NAME } from './appBrand'
 import { registerIpcHandlers } from './ipc'
@@ -74,6 +74,10 @@ function createWindow(): void {
   // navigate the webview in-place instead of spawning a popup.
   // Also enable native right-click context menu (copy, paste, etc.).
   mainWindow.webContents.on('did-attach-webview', (_event, webviewContents) => {
+    // Belt-and-suspenders: also configure the webview's session here in case
+    // session-created fires too late for some Electron/ASAR edge case.
+    configureWebAppSession(webviewContents.session)
+
     // Auth flows (OAuth popups, SSO) should open in the system browser where
     // the user's session cookies already exist. Regular same-origin navigations
     // are handled in-place by the webview itself.
@@ -119,11 +123,6 @@ function createWindow(): void {
 // Must be set before app.whenReady() to take effect.
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
 
-const ALLOWED_PERMISSIONS = new Set([
-  'media', 'notifications', 'clipboard-read',
-  'camera', 'microphone', 'mediaKeySystem',
-])
-
 // Spoof Chrome UA only for webapp partition sessions so sites like Spotify
 // serve their standard Chrome-compatible player bundles.
 const CHROME_UA =
@@ -134,34 +133,14 @@ const CHROME_UA =
 function configureWebAppSession(sess: import('electron').Session): void {
   sess.setUserAgent(CHROME_UA)
 
-  // Allow audio/video playback and notifications
-  sess.setPermissionRequestHandler(async (wc, permission, callback, details) => {
-    if (ALLOWED_PERMISSIONS.has(permission)) {
-      callback(true)
-      return
-    }
-
-    try {
-      const { response } = await dialog.showMessageBox({
-        type: 'question',
-        buttons: ['Allow', 'Deny'],
-        defaultId: 1,
-        cancelId: 1,
-        title: 'Permission Request',
-        message: `A website is requesting permission to access: ${permission}`,
-        detail: `URL: ${details.requestingUrl}\n\nDo you want to allow this?`,
-      })
-      if (wc.isDestroyed()) return
-      callback(response === 0)
-    } catch (err) {
-      logger.error('[PermissionRequest] Error showing dialog:', err)
-      if (!wc.isDestroyed()) callback(false)
-    }
+  // Web app sessions are user-initiated (Spotify, etc.) - grant all permissions
+  // so playback, DRM, clipboard, and other features work without prompts.
+  sess.setPermissionRequestHandler((_wc, _permission, callback) => {
+    callback(true)
   })
 
-  // Allow EME (Widevine) key system checks — required for Spotify, etc.
   sess.setPermissionCheckHandler(() => {
-    return true // allow all permission checks for embedded web apps
+    return true
   })
 }
 
