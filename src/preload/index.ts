@@ -458,6 +458,23 @@ const api = {
     getWorktreeStoragePath: () => ipcRenderer.invoke('settings:getWorktreeStoragePath'),
     getSystemPromptSuffix: () => ipcRenderer.invoke('settings:getSystemPromptSuffix'),
   },
+
+  // Mobile Companion Server
+  mobile: {
+    getStatus: () => ipcRenderer.invoke('mobile:getStatus') as Promise<{
+      running: boolean; port: number | null;
+      connectedDevices: Array<{ id: string; name: string; connectedAt: number }>
+    }>,
+    start: () => ipcRenderer.invoke('mobile:start') as Promise<{ port: number }>,
+    stop: () => ipcRenderer.invoke('mobile:stop') as Promise<void>,
+    generatePairingOffer: () => ipcRenderer.invoke('mobile:generatePairingOffer') as Promise<{
+      endpoint: string; token: string; serverPublicKey: string
+    } | null>,
+    getDevices: () => ipcRenderer.invoke('mobile:getDevices') as Promise<Array<{
+      id: string; name: string; publicKey: string; pairedAt: number; lastSeenAt: number
+    }>>,
+    removeDevice: (deviceId: string) => ipcRenderer.invoke('mobile:removeDevice', deviceId) as Promise<void>,
+  },
 }
 
 export type ElectronAPI = typeof api

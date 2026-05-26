@@ -19,6 +19,7 @@
     "jira": "Jira",
     "analytics": "Analitik",
     "about": "Tentang",
+    "mobile": "Mobile Companion",
     "experimental": "Eksperimental"
   },
   "groups": {
@@ -420,6 +421,25 @@
     "magicTrackpadHint": "Geser horizontal dua jari pada trackpad untuk berpindah tab. Geser kiri untuk tab berikutnya, geser kanan untuk tab sebelumnya.",
     "otherFlags": "Flag Lainnya",
     "previewTab": "Tab {{n}}"
+  },
+  "mobile": {
+    "serverHeader": "Server Mobile Companion",
+    "enableServer": "Aktifkan mobile companion",
+    "enableServerDesc": "Jalankan server WebSocket agar ponsel Anda dapat terhubung melalui aplikasi Braid mobile",
+    "status": "Status",
+    "running": "Berjalan di port {{port}}",
+    "connectedNow": "Terhubung",
+    "pairingHeader": "Pairing",
+    "generateQr": "Buat Kode Pairing",
+    "pairingCode": "Kode Pairing",
+    "pairingHint": "Masukkan kode ini di aplikasi Braid mobile untuk memasangkan perangkat Anda. Setiap kode hanya dapat digunakan sekali.",
+    "devicesHeader": "Perangkat Terpasang",
+    "noDevices": "Belum ada perangkat yang dipasangkan",
+    "unnamed": "Perangkat Tanpa Nama",
+    "paired": "Dipasangkan",
+    "lastSeen": "Terakhir terlihat",
+    "never": "Tidak pernah",
+    "remove": "Hapus"
   },
   "claudeSkills": {
     "title": "Keahlian",

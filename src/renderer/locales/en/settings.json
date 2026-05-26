@@ -19,6 +19,7 @@
     "jira": "Jira",
     "analytics": "Analytics",
     "about": "About",
+    "mobile": "Mobile Companion",
     "experimental": "Experimental"
   },
   "groups": {
@@ -420,6 +421,25 @@
     "magicTrackpadHint": "Two-finger horizontal swipe on the trackpad to switch between tabs. Swipe left for the next tab, swipe right for the previous tab.",
     "otherFlags": "Other Flags",
     "previewTab": "Tab {{n}}"
+  },
+  "mobile": {
+    "serverHeader": "Mobile Companion Server",
+    "enableServer": "Enable mobile companion",
+    "enableServerDesc": "Run a WebSocket server so your phone can connect via the Braid mobile app",
+    "status": "Status",
+    "running": "Running on port {{port}}",
+    "connectedNow": "Connected",
+    "pairingHeader": "Pairing",
+    "generateQr": "Generate Pairing Code",
+    "pairingCode": "Pairing Code",
+    "pairingHint": "Enter this code in the Braid mobile app to pair your device. Each code is single-use.",
+    "devicesHeader": "Paired Devices",
+    "noDevices": "No devices paired yet",
+    "unnamed": "Unnamed Device",
+    "paired": "Paired",
+    "lastSeen": "Last seen",
+    "never": "Never",
+    "remove": "Remove"
   },
   "claudeSkills": {
     "title": "Skills",

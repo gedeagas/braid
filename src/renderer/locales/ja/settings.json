@@ -19,6 +19,7 @@
     "jira": "Jira",
     "analytics": "アナリティクス",
     "about": "このアプリについて",
+    "mobile": "モバイルコンパニオン",
     "experimental": "実験的機能"
   },
   "groups": {
@@ -420,6 +421,25 @@
     "magicTrackpadHint": "トラックパッドで2本指の水平スワイプでタブを切り替えます。左にスワイプで次のタブ、右にスワイプで前のタブに移動します。",
     "otherFlags": "その他のフラグ",
     "previewTab": "タブ {{n}}"
+  },
+  "mobile": {
+    "serverHeader": "モバイルコンパニオンサーバー",
+    "enableServer": "モバイルコンパニオンを有効化",
+    "enableServerDesc": "Braidモバイルアプリからスマートフォンで接続できるWebSocketサーバーを実行します",
+    "status": "ステータス",
+    "running": "ポート {{port}} で実行中",
+    "connectedNow": "接続中",
+    "pairingHeader": "ペアリング",
+    "generateQr": "ペアリングコードを生成",
+    "pairingCode": "ペアリングコード",
+    "pairingHint": "Braidモバイルアプリでこのコードを入力してデバイスをペアリングします。各コードは1回限り有効です。",
+    "devicesHeader": "ペアリング済みデバイス",
+    "noDevices": "ペアリング済みのデバイスはありません",
+    "unnamed": "名前なしデバイス",
+    "paired": "ペアリング日",
+    "lastSeen": "最終接続",
+    "never": "なし",
+    "remove": "削除"
   },
   "claudeSkills": {
     "title": "スキル",

@@ -69,6 +69,10 @@ export class PtyDaemonAdapter implements IPtyService {
   private bigTerminalBySession = new Map<string, string>()
   /** Local RingBuffer mirror per session - keeps readTerminalOutput() working synchronously. */
   private buffers = new Map<string, RingBuffer>()
+  /** External data listeners (e.g. mobile companion server). */
+  private dataListeners = new Map<string, Set<(ptyId: string, data: string) => void>>()
+  /** External exit listeners (e.g. mobile companion server). */
+  private exitListeners = new Map<string, Set<(ptyId: string, exitCode: number) => void>>()
   /** Serializes concurrent ensureDaemon() calls to prevent spawning duplicate daemons. */
   private pendingEnsure: Promise<void> | null = null
 
@@ -83,6 +87,7 @@ export class PtyDaemonAdapter implements IPtyService {
       if (win && !win.isDestroyed()) {
         win.webContents.send('pty:data', sessionId, data)
       }
+      for (const cb of this.dataListeners.get(sessionId) ?? []) cb(sessionId, data)
     })
 
     this.client.on('exit', (sessionId, exitCode) => {
@@ -99,6 +104,9 @@ export class PtyDaemonAdapter implements IPtyService {
       if (win && !win.isDestroyed()) {
         win.webContents.send('pty:exit', sessionId, exitCode)
       }
+      for (const cb of this.exitListeners.get(sessionId) ?? []) cb(sessionId, exitCode)
+      this.dataListeners.delete(sessionId)
+      this.exitListeners.delete(sessionId)
     })
   }
 
@@ -285,6 +293,28 @@ export class PtyDaemonAdapter implements IPtyService {
       const buffer = this.buffers.get(sessionId)
       if (buffer) this.writeScrollbackFile(terminalId, buffer.read())
     }
+  }
+
+  onData(ptyId: string, callback: (ptyId: string, data: string) => void): () => void {
+    if (!this.dataListeners.has(ptyId)) this.dataListeners.set(ptyId, new Set())
+    this.dataListeners.get(ptyId)!.add(callback)
+    return () => { this.dataListeners.get(ptyId)?.delete(callback) }
+  }
+
+  onExit(ptyId: string, callback: (ptyId: string, exitCode: number) => void): () => void {
+    if (!this.exitListeners.has(ptyId)) this.exitListeners.set(ptyId, new Set())
+    this.exitListeners.get(ptyId)!.add(callback)
+    return () => { this.exitListeners.get(ptyId)?.delete(callback) }
+  }
+
+  listInstances(worktreePath?: string): Array<{ ptyId: string; cwd: string }> {
+    const results: Array<{ ptyId: string; cwd: string }> = []
+    for (const [id, cwd] of this.cwdBySession) {
+      if (!worktreePath || cwd === worktreePath) {
+        results.push({ ptyId: id, cwd })
+      }
+    }
+    return results
   }
 
   private writeScrollbackFile(terminalId: string, data: string): void {

@@ -30,6 +30,7 @@ import { waitForEnrichedEnv } from './lib/enrichedEnv'
 import { ensureBraidHooks } from './services/hookInstaller'
 import { startAgentHookServer, stopAgentHookServer } from './services/agentHookServer'
 import { ptyService } from './services/pty'
+import { mobileServer } from './services/mobileServer'
 
 // Prevent EPIPE errors from crashing the process when stdout/stderr pipes break
 // (common in Electron when the renderer detaches or during hot-reload).
@@ -199,6 +200,9 @@ app.whenReady().then(async () => {
     .then(() => ensureBraidHooks())
     .catch((err) => console.warn('[agentHookServer] Failed to start:', err))
 
+  // Mobile companion server starts on demand via the mobile:start IPC handler
+  // when the user enables it in Settings > Mobile Companion.
+
   createWindow()
   createAppMenu(mainWindow!)
 
@@ -229,6 +233,7 @@ app.on('before-quit', () => {
   }
   stopAutoUpdater()
   stopAgentHookServer()
+  mobileServer.stop()
   lspService.shutdownAll()
 })
 
