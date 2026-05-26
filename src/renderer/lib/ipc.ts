@@ -308,6 +308,10 @@ export const claudeConfig = {
     api().claudeConfig.authenticateMcpServer(serverName, serverConfig) as Promise<{ success: boolean; error?: string }>,
 }
 
+export const drag = {
+  getPathForFile: (file: File) => api().drag.getPathForFile(file) as string,
+}
+
 export const settings = {
   sync: (values: Record<string, unknown>) => api().settings.sync(values),
   getApiKey: () => api().settings.getApiKey(),

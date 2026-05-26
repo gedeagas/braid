@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, webFrame } from 'electron'
+import { contextBridge, ipcRenderer, webFrame, webUtils } from 'electron'
 import type { TemplateKind, CreateTemplateArgs, CreateTemplateResult, TemplateLogEntry } from '../shared/templates'
 
 const api = {
@@ -450,6 +450,11 @@ const api = {
     },
   },
 
+  // Drag — Electron 28+ replacement for deprecated File.path
+  drag: {
+    getPathForFile: (file: File) => webUtils.getPathForFile(file),
+  },
+
   // Settings sync
   settings: {
     sync: (values: Record<string, unknown>) => ipcRenderer.invoke('settings:sync', values),
@@ -463,3 +468,8 @@ const api = {
 export type ElectronAPI = typeof api
 
 contextBridge.exposeInMainWorld('api', api)
+
+// Prevent dropping files anywhere from navigating the Electron window to file:///...
+// Capture phase so it fires before any React handlers; no stopPropagation so React still sees the event.
+document.addEventListener('dragover', (e) => { e.preventDefault() }, true)
+document.addEventListener('drop', (e) => { e.preventDefault() }, true)

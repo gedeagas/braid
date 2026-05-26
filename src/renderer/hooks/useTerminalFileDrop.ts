@@ -68,7 +68,7 @@ export function useTerminalFileDrop(getTarget: () => TerminalFileDropTarget | nu
       e.preventDefault()
       e.stopPropagation()
       const paths = Array.from(files)
-        .map((f) => (f as File & { path: string }).path)
+        .map((f) => ipc.drag.getPathForFile(f))
         .filter(Boolean)
       if (paths.length === 0) return
       const target = getTarget()
