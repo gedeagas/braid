@@ -5,6 +5,7 @@
  * the Electron main process via child_process.fork(). It runs
  * independently and survives Electron restarts.
  */
+import { execSync } from 'child_process'
 import { createWriteStream, mkdirSync } from 'fs'
 import { join } from 'path'
 import { SessionHost } from './sessionHost'
@@ -19,7 +20,15 @@ let shuttingDown = false
 mkdirSync(DAEMON_DIR, { recursive: true, mode: 0o700 })
 const logStream = createWriteStream(join(DAEMON_DIR, 'daemon.log'), { flags: 'a', mode: 0o600 })
 
+function logSystemInfo(): void {
+  try {
+    const fdLimit = execSync('ulimit -n', { encoding: 'utf8' }).trim()
+    log(`System info: fd-limit=${fdLimit}, pid=${process.pid}, shell=${process.env.SHELL ?? 'unset'}`)
+  } catch { /* ignore */ }
+}
+
 async function main(): Promise<void> {
+  logSystemInfo()
   const host = new SessionHost()
 
   let idleTimer: ReturnType<typeof setTimeout> | null = null

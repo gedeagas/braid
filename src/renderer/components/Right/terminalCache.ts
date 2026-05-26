@@ -105,8 +105,12 @@ export function createTerminal(): { term: Terminal; fitAddon: FitAddon; searchAd
   const fitAddon = new FitAddon()
   term.loadAddon(fitAddon)
 
-  // Clickable URLs
-  term.loadAddon(new WebLinksAddon())
+  // Clickable URLs - use a custom handler because xterm's default calls
+  // window.open() without a URL, which Electron's setWindowOpenHandler
+  // sees as about:blank and denies.
+  term.loadAddon(new WebLinksAddon((_event, uri) => {
+    ipc.shell.openExternal(uri)
+  }))
 
   // Full-width CJK / emoji rendering
   const unicode11 = new Unicode11Addon()
