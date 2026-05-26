@@ -33,5 +33,23 @@ export const tritanopiaDark: ThemePalette = {
     hlVariable: '#d46b6b',
     hlTag: '#e85d75',
     hlAttr: '#c49aff'
+  },
+  terminal: {
+    black: '#1c1a20',
+    red: '#e85d75',
+    green: '#5bc8af',
+    yellow: '#d46b6b',
+    blue: '#e85d75',
+    magenta: '#c49aff',
+    cyan: '#5bc8af',
+    white: '#e4e0ed',
+    brightBlack: '#706b80',
+    brightRed: '#f07a90',
+    brightGreen: '#72d4bf',
+    brightYellow: '#df8585',
+    brightBlue: '#f07a90',
+    brightMagenta: '#d4b2ff',
+    brightCyan: '#72d4bf',
+    brightWhite: '#f0ecf5'
   }
 }

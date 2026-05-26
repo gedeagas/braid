@@ -33,5 +33,23 @@ export const oceanDimmed: ThemePalette = {
     hlVariable: '#f69d50',
     hlTag: '#8ddb8c',
     hlAttr: '#6cb6ff'
+  },
+  terminal: {
+    black: '#2d333b',
+    red: '#e5534b',
+    green: '#57ab5a',
+    yellow: '#c69026',
+    blue: '#539bf5',
+    magenta: '#dcbdfb',
+    cyan: '#76e3ea',
+    white: '#adbac7',
+    brightBlack: '#636e7b',
+    brightRed: '#f47067',
+    brightGreen: '#6bc46d',
+    brightYellow: '#daaa3f',
+    brightBlue: '#6cb6ff',
+    brightMagenta: '#dcbdfb',
+    brightCyan: '#96d0ff',
+    brightWhite: '#cdd9e5'
   }
 }

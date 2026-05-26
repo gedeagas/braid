@@ -33,5 +33,23 @@ export const sakuraDark: ThemePalette = {
     hlVariable: '#e8b88a',
     hlTag: '#7ec89f',
     hlAttr: '#f2a5c0'
+  },
+  terminal: {
+    black: '#1a1520',
+    red: '#e86b7a',
+    green: '#7ec89f',
+    yellow: '#d4a656',
+    blue: '#b8c9e8',
+    magenta: '#d4a0e0',
+    cyan: '#b8a0d4',
+    white: '#e8dfe8',
+    brightBlack: '#7a6d82',
+    brightRed: '#f08090',
+    brightGreen: '#96d4b0',
+    brightYellow: '#e0b86e',
+    brightBlue: '#c6d4ee',
+    brightMagenta: '#dfb4e6',
+    brightCyan: '#c4b0dc',
+    brightWhite: '#f2ecf2'
   }
 }

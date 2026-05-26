@@ -1,4 +1,4 @@
-import type { ThemePalette } from './palettes'
+import type { TerminalColors, ThemePalette } from './palettes'
 
 /** Strip JSONC comments (// and /* ... *​/) to make it valid JSON */
 function stripJsonComments(text: string): string {
@@ -175,6 +175,37 @@ export function importVSCodeTheme(jsonText: string, fileName: string): ThemePale
     tokenColor(tc, ['entity.other.attribute-name']) ??
     accent
 
+  // Terminal ANSI colors from VSCode theme
+  let terminal: TerminalColors | undefined
+  const ansiBlack = colors['terminal.ansiBlack']
+  const ansiRed = colors['terminal.ansiRed']
+  const ansiGreen = colors['terminal.ansiGreen']
+  const ansiYellow = colors['terminal.ansiYellow']
+  const ansiBlue = colors['terminal.ansiBlue']
+  const ansiMagenta = colors['terminal.ansiMagenta']
+  const ansiCyan = colors['terminal.ansiCyan']
+  const ansiWhite = colors['terminal.ansiWhite']
+  if (ansiBlack && ansiRed && ansiGreen && ansiYellow && ansiBlue && ansiMagenta && ansiCyan && ansiWhite) {
+    terminal = {
+      black: normalizeHex(ansiBlack),
+      red: normalizeHex(ansiRed),
+      green: normalizeHex(ansiGreen),
+      yellow: normalizeHex(ansiYellow),
+      blue: normalizeHex(ansiBlue),
+      magenta: normalizeHex(ansiMagenta),
+      cyan: normalizeHex(ansiCyan),
+      white: normalizeHex(ansiWhite),
+      brightBlack: normalizeHex(colors['terminal.ansiBrightBlack'] ?? adjustBrightness(ansiBlack, isDark ? 40 : -40)),
+      brightRed: normalizeHex(colors['terminal.ansiBrightRed'] ?? adjustBrightness(ansiRed, isDark ? 30 : -30)),
+      brightGreen: normalizeHex(colors['terminal.ansiBrightGreen'] ?? adjustBrightness(ansiGreen, isDark ? 30 : -30)),
+      brightYellow: normalizeHex(colors['terminal.ansiBrightYellow'] ?? adjustBrightness(ansiYellow, isDark ? 30 : -30)),
+      brightBlue: normalizeHex(colors['terminal.ansiBrightBlue'] ?? adjustBrightness(ansiBlue, isDark ? 30 : -30)),
+      brightMagenta: normalizeHex(colors['terminal.ansiBrightMagenta'] ?? adjustBrightness(ansiMagenta, isDark ? 30 : -30)),
+      brightCyan: normalizeHex(colors['terminal.ansiBrightCyan'] ?? adjustBrightness(ansiCyan, isDark ? 30 : -30)),
+      brightWhite: normalizeHex(colors['terminal.ansiBrightWhite'] ?? adjustBrightness(ansiWhite, isDark ? 30 : -30))
+    }
+  }
+
   // Generate a stable ID from the file name
   const id = 'vscode-' + fileName
     .replace(/\.jsonc?$/i, '')
@@ -213,6 +244,7 @@ export function importVSCodeTheme(jsonText: string, fileName: string): ThemePale
       hlVariable,
       hlTag,
       hlAttr
-    }
+    },
+    terminal
   }
 }

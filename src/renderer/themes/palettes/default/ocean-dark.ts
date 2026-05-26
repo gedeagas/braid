@@ -33,5 +33,23 @@ export const oceanDark: ThemePalette = {
     hlVariable: '#ffa657',
     hlTag: '#7ee787',
     hlAttr: '#79c0ff'
+  },
+  terminal: {
+    black: '#0d1117',
+    red: '#f85149',
+    green: '#3fb950',
+    yellow: '#d29922',
+    blue: '#58a6ff',
+    magenta: '#d2a8ff',
+    cyan: '#79c0ff',
+    white: '#e6edf3',
+    brightBlack: '#6e7681',
+    brightRed: '#ffa198',
+    brightGreen: '#56d364',
+    brightYellow: '#e3b341',
+    brightBlue: '#79c0ff',
+    brightMagenta: '#d2a8ff',
+    brightCyan: '#a5d6ff',
+    brightWhite: '#f0f6fc'
   }
 }

@@ -33,5 +33,23 @@ export const polar: ThemePalette = {
     hlVariable: '#bf616a',
     hlTag: '#81a1c1',
     hlAttr: '#8fbcbb'
+  },
+  terminal: {
+    black: '#2e3440',
+    red: '#bf616a',
+    green: '#a3be8c',
+    yellow: '#ebcb8b',
+    blue: '#5e81ac',
+    magenta: '#b48ead',
+    cyan: '#88c0d0',
+    white: '#d8dee9',
+    brightBlack: '#4c566a',
+    brightRed: '#d08770',
+    brightGreen: '#a3be8c',
+    brightYellow: '#ebcb8b',
+    brightBlue: '#81a1c1',
+    brightMagenta: '#b48ead',
+    brightCyan: '#8fbcbb',
+    brightWhite: '#eceff4'
   }
 }

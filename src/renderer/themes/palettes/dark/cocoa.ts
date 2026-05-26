@@ -33,5 +33,23 @@ export const cocoa: ThemePalette = {
     hlVariable: '#f38ba8',
     hlTag: '#f38ba8',
     hlAttr: '#b4befe'
+  },
+  terminal: {
+    black: '#45475a',
+    red: '#f38ba8',
+    green: '#a6e3a1',
+    yellow: '#f9e2af',
+    blue: '#89b4fa',
+    magenta: '#f5c2e7',
+    cyan: '#94e2d5',
+    white: '#bac2de',
+    brightBlack: '#585b70',
+    brightRed: '#f5a0b8',
+    brightGreen: '#b5e8b5',
+    brightYellow: '#fae8bd',
+    brightBlue: '#a0c4fb',
+    brightMagenta: '#f7ceec',
+    brightCyan: '#a8e8de',
+    brightWhite: '#a6adc8'
   }
 }
