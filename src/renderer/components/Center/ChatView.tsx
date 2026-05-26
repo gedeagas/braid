@@ -369,6 +369,23 @@ export function ChatView({ worktreePath = '' }: ChatViewProps) {
   // ─── Render ────────────────────────────────────────────────────────────────
 
   if (!activeSession) {
+    // In changes mode, render the diff review even without an active chat session
+    // (e.g. when only a terminal tab is open).
+    if (isChangesMode) {
+      return (
+        <Suspense fallback={<div className="diff-review diff-review--loading"><Spinner size="md" /></div>}>
+          <DiffReviewView
+            filePath={selectedDiffFile?.path ?? null}
+            worktreePath={worktreePath}
+            fileStatus={selectedDiffFile?.status}
+            fileStaged={selectedDiffFile?.staged}
+            onCommentsChange={handleDiffCommentsChange}
+            onRegisterClear={handleRegisterClear}
+            initialComments={diffCommentsRef.current}
+          />
+        </Suspense>
+      )
+    }
     return (
       <div className="empty-state">
         <div className="empty-state-icon"><IconMessageBubble size={56} /></div>

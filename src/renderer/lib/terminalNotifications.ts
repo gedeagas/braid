@@ -12,6 +12,16 @@ import * as ipc from '@/lib/ipc'
 /** Track last notified state per terminal to dedup across detection sources. */
 const lastNotifiedState = new Map<string, AgentStatusState>()
 
+/**
+ * Pending "done" notification timers. When a "done" state arrives, we delay
+ * the notification briefly. If a "waiting" state arrives within the window,
+ * we cancel the pending "done" and only fire "waiting" - this prevents the
+ * double-notification (done + needs attention) when Claude finishes a turn
+ * and immediately asks for input.
+ */
+const pendingDoneTimers = new Map<string, ReturnType<typeof setTimeout>>()
+const DONE_DEBOUNCE_MS = 400
+
 /** Find which worktree owns a given terminalId and return context for notifications. */
 function resolveTerminalContext(
   terminalId: string,
@@ -59,6 +69,11 @@ function isTerminalFocused(
  * Fire a toast + desktop notification when a terminal agent changes state.
  * Called from multiple detection sources (hook, OSC, title) - dedup guard
  * ensures only one notification per state transition.
+ *
+ * "done" notifications are debounced: if "waiting" arrives within 400ms of
+ * "done", the "done" notification is suppressed and only "needs attention"
+ * fires. This prevents the double-notification when Claude finishes a turn
+ * and immediately asks for user input.
  */
 export function notifyTerminalStateChange(terminalId: string, state: AgentStatusState): void {
   // Normalize blocked -> waiting for dedup: both map to the same notification
@@ -76,6 +91,36 @@ export function notifyTerminalStateChange(terminalId: string, state: AgentStatus
     : null
   if (!type) return
 
+  // If a "waiting" state arrives while a "done" notification is pending,
+  // cancel the "done" - the user only needs to see "needs attention".
+  if (type === 'waiting_input') {
+    const pendingDone = pendingDoneTimers.get(terminalId)
+    if (pendingDone) {
+      clearTimeout(pendingDone)
+      pendingDoneTimers.delete(terminalId)
+    }
+    fireNotification(terminalId, type)
+    return
+  }
+
+  // For "done", debounce to allow a trailing "waiting" to supersede it.
+  if (type === 'done') {
+    // Clear any existing pending done (shouldn't happen, but be safe)
+    const existing = pendingDoneTimers.get(terminalId)
+    if (existing) clearTimeout(existing)
+
+    pendingDoneTimers.set(terminalId, setTimeout(() => {
+      pendingDoneTimers.delete(terminalId)
+      fireNotification(terminalId, 'done')
+    }, DONE_DEBOUNCE_MS))
+    return
+  }
+
+  fireNotification(terminalId, type)
+}
+
+/** Actually dispatch the toast + desktop notification. */
+function fireNotification(terminalId: string, type: 'done' | 'error' | 'waiting_input'): void {
   // Read UI state once and thread it through
   const ui = useUIStore.getState()
   if (type === 'done' && !ui.notifyOnDone) return
@@ -117,4 +162,9 @@ export function notifyTerminalStateChange(terminalId: string, state: AgentStatus
 /** Clear dedup state when a terminal is disposed. */
 export function clearTerminalNotificationState(terminalId: string): void {
   lastNotifiedState.delete(terminalId)
+  const pending = pendingDoneTimers.get(terminalId)
+  if (pending) {
+    clearTimeout(pending)
+    pendingDoneTimers.delete(terminalId)
+  }
 }

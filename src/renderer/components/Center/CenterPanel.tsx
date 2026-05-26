@@ -52,10 +52,12 @@ export const CenterPanel = memo(function CenterPanel() {
   const showCodeReview = activeCenterView?.type === 'codeReview'
   const hasBigTerminals = useUIStore((s) => selectedWorktreeId ? (s.bigTerminalsByWorktree[selectedWorktreeId]?.length ?? 0) > 0 : false)
   const activeTerminalId = showTerminal ? activeCenterView.terminalId : null
-  const initialCommand = useUIStore((s) => {
+  const activeTerminalTab = useUIStore((s) => {
     if (!activeTerminalId || !selectedWorktreeId) return undefined
-    return s.bigTerminalsByWorktree[selectedWorktreeId]?.find((t) => t.id === activeTerminalId)?.initialCommand
+    return s.bigTerminalsByWorktree[selectedWorktreeId]?.find((t) => t.id === activeTerminalId)
   })
+  const initialCommand = activeTerminalTab?.initialCommand
+  const terminalAgentId = activeTerminalTab?.agentId
   const hasNoTabs = sessionsLoaded && sessions.length === 0 && openFilePaths.length === 0 && !changesOpen && !hasBigTerminals && !showCodeReview
 
   const lastNewTabAction = useUIStore((s) => s.lastNewTabAction)
@@ -142,6 +144,7 @@ export const CenterPanel = memo(function CenterPanel() {
                 terminalId={activeCenterView.terminalId}
                 worktreePath={worktree?.path ?? ''}
                 initialCommand={initialCommand}
+                agentId={terminalAgentId}
               />
             ) : showCodeReview ? (
               <Suspense fallback={<Spinner size="md" />}>

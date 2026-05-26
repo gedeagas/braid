@@ -7,7 +7,7 @@
 //   4. POSTs to /hook/<agentId> on the loopback server
 
 /** Current hook script version. Bump to force re-install on next app launch. */
-export const HOOK_SCRIPT_VERSION = 6
+export const HOOK_SCRIPT_VERSION = 7
 
 export interface HookScriptOptions {
   /** Agent identifier - determines the POST endpoint path */
@@ -19,6 +19,7 @@ export interface HookScriptOptions {
 /** Generate a bash hook script parameterized for a specific agent. */
 export function generateHookScript(opts: HookScriptOptions): string {
   const { agentId, emitStdout = false } = opts
+  const stdoutGuard = emitStdout ? 'echo \'{}\' && exit 0' : 'exit 0'
   const stdoutLine = emitStdout ? '\n# Agent requires valid JSON response on stdout\necho \'{}\'  \n' : ''
 
   return `#!/bin/bash
@@ -29,7 +30,7 @@ export function generateHookScript(opts: HookScriptOptions): string {
 # Resolve hook server port and token.
 # Prefer the config file (survives Electron restart for daemon PTY sessions)
 # over env vars (which become stale after restart).
-HOOK_CONFIG=~/.braid/hooks/hook-server.json
+HOOK_CONFIG="$HOME/.braid/hooks/hook-server.json"
 if [ -f "$HOOK_CONFIG" ]; then
   cfg=$(cat "$HOOK_CONFIG" 2>/dev/null)
   [[ "$cfg" =~ \\"port\\"[[:space:]]*:[[:space:]]*([0-9]+) ]] && BRAID_HOOK_PORT="\${BASH_REMATCH[1]}"
@@ -37,7 +38,7 @@ if [ -f "$HOOK_CONFIG" ]; then
 fi
 
 # Guard: only run inside Braid big terminals
-[ -z "$BRAID_HOOK_PORT" ] && exit 0
+[ -z "$BRAID_HOOK_PORT" ] && ${stdoutGuard}
 
 # Read stdin (agent sends hook event JSON payload)
 input=$(cat)

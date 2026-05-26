@@ -7,15 +7,17 @@ import { useUIStore } from '@/store/ui'
 import { getOrCreate, type BigTermEntry } from './bigTerminalCache'
 import { activateWebgl, disposeWebgl } from '@/components/Right/terminalCache'
 import { TerminalSearch } from '@/components/shared/TerminalSearch'
+import { BranchBar } from './BranchBar'
 import '@xterm/xterm/css/xterm.css'
 
 interface Props {
   terminalId: string
   worktreePath: string
   initialCommand?: string
+  agentId?: string
 }
 
-export function BigTerminalView({ terminalId, worktreePath, initialCommand }: Props) {
+export function BigTerminalView({ terminalId, worktreePath, initialCommand, agentId }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const entryRef = useRef<BigTermEntry | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -146,23 +148,30 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand }: Pr
   }, [])
 
   return (
-    <div
-      ref={clipboardPasteRef}
-      className="big-terminal-container"
-      style={{ position: 'relative' }}
-      onKeyDown={handleKeyDown}
-      onDragOver={fileDrop.onDragOver}
-      onDragEnter={fileDrop.onDragEnter}
-      onDragLeave={fileDrop.onDragLeave}
-      onDrop={fileDrop.onDrop}
-    >
-      {searchOpen && entryRef.current && (
-        <TerminalSearch
-          searchAddon={entryRef.current.searchAddon}
-          onClose={() => setSearchOpen(false)}
-        />
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      <div
+        ref={clipboardPasteRef}
+        className="big-terminal-container"
+        style={{ position: 'relative', flex: 1, minHeight: 0 }}
+        onKeyDown={handleKeyDown}
+        onDragOver={fileDrop.onDragOver}
+        onDragEnter={fileDrop.onDragEnter}
+        onDragLeave={fileDrop.onDragLeave}
+        onDrop={fileDrop.onDrop}
+      >
+        {searchOpen && entryRef.current && (
+          <TerminalSearch
+            searchAddon={entryRef.current.searchAddon}
+            onClose={() => setSearchOpen(false)}
+          />
+        )}
+        <div ref={containerRef} style={{ width: '100%', height: '100%', overflow: 'hidden' }} />
+      </div>
+      {agentId && (
+        <div className="chat-input-footer">
+          <BranchBar />
+        </div>
       )}
-      <div ref={containerRef} style={{ width: '100%', height: '100%', overflow: 'hidden' }} />
     </div>
   )
 }

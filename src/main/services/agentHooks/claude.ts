@@ -41,11 +41,20 @@ function readInstalledVersion(): number {
 }
 
 function hasBraidEntry(configs: { hooks: { command: string }[] }[]): boolean {
-  return configs.some((c) => c.hooks.some((h) => h.command.includes('.braid/hooks/')))
+  return Array.isArray(configs) && configs.some((c) =>
+    c && Array.isArray(c.hooks) && c.hooks.some((h) =>
+      h && typeof h.command === 'string' && h.command.includes(HOOK_COMMAND)
+    )
+  )
 }
 
 function removeBraidEntries<T extends { hooks: { command: string }[] }>(configs: T[]): T[] {
-  return configs.filter((c) => !c.hooks.some((h) => h.command.includes('.braid/hooks/')))
+  if (!Array.isArray(configs)) return []
+  return configs.filter((c) =>
+    !c || !Array.isArray(c.hooks) || !c.hooks.some((h) =>
+      h && typeof h.command === 'string' && h.command.includes(HOOK_COMMAND)
+    )
+  )
 }
 
 // ── Service ──────────────────────────────────────────────────────────────────
