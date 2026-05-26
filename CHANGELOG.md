@@ -5,6 +5,31 @@ All notable changes to Braid are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [26.2.0] - 2026-05-26
+
+### Added
+
+- brand SVGs + Google favicon fallback for agent icons (#94)
+- auto-detect and launch CLI coding agents in big terminal (#92)
+- native file drops, clipboard image paste, and sidebar badge fix (#91)
+- add per-theme terminal ANSI colors for all 29 builtin themes (#90)
+- PTY daemon for terminal session persistence (#89)
+- terminal agent notifications and persist active center view (#88)
+- default new tab action to Claude Code terminal (#87)
+- add xterm addons, search, auto-run commands, and layout fixes (#85)
+
+### Fixed
+
+- retry and enrich posix_spawnp failed errors (#93)
+- submit AskUserQuestion answers keyed by question text (#84)
+- adjust toolbar heights and panel resize constraints (#83)
+
+### Contributors
+
+Thanks to [@gedeagas](https://github.com/gedeagas), [@hanifnr](https://github.com/hanifnr) for their contributions to this release!
+
+---
+
 ## [26.1.13] - 2026-05-21
 
 ### Added
