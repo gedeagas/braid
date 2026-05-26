@@ -51,11 +51,11 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
   const sessions = useSessionsForWorktree(worktree.id)
   // Primitive selectors for big terminal agent status.
   // Each returns a number or boolean so Object.is comparison is stable (no infinite loops).
-  const activeTerminalCount = useUIStore((s) => {
+  const agentTerminalCount = useUIStore((s) => {
     const tabs = s.bigTerminalsByWorktree[worktree.id]
     if (!tabs) return 0
     let n = 0
-    for (const t of tabs) { const e = s.bigTerminalStatusById[t.id]; if (e && e.state !== 'done') n++ }
+    for (const t of tabs) { const e = s.bigTerminalStatusById[t.id]; if (e) n++ }
     return n
   })
   const hasWorkingAgent = useUIStore((s) => {
@@ -67,6 +67,11 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
     const tabs = s.bigTerminalsByWorktree[worktree.id]
     if (!tabs) return false
     return tabs.some(t => { const st = s.bigTerminalStatusById[t.id]?.state; return st === 'waiting' || st === 'blocked' })
+  })
+  const hasDoneAgent = useUIStore((s) => {
+    const tabs = s.bigTerminalsByWorktree[worktree.id]
+    if (!tabs) return false
+    return tabs.some(t => s.bigTerminalStatusById[t.id]?.state === 'done')
   })
   const { t } = useTranslation('sidebar')
 
@@ -102,6 +107,7 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
   else if (sessions.some((s) => s.status === 'waiting_input') || hasWaitingAgent) status = 'waiting_input'
   else if (sessions.some((s) => s.status === 'error')) status = 'error'
   else if (sessions.some((s) => s.status === 'idle')) status = 'idle'
+  else if (hasDoneAgent) status = 'waiting_input'
 
   const requestDeleteWorktree = () => {
     if (skipDeleteConfirm) {
@@ -180,7 +186,7 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
           }
           position="right"
         >
-          <StatusDot status={status} count={sessions.length + activeTerminalCount} />
+          <StatusDot status={status} count={sessions.length + agentTerminalCount} />
         </Tooltip>
         <div className="worktree-name-stack">
           <span className="worktree-branch-name">
