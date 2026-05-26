@@ -45,7 +45,9 @@ function getOrCreateCache(worktreePath: string): CachedSetup {
   })
   const fitAddon = new FitAddon()
   term.loadAddon(fitAddon)
-  term.loadAddon(new WebLinksAddon())
+  term.loadAddon(new WebLinksAddon((_event, uri) => {
+    ipc.shell.openExternal(uri)
+  }))
   const unicode11 = new Unicode11Addon()
   term.loadAddon(unicode11)
   term.unicode.activeVersion = '11'
