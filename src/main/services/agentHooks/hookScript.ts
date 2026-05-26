@@ -7,7 +7,7 @@
 //   4. POSTs to /hook/<agentId> on the loopback server
 
 /** Current hook script version. Bump to force re-install on next app launch. */
-export const HOOK_SCRIPT_VERSION = 7
+export const HOOK_SCRIPT_VERSION = 8
 
 export interface HookScriptOptions {
   /** Agent identifier - determines the POST endpoint path */

@@ -75,17 +75,16 @@ fi
 # Guard: only run inside Braid big terminals
 [ -z "$BRAID_HOOK_PORT" ] || [ -z "$BRAID_HOOK_TOKEN" ] || [ -z "$BRAID_TERMINAL_ID" ] && exit 0
 
-# Read stdin payload
-payload=$(cat)
-[ -z "$payload" ] && exit 0
+# Consume stdin (some events may not provide input, but we must drain the pipe)
+cat >/dev/null 2>&1 || true
 
-# POST to Braid's loopback server using form encoding (safe for paths with special chars)
-curl -sS -X POST "http://127.0.0.1:\${BRAID_HOOK_PORT}/hook/antigravity" \\
+# POST to Braid's loopback server
+curl -sS -o /dev/null \\
+  -X POST "http://127.0.0.1:\${BRAID_HOOK_PORT}/hook/antigravity" \\
   -H "Content-Type: application/json" \\
   -H "X-Braid-Token: \${BRAID_HOOK_TOKEN}" \\
   -d "{\\"terminalId\\":\\"\${BRAID_TERMINAL_ID}\\",\\"event\\":\\"\${BRAID_HOOK_EVENT}\\"}" \\
-  >/dev/null 2>&1 || true
-exit 0
+  2>/dev/null &
 `
 }
 
