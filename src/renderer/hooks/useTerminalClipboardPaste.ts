@@ -1,24 +1,49 @@
-import { useEffect, type RefObject } from 'react'
+import { useCallback, useRef } from 'react'
 import { shellEscapePath } from '@/lib/shellEscapePath'
 import * as ipc from '@/lib/ipc'
 import type { TerminalFileDropTarget } from './useTerminalFileDrop'
 
+/** Elements where paste should be handled by the element itself, not by us. */
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  const tag = target.tagName
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return true
+  if (target.isContentEditable) return true
+  return false
+}
+
 /**
- * Intercepts paste events on the terminal container (capture phase) when
- * the clipboard contains an image but no text. Saves the image as a temp
- * PNG via IPC and writes the shell-escaped path into the PTY.
+ * Returns a callback ref that attaches a capture-phase paste listener to the
+ * terminal container. When the clipboard contains an image (but no text), the
+ * image is saved as a temp PNG via IPC and the shell-escaped path is written
+ * into the PTY.
  *
  * Text pastes are left untouched so xterm handles them normally.
+ *
+ * Uses a callback ref instead of RefObject + useEffect so the listener is
+ * correctly attached/detached when the element is conditionally mounted
+ * (e.g. collapsed terminal panels).
  */
 export function useTerminalClipboardPaste(
-  containerRef: RefObject<HTMLElement | null>,
   getTarget: () => TerminalFileDropTarget | null,
 ) {
-  useEffect(() => {
-    const el = containerRef.current
+  const getTargetRef = useRef(getTarget)
+  getTargetRef.current = getTarget
+
+  const cleanupRef = useRef<(() => void) | null>(null)
+
+  const refCallback = useCallback((el: HTMLElement | null) => {
+    if (cleanupRef.current) {
+      cleanupRef.current()
+      cleanupRef.current = null
+    }
+
     if (!el) return
 
     const handler = async (e: ClipboardEvent) => {
+      // Don't intercept paste in search bars or other editable elements
+      if (isEditableTarget(e.target)) return
+
       const cd = e.clipboardData
       if (!cd) return
 
@@ -32,19 +57,25 @@ export function useTerminalClipboardPaste(
       e.preventDefault()
       e.stopPropagation()
 
-      const target = getTarget()
+      const target = getTargetRef.current()
       if (!target?.ptyId) {
         console.warn('[useTerminalClipboardPaste] paste ignored: PTY not ready')
         return
       }
 
-      const tempPath = await ipc.clipboard.saveImageAsTempFile()
-      if (!tempPath) return
-      ipc.pty.write(target.ptyId, shellEscapePath(tempPath) + ' ')
-      target.focus()
+      try {
+        const tempPath = await ipc.clipboard.saveImageAsTempFile()
+        if (!tempPath) return
+        ipc.pty.write(target.ptyId, shellEscapePath(tempPath) + ' ')
+        target.focus()
+      } catch (err) {
+        console.error('[useTerminalClipboardPaste] Failed to save clipboard image:', err)
+      }
     }
 
     el.addEventListener('paste', handler, true)
-    return () => el.removeEventListener('paste', handler, true)
-  }, [containerRef, getTarget])
+    cleanupRef.current = () => el.removeEventListener('paste', handler, true)
+  }, [])
+
+  return refCallback
 }

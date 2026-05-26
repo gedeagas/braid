@@ -24,14 +24,14 @@ function isAcceptable(types: readonly string[]): boolean {
  */
 export function useTerminalFileDrop(getTarget: () => TerminalFileDropTarget | null) {
   const onDragOver = useCallback((e: DragEvent) => {
-    if (isAcceptable(e.dataTransfer.types)) {
+    if (e.dataTransfer && isAcceptable(e.dataTransfer.types)) {
       e.preventDefault()
       e.dataTransfer.dropEffect = 'copy'
     }
   }, [])
 
   const onDragEnter = useCallback((e: DragEvent) => {
-    if (isAcceptable(e.dataTransfer.types)) {
+    if (e.dataTransfer && isAcceptable(e.dataTransfer.types)) {
       e.currentTarget.classList.add('terminal-drop-target')
     }
   }, [])
@@ -44,6 +44,7 @@ export function useTerminalFileDrop(getTarget: () => TerminalFileDropTarget | nu
 
   const onDrop = useCallback((e: DragEvent) => {
     e.currentTarget.classList.remove('terminal-drop-target')
+    if (!e.dataTransfer) return
 
     // Internal FileTree drag (priority)
     const filePath = e.dataTransfer.getData(FILE_PATH_MIME)
@@ -63,12 +64,13 @@ export function useTerminalFileDrop(getTarget: () => TerminalFileDropTarget | nu
     // Native OS file drop (Finder, desktop, etc.)
     const { files } = e.dataTransfer
     if (files.length > 0) {
+      // Prevent default before filtering to avoid browser navigation on drop
+      e.preventDefault()
+      e.stopPropagation()
       const paths = Array.from(files)
         .map((f) => (f as File & { path: string }).path)
         .filter(Boolean)
       if (paths.length === 0) return
-      e.preventDefault()
-      e.stopPropagation()
       const target = getTarget()
       if (!target?.ptyId) {
         console.warn('[useTerminalFileDrop] drop ignored: PTY not ready')

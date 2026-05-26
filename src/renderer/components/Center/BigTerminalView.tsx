@@ -16,7 +16,6 @@ interface Props {
 }
 
 export function BigTerminalView({ terminalId, worktreePath, initialCommand }: Props) {
-  const wrapperRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const entryRef = useRef<BigTermEntry | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -28,7 +27,7 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand }: Pr
     return { ptyId: entry.ptyId, focus: () => entry.term.focus() }
   }, [])
   const fileDrop = useTerminalFileDrop(getFileDropTarget)
-  useTerminalClipboardPaste(wrapperRef, getFileDropTarget)
+  const clipboardPasteRef = useTerminalClipboardPaste(getFileDropTarget)
 
   // Cmd+F / Ctrl+F opens terminal search
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -148,7 +147,7 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand }: Pr
 
   return (
     <div
-      ref={wrapperRef}
+      ref={clipboardPasteRef}
       className="big-terminal-container"
       style={{ position: 'relative' }}
       onKeyDown={handleKeyDown}
