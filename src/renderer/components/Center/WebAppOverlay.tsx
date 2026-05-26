@@ -147,6 +147,7 @@ export const WebAppOverlay = memo(function WebAppOverlay() {
           src={webAppLastUrls[app.id] ?? app.url}
           partition={`persist:webapp-${getPartitionKey(app.url)}`}
           allowpopups={true}
+          plugins={true}
           style={{
             display: activeWebAppId === app.id ? 'flex' : 'none',
             flex: 1,
