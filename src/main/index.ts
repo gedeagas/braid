@@ -18,7 +18,7 @@ setErrorReporter((msg, err) => log.error(msg, err ?? ''))
 process.on('uncaughtException', (err) => logger.error('Uncaught exception', err))
 process.on('unhandledRejection', (reason) => logger.error('Unhandled rejection', reason))
 
-import { app, BrowserWindow, clipboard, components, desktopCapturer, Menu, session, shell, nativeImage } from 'electron'
+import { app, BrowserWindow, clipboard, components, desktopCapturer, Menu, session, shell, nativeImage, dialog } from 'electron'
 import { join } from 'path'
 import { APP_DISPLAY_NAME } from './appBrand'
 import { registerIpcHandlers } from './ipc'
@@ -121,7 +121,7 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
 
 const ALLOWED_PERMISSIONS = new Set([
   'media', 'notifications', 'clipboard-read',
-  'camera', 'microphone',
+  'camera', 'microphone', 'mediaKeySystem'
 ])
 
 // Spoof Chrome UA only for webapp partition sessions so sites like Spotify
@@ -135,8 +135,27 @@ function configureWebAppSession(sess: import('electron').Session): void {
   sess.setUserAgent(CHROME_UA)
 
   // Allow audio/video playback and notifications
-  sess.setPermissionRequestHandler((_wc, permission, callback) => {
-    callback(ALLOWED_PERMISSIONS.has(permission))
+  sess.setPermissionRequestHandler(async (_wc, permission, callback, details) => {
+    if (ALLOWED_PERMISSIONS.has(permission)) {
+      callback(true)
+      return
+    }
+
+    try {
+      const { response } = await dialog.showMessageBox({
+        type: 'question',
+        buttons: ['Allow', 'Deny'],
+        defaultId: 1,
+        cancelId: 1,
+        title: 'Permission Request',
+        message: `A website is requesting permission to access: ${permission}`,
+        detail: `URL: ${details.requestingUrl}\n\nDo you want to allow this?`
+      })
+      callback(response === 0)
+    } catch (err) {
+      console.error('[PermissionRequest] Error showing dialog:', err)
+      callback(false)
+    }
   })
 
   // Allow EME (Widevine) key system checks — required for Spotify, etc.
