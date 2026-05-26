@@ -24,6 +24,10 @@ To switch between tabs, click the tab you want. To close a tab, hover over it an
 Double-click a tab label to rename it. This helps you keep track of what each terminal is doing, such as "dev server", "tests", or "logs".
 :::
 
+### Default New Tab Action
+
+You can configure the default action when clicking the **+** button. By default, it opens a standard shell, but you can set it to immediately launch a specific CLI agent (like the Claude Code terminal) in the app settings.
+
 ### Drag to reorder
 
 Terminal tabs support drag-and-drop reordering. Grab a tab and drag it to a new position in the tab bar. An accent indicator shows you where the tab will land.
@@ -52,6 +56,14 @@ When you delete a worktree, Braid runs any configured **archive** lifecycle scri
 
 You can configure setup scripts in your project settings. When you trigger a run (from the sidebar context menu or the Setup tab), Braid spawns a new terminal tab and executes the command. The tab label shows the script name so you can identify it at a glance.
 
+## CLI Coding Agents
+
+Braid seamlessly integrates with external CLI coding agents (like Claude Code) running directly in the terminal. 
+
+- **Auto-Detect and Launch**: Braid can auto-detect and launch your preferred CLI agents in a large terminal view, giving them plenty of space to output logs and interactive prompts.
+- **Agent Notifications**: While your CLI agent is running in the background, you'll receive notifications when it needs attention. 
+- **Persist Active View**: When navigating between worktrees, Braid persists your active center view, so if you were working in a CLI agent terminal, you'll come right back to it.
+
 ## Terminal settings
 
 Customize the terminal experience in the app settings. You have control over:
@@ -68,11 +80,11 @@ If you use a non-standard shell like Fish or Nushell, set the shell path in sett
 
 Terminal state persists when you navigate away. If you switch to a different worktree and come back, your terminal tabs are still there with their full scrollback history. Processes that were running continue to run in the background.
 
-This persistence is powered by a module-level cache. The app keeps terminal instances alive even when the component unmounts, so you never lose your place.
+This robust persistence is powered by a **PTY daemon** that keeps shell sessions alive independently of the UI. The app maintains terminal instances and their state even when the component unmounts or when you switch context, so you never lose your place.
 
 ## Theme integration
 
-The terminal theme updates automatically when you change the app theme. Colors for the prompt, output, errors, and background all match your selected palette. The transition happens instantly with no terminal restart required.
+The terminal theme updates automatically when you change the app theme. Braid includes **per-theme terminal ANSI colors** for all 29 built-in themes. Colors for the prompt, output, errors, and background all flawlessly match your selected palette. The transition happens instantly with no terminal restart required.
 
 ## Resize and collapse
 
@@ -83,9 +95,9 @@ You control the terminal's vertical space with two mechanisms:
 
 ## How it works under the hood
 
-The terminal uses **xterm.js** for rendering and **node-pty** for the shell process. Each tab spawns a real pseudo-terminal (PTY) connected to your configured shell. Input and output stream over Electron's IPC bridge.
+The terminal uses **xterm.js** for rendering and **node-pty** for the shell process. Each tab spawns a real pseudo-terminal (PTY) connected to your configured shell. Input and output stream over Electron's IPC bridge, and the **PTY daemon** handles robust session persistence.
 
-The **FitAddon** automatically resizes the terminal grid when the panel dimensions change. A **ResizeObserver** watches the container and adjusts the PTY dimensions so your shell always knows the correct column and row count.
+The terminal also leverages **xterm addons**, giving you access to built-in **search** capabilities and **auto-run commands** directly in the UI. A **ResizeObserver** and the `FitAddon` watch the container and dynamically adjust the PTY dimensions with layout fixes so your shell always knows the correct column and row count.
 
 :::note
 Terminal processes are tied to the app lifecycle. When you quit Braid, all running terminal processes are terminated.

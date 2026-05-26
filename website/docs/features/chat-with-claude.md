@@ -78,15 +78,17 @@ You can attach code snippets to your message for targeted context. Snippets appe
 Snippets are useful when you want Claude to focus on a specific section of code rather than an entire file. Copy the relevant lines and attach them as a snippet for the most precise context.
 :::
 
-### Drag and drop images
+### Native file drops and image pasting
 
-Drag image files directly into the chat input area, or use the file picker. Braid supports **PNG**, **JPEG**, **GIF**, and **WebP** formats. You can attach up to **5 images** per message, with each image capped at **2 MB**.
+Braid supports **native file drops**. You can drag and drop entire folders, text files, and image files directly into the chat input area, or use the file picker. You can also paste images directly from your clipboard!
+
+For images, Braid supports **PNG**, **JPEG**, **GIF**, and **WebP** formats. You can attach up to **5 images** per message, with each image capped at **2 MB**.
 
 :::note
 Images are converted to base64 data URIs and sent as multimodal content blocks. This means Claude can see screenshots, mockups, error messages, and design references you share.
 :::
 
-Use image attachments when you want to show Claude a UI bug, share a design you want implemented, or provide visual context that would be hard to describe in text.
+Use image attachments when you want to show Claude a UI bug, share a design you want implemented, or provide visual context that would be hard to describe in text. Dropping folders or files quickly adds them as text context to your current session without needing to manually `@mention` them.
 
 ## Queue your next message
 

@@ -2886,3 +2886,179 @@ article ul li strong {
     padding: 0.875rem 1rem;
   }
 }
+
+/* ============================================================
+   HERO SUPPORTED TOOLS
+   ============================================================ */
+.hero-supported-tools {
+  margin: 3rem 0 4rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  width: 100%;
+}
+
+.hero-supported-tools__label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ifm-color-emphasis-500);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 600px;
+}
+
+.hero-supported-tools__label::before,
+.hero-supported-tools__label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--ifm-color-emphasis-200);
+}
+
+.hero-supported-tools__label::before {
+  margin-right: 1rem;
+}
+
+.hero-supported-tools__label::after {
+  margin-left: 1rem;
+}
+
+.hero-supported-tools__list {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 800px;
+}
+
+.hero-supported-tools__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--ifm-color-emphasis-100);
+  padding: 0.4rem 0.8rem;
+  border-radius: 2rem;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+  transition: all 0.2s ease;
+  cursor: default;
+}
+
+.hero-supported-tools__item:hover {
+  transform: translateY(-2px);
+  background: var(--ifm-color-emphasis-200);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.05);
+  border-color: var(--ifm-color-emphasis-300);
+}
+
+.hero-supported-tools__icon {
+  border-radius: 4px;
+}
+
+.hero-supported-tools__name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ifm-color-emphasis-900);
+}
+
+[data-theme='dark'] .hero-supported-tools__item {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme='dark'] .hero-supported-tools__item:hover {
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* ============================================================
+   HERO AESTHETICS (Gradients, Animations, Grid)
+   ============================================================ */
+
+/* 1. Dynamic Text Gradient */
+.hero-title-gradient {
+  background: linear-gradient(135deg, var(--ifm-color-primary) 0%, #a855f7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+
+/* 2. Staggered Entrance Animations */
+@keyframes heroFadeUp {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hero-badge,
+.hero-title,
+.hero-subtitle,
+.hero-buttons,
+.hero-supported-tools,
+.hero-screenshot {
+  animation: heroFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.hero-badge { animation-delay: 0.1s; }
+.hero-title { animation-delay: 0.2s; }
+.hero-subtitle { animation-delay: 0.3s; }
+.hero-buttons { animation-delay: 0.4s; }
+.hero-supported-tools { animation-delay: 0.5s; }
+.hero-screenshot { animation-delay: 0.6s; }
+
+/* 6. Subtle Grid Pattern Background */
+.hero-section::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(var(--ifm-color-emphasis-300) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: radial-gradient(ellipse at top, black 0%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse at top, black 0%, transparent 80%);
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.6;
+}
+
+/* 4. Interactive CTA Sheen */
+.hero-cta-button {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hero-cta-button:hover {
+  transform: scale(1.03);
+  box-shadow: 0 8px 24px rgba(53, 120, 229, 0.3);
+}
+
+.hero-cta-button::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: skewX(-25deg);
+  animation: shimmerCTA 4s infinite;
+}
+
+@keyframes shimmerCTA {
+  0% { left: -100%; }
+  20% { left: 200%; }
+  100% { left: 200%; }
+}

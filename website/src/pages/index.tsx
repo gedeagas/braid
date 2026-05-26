@@ -84,7 +84,7 @@ function HeroSection(): React.JSX.Element {
       <span className="hero-badge">v{version} Now Available</span>
       <h1 className="hero-title">
         AI Coding Agents, <br />
-        <span className="hero-title-muted">Parallelized.</span>
+        <span className="hero-title-gradient">Parallelized.</span>
       </h1>
       <p className="hero-subtitle">
         Braid is the desktop workspace for developers who use AI coding agents
@@ -93,7 +93,7 @@ function HeroSection(): React.JSX.Element {
       </p>
       <div className="hero-buttons">
         <button
-          className="button button--primary button--lg"
+          className="button button--primary button--lg hero-cta-button"
           onClick={() => setDownloadOpen(true)}
         >
           <DownloadIcon />
@@ -106,6 +106,33 @@ function HeroSection(): React.JSX.Element {
           View on GitHub
         </Link>
       </div>
+
+      <div className="hero-supported-tools">
+        <span className="hero-supported-tools__label">
+          Works with your favorite tools
+        </span>
+        <div className="hero-supported-tools__list">
+          {[
+            { name: 'Claude', domain: 'claude.ai' },
+            { name: 'Antigravity', domain: 'google.com' },
+            { name: 'Codex', domain: 'openai.com' },
+            { name: 'Cursor', domain: 'cursor.com' },
+            { name: 'Codeium', domain: 'codeium.com' },
+          ].map((tool) => (
+            <div key={tool.name} className="hero-supported-tools__item">
+              <img 
+                src={`https://www.google.com/s2/favicons?domain=${tool.domain}&sz=32`} 
+                alt={`${tool.name} icon`} 
+                width="20" 
+                height="20" 
+                className="hero-supported-tools__icon"
+              />
+              <span className="hero-supported-tools__name">{tool.name}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="hero-screenshot">
         <img
           src={heroImg}

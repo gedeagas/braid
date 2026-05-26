@@ -92,6 +92,7 @@ const config: Config = {
           blogSidebarCount: 'ALL',
           showReadingTime: false,
           sortPosts: 'descending',
+          onUntruncatedBlogPosts: 'ignore',
           feedOptions: {
             type: ['rss', 'atom'],
             title: 'Braid Changelog',

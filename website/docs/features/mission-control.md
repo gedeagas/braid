@@ -55,6 +55,7 @@ Each card in the Sessions view displays:
 
 - **Project name** — Which repository this session belongs to.
 - **Branch name** — The worktree's branch, so you know exactly which line of work this is.
+- **Agent icon** — The agent assigned to the session, displayed using its **brand SVG** (like Claude or Antigravity) with a Google favicon fallback for custom or generic agents.
 - **Status indicator** — The same color-coded dot you see in the sidebar (green, spinning, orange, red).
 - **Activity summary** — A brief description of what's happening or what happened.
 
