@@ -96,27 +96,27 @@
   background: transparent;
   opacity: 0.5;
 }
-.status-dot.status-badge.idle {
+.status-dot.status-badge.active {
+  border: 1.5px solid var(--olive);
+  color: var(--olive);
+  background: transparent;
+}
+.status-dot.status-badge.done {
   border: 1.5px solid var(--green);
   color: var(--green);
   background: transparent;
 }
-.status-dot.status-badge.running {
+.status-dot.status-badge.working {
   border: 1.5px solid var(--amber);
   color: var(--amber);
   background: transparent;
   animation: pulse 1.5s ease-in-out infinite;
 }
-.status-dot.status-badge.waiting_input {
+.status-dot.status-badge.permission {
   border: 1.5px solid var(--accent);
   color: var(--accent);
   background: transparent;
   animation: pulse-accent 1s ease-in-out infinite;
-}
-.status-dot.status-badge.error {
-  border: 1.5px solid var(--red);
-  color: var(--red);
-  background: transparent;
 }
 
 /* Pin status dot column — wide enough for badge */
@@ -130,16 +130,16 @@
 }
 
 .status-dot.inactive { background: var(--text-muted); opacity: 0.4; }
-.status-dot.idle { background: var(--olive); }
-.status-dot.running {
+.status-dot.active { background: var(--olive); }
+.status-dot.done { background: var(--green); }
+.status-dot.working {
   background: var(--amber);
   animation: pulse 1.5s ease-in-out infinite;
 }
-.status-dot.waiting_input {
+.status-dot.permission {
   background: var(--accent);
   animation: pulse-accent 1s ease-in-out infinite;
 }
-.status-dot.error { background: var(--red); }
 
 @keyframes pulse {
   0%, 100% { box-shadow: 0 0 0 0 var(--amber-glow); }

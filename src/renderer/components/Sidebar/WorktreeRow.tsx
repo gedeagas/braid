@@ -1,5 +1,5 @@
 import { useReducer, useEffect, useRef } from 'react'
-import type { Worktree, SessionStatus } from '@/types'
+import type { Worktree, WorktreeStatus } from '@/types'
 import { StatusDot } from './StatusDot'
 import { PrIcon } from './PrIcon'
 import { useUIStore } from '@/store/ui'
@@ -102,12 +102,13 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
   const [rowState, rowDispatch] = useReducer(rowReducer, { menu: null, showDeleteConfirm: false, dontAskAgain: false })
   const { menu, showDeleteConfirm, dontAskAgain } = rowState
 
-  let status: SessionStatus = 'inactive'
-  if (sessions.some((s) => s.status === 'running') || hasWorkingAgent) status = 'running'
-  else if (sessions.some((s) => s.status === 'waiting_input') || hasWaitingAgent) status = 'waiting_input'
-  else if (sessions.some((s) => s.status === 'error')) status = 'error'
-  else if (sessions.some((s) => s.status === 'idle')) status = 'idle'
-  else if (hasDoneAgent) status = 'waiting_input'
+  // Priority: permission > working > done > active > inactive
+  let status: WorktreeStatus = 'inactive'
+  if (sessions.some((s) => s.status === 'waiting_input') || hasWaitingAgent) status = 'permission'
+  else if (sessions.some((s) => s.status === 'error')) status = 'permission'
+  else if (sessions.some((s) => s.status === 'running') || hasWorkingAgent) status = 'working'
+  else if (hasDoneAgent) status = 'done'
+  else if (sessions.some((s) => s.status === 'idle')) status = 'active'
 
   const requestDeleteWorktree = () => {
     if (skipDeleteConfirm) {
@@ -174,14 +175,14 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
       >
         <Tooltip
           content={
-            status === 'running'
-              ? t('worktreeStatusRunning')
-              : status === 'waiting_input'
-                ? t('worktreeStatusWaiting')
-                : status === 'error'
-                  ? t('worktreeStatusError')
-                  : status === 'idle'
-                    ? t('worktreeStatusIdle')
+            status === 'permission'
+              ? t('worktreeStatusPermission')
+              : status === 'working'
+                ? t('worktreeStatusWorking')
+                : status === 'done'
+                  ? t('worktreeStatusDone')
+                  : status === 'active'
+                    ? t('worktreeStatusActive')
                     : t('worktreeStatusNone')
           }
           position="right"
