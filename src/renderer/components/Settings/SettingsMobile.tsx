@@ -1,9 +1,11 @@
-import { useReducer, useCallback, useEffect } from 'react'
+import { useReducer, useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import QRCode from 'qrcode'
 import { useUIStore } from '@/store/ui'
 import { Toggle } from '@/components/shared/Toggle'
 import { FormField } from '@/components/ui'
 import { Button } from '@/components/ui'
+import { StatusDot } from '@/components/ui/StatusDot'
 import * as ipc from '@/lib/ipc'
 
 interface MobileDevice {
@@ -23,6 +25,7 @@ interface PairingOffer {
 interface MobileState {
   devices: MobileDevice[]
   pairingOffer: PairingOffer | null
+  qrDataUrl: string | null
   serverRunning: boolean
   serverPort: number | null
   connectedDevices: Array<{ id: string; name: string; connectedAt: number }>
@@ -33,7 +36,7 @@ interface MobileState {
 type MobileAction =
   | { type: 'SET_STATUS'; running: boolean; port: number | null; connectedDevices: Array<{ id: string; name: string; connectedAt: number }> }
   | { type: 'SET_DEVICES'; devices: MobileDevice[] }
-  | { type: 'SET_PAIRING_OFFER'; offer: PairingOffer | null }
+  | { type: 'SET_PAIRING'; offer: PairingOffer | null; qrDataUrl: string | null }
   | { type: 'SET_LOADING'; loading: boolean }
   | { type: 'SET_ERROR'; error: string | null }
 
@@ -43,8 +46,8 @@ function reducer(state: MobileState, action: MobileAction): MobileState {
       return { ...state, serverRunning: action.running, serverPort: action.port, connectedDevices: action.connectedDevices }
     case 'SET_DEVICES':
       return { ...state, devices: action.devices }
-    case 'SET_PAIRING_OFFER':
-      return { ...state, pairingOffer: action.offer }
+    case 'SET_PAIRING':
+      return { ...state, pairingOffer: action.offer, qrDataUrl: action.qrDataUrl }
     case 'SET_LOADING':
       return { ...state, loading: action.loading }
     case 'SET_ERROR':
@@ -56,10 +59,13 @@ export function SettingsMobile() {
   const { t } = useTranslation('settings')
   const mobileServerEnabled = useUIStore((s) => s.mobileServerEnabled)
   const setMobileServerEnabled = useUIStore((s) => s.setMobileServerEnabled)
+  const confirmingRef = useRef<string | null>(null)
+  const [, forceRender] = useReducer((x: number) => x + 1, 0)
 
   const [state, dispatch] = useReducer(reducer, {
     devices: [],
     pairingOffer: null,
+    qrDataUrl: null,
     serverRunning: false,
     serverPort: null,
     connectedDevices: [],
@@ -67,7 +73,6 @@ export function SettingsMobile() {
     error: null,
   })
 
-  // Load status and devices on mount
   const loadData = useCallback(async () => {
     try {
       const [status, devices] = await Promise.all([
@@ -93,7 +98,7 @@ export function SettingsMobile() {
         await ipc.mobile.start()
       } else {
         await ipc.mobile.stop()
-        dispatch({ type: 'SET_PAIRING_OFFER', offer: null })
+        dispatch({ type: 'SET_PAIRING', offer: null, qrDataUrl: null })
       }
       setMobileServerEnabled(enabled)
       await loadData()
@@ -104,17 +109,25 @@ export function SettingsMobile() {
     }
   }
 
-  const handleGenerateQr = async () => {
+  const handleGeneratePairing = async () => {
     dispatch({ type: 'SET_ERROR', error: null })
     try {
       const offer = await ipc.mobile.generatePairingOffer()
-      dispatch({ type: 'SET_PAIRING_OFFER', offer: offer as PairingOffer | null })
+      if (!offer) return
+      const payload = btoa(JSON.stringify(offer))
+      const qrDataUrl = await QRCode.toDataURL(payload, {
+        width: 200,
+        margin: 2,
+        color: { dark: '#000000', light: '#ffffff' },
+      })
+      dispatch({ type: 'SET_PAIRING', offer: offer as PairingOffer, qrDataUrl })
     } catch (err) {
       dispatch({ type: 'SET_ERROR', error: err instanceof Error ? err.message : String(err) })
     }
   }
 
   const handleRemoveDevice = async (deviceId: string) => {
+    confirmingRef.current = null
     await ipc.mobile.removeDevice(deviceId)
     await loadData()
   }
@@ -127,17 +140,33 @@ export function SettingsMobile() {
     })
   }
 
+  const connectedIds = new Set(state.connectedDevices.map((d) => d.id))
+  const pairedDevices = state.devices.filter((d) => d.publicKey)
+
   return (
     <div className="settings-section">
+      <span className="settings-hint">{t('mobile.enableServerDesc')}</span>
+
+      <div className="settings-divider" />
+
+      {/* ── Server status ────────────────────────────────────────────── */}
       <h4 className="settings-section-subtitle">{t('mobile.serverHeader')}</h4>
 
-      <FormField label={t('mobile.enableServer')} hint={t('mobile.enableServerDesc')} horizontal>
+      <div className="settings-field settings-field--row">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)' }}>
+          <StatusDot state={state.serverRunning ? 'success' : 'failure'} />
+          <span className="settings-label">
+            {state.serverRunning
+              ? t('mobile.running', { port: state.serverPort })
+              : t('mobile.enableServer')}
+          </span>
+        </div>
         <Toggle
           checked={mobileServerEnabled}
           onChange={handleToggle}
           disabled={state.loading}
         />
-      </FormField>
+      </div>
 
       {state.error && (
         <div className="settings-field" style={{ color: 'var(--text-danger)' }}>
@@ -145,77 +174,81 @@ export function SettingsMobile() {
         </div>
       )}
 
+      {/* ── Pairing ──────────────────────────────────────────────────── */}
       {state.serverRunning && (
         <>
           <div className="settings-divider" />
-
-          <div className="settings-field">
-            <span className="settings-label">{t('mobile.status')}</span>
-            <span style={{ color: 'var(--text-success)' }}>
-              {t('mobile.running', { port: state.serverPort })}
-            </span>
-          </div>
-
-          {state.connectedDevices.length > 0 && (
-            <div className="settings-field">
-              <span className="settings-label">{t('mobile.connectedNow')}</span>
-              <span>{state.connectedDevices.map((d) => d.name).join(', ')}</span>
-            </div>
-          )}
-
-          <div className="settings-divider" />
           <h4 className="settings-section-subtitle">{t('mobile.pairingHeader')}</h4>
 
-          <div className="settings-field">
-            <Button
-              size="sm"
-              onClick={handleGenerateQr}
-            >
-              {t('mobile.generateQr')}
-            </Button>
-          </div>
-
-          {state.pairingOffer && (
-            <div className="settings-card" style={{ fontFamily: 'var(--font-mono)' }}>
-              <p className="settings-card-title">{t('mobile.pairingCode')}</p>
-              <code style={{ fontSize: 'var(--text-xs)', wordBreak: 'break-all', userSelect: 'all' }}>
-                {btoa(JSON.stringify(state.pairingOffer))}
-              </code>
-              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 'var(--space-4)' }}>
+          {state.qrDataUrl ? (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 'var(--space-12)',
+              padding: 'var(--space-16)',
+            }}>
+              <img
+                src={state.qrDataUrl}
+                alt="Pairing QR code"
+                style={{ width: 200, height: 200, borderRadius: 'var(--radius)' }}
+              />
+              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', textAlign: 'center' }}>
                 {t('mobile.pairingHint')}
-              </p>
+              </span>
+              <Button size="sm" onClick={handleGeneratePairing}>
+                {t('mobile.regenerateQr')}
+              </Button>
+            </div>
+          ) : (
+            <div className="settings-field">
+              <Button size="sm" variant="primary" onClick={handleGeneratePairing}>
+                {t('mobile.generateQr')}
+              </Button>
             </div>
           )}
         </>
       )}
 
+      {/* ── Paired devices ───────────────────────────────────────────── */}
       <div className="settings-divider" />
       <h4 className="settings-section-subtitle">{t('mobile.devicesHeader')}</h4>
 
-      {state.devices.length === 0 ? (
-        <div className="settings-field" style={{ color: 'var(--text-muted)' }}>
-          {t('mobile.noDevices')}
-        </div>
+      {pairedDevices.length === 0 ? (
+        <span className="settings-hint">{t('mobile.noDevices')}</span>
       ) : (
-        state.devices.filter((d) => d.publicKey).map((device) => (
-          <div key={device.id} className="settings-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <p className="settings-card-title">{device.name || t('mobile.unnamed')}</p>
-              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-                {t('mobile.paired')}: {formatDate(device.pairedAt)}
-                {' - '}
-                {t('mobile.lastSeen')}: {formatDate(device.lastSeenAt)}
-              </p>
+        <div className="settings-skill-list">
+          {pairedDevices.map((device) => (
+            <div key={device.id} className="settings-skill-row">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)', flex: 1, minWidth: 0 }}>
+                <StatusDot state={connectedIds.has(device.id) ? 'success' : 'skipped'} />
+                <div className="settings-skill-info">
+                  <span className="settings-skill-name">{device.name || t('mobile.unnamed')}</span>
+                  <span className="settings-skill-desc">
+                    {t('mobile.lastSeen')}: {formatDate(device.lastSeenAt)}
+                  </span>
+                </div>
+              </div>
+              {confirmingRef.current === device.id ? (
+                <div className="settings-skill-confirm">
+                  <Button variant="danger" size="sm" onClick={() => handleRemoveDevice(device.id)}>
+                    {t('mobile.remove')}
+                  </Button>
+                  <Button size="sm" onClick={() => { confirmingRef.current = null; forceRender() }}>
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <button
+                  className="settings-skill-delete-btn"
+                  onClick={() => { confirmingRef.current = device.id; forceRender() }}
+                >
+                  &times;
+                </button>
+              )}
             </div>
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={() => handleRemoveDevice(device.id)}
-            >
-              {t('mobile.remove')}
-            </Button>
-          </div>
-        ))
+          ))}
+        </div>
       )}
     </div>
   )
