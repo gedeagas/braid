@@ -153,6 +153,8 @@ class MobileServer {
             localKeyPair: serverEphemeral,
             remotePublicKey,
             nonceCounter: 0,
+            deviceId: device.id,
+            deviceToken: hello.deviceToken,
           }
 
           // Step 2: Send e2ee_ready (plaintext - last plaintext message)
@@ -184,14 +186,11 @@ class MobileServer {
 
           const authMsg = result.data
 
-          // For new pairings, finalize the device
-          let device = authMsg.deviceId ? deviceStore.getById(authMsg.deviceId) : null
-          if (!device) {
-            // This is a new pairing - look up by the original token
-            const tokenDevice = deviceStore.load().find((d) => d.publicKey === '' || d.publicKey === authMsg.devicePublicKey)
-            if (tokenDevice) {
-              device = deviceStore.finalizePairing(tokenDevice.token, authMsg.deviceName, authMsg.devicePublicKey)
-            }
+          // Retrieve the device bound during the hello phase to prevent session hijacking
+          let device = deviceStore.getById(session.deviceId)
+          if (device && device.publicKey === '') {
+            // New pairing - finalize using the cryptographically bound token
+            device = deviceStore.finalizePairing(session.deviceToken, authMsg.deviceName, authMsg.devicePublicKey)
           }
 
           if (!device) {
@@ -305,56 +304,6 @@ class MobileServer {
         logger.error('[MobileServer] Failed to send notification:', err)
       }
     })
-  }
-
-  // ── Broadcast to all connected devices ────────────────────────────────
-
-  broadcastAgentEvent(sessionId: string, event: unknown): void {
-    for (const conn of this.connections.values()) {
-      const notification: JsonRpcNotification = {
-        jsonrpc: '2.0',
-        method: 'agent.event',
-        params: { sessionId, event },
-      }
-      try {
-        const { encrypted, nextCounter } = e2ee.encryptJson(
-          notification,
-          conn.e2ee.sharedKey,
-          conn.e2ee.nonceCounter,
-          true
-        )
-        conn.e2ee.nonceCounter = nextCounter
-        if (conn.ws.readyState === WebSocket.OPEN) {
-          conn.ws.send(encrypted)
-        }
-      } catch {
-        // Connection may be stale
-      }
-    }
-  }
-
-  broadcastPtyData(ptyId: string, data: string): void {
-    for (const conn of this.connections.values()) {
-      const notification: JsonRpcNotification = {
-        jsonrpc: '2.0',
-        method: 'terminal.data',
-        params: { ptyId, data },
-      }
-      try {
-        const { encrypted, nextCounter } = e2ee.encryptJson(
-          notification,
-          conn.e2ee.sharedKey,
-          conn.e2ee.nonceCounter,
-          true
-        )
-        conn.e2ee.nonceCounter = nextCounter
-        if (conn.ws.readyState === WebSocket.OPEN) {
-          conn.ws.send(encrypted)
-        }
-      } catch {
-        // Connection may be stale
-      }
-    }
   }
 
   // ── Activity probe (ping/pong) ────────────────────────────────────────

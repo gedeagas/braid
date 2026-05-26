@@ -1,4 +1,4 @@
-import { useState, useReducer, useCallback } from 'react'
+import { useReducer, useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/store/ui'
 import { Toggle } from '@/components/shared/Toggle'
@@ -67,8 +67,6 @@ export function SettingsMobile() {
     error: null,
   })
 
-  const [initialized, setInitialized] = useState(false)
-
   // Load status and devices on mount
   const loadData = useCallback(async () => {
     try {
@@ -83,10 +81,9 @@ export function SettingsMobile() {
     }
   }, [])
 
-  if (!initialized) {
-    setInitialized(true)
+  useEffect(() => {
     loadData()
-  }
+  }, [loadData])
 
   const handleToggle = async (enabled: boolean) => {
     dispatch({ type: 'SET_LOADING', loading: true })

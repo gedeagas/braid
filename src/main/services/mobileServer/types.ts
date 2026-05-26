@@ -21,6 +21,8 @@ export interface E2EESession {
   }
   remotePublicKey: Uint8Array    // Mobile's ephemeral public key
   nonceCounter: number           // Monotonic counter for nonce generation
+  deviceId: string               // Bound during hello phase to prevent session hijacking
+  deviceToken: string            // Bound during hello phase for secure pairing finalization
 }
 
 // ── Connection ────────────────────────────────────────────────────────────────
