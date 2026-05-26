@@ -7,7 +7,9 @@ import { useDragScroll } from '@/hooks/useDragScroll'
 import { useTabReorder } from '@/hooks/useTabReorder'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { ContextMenu, type ContextMenuItem } from '@/components/shared/ContextMenu'
-import { IconMessageBubble, IconTerminal, IconClaude } from '@/components/shared/icons'
+import { IconMessageBubble, IconTerminal, IconClaude, AgentIcon } from '@/components/shared/icons'
+import { useDetectedAgents } from '@/lib/agentDetection'
+import type { AgentCatalogEntry } from '@/lib/agentCatalog'
 import type { AgentSession } from '@/types'
 import { getSessionTitle } from '@/lib/sessionTitle'
 import { agentStatusToTabClass } from '@/lib/agentStatus'
@@ -257,50 +259,84 @@ export function SessionTabBar() {
     ]
   }, [local.menu, unifiedTabs, closeSingleTab, closeManyTabs, t])
 
-  // Build + menu items, sorted so the last-used action is first
+  // Auto-detected CLI agents
+  const detectedAgents = useDetectedAgents()
+
+  // Build + menu items: Chat, separator, detected agents, separator, Terminal.
+  // Last-used action floats to the very top.
   const addMenuItems = useMemo((): ContextMenuItem[] => {
-    const allItems: Array<{ key: string; icon: ReactNode; label: string; onClick: () => void }> = [
-      {
-        key: 'chat',
-        icon: <IconMessageBubble size={14} />,
-        label: t('newChat'),
-        onClick: () => {
-          setLastNewTabAction('chat')
-          const id = createSession(selectedWorktreeId!, worktree!.path)
-          setActiveCenterView({ type: 'session', sessionId: id })
-        },
+    const chatItem = {
+      key: 'chat',
+      icon: <IconMessageBubble size={14} />,
+      label: t('newChat'),
+      onClick: () => {
+        setLastNewTabAction('chat')
+        const id = createSession(selectedWorktreeId!, worktree!.path)
+        setActiveCenterView({ type: 'session', sessionId: id })
       },
-      {
-        key: 'claudeCode',
-        icon: <IconClaude size={14} />,
-        label: t('newClaudeCode'),
-        onClick: () => {
-          if (!selectedWorktreeId) return
-          setLastNewTabAction('claudeCode')
-          const id = createBigTerminal(selectedWorktreeId, 'Claude Code', 'claude')
-          setActiveCenterView({ type: 'terminal', terminalId: id })
-        },
-      },
-      {
-        key: 'terminal',
-        icon: <IconTerminal size={14} />,
-        label: t('newBigTerminal'),
-        onClick: () => {
-          if (!selectedWorktreeId) return
-          setLastNewTabAction('terminal')
-          const id = createBigTerminal(selectedWorktreeId)
-          setActiveCenterView({ type: 'terminal', terminalId: id })
-        },
-      },
-    ]
-    // Move last-used action to the top
-    const idx = allItems.findIndex((item) => item.key === lastNewTabAction)
-    if (idx > 0) {
-      const [preferred] = allItems.splice(idx, 1)
-      allItems.unshift(preferred)
     }
-    return allItems
-  }, [lastNewTabAction, selectedWorktreeId, worktree, createSession, createBigTerminal, setActiveCenterView, setLastNewTabAction, t])
+
+    const agentItems = detectedAgents.map((entry: AgentCatalogEntry) => ({
+      key: `agent:${entry.id}`,
+      icon: <AgentIcon agentId={entry.id} size={14} />,
+      label: entry.label,
+      onClick: () => {
+        if (!selectedWorktreeId) return
+        setLastNewTabAction(`agent:${entry.id}`)
+        const id = createBigTerminal(selectedWorktreeId, entry.label, entry.launchCmd, entry.id)
+        setActiveCenterView({ type: 'terminal', terminalId: id })
+      },
+    }))
+
+    const terminalItem = {
+      key: 'terminal',
+      icon: <IconTerminal size={14} />,
+      label: t('newBigTerminal'),
+      onClick: () => {
+        if (!selectedWorktreeId) return
+        setLastNewTabAction('terminal')
+        const id = createBigTerminal(selectedWorktreeId)
+        setActiveCenterView({ type: 'terminal', terminalId: id })
+      },
+    }
+
+    // Assemble: chat, separator, agents, separator, terminal
+    type MenuItem = { key: string; icon: ReactNode; label: string; onClick: () => void }
+    const sections: MenuItem[][] = [
+      [chatItem],
+      agentItems,
+      [terminalItem],
+    ]
+
+    // Float last-used action to the very top
+    const lastKey = lastNewTabAction === 'claudeCode' ? 'agent:claude' : lastNewTabAction
+    let floated: MenuItem | null = null
+    for (const section of sections) {
+      const idx = section.findIndex((item) => item.key === lastKey)
+      if (idx >= 0) {
+        [floated] = section.splice(idx, 1)
+        break
+      }
+    }
+
+    const result: ContextMenuItem[] = []
+    if (floated) {
+      result.push(floated)
+      result.push({ label: '---', onClick: () => {} })
+    }
+
+    for (let i = 0; i < sections.length; i++) {
+      if (sections[i].length === 0) continue
+      for (const item of sections[i]) result.push(item)
+      if (i < sections.length - 1) {
+        // Add separator between non-empty sections
+        const hasNext = sections.slice(i + 1).some((s) => s.length > 0)
+        if (hasNext) result.push({ label: '---', onClick: () => {} })
+      }
+    }
+
+    return result
+  }, [lastNewTabAction, selectedWorktreeId, worktree, detectedAgents, createSession, createBigTerminal, setActiveCenterView, setLastNewTabAction, t])
 
   if (!selectedWorktreeId || !worktree) return null
 

@@ -98,7 +98,7 @@ export function newBigTerminal(): void {
 export function newClaudeCode(): void {
   const ui = useUIStore.getState()
   if (!ui.selectedWorktreeId) return
-  const id = ui.createBigTerminal(ui.selectedWorktreeId, 'Claude Code', 'claude')
+  const id = ui.createBigTerminal(ui.selectedWorktreeId, 'Claude Code', 'claude', 'claude')
   ui.setActiveCenterView({ type: 'terminal', terminalId: id })
 }
 

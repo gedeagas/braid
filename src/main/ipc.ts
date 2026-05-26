@@ -26,6 +26,7 @@ import { lspService, LspServerConfig } from './services/lsp'
 import { jiraService } from './services/jira'
 import { githubAuthService } from './services/githubAuth'
 import { resolveCliPath } from './services/claudePath'
+import { enrichedEnv } from './lib/enrichedEnv'
 import { downloadUpdate, installUpdate, checkForUpdates } from './services/autoUpdate'
 
 // In-process settings cache — renderer pushes values here so main-process
@@ -253,21 +254,24 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('shell:openExternal', (_e, url: string) => shell.openExternal(url))
   ipcMain.handle('shell:showItemInFolder', (_e, fullPath: string) => shell.showItemInFolder(fullPath))
 
-  // Use a login shell so Homebrew, NVM, and other PATH managers are visible.
-  // macOS GUI apps launch with a stripped PATH — running `which` directly would
-  // miss any tool not in /usr/bin:/bin:/usr/sbin:/sbin.
+  // Uses the enriched PATH (hydrated once at startup from the user's login shell)
+  // so we can run bare `which` without spawning a login shell per check.
   ipcMain.handle('shell:checkTool', (_e, tool: string) => {
     if (!/^[a-zA-Z0-9-]+$/.test(tool)) return false
-    const userShell = process.env.SHELL || '/bin/zsh'
     return new Promise<boolean>((resolve) => {
-      execFile(userShell, ['-l', '-c', `which ${tool} > /dev/null 2>&1`], { timeout: 5000 }, (err) => resolve(!err))
+      execFile('which', [tool], { timeout: 3000, env: enrichedEnv() }, (err, stdout) => {
+        // Verify output is an absolute path - filters out shell builtins
+        // like "continue: shell built-in command" which exit 0 but aren't real CLIs
+        const found = !err && stdout.split(/\r?\n/).some((line) => line.trim().startsWith('/'))
+        if (found) console.log('[checkTool] %s -> %s', tool, stdout.trim())
+        resolve(found)
+      })
     })
   })
 
   ipcMain.handle('shell:checkGhAuth', () => {
-    const userShell = process.env.SHELL || '/bin/zsh'
     return new Promise<boolean>((resolve) => {
-      execFile(userShell, ['-l', '-c', 'gh auth status > /dev/null 2>&1'], { timeout: 8000 }, (err) => resolve(!err))
+      execFile('gh', ['auth', 'status'], { timeout: 8000, env: enrichedEnv() }, (err) => resolve(!err))
     })
   })
 

@@ -2,12 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // ─── Mocks (must come before module import) ──────────────────────────────────
 
-const mockEnrichedEnv = vi.fn()
-vi.mock('../../lib/enrichedEnv', () => ({
+const mockEnrichedEnv = vi.hoisted(() => vi.fn())
+vi.mock('../../../lib/enrichedEnv', () => ({
   enrichedEnv: () => mockEnrichedEnv(),
 }))
 
-const mockExistsSync = vi.fn()
+const mockExistsSync = vi.hoisted(() => vi.fn())
 vi.mock('fs', async (importActual) => {
   const actual = await importActual<typeof import('fs')>()
   return { ...actual, existsSync: (p: string) => mockExistsSync(p) }

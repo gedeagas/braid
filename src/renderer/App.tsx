@@ -27,6 +27,7 @@ import { UpdateDialog } from '@/components/shared/UpdateDialog'
 import { useAutoUpdate } from '@/hooks/useAutoUpdate'
 import { initUpdateListeners } from '@/store/updater'
 import * as actions from '@/lib/appActions'
+import { initAgentDetection } from '@/lib/agentDetection'
 
 export default function App() {
   const autoUpdate = useAutoUpdate()
@@ -132,6 +133,7 @@ export default function App() {
 
     const cleanup = initAgentEventListener()
     const cleanupUpdater = initUpdateListeners()
+    const cleanupAgentDetection = initAgentDetection()
 
     // Keep dock badge in sync with sessions + big terminal agents needing attention
     const computeBadge = () => {
@@ -155,6 +157,7 @@ export default function App() {
       cleanup()
       unsubSettings()
       cleanupUpdater()
+      cleanupAgentDetection()
       unsubBadge()
       unsubTerminalBadge()
     }

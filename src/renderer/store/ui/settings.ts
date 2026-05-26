@@ -8,7 +8,10 @@ import { loadStr, loadBool, loadInt, loadFloat } from './helpers'
 const VALID_MODEL_IDS: readonly string[] = ['claude-opus-4-7', 'claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5-20251001']
 const VALID_EFFORT_LEVELS = new Set<string>(EFFORT_LEVELS.map((l) => l.id))
 const DEFAULT_MODEL: ModelId = 'claude-sonnet-4-6'
-const VALID_NEW_TAB_ACTIONS = new Set<string>(['chat', 'claudeCode', 'terminal'])
+function isValidNewTabAction(v: string): boolean {
+  if (v === 'chat' || v === 'claudeCode' || v === 'terminal') return true
+  return /^agent:[a-zA-Z0-9-]+$/.test(v)
+}
 
 const DEFAULT_DISCOVERY_PATTERNS = [
   '.env*', '.envrc', '.secret', '.secrets',
@@ -193,7 +196,7 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
 
   lastNewTabAction: (() => {
     const v = loadStr(SK.lastNewTabAction, 'claudeCode')
-    return VALID_NEW_TAB_ACTIONS.has(v) ? v as NewTabAction : 'claudeCode'
+    return isValidNewTabAction(v) ? v as NewTabAction : 'claudeCode'
   })(),
   streamingAnimation: loadBool(SK.streamingAnimation, true),
 
