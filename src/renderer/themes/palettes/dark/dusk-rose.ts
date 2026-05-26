@@ -33,5 +33,23 @@ export const duskRose: ThemePalette = {
     hlVariable: '#e0def4',
     hlTag: '#eb6f92',
     hlAttr: '#ebbcba'
+  },
+  terminal: {
+    black: '#26233a',
+    red: '#eb6f92',
+    green: '#31748f',
+    yellow: '#f6c177',
+    blue: '#9ccfd8',
+    magenta: '#c4a7e7',
+    cyan: '#ebbcba',
+    white: '#e0def4',
+    brightBlack: '#6e6a86',
+    brightRed: '#f083a2',
+    brightGreen: '#3d8fa8',
+    brightYellow: '#f8cc8b',
+    brightBlue: '#aed8e0',
+    brightMagenta: '#d0b8ec',
+    brightCyan: '#f0c9c7',
+    brightWhite: '#e8e6f8'
   }
 }

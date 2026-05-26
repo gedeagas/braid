@@ -33,5 +33,23 @@ export const obsidian: ThemePalette = {
     hlVariable: '#e06c75',
     hlTag: '#e06c75',
     hlAttr: '#d19a66'
+  },
+  terminal: {
+    black: '#282c34',
+    red: '#e06c75',
+    green: '#98c379',
+    yellow: '#e5c07b',
+    blue: '#61afef',
+    magenta: '#c678dd',
+    cyan: '#56b6c2',
+    white: '#abb2bf',
+    brightBlack: '#5c6370',
+    brightRed: '#e88388',
+    brightGreen: '#a9d18e',
+    brightYellow: '#ebcc93',
+    brightBlue: '#7cc3f5',
+    brightMagenta: '#d18ee6',
+    brightCyan: '#6fc4ce',
+    brightWhite: '#dcdfe4'
   }
 }

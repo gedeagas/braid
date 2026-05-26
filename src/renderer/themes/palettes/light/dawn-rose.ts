@@ -33,5 +33,23 @@ export const dawnRose: ThemePalette = {
     hlVariable: '#575279',
     hlTag: '#b4637a',
     hlAttr: '#d7827a'
+  },
+  terminal: {
+    black: '#575279',
+    red: '#b4637a',
+    green: '#286983',
+    yellow: '#ea9d34',
+    blue: '#56949f',
+    magenta: '#907aa9',
+    cyan: '#d7827a',
+    white: '#9893a5',
+    brightBlack: '#797593',
+    brightRed: '#c47a90',
+    brightGreen: '#3d7f99',
+    brightYellow: '#eead52',
+    brightBlue: '#6da5b0',
+    brightMagenta: '#a38ebb',
+    brightCyan: '#dd948c',
+    brightWhite: '#faf4ed'
   }
 }

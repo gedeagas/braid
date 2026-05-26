@@ -33,5 +33,23 @@ export const deuteranopiaDark: ThemePalette = {
     hlVariable: '#e89a3c',
     hlTag: '#4a9eff',
     hlAttr: '#c49aff'
+  },
+  terminal: {
+    black: '#1a1d24',
+    red: '#5b9fff',
+    green: '#e89a3c',
+    yellow: '#d4a340',
+    blue: '#4a9eff',
+    magenta: '#c49aff',
+    cyan: '#6db3ff',
+    white: '#e2e6ed',
+    brightBlack: '#6b7380',
+    brightRed: '#7ab4ff',
+    brightGreen: '#f0b05c',
+    brightYellow: '#e0b75c',
+    brightBlue: '#6db3ff',
+    brightMagenta: '#d4b2ff',
+    brightCyan: '#8ac4ff',
+    brightWhite: '#f0f3f8'
   }
 }

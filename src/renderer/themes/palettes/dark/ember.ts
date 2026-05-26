@@ -33,5 +33,23 @@ export const ember: ThemePalette = {
     hlVariable: '#fc9867',
     hlTag: '#ff6188',
     hlAttr: '#a9dc76'
+  },
+  terminal: {
+    black: '#2d2a2e',
+    red: '#ff6188',
+    green: '#a9dc76',
+    yellow: '#ffd866',
+    blue: '#78dce8',
+    magenta: '#ab9df2',
+    cyan: '#78dce8',
+    white: '#fcfcfa',
+    brightBlack: '#727072',
+    brightRed: '#ff7999',
+    brightGreen: '#b8e38a',
+    brightYellow: '#ffde7a',
+    brightBlue: '#8fe4ee',
+    brightMagenta: '#baaef5',
+    brightCyan: '#8fe4ee',
+    brightWhite: '#ffffff'
   }
 }

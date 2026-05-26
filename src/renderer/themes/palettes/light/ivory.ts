@@ -33,5 +33,23 @@ export const ivory: ThemePalette = {
     hlVariable: '#e45649',
     hlTag: '#e45649',
     hlAttr: '#986801'
+  },
+  terminal: {
+    black: '#383a42',
+    red: '#e45649',
+    green: '#50a14f',
+    yellow: '#c18401',
+    blue: '#4078f2',
+    magenta: '#a626a4',
+    cyan: '#0184bc',
+    white: '#a0a1a7',
+    brightBlack: '#696c77',
+    brightRed: '#ec6b5e',
+    brightGreen: '#60b25f',
+    brightYellow: '#d49a12',
+    brightBlue: '#5493ff',
+    brightMagenta: '#b740b0',
+    brightCyan: '#1b9fc6',
+    brightWhite: '#f0f0f0'
   }
 }

@@ -33,5 +33,23 @@ export const highContrast: ThemePalette = {
     hlVariable: '#ffa657',
     hlTag: '#7ee787',
     hlAttr: '#79c0ff'
+  },
+  terminal: {
+    black: '#000000',
+    red: '#ff6a69',
+    green: '#3fb950',
+    yellow: '#f0b72f',
+    blue: '#409eff',
+    magenta: '#d2a8ff',
+    cyan: '#76e3ea',
+    white: '#ffffff',
+    brightBlack: '#6e7681',
+    brightRed: '#ff9492',
+    brightGreen: '#56d364',
+    brightYellow: '#f4c753',
+    brightBlue: '#58b4ff',
+    brightMagenta: '#dcb8ff',
+    brightCyan: '#8ff0f5',
+    brightWhite: '#ffffff'
   }
 }

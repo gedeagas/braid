@@ -1,4 +1,4 @@
-export type { ThemeGroup, ThemePalette } from './types'
+export type { TerminalColors, ThemeGroup, ThemePalette } from './types'
 
 import { ThemeGroup, ThemePalette } from './types'
 import { defaultThemes } from './default'

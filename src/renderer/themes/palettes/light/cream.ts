@@ -33,5 +33,23 @@ export const cream: ThemePalette = {
     hlVariable: '#d20f39',
     hlTag: '#d20f39',
     hlAttr: '#1e66f5'
+  },
+  terminal: {
+    black: '#5c5f77',
+    red: '#d20f39',
+    green: '#40a02b',
+    yellow: '#df8e1d',
+    blue: '#1e66f5',
+    magenta: '#8839ef',
+    cyan: '#04a5e5',
+    white: '#acb0be',
+    brightBlack: '#6c6f85',
+    brightRed: '#e03e56',
+    brightGreen: '#50b03b',
+    brightYellow: '#e9a030',
+    brightBlue: '#3578f7',
+    brightMagenta: '#9a4ef2',
+    brightCyan: '#17b2e8',
+    brightWhite: '#dce0e8'
   }
 }

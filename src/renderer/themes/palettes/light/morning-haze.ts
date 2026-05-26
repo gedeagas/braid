@@ -33,5 +33,23 @@ export const morningHaze: ThemePalette = {
     hlVariable: '#8c4351',
     hlTag: '#8c4351',
     hlAttr: '#166775'
+  },
+  terminal: {
+    black: '#343b59',
+    red: '#8c4351',
+    green: '#485e30',
+    yellow: '#8f5e15',
+    blue: '#34548a',
+    magenta: '#5a4a78',
+    cyan: '#166775',
+    white: '#8990b3',
+    brightBlack: '#4c5179',
+    brightRed: '#a4566a',
+    brightGreen: '#5b7342',
+    brightYellow: '#a57228',
+    brightBlue: '#476ba0',
+    brightMagenta: '#6e5e8e',
+    brightCyan: '#287b8a',
+    brightWhite: '#d5d6db'
   }
 }

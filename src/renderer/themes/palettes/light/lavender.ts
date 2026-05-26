@@ -33,5 +33,23 @@ export const lavender: ThemePalette = {
     hlVariable: '#b85c00',
     hlTag: '#d63384',
     hlAttr: '#228b44'
+  },
+  terminal: {
+    black: '#282a36',
+    red: '#e63535',
+    green: '#228b44',
+    yellow: '#c4960a',
+    blue: '#9b6bdf',
+    magenta: '#d63384',
+    cyan: '#1a8a8a',
+    white: '#6272a4',
+    brightBlack: '#44475a',
+    brightRed: '#f04f4f',
+    brightGreen: '#34a05a',
+    brightYellow: '#d8a91e',
+    brightBlue: '#ae83e6',
+    brightMagenta: '#e24d9a',
+    brightCyan: '#2aa0a0',
+    brightWhite: '#f8f8f2'
   }
 }
