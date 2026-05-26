@@ -1,11 +1,11 @@
 // ── Agent Hook HTTP Server ───────────────────────────────────────────────────
 //
 // Lightweight loopback HTTP server that receives status callbacks from
-// Claude Code hooks running inside Braid's big terminals.
+// agent hooks running inside Braid's big terminals.
 //
 // Architecture:
-//   1. Hook script POSTs JSON to http://127.0.0.1:<port>/hook/agent
-//   2. Server maps the Claude Code hook event to an agent status state
+//   1. Hook script POSTs JSON to http://127.0.0.1:<port>/hook/<agentId>
+//   2. Server maps the agent-specific hook event to a unified status state
 //   3. Forwards the status update to the renderer via BrowserWindow IPC
 //
 // The server binds to 127.0.0.1 only (no network exposure).
@@ -17,16 +17,19 @@ import { mkdirSync, writeFileSync, unlinkSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
 import { BrowserWindow } from 'electron'
+import type { AgentHookTarget } from './agentHooks/types'
 
 /** Well-known config file path. Hook scripts read this to get the current port/token. */
 const HOOK_CONFIG_PATH = join(homedir(), '.braid', 'hooks', 'hook-server.json')
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+type AgentStatusState = 'working' | 'blocked' | 'waiting' | 'done'
+
 export interface AgentHookStatus {
   terminalId: string
-  state: 'working' | 'blocked' | 'waiting' | 'done'
-  agentType: 'claude'
+  state: AgentStatusState
+  agentType: AgentHookTarget
   toolName?: string
   interrupted?: boolean
 }
@@ -38,17 +41,110 @@ interface HookRequestBody {
   isInterrupt?: boolean
 }
 
-// ── Event Mapping ────────────────────────────────────────────────────────────
+// ── Per-Agent Event-to-State Mappings ────────────────────────────────────────
 
-function mapEventToState(event: string): AgentHookStatus['state'] | null {
-  switch (event) {
-    case 'UserPromptSubmit': return 'working'
-    case 'PreToolUse':       return 'working'
-    case 'PostToolUse':      return 'working'
-    case 'PermissionRequest': return 'waiting'
-    case 'Stop':             return 'done'
-    default:                 return null
-  }
+const EVENT_MAPS: Record<AgentHookTarget, Record<string, AgentStatusState>> = {
+  claude: {
+    SessionStart: 'working',
+    UserPromptSubmit: 'working',
+    PreToolUse: 'working',
+    PostToolUse: 'working',
+    PostToolUseFailure: 'working',
+    PermissionRequest: 'waiting',
+    Stop: 'done',
+  },
+  gemini: {
+    BeforeAgent: 'working',
+    AfterTool: 'working',
+    PreToolUse: 'working',
+    PostToolUse: 'working',
+    AfterAgent: 'done',
+  },
+  antigravity: {
+    PreInvocation: 'working',
+    PostInvocation: 'working',
+    PostToolUse: 'working',
+    Stop: 'done',
+  },
+  codex: {
+    SessionStart: 'working',
+    UserPromptSubmit: 'working',
+    PreToolUse: 'working',
+    PostToolUse: 'working',
+    PermissionRequest: 'waiting',
+    Stop: 'done',
+  },
+  copilot: {
+    SessionStart: 'working',
+    UserPromptSubmit: 'working',
+    PreToolUse: 'working',
+    PostToolUse: 'working',
+    PostToolUseFailure: 'working',
+    subagentStart: 'working',
+    PreCompact: 'working',
+    PermissionRequest: 'working',
+    Notification: 'blocked',
+    SubagentStop: 'done',
+    SessionEnd: 'done',
+    Stop: 'done',
+  },
+  cursor: {
+    beforeSubmitPrompt: 'working',
+    preToolUse: 'working',
+    postToolUse: 'working',
+    postToolUseFailure: 'working',
+    afterAgentResponse: 'working',
+    beforeShellExecution: 'waiting',
+    beforeMCPExecution: 'waiting',
+    stop: 'done',
+  },
+  grok: {
+    UserPromptSubmit: 'working',
+    PreToolUse: 'working',
+    PostToolUse: 'working',
+    PostToolUseFailure: 'working',
+    Stop: 'done',
+    SessionEnd: 'done',
+  },
+  droid: {
+    UserPromptSubmit: 'working',
+    PreToolUse: 'working',
+    PostToolUse: 'working',
+    PermissionRequest: 'waiting',
+    Stop: 'done',
+  },
+  hermes: {
+    on_session_start: 'working',
+    pre_llm_call: 'working',
+    pre_tool_call: 'working',
+    post_tool_call: 'working',
+    post_approval_response: 'working',
+    pre_approval_request: 'waiting',
+    post_llm_call: 'done',
+    on_session_end: 'done',
+    on_session_finalize: 'done',
+    on_session_reset: 'done',
+  },
+}
+
+/** Valid agent IDs for URL routing. */
+const VALID_AGENTS = new Set<string>(Object.keys(EVENT_MAPS))
+
+/** Parse agentId from URL path. Supports /hook/<agentId> and legacy /hook/agent. */
+function parseRoute(url: string | undefined): AgentHookTarget | null {
+  if (!url) return null
+  const match = url.match(/^\/hook\/([a-z]+)$/)
+  if (!match) return null
+  const id = match[1]
+  // Backward compat: /hook/agent maps to claude
+  if (id === 'agent') return 'claude'
+  if (VALID_AGENTS.has(id)) return id as AgentHookTarget
+  return null
+}
+
+/** Map an event name to a status state using the agent-specific mapping. */
+function mapEventToState(agentId: AgentHookTarget, event: string): AgentStatusState | null {
+  return EVENT_MAPS[agentId]?.[event] ?? null
 }
 
 // ── Server ───────────────────────────────────────────────────────────────────
@@ -65,8 +161,15 @@ export async function startAgentHookServer(): Promise<{ port: number; token: str
 
   return new Promise((resolve, reject) => {
     const srv = http.createServer((req, res) => {
-      // Only accept POST /hook/agent
-      if (req.method !== 'POST' || req.url !== '/hook/agent') {
+      // Only accept POST /hook/<agentId>
+      if (req.method !== 'POST') {
+        res.writeHead(404)
+        res.end()
+        return
+      }
+
+      const agentId = parseRoute(req.url)
+      if (!agentId) {
         res.writeHead(404)
         res.end()
         return
@@ -102,13 +205,13 @@ export async function startAgentHookServer(): Promise<{ port: number; token: str
           const parsed = JSON.parse(body) as HookRequestBody
           if (!parsed.terminalId || !parsed.event) return
 
-          const state = mapEventToState(parsed.event)
+          const state = mapEventToState(agentId, parsed.event)
           if (!state) return
 
           const status: AgentHookStatus = {
             terminalId: parsed.terminalId,
             state,
-            agentType: 'claude',
+            agentType: agentId,
             toolName: state === 'done' ? undefined : parsed.toolName,
             interrupted: parsed.isInterrupt ?? false,
           }

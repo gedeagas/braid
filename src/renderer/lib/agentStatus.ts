@@ -7,7 +7,7 @@
 // ── Agent types ──────────────────────────────────────────────────────────────
 
 export const KNOWN_AGENT_TYPES = [
-  'claude', 'codex', 'gemini', 'opencode', 'cursor', 'copilot',
+  'claude', 'codex', 'gemini', 'antigravity', 'opencode', 'cursor', 'copilot',
   'aider', 'pi', 'droid', 'grok', 'hermes', 'unknown'
 ] as const
 

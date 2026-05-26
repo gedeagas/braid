@@ -27,7 +27,7 @@ import { windowCaptureService } from './services/windowCapture'
 import { lspService } from './services/lsp'
 import { initAutoUpdater, stopAutoUpdater } from './services/autoUpdate'
 import { waitForEnrichedEnv } from './lib/enrichedEnv'
-import { ensureBraidHooks } from './services/hookInstaller'
+import { ensureAllAgentHooks } from './services/agentHooks'
 import { startAgentHookServer, stopAgentHookServer } from './services/agentHookServer'
 import { ptyService } from './services/pty'
 
@@ -194,10 +194,10 @@ app.whenReady().then(async () => {
     )
   }
 
-  // Start the agent hook HTTP server, then install Claude Code hooks.
+  // Start the agent hook HTTP server, then install hooks for all supported agents.
   // The server must be running before hooks are installed so the port is known.
   startAgentHookServer()
-    .then(() => ensureBraidHooks())
+    .then(() => ensureAllAgentHooks())
     .catch((err) => console.warn('[agentHookServer] Failed to start:', err))
 
   createWindow()
