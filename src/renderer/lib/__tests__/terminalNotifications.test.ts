@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // ── Mocks ───────────────────────────────────────────────────────────────────
 
@@ -55,6 +55,7 @@ const DEFAULT_PROJECTS_STATE = {
 }
 
 beforeEach(() => {
+  vi.useFakeTimers()
   vi.clearAllMocks()
   clearTerminalNotificationState('bt-1')
   clearTerminalNotificationState('bt-2')
@@ -63,11 +64,20 @@ beforeEach(() => {
   vi.mocked(useProjectsStore.getState).mockReturnValue(DEFAULT_PROJECTS_STATE as ReturnType<typeof useProjectsStore.getState>)
 })
 
+afterEach(() => {
+  vi.useRealTimers()
+})
+
 // ── Tests ───────────────────────────────────────────────────────────────────
 
 describe('notifyTerminalStateChange', () => {
-  it('fires toast and desktop notification on done', () => {
+  it('fires toast and desktop notification on done (after debounce)', () => {
     notifyTerminalStateChange('bt-1', 'done')
+    // Not yet - debounced
+    expect(mockAddToast).not.toHaveBeenCalled()
+    expect(mockNotify).not.toHaveBeenCalled()
+
+    vi.advanceTimersByTime(400)
     expect(mockAddToast).toHaveBeenCalledOnce()
     expect(mockAddToast).toHaveBeenCalledWith(expect.objectContaining({
       type: 'done',
@@ -87,7 +97,7 @@ describe('notifyTerminalStateChange', () => {
     )
   })
 
-  it('fires waiting_input for waiting state', () => {
+  it('fires waiting_input for waiting state (immediately)', () => {
     notifyTerminalStateChange('bt-1', 'waiting')
     expect(mockAddToast).toHaveBeenCalledWith(expect.objectContaining({
       type: 'waiting_input',
@@ -95,7 +105,7 @@ describe('notifyTerminalStateChange', () => {
     }))
   })
 
-  it('fires waiting_input for blocked state', () => {
+  it('fires waiting_input for blocked state (immediately)', () => {
     notifyTerminalStateChange('bt-1', 'blocked')
     expect(mockAddToast).toHaveBeenCalledWith(expect.objectContaining({
       type: 'waiting_input',
@@ -104,6 +114,7 @@ describe('notifyTerminalStateChange', () => {
 
   it('skips notification for working state', () => {
     notifyTerminalStateChange('bt-1', 'working')
+    vi.advanceTimersByTime(500)
     expect(mockAddToast).not.toHaveBeenCalled()
     expect(mockNotify).not.toHaveBeenCalled()
   })
@@ -111,6 +122,7 @@ describe('notifyTerminalStateChange', () => {
   it('deduplicates same state', () => {
     notifyTerminalStateChange('bt-1', 'done')
     notifyTerminalStateChange('bt-1', 'done')
+    vi.advanceTimersByTime(400)
     expect(mockAddToast).toHaveBeenCalledOnce()
   })
 
@@ -122,8 +134,10 @@ describe('notifyTerminalStateChange', () => {
 
   it('allows notification after state change', () => {
     notifyTerminalStateChange('bt-1', 'done')
+    vi.advanceTimersByTime(400)
     notifyTerminalStateChange('bt-1', 'working')  // skip (working)
     notifyTerminalStateChange('bt-1', 'done')
+    vi.advanceTimersByTime(400)
     expect(mockAddToast).toHaveBeenCalledTimes(2)
   })
 
@@ -142,6 +156,7 @@ describe('notifyTerminalStateChange', () => {
     } as unknown as ReturnType<typeof useUIStore.getState>)
 
     notifyTerminalStateChange('bt-1', 'done')
+    vi.advanceTimersByTime(400)
     expect(mockAddToast).not.toHaveBeenCalled()
     // Desktop notification still fires - maybeNotify has its own window-focus check
     expect(mockNotify).toHaveBeenCalledOnce()
@@ -163,6 +178,7 @@ describe('notifyTerminalStateChange', () => {
     } as unknown as ReturnType<typeof useUIStore.getState>)
 
     notifyTerminalStateChange('bt-1', 'done')
+    vi.advanceTimersByTime(400)
     expect(mockAddToast).toHaveBeenCalledOnce()
     expect(mockNotify).toHaveBeenCalledOnce()
   })
@@ -198,6 +214,7 @@ describe('notifyTerminalStateChange', () => {
     } as unknown as ReturnType<typeof useUIStore.getState>)
 
     notifyTerminalStateChange('bt-1', 'done')
+    vi.advanceTimersByTime(400)
     expect(mockAddToast).not.toHaveBeenCalled()
   })
 
@@ -214,12 +231,14 @@ describe('notifyTerminalStateChange', () => {
     } as unknown as ReturnType<typeof useUIStore.getState>)
 
     notifyTerminalStateChange('bt-1', 'done')
+    vi.advanceTimersByTime(400)
     expect(mockAddToast).not.toHaveBeenCalled()
     expect(mockNotify).toHaveBeenCalledOnce()
   })
 
   it('skips when terminal not found in any worktree', () => {
     notifyTerminalStateChange('bt-unknown', 'done')
+    vi.advanceTimersByTime(400)
     expect(mockAddToast).not.toHaveBeenCalled()
     expect(mockNotify).not.toHaveBeenCalled()
   })
@@ -239,8 +258,108 @@ describe('notifyTerminalStateChange', () => {
     } as ReturnType<typeof useProjectsStore.getState>)
 
     notifyTerminalStateChange('bt-1', 'done')
+    vi.advanceTimersByTime(400)
     expect(mockAddToast).toHaveBeenCalledWith(expect.objectContaining({
       projectName: 'my-app',
+    }))
+  })
+})
+
+describe('done debounce - waiting supersedes done', () => {
+  it('suppresses done when waiting arrives within debounce window', () => {
+    notifyTerminalStateChange('bt-1', 'done')
+    // Waiting arrives 100ms later, within the 400ms window
+    vi.advanceTimersByTime(100)
+    expect(mockAddToast).not.toHaveBeenCalled()
+
+    notifyTerminalStateChange('bt-1', 'waiting')
+    // Waiting fires immediately
+    expect(mockAddToast).toHaveBeenCalledOnce()
+    expect(mockAddToast).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'waiting_input',
+    }))
+
+    // After full debounce window, no done notification fires
+    vi.advanceTimersByTime(400)
+    expect(mockAddToast).toHaveBeenCalledOnce()
+    expect(mockNotify).toHaveBeenCalledOnce()
+  })
+
+  it('suppresses done when blocked arrives within debounce window', () => {
+    notifyTerminalStateChange('bt-1', 'done')
+    vi.advanceTimersByTime(50)
+    notifyTerminalStateChange('bt-1', 'blocked')
+
+    expect(mockAddToast).toHaveBeenCalledOnce()
+    expect(mockAddToast).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'waiting_input',
+    }))
+
+    vi.advanceTimersByTime(400)
+    // Still only one notification
+    expect(mockAddToast).toHaveBeenCalledOnce()
+  })
+
+  it('fires done when no waiting arrives within debounce window', () => {
+    notifyTerminalStateChange('bt-1', 'done')
+    expect(mockAddToast).not.toHaveBeenCalled()
+
+    vi.advanceTimersByTime(400)
+    expect(mockAddToast).toHaveBeenCalledOnce()
+    expect(mockAddToast).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'done',
+    }))
+  })
+
+  it('clearTerminalNotificationState cancels pending done timer', () => {
+    notifyTerminalStateChange('bt-1', 'done')
+    clearTerminalNotificationState('bt-1')
+    vi.advanceTimersByTime(400)
+
+    expect(mockAddToast).not.toHaveBeenCalled()
+    expect(mockNotify).not.toHaveBeenCalled()
+  })
+
+  it('handles rapid done-working-done-waiting sequence correctly', () => {
+    // First turn: done fires normally
+    notifyTerminalStateChange('bt-1', 'done')
+    vi.advanceTimersByTime(400)
+    expect(mockAddToast).toHaveBeenCalledOnce()
+    expect(mockAddToast).toHaveBeenCalledWith(expect.objectContaining({ type: 'done' }))
+
+    // Second turn: done then waiting - only waiting fires
+    notifyTerminalStateChange('bt-1', 'working')
+    notifyTerminalStateChange('bt-1', 'done')
+    vi.advanceTimersByTime(50)
+    notifyTerminalStateChange('bt-1', 'waiting')
+
+    expect(mockAddToast).toHaveBeenCalledTimes(2)
+    expect(mockAddToast).toHaveBeenLastCalledWith(expect.objectContaining({
+      type: 'waiting_input',
+    }))
+
+    vi.advanceTimersByTime(400)
+    // No additional done fires
+    expect(mockAddToast).toHaveBeenCalledTimes(2)
+  })
+
+  it('independent terminals do not interfere', () => {
+    notifyTerminalStateChange('bt-1', 'done')
+    notifyTerminalStateChange('bt-2', 'waiting')
+
+    // bt-2 waiting fires immediately, bt-1 done is still pending
+    expect(mockAddToast).toHaveBeenCalledOnce()
+    expect(mockAddToast).toHaveBeenCalledWith(expect.objectContaining({
+      terminalId: 'bt-2',
+      type: 'waiting_input',
+    }))
+
+    // bt-1 done fires after debounce (not cancelled by bt-2's waiting)
+    vi.advanceTimersByTime(400)
+    expect(mockAddToast).toHaveBeenCalledTimes(2)
+    expect(mockAddToast).toHaveBeenLastCalledWith(expect.objectContaining({
+      terminalId: 'bt-1',
+      type: 'done',
     }))
   })
 })

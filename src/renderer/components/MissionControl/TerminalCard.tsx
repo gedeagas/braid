@@ -4,6 +4,7 @@ import { useUIStore } from '@/store/ui'
 import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui'
 import { IconTerminal } from '@/components/shared/icons'
+import { AgentIcon } from '@/components/shared/icons/AgentIcons'
 
 interface Props {
   data: TerminalCardData
@@ -110,7 +111,9 @@ export const TerminalCard = memo(function TerminalCard({ data, onDismiss }: Prop
       </div>
 
       <div className="mc-card-status">
-        <IconTerminal size={12} />
+        {data.agentType && data.agentType !== 'unknown'
+          ? <AgentIcon agentId={data.agentType} size={12} />
+          : <IconTerminal size={12} />}
         <span className="mc-session-name" title={data.terminalLabel}>{data.terminalLabel}</span>
         {elapsed > 0 && (
           <span className="mc-card-elapsed">{formatElapsed(elapsed)}</span>
