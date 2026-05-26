@@ -8,7 +8,8 @@ import { useProjectsStore } from '@/store/projects'
 import { useSessionsStore, useSessionsForWorktree } from '@/store/sessions'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { OpenInDropdown } from '@/components/shared/OpenInDropdown'
-import { IconSidebarRight, IconMessagePlus, IconPencil, IconArrowLeft, IconTerminal, IconClaude } from '@/components/shared/icons'
+import { IconSidebarRight, IconMessagePlus, IconPencil, IconArrowLeft, IconTerminal, AgentIcon } from '@/components/shared/icons'
+import { getAgentEntry } from '@/lib/agentCatalog'
 import { BottomTerminalStrip } from '@/components/shared/BottomTerminalStrip'
 import { Button, EmptyState, Spinner } from '@/components/ui'
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation'
@@ -62,10 +63,18 @@ export const CenterPanel = memo(function CenterPanel() {
 
   const handleNewTab = useCallback(() => {
     if (!selectedWorktreeId || !worktree) return
-    if (lastNewTabAction === 'claudeCode') {
-      const id = createBigTerminal(selectedWorktreeId, 'Claude Code', 'claude')
-      setActiveCenterView({ type: 'terminal', terminalId: id })
-    } else if (lastNewTabAction === 'terminal') {
+    // Handle agent:* actions (including legacy 'claudeCode')
+    const agentAction = lastNewTabAction === 'claudeCode' ? 'agent:claude' : lastNewTabAction
+    if (agentAction.startsWith('agent:')) {
+      const agentId = agentAction.slice(6)
+      const entry = getAgentEntry(agentId)
+      if (entry) {
+        const id = createBigTerminal(selectedWorktreeId, entry.label, entry.launchCmd, entry.id)
+        setActiveCenterView({ type: 'terminal', terminalId: id })
+        return
+      }
+    }
+    if (lastNewTabAction === 'terminal') {
       const id = createBigTerminal(selectedWorktreeId)
       setActiveCenterView({ type: 'terminal', terminalId: id })
     } else {
@@ -75,8 +84,11 @@ export const CenterPanel = memo(function CenterPanel() {
   }, [selectedWorktreeId, worktree, lastNewTabAction, createSession, createBigTerminal, setActiveCenterView])
 
   const emptyStateProps = useMemo(() => {
-    if (lastNewTabAction === 'claudeCode') {
-      return { icon: <IconClaude size={28} />, label: t('newClaudeCode') }
+    const agentAction = lastNewTabAction === 'claudeCode' ? 'agent:claude' : lastNewTabAction
+    if (agentAction.startsWith('agent:')) {
+      const agentId = agentAction.slice(6)
+      const entry = getAgentEntry(agentId)
+      if (entry) return { icon: <AgentIcon agentId={agentId} size={28} />, label: entry.label }
     }
     if (lastNewTabAction === 'terminal') {
       return { icon: <IconTerminal size={28} />, label: t('newBigTerminal') }

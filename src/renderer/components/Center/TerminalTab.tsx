@@ -1,6 +1,6 @@
 import type { RefObject } from 'react'
 import { Tooltip } from '@/components/shared/Tooltip'
-import { IconTerminal } from '@/components/shared/icons'
+import { IconTerminal, AgentIcon } from '@/components/shared/icons'
 import type { BigTerminalTab as BigTerminalTabType } from '@/store/ui/terminals'
 
 interface Props {
@@ -70,7 +70,7 @@ export function TerminalTab({
             style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-4)' }}
             onDoubleClick={(e) => { e.stopPropagation(); onStartEdit() }}
           >
-            <IconTerminal size={12} />
+            {tab.agentId ? <AgentIcon agentId={tab.agentId} size={12} /> : <IconTerminal size={12} />}
             <span className="tab-text">{tab.label}</span>
           </span>
         </Tooltip>
