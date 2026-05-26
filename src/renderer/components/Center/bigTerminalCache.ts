@@ -3,6 +3,7 @@ import { FitAddon } from '@xterm/addon-fit'
 import type { WebglAddon } from '@xterm/addon-webgl'
 import type { SearchAddon } from '@xterm/addon-search'
 import * as ipc from '@/lib/ipc'
+import { getTerminalTheme } from '@/themes/terminal'
 import { createTerminal, registerPtyFinder } from '@/components/Right/terminalCache'
 import { registerAgentStatusOsc, registerBraidOsc9 } from '@/lib/agentStatusOsc'
 import { registerTitleDetection } from '@/lib/agentTitleDetection'
@@ -221,6 +222,14 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
   })()
 
   return entry
+}
+
+/** Re-theme all cached big terminals when the app theme changes. */
+export function reThemeAllBigTerminals(): void {
+  const theme = getTerminalTheme()
+  for (const entry of cache.values()) {
+    entry.term.options.theme = theme
+  }
 }
 
 /** Kill PTY, dispose xterm, remove from cache, and delete persisted scrollback. */

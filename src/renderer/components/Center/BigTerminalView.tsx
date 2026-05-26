@@ -2,9 +2,8 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import * as ipc from '@/lib/ipc'
 import { useTerminalFileDrop } from '@/hooks/useTerminalFileDrop'
 import { useTerminalClipboardPaste } from '@/hooks/useTerminalClipboardPaste'
-import { getTerminalTheme } from '@/themes/terminal'
 import { useUIStore } from '@/store/ui'
-import { getOrCreate, type BigTermEntry } from './bigTerminalCache'
+import { getOrCreate, reThemeAllBigTerminals, type BigTermEntry } from './bigTerminalCache'
 import { activateWebgl, disposeWebgl } from '@/components/Right/terminalCache'
 import { TerminalSearch } from '@/components/shared/TerminalSearch'
 import '@xterm/xterm/css/xterm.css'
@@ -114,16 +113,13 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand }: Pr
     }
   }, [terminalId, worktreePath])
 
-  // Re-theme when app theme changes.
+  // Re-theme ALL cached big terminals when app theme changes (not just this one).
   useEffect(() => {
     let prevId = useUIStore.getState().activeThemeId
     const unsub = useUIStore.subscribe((state) => {
       if (state.activeThemeId !== prevId) {
         prevId = state.activeThemeId
-        requestAnimationFrame(() => {
-          const entry = entryRef.current
-          if (entry) entry.term.options.theme = getTerminalTheme()
-        })
+        requestAnimationFrame(() => reThemeAllBigTerminals())
       }
     })
     return unsub
