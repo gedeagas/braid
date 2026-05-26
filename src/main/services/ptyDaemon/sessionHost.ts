@@ -98,14 +98,18 @@ export class SessionHost {
       try {
         return nodePty.spawn(shell, args, { name: 'xterm-256color', ...opts })
       } catch (err) {
-        if (attempt < maxAttempts) {
+        const msg = err instanceof Error ? err.message : String(err)
+        // Only retry transient posix_spawn resource contention, not permanent
+        // config errors (invalid shell, bad permissions) which won't self-resolve.
+        const isTransient = msg.includes('posix_spawnp failed')
+        if (isTransient && attempt < maxAttempts) {
           await new Promise((r) => setTimeout(r, 200))
           continue
         }
-        const msg = err instanceof Error ? err.message : String(err)
         const diag = this.collectSpawnDiagnostics(shell, opts.cwd)
         throw new Error(
           `PTY spawn failed (shell: ${shell}, cwd: ${opts.cwd}, sessions: ${this.sessions.size}${diag}): ${msg}`,
+          { cause: err },
         )
       }
     }
@@ -114,10 +118,19 @@ export class SessionHost {
 
   private collectSpawnDiagnostics(shell: string, cwd: string): string {
     const parts: string[] = []
-    try {
-      accessSync(shell, fsConstants.X_OK)
-    } catch {
-      parts.push('shell-check: not-executable')
+    // Only check shell executability for absolute/relative paths.
+    // Bare command names (e.g. 'zsh') are resolved via PATH by node-pty,
+    // so accessSync would incorrectly report them as not-executable.
+    if (shell.includes('/')) {
+      if (!existsSync(shell)) {
+        parts.push('shell-check: not-found')
+      } else {
+        try {
+          accessSync(shell, fsConstants.X_OK)
+        } catch {
+          parts.push('shell-check: not-executable')
+        }
+      }
     }
     if (!existsSync(cwd)) {
       parts.push('cwd-check: not-found')

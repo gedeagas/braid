@@ -184,4 +184,89 @@ describe('SessionHost', () => {
     host.write('nope', 'data')
     host.resize('nope', 80, 24)
   })
+
+  describe('spawnPty retry and diagnostics', () => {
+    it('retries once on transient posix_spawnp failure then succeeds', async () => {
+      vi.useFakeTimers()
+      const nodePty = await import('node-pty')
+      const spawnFn = nodePty.spawn as ReturnType<typeof vi.fn>
+      spawnFn.mockImplementationOnce(() => { throw new Error('posix_spawnp failed.') })
+      // Second call succeeds (default mock behavior)
+
+      const promise = host.spawn('retry-ok', '/tmp', 80, 24, '/bin/zsh')
+      await vi.advanceTimersByTimeAsync(200)
+      await promise
+
+      expect(host.has('retry-ok')).toBe(true)
+      expect(spawnFn).toHaveBeenCalledTimes(2)
+      vi.useRealTimers()
+    })
+
+    it('does not retry non-transient errors', async () => {
+      const nodePty = await import('node-pty')
+      const spawnFn = nodePty.spawn as ReturnType<typeof vi.fn>
+      spawnFn.mockImplementation(() => { throw new Error('ENOENT: no such file') })
+
+      await expect(host.spawn('no-retry', '/tmp', 80, 24, '/bin/zsh'))
+        .rejects.toThrow('PTY spawn failed')
+      // Should only have been called once (no retry)
+      expect(spawnFn).toHaveBeenCalledTimes(1)
+    })
+
+    it('includes shell, cwd, and session count in enriched error', async () => {
+      vi.useFakeTimers()
+      const nodePty = await import('node-pty')
+      const spawnFn = nodePty.spawn as ReturnType<typeof vi.fn>
+      spawnFn.mockImplementation(() => { throw new Error('posix_spawnp failed.') })
+
+      const promise = host.spawn('fail-diag', '/tmp', 80, 24, '/bin/zsh')
+      const assertion = expect(promise).rejects.toThrow(/shell: \/bin\/zsh/)
+      await vi.advanceTimersByTimeAsync(200)
+      await assertion
+      vi.useRealTimers()
+    })
+
+    it('reports shell-check: not-found for missing shell path', async () => {
+      vi.useFakeTimers()
+      const nodePty = await import('node-pty')
+      const spawnFn = nodePty.spawn as ReturnType<typeof vi.fn>
+      spawnFn.mockImplementation(() => { throw new Error('posix_spawnp failed.') })
+
+      const promise = host.spawn('bad-shell', '/tmp', 80, 24, '/nonexistent/shell')
+      const assertion = expect(promise).rejects.toThrow(/shell-check: not-found/)
+      await vi.advanceTimersByTimeAsync(200)
+      await assertion
+      vi.useRealTimers()
+    })
+
+    it('reports cwd-check: not-found for missing cwd', async () => {
+      vi.useFakeTimers()
+      const nodePty = await import('node-pty')
+      const spawnFn = nodePty.spawn as ReturnType<typeof vi.fn>
+      spawnFn.mockImplementation(() => { throw new Error('posix_spawnp failed.') })
+
+      const promise = host.spawn('bad-cwd', '/nonexistent/path', 80, 24, '/bin/zsh')
+      const assertion = expect(promise).rejects.toThrow(/cwd-check: not-found/)
+      await vi.advanceTimersByTimeAsync(200)
+      await assertion
+      vi.useRealTimers()
+    })
+
+    it('preserves original error as cause', async () => {
+      vi.useFakeTimers()
+      const nodePty = await import('node-pty')
+      const spawnFn = nodePty.spawn as ReturnType<typeof vi.fn>
+      const original = new Error('posix_spawnp failed.')
+      spawnFn.mockImplementation(() => { throw original })
+
+      const promise = host.spawn('cause-test', '/tmp', 80, 24, '/bin/zsh')
+      // Attach handler before advancing to avoid unhandled rejection warning
+      const catcher = promise.catch((e: unknown) => e)
+      await vi.advanceTimersByTimeAsync(200)
+      const err = await catcher as Error
+      expect(err).toBeInstanceOf(Error)
+      expect(err.cause).toBe(original)
+      vi.useRealTimers()
+    })
+  })
 })
