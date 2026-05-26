@@ -121,7 +121,7 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
 
 const ALLOWED_PERMISSIONS = new Set([
   'media', 'notifications', 'clipboard-read',
-  'camera', 'microphone', 'mediaKeySystem'
+  'camera', 'microphone', 'mediaKeySystem',
 ])
 
 // Spoof Chrome UA only for webapp partition sessions so sites like Spotify
@@ -135,7 +135,7 @@ function configureWebAppSession(sess: import('electron').Session): void {
   sess.setUserAgent(CHROME_UA)
 
   // Allow audio/video playback and notifications
-  sess.setPermissionRequestHandler(async (_wc, permission, callback, details) => {
+  sess.setPermissionRequestHandler(async (wc, permission, callback, details) => {
     if (ALLOWED_PERMISSIONS.has(permission)) {
       callback(true)
       return
@@ -149,19 +149,19 @@ function configureWebAppSession(sess: import('electron').Session): void {
         cancelId: 1,
         title: 'Permission Request',
         message: `A website is requesting permission to access: ${permission}`,
-        detail: `URL: ${details.requestingUrl}\n\nDo you want to allow this?`
+        detail: `URL: ${details.requestingUrl}\n\nDo you want to allow this?`,
       })
+      if (wc.isDestroyed()) return
       callback(response === 0)
     } catch (err) {
-      console.error('[PermissionRequest] Error showing dialog:', err)
-      callback(false)
+      logger.error('[PermissionRequest] Error showing dialog:', err)
+      if (!wc.isDestroyed()) callback(false)
     }
   })
 
   // Allow EME (Widevine) key system checks — required for Spotify, etc.
-  sess.setPermissionCheckHandler((_wc, permission) => {
-    if (permission === 'mediaKeySystem') return true
-    return true // allow everything else for embedded web apps
+  sess.setPermissionCheckHandler(() => {
+    return true // allow all permission checks for embedded web apps
   })
 }
 
