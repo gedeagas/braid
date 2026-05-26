@@ -14,6 +14,7 @@ import {
 } from './terminalCache'
 import { useTerminalLifecycle } from './useTerminalLifecycle'
 import { useTerminalFileDrop } from '@/hooks/useTerminalFileDrop'
+import { useTerminalClipboardPaste } from '@/hooks/useTerminalClipboardPaste'
 import '@xterm/xterm/css/xterm.css'
 
 export { cleanupTerminals } from './terminalCache'
@@ -109,6 +110,7 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
   const containerRefs = useRef<Map<string, HTMLDivElement>>(new Map())
   const pendingAttach = useRef<Map<string, TermTab>>(new Map())
   const tabBarRef = useRef<HTMLDivElement>(null)
+  const contentAreaRef = useRef<HTMLDivElement>(null)
   const worktreePathRef = useRef(worktreePath)
   worktreePathRef.current = worktreePath
   const pendingCommandRef = useRef<string | null>(null)
@@ -121,6 +123,7 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
     return { ptyId: tab.ptyId, focus: () => tab.term.focus() }
   }, [])
   const fileDrop = useTerminalFileDrop(getFileDropTarget)
+  useTerminalClipboardPaste(contentAreaRef, getFileDropTarget)
 
   // Convert vertical wheel scroll to horizontal scroll on the tab bar
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -357,7 +360,7 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
 
       {/* Content area */}
       {!collapsed && (
-        <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
+        <div ref={contentAreaRef} style={{ flex: 1, position: 'relative', minHeight: 0 }}>
           {showFixedTabs && (
             <>
               <div style={{ position: 'absolute', inset: 0, display: isSetupActive ? 'flex' : 'none' }}>

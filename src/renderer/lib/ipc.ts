@@ -250,6 +250,10 @@ export const dialog = {
   openFiles: (defaultPath?: string) => api().dialog.openFiles(defaultPath),
 }
 
+export const clipboard = {
+  saveImageAsTempFile: () => api().clipboard.saveImageAsTempFile() as Promise<string | null>,
+}
+
 export const claudeCli = {
   detectPath: () => api().claudeCli.detectPath(),
 }

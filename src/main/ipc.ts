@@ -1,5 +1,5 @@
 import { logger } from './lib/logger'
-import { ipcMain, dialog, shell, app, nativeImage, BrowserWindow } from 'electron'
+import { ipcMain, dialog, shell, app, nativeImage, clipboard, BrowserWindow } from 'electron'
 import { existsSync } from 'fs'
 import { writeFile } from 'fs/promises'
 import { execFile } from 'child_process'
@@ -481,6 +481,16 @@ export function registerIpcHandlers(): void {
 
   // Claude CLI detection — delegates to the single source of truth
   ipcMain.handle('claude:detectCliPath', (): string | null => resolveCliPath() ?? null)
+
+  // Clipboard
+  ipcMain.handle('clipboard:saveImageAsTempFile', async () => {
+    const image = clipboard.readImage()
+    if (image.isEmpty()) return null
+    const filename = `braid-paste-${Date.now()}.png`
+    const tempPath = join(app.getPath('temp'), filename)
+    await writeFile(tempPath, image.toPNG())
+    return tempPath
+  })
 
   // Dialog
   ipcMain.handle('dialog:openDirectory', async () => {
