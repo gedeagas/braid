@@ -56,7 +56,8 @@ function createWindow(): void {
       sandbox: false,
       webviewTag: true,
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      plugins: true
     }
   })
 
