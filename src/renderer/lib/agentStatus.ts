@@ -13,6 +13,10 @@ export const KNOWN_AGENT_TYPES = [
 
 export type AgentType = (typeof KNOWN_AGENT_TYPES)[number]
 
+export function isKnownAgentType(value: string | null | undefined): value is AgentType {
+  return typeof value === 'string' && (KNOWN_AGENT_TYPES as readonly string[]).includes(value)
+}
+
 // ── Status states ────────────────────────────────────────────────────────────
 
 export const AGENT_STATUS_STATES = ['working', 'blocked', 'waiting', 'done'] as const

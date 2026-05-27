@@ -2,12 +2,12 @@
 //
 // Produces a bash script that:
 //   1. Reads port/token from ~/.braid/hooks/hook-server.json
-//   2. Guards on BRAID_HOOK_PORT (no-op outside Braid big terminals)
+//   2. Guards on Braid terminal env (no-op outside Braid big terminals)
 //   3. Reads stdin JSON, extracts hook_event_name and tool_name
 //   4. POSTs to /hook/<agentId> on the loopback server
 
 /** Current hook script version. Bump to force re-install on next app launch. */
-export const HOOK_SCRIPT_VERSION = 8
+export const HOOK_SCRIPT_VERSION = 11
 
 export interface HookScriptOptions {
   /** Agent identifier - determines the POST endpoint path */
@@ -21,6 +21,9 @@ export function generateHookScript(opts: HookScriptOptions): string {
   const { agentId, emitStdout = false } = opts
   const stdoutGuard = emitStdout ? 'echo \'{}\' && exit 0' : 'exit 0'
   const stdoutLine = emitStdout ? '\n# Agent requires valid JSON response on stdout\necho \'{}\'  \n' : ''
+  const toolNameFallback = agentId === 'codex'
+    ? '\n# Codex may expose function-tool names as `name` in some payloads.\n[ -z "$tool" ] && [[ "$input" =~ \\"name\\"[[:space:]]*:[[:space:]]*\\"([^\\"]+)\\" ]] && tool="${BASH_REMATCH[1]}"\n'
+    : ''
 
   return `#!/bin/bash
 # Braid agent status hook (${agentId}) - POSTs status to Braid's loopback HTTP server.
@@ -38,7 +41,7 @@ if [ -f "$HOOK_CONFIG" ]; then
 fi
 
 # Guard: only run inside Braid big terminals
-[ -z "$BRAID_HOOK_PORT" ] && ${stdoutGuard}
+[ -z "$BRAID_HOOK_PORT" ] || [ -z "$BRAID_HOOK_TOKEN" ] || [ -z "$BRAID_TERMINAL_ID" ] && ${stdoutGuard}
 
 # Read stdin (agent sends hook event JSON payload)
 input=$(cat)
@@ -50,6 +53,7 @@ event=""
 # Extract tool_name if present
 tool=""
 [[ "$input" =~ \\"tool_name\\"[[:space:]]*:[[:space:]]*\\"([^\\"]+)\\" ]] && tool="\${BASH_REMATCH[1]}"
+${toolNameFallback}
 
 # Extract is_interrupt for Stop events
 is_interrupt="false"

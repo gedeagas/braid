@@ -46,7 +46,7 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, agen
     // Clear container of any stale children (safety net for tab switch).
     while (el.firstChild) el.removeChild(el.firstChild)
 
-    const entry = getOrCreate(terminalId, worktreePath, initialCommand)
+    const entry = getOrCreate(terminalId, worktreePath, initialCommand, agentId)
     entryRef.current = entry
 
     // Attach xterm to DOM (open on first mount, re-append on remount).
@@ -113,7 +113,7 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, agen
         el.removeChild(entry.term.element)
       }
     }
-  }, [terminalId, worktreePath])
+  }, [terminalId, worktreePath, initialCommand, agentId])
 
   // Re-theme ALL cached big terminals when app theme changes (not just this one).
   useEffect(() => {

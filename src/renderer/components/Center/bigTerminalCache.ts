@@ -8,9 +8,10 @@ import { createTerminal, registerPtyFinder } from '@/components/Right/terminalCa
 import { registerAgentStatusOsc, registerBraidOsc9 } from '@/lib/agentStatusOsc'
 import { registerTitleDetection } from '@/lib/agentTitleDetection'
 import { replayIntoTerminal, isReplaying, POST_REPLAY_MODE_RESET } from '@/lib/replayGuard'
-import type { AgentStatusPayload, AgentStatusState } from '@/lib/agentStatus'
+import { isKnownAgentType, type AgentStatusPayload, type AgentStatusState, type AgentType } from '@/lib/agentStatus'
 import { createCompletionCoordinator, type CompletionCoordinator } from '@/lib/agentCompletionCoordinator'
 import { notifyTerminalStateChange, clearTerminalNotificationState } from '@/lib/terminalNotifications'
+import { isCodexUserInputPromptText, readTerminalBufferTail } from '@/lib/codexTerminalDetection'
 import { useUIStore } from '@/store/ui'
 import { useToastsStore } from '@/store/toasts'
 
@@ -30,6 +31,10 @@ export interface BigTermEntry {
   pendingFitRafId: number | null
   /** Completion coordinator for agent task completion detection. */
   completionCoordinator: CompletionCoordinator
+  /** Agent catalog id from tab metadata, when launched as a known CLI agent. */
+  agentId?: string
+  /** Debounced scan for Codex request_user_input panes. */
+  codexPromptScanTimer: ReturnType<typeof setTimeout> | null
   spawnPromise: Promise<void>
   /** Set by disposeBigTerminal so the in-flight spawn can bail out. */
   disposed: boolean
@@ -80,6 +85,41 @@ function ensureHookListener(): void {
   })
 }
 
+function normalizeAgentType(agentId?: string): AgentType | undefined {
+  return isKnownAgentType(agentId) ? agentId : undefined
+}
+
+function isKnownCodexTerminal(entry: BigTermEntry): boolean {
+  if (entry.agentId === 'codex') return true
+  const status = useUIStore.getState().bigTerminalStatusById[entry.terminalId]
+  return status?.agentType === 'codex'
+}
+
+function scanCodexUserInputPrompt(entry: BigTermEntry): void {
+  entry.codexPromptScanTimer = null
+  if (entry.disposed) return
+  if (isReplaying(entry.terminalId)) return
+  if (!isKnownCodexTerminal(entry)) return
+  if (!isCodexUserInputPromptText(readTerminalBufferTail(entry.term))) return
+
+  const current = useUIStore.getState().bigTerminalStatusById[entry.terminalId]
+  if (current?.state === 'waiting' && current.agentType === 'codex') return
+
+  const payload: AgentStatusPayload = { state: 'waiting', agentType: 'codex' }
+  useUIStore.getState().updateBigTerminalStatus(entry.terminalId, payload)
+  notifyTerminalStateChange(entry.terminalId, payload.state)
+}
+
+function scheduleCodexUserInputScan(entry: BigTermEntry): void {
+  if (entry.disposed || isReplaying(entry.terminalId)) return
+  if (!isKnownCodexTerminal(entry)) return
+  if (entry.codexPromptScanTimer) return
+
+  entry.codexPromptScanTimer = setTimeout(() => {
+    scanCodexUserInputPrompt(entry)
+  }, 80)
+}
+
 /**
  * Return existing entry or build a new one: create xterm, replay scrollback, spawn PTY.
  * Pass `initialCommand` to auto-run a command after the first PTY spawn (not on restore).
@@ -90,13 +130,17 @@ function ensureHookListener(): void {
  *   2. OSC 9999 / OSC 9: custom terminal sequences parsed by xterm.js.
  *   3. Title detection (fallback): watches braille spinners, Gemini markers, etc.
  */
-export function getOrCreate(terminalId: string, worktreePath: string, initialCommand?: string): BigTermEntry {
+export function getOrCreate(terminalId: string, worktreePath: string, initialCommand?: string, agentId?: string): BigTermEntry {
   ensureFinderRegistered()
   ensureHookListener()
   const existing = cache.get(terminalId)
-  if (existing) return existing
+  if (existing) {
+    if (agentId && !existing.agentId) existing.agentId = agentId
+    return existing
+  }
 
   const { term, fitAddon, searchAddon } = createTerminal()
+  const expectedAgentType = normalizeAgentType(agentId)
 
   // Completion coordinator fires when an agent finishes a task.
   // Toast + desktop notifications are handled by notifyTerminalStateChange.
@@ -118,6 +162,8 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
     webglDisabledAfterContextLoss: false,
     pendingFitRafId: null,
     completionCoordinator,
+    agentId,
+    codexPromptScanTimer: null,
     spawnPromise: Promise.resolve(),
     disposed: false
   }
@@ -136,11 +182,15 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
     notifyTerminalStateChange(terminalId, payload.state)
   })
 
-  registerTitleDetection(term, (result) => {
-    updateStatus({ state: result.state, agentType: result.agentType ?? undefined })
-    completionCoordinator.observeTitleStatus(result.state)
-    notifyTerminalStateChange(terminalId, result.state)
-  })
+  registerTitleDetection(
+    term,
+    (result) => {
+      updateStatus({ state: result.state, agentType: result.agentType ?? undefined })
+      completionCoordinator.observeTitleStatus(result.state)
+      notifyTerminalStateChange(terminalId, result.state)
+    },
+    { expectedAgentType }
+  )
 
   // OSC 9 (Braid hooks): Claude Code hooks return terminalSequence with
   // OSC 9 braid:STATE[:TOOL] payloads. Secondary to HTTP but still useful.
@@ -149,6 +199,11 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
     completionCoordinator.observeHookStatus(payload.state, false)
     notifyTerminalStateChange(terminalId, payload.state)
   })
+
+  // Fallback for Codex request_user_input when hooks are missing, disabled, or
+  // not trusted. The first-class path is the Codex PreToolUse hook mapping in
+  // the main-process hook server.
+  term.onWriteParsed(() => scheduleCodexUserInputScan(entry))
 
   entry.spawnPromise = (async () => {
     let hasScrollback = false
@@ -245,6 +300,10 @@ export function disposeBigTerminal(terminalId: string): void {
   if (entry.pendingFitRafId !== null) {
     cancelAnimationFrame(entry.pendingFitRafId)
     entry.pendingFitRafId = null
+  }
+  if (entry.codexPromptScanTimer) {
+    clearTimeout(entry.codexPromptScanTimer)
+    entry.codexPromptScanTimer = null
   }
   try { entry.webglAddon?.dispose() } catch {}
   entry.webglAddon = null

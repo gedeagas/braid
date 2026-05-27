@@ -9,6 +9,7 @@ import { usePrCacheStore } from '@/store/prCache'
 import { useMissionControlStore } from '@/store/missionControl'
 import { SESSION_COLUMNS, PR_COLUMNS, assignSessionColumn, assignPrColumn, assignTerminalColumn } from '@/lib/kanbanColumns'
 import { getSessionTitle } from '@/lib/sessionTitle'
+import { isKnownAgentType } from '@/lib/agentStatus'
 import { IconTerminal, IconGitFork } from '@/components/shared/icons'
 import { KanbanColumn } from './KanbanColumn'
 import { McFilterBar } from './McFilterBar'
@@ -191,6 +192,7 @@ function useTerminalBoardData(active: boolean): Map<SessionColumnId, TerminalCar
           const statusEntry = bigTerminalStatusById[tab.id]
           // Only show terminals with a detected agent status
           if (!statusEntry) continue
+          const tabAgentType = isKnownAgentType(tab.agentId) ? tab.agentId : null
 
           if (filterQuery && !matchesQuery(filterQuery, wt.branch, tab.label, project.name)) continue
 
@@ -206,7 +208,7 @@ function useTerminalBoardData(active: boolean): Map<SessionColumnId, TerminalCar
             branch: wt.branch,
             path: wt.path,
             agentState: statusEntry.state,
-            agentType: statusEntry.agentType,
+            agentType: tabAgentType ?? statusEntry.agentType,
             toolName: statusEntry.toolName,
             updatedAt: statusEntry.updatedAt,
             column: col,
