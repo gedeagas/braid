@@ -183,8 +183,13 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
     tab.resizeObserver?.disconnect()
     const observer = new ResizeObserver(() => {
       if (activeTabIdRef.current === tab.id) {
-        try { tab.fitAddon.fit(); if (tab.ptyId) ipc.pty.resize(tab.ptyId, tab.term.cols, tab.term.rows) }
-        catch { /* ignore */ }
+        try {
+          tab.fitAddon.fit()
+          const { cols, rows } = tab.term
+          for (const t of tabsRef.current) {
+            if (t.ptyId) ipc.pty.resize(t.ptyId, cols, rows)
+          }
+        } catch { /* ignore */ }
       }
     })
     observer.observe(el)

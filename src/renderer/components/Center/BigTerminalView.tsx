@@ -140,7 +140,10 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, agen
         const entry = entryRef.current
         if (entry) {
           entry.term.options.fontSize = prevSize
-          try { entry.fitAddon.fit() } catch { /* ignore */ }
+          try {
+            entry.fitAddon.fit()
+            if (entry.ptyId) ipc.pty.resize(entry.ptyId, entry.term.cols, entry.term.rows)
+          } catch { /* ignore */ }
         }
       }
     })
