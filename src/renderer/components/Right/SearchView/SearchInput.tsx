@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Tooltip } from '@/components/shared/Tooltip'
-import { IconChevronRight, IconChevronDown } from '@/components/shared/icons'
+import { IconChevronRight, IconChevronDown, IconClose, IconSearch, IconSliders } from '@/components/shared/icons'
 
 type OptionKey = 'caseSensitive' | 'wholeWord' | 'regex'
 
@@ -43,11 +43,16 @@ export function SearchInput({
   onReplaceAll,
 }: Props) {
   const { t } = useTranslation('right')
+  const queryRef = useRef<HTMLInputElement>(null)
   // Auto-expand filters if either field already has a value (e.g. after
   // a worktree switch where state was preserved). Default hidden so users
   // don't accidentally restrict searches by typing in the include field.
   const [showFilters, setShowFilters] = useState(() => !!(includeGlobs || excludeGlobs))
   const hasActiveFilters = !!(includeGlobs || excludeGlobs)
+  const handleClearQuery = () => {
+    onQueryChange('')
+    queryRef.current?.focus()
+  }
 
   return (
     <div className="search-input-section">
@@ -62,14 +67,35 @@ export function SearchInput({
         </button>
         <div className="search-input-stack">
           <div className="search-input-wrap">
+            <span className="search-input-icon" aria-hidden="true">
+              <IconSearch size={13} />
+            </span>
             <input
+              ref={queryRef}
               type="text"
               className="search-input"
               placeholder={t('searchPlaceholder')}
               value={query}
               onChange={(e) => onQueryChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape' && query) {
+                  e.preventDefault()
+                  handleClearQuery()
+                }
+              }}
               autoFocus
             />
+            {query && (
+              <button
+                type="button"
+                className="search-input-clear"
+                onClick={handleClearQuery}
+                aria-label={t('searchClear')}
+                title={t('searchClear')}
+              >
+                <IconClose size={8} />
+              </button>
+            )}
             <div className="search-modifier-group">
               <Tooltip content={t('searchMatchCase')} position="bottom">
                 <button
@@ -77,6 +103,7 @@ export function SearchInput({
                   className={`search-modifier-btn${caseSensitive ? ' active' : ''}`}
                   onClick={() => onToggleOption('caseSensitive')}
                   aria-pressed={caseSensitive}
+                  aria-label={t('searchMatchCase')}
                 >
                   Aa
                 </button>
@@ -87,6 +114,7 @@ export function SearchInput({
                   className={`search-modifier-btn${wholeWord ? ' active' : ''}`}
                   onClick={() => onToggleOption('wholeWord')}
                   aria-pressed={wholeWord}
+                  aria-label={t('searchWholeWord')}
                 >
                   <span style={{ textDecoration: 'underline' }}>ab</span>
                 </button>
@@ -97,6 +125,7 @@ export function SearchInput({
                   className={`search-modifier-btn${regex ? ' active' : ''}`}
                   onClick={() => onToggleOption('regex')}
                   aria-pressed={regex}
+                  aria-label={t('searchRegex')}
                 >
                   .*
                 </button>
@@ -137,8 +166,11 @@ export function SearchInput({
         title={t('searchToggleFilters')}
         aria-expanded={showFilters}
       >
-        {showFilters ? <IconChevronDown size={10} /> : <IconChevronRight size={10} />}
+        <IconSliders size={13} />
         <span>{t('searchFiltersSection')}</span>
+        <span className="search-filter-toggle-chevron" aria-hidden="true">
+          {showFilters ? <IconChevronDown size={10} /> : <IconChevronRight size={10} />}
+        </span>
         {hasActiveFilters && <span className="search-filter-active-dot" aria-hidden="true" />}
       </button>
 
