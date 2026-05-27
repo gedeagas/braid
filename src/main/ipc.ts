@@ -33,6 +33,10 @@ import { ClaudeUsageStore } from './services/claudeUsage'
 import type { ClaudeUsageScope, ClaudeUsageRange, ClaudeUsageBreakdownKind } from '../shared/claude-usage-types'
 import { CodexUsageStore } from './services/codexUsage'
 import type { CodexUsageScope, CodexUsageRange, CodexUsageBreakdownKind } from '../shared/codex-usage-types'
+import { RateLimitService } from './services/rateLimits/service'
+import { collectResourceSnapshot } from './services/rateLimits/resourceCollector'
+
+export const rateLimitService = new RateLimitService()
 
 function execFileText(
   file: string,
@@ -740,6 +744,13 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('codexUsage:getRecentSessions', (_e, args: { scope: CodexUsageScope; range: CodexUsageRange; limit?: number }) =>
     codexUsage.getRecentSessions(args.scope, args.range, args.limit)
   )
+
+  // Rate Limits
+  ipcMain.handle('rateLimits:get', () => rateLimitService.getState())
+  ipcMain.handle('rateLimits:refresh', () => rateLimitService.refresh())
+
+  // Resource Usage
+  ipcMain.handle('resource:getSnapshot', () => collectResourceSnapshot())
 
   // ── Menu ──────────────────────────────────────────────────────────────────
   ipcMain.on('menu:closeWindow', () => {

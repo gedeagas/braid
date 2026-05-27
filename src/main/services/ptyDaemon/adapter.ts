@@ -322,6 +322,14 @@ export class PtyDaemonAdapter implements IPtyService {
     return results
   }
 
+  listInstancesWithPid(): Array<{ ptyId: string; cwd: string; pid: number | null }> {
+    const results: Array<{ ptyId: string; cwd: string; pid: number | null }> = []
+    for (const [id, cwd] of this.cwdBySession) {
+      results.push({ ptyId: id, cwd, pid: null })
+    }
+    return results
+  }
+
   private writeScrollbackFile(terminalId: string, data: string): void {
     try {
       mkdirSync(scrollbackDir(), { recursive: true })

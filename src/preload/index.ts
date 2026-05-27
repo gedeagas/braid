@@ -480,7 +480,6 @@ const api = {
     }>>,
     removeDevice: (deviceId: string) => ipcRenderer.invoke('mobile:removeDevice', deviceId) as Promise<void>,
   },
-
   // Claude Usage Analytics
   claudeUsage: {
     getScanState: () => ipcRenderer.invoke('claudeUsage:getScanState'),
@@ -505,6 +504,22 @@ const api = {
     getDaily: (args: { scope: string; range: string }) => ipcRenderer.invoke('codexUsage:getDaily', args),
     getBreakdown: (args: { scope: string; range: string; kind: string }) => ipcRenderer.invoke('codexUsage:getBreakdown', args),
     getRecentSessions: (args: { scope: string; range: string; limit?: number }) => ipcRenderer.invoke('codexUsage:getRecentSessions', args),
+  },
+
+  // Rate Limits
+  rateLimits: {
+    get: () => ipcRenderer.invoke('rateLimits:get'),
+    refresh: () => ipcRenderer.invoke('rateLimits:refresh'),
+    onUpdate: (cb: (state: unknown) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, state: unknown) => cb(state)
+      ipcRenderer.on('rateLimits:update', handler)
+      return () => { ipcRenderer.removeListener('rateLimits:update', handler) }
+    },
+  },
+
+  // Resource Usage
+  resource: {
+    getSnapshot: () => ipcRenderer.invoke('resource:getSnapshot'),
   },
 }
 

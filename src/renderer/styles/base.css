@@ -21,9 +21,16 @@ html, body, #root {
 }
 
 /* App layout */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
 .app {
   display: flex;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 /* Experimental: bottom terminal strip rendered inside CenterPanel */
