@@ -27,7 +27,7 @@ function AgentCard({
         </div>
       )}
       <div className="ob-agent-icon">
-        <AgentIcon agentId={agent.id} size={20} />
+        <AgentIcon agentId={agent.id} size={20} allowRemote={false} />
       </div>
       <div className="ob-agent-info">
         <span className="ob-agent-name">{agent.label}</span>

@@ -13,6 +13,35 @@ export function ExploreStep({ onTakeTour }: Props) {
       <h1 className="ob-heading">{t('onboarding.explore.title')}</h1>
       <p className="ob-subtitle">{t('onboarding.explore.subtitle')}</p>
 
+      <div className="ob-product-preview" aria-hidden="true">
+        <div className="ob-product-topbar">
+          <span className="ob-product-window-dot" />
+          <span className="ob-product-window-dot" />
+          <span className="ob-product-window-dot" />
+          <span className="ob-product-title">Braid</span>
+        </div>
+        <div className="ob-product-body">
+          <div className="ob-product-sidebar">
+            <span className="ob-product-pill ob-product-pill--active">feature/onboarding</span>
+            <span className="ob-product-pill">fix/terminal-theme</span>
+            <span className="ob-product-pill">pr/review-101</span>
+          </div>
+          <div className="ob-product-main">
+            <div className="ob-product-tabs">
+              <span className="ob-product-tab ob-product-tab--active">Claude</span>
+              <span className="ob-product-tab">Codex</span>
+              <span className="ob-product-tab">Diff</span>
+            </div>
+            <div className="ob-product-grid">
+              <span className="ob-product-line ob-product-line--wide" />
+              <span className="ob-product-line" />
+              <span className="ob-product-status">PR #128 ready</span>
+              <span className="ob-product-line ob-product-line--short" />
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="ob-explore-preview">
         <div className="ob-explore-feature-list">
           <div className="ob-explore-feature">

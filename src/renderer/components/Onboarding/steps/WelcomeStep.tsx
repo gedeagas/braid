@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/store/ui'
-import { IconSparkle } from '@/components/shared/icons'
 import type { SupportedLanguage } from '@/store/ui'
+import braidLogoUrl from '../../../../../build/icon.svg?url'
 
 const LANGUAGES: { id: SupportedLanguage; label: string; native: string }[] = [
   { id: 'en', label: 'English', native: 'English' },
@@ -18,7 +18,7 @@ export function WelcomeStep() {
   return (
     <div className="ob-step ob-step--welcome">
       <div className="ob-welcome-brand">
-        <IconSparkle size={44} />
+        <img src={braidLogoUrl} alt="" className="ob-welcome-logo" aria-hidden="true" />
       </div>
       <h1 className="ob-heading">{t('onboarding.welcome.title')}</h1>
       <p className="ob-welcome-story">{t('onboarding.welcome.story')}</p>

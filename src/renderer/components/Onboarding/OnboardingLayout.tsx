@@ -1,7 +1,8 @@
 import { useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/Button'
-import { IconSparkle, IconArrowLeft } from '@/components/shared/icons'
+import { IconArrowLeft, IconCheckFill } from '@/components/shared/icons'
+import braidLogoUrl from '../../../../build/icon.svg?url'
 
 const STEP_LABEL_KEYS = [
   'onboarding.stepLabel.welcome',
@@ -41,6 +42,7 @@ export function OnboardingLayout({
   children,
 }: Props) {
   const { t } = useTranslation('common')
+  const currentStepLabel = STEP_LABEL_KEYS[currentStep] ? t(STEP_LABEL_KEYS[currentStep]) : ''
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -59,59 +61,96 @@ export function OnboardingLayout({
 
   return (
     <div className="ob-layout" onClick={(e) => e.stopPropagation()}>
-      <div className="ob-layout-header">
+      <aside className="ob-sidebar" aria-label={t('onboarding.welcome.title')}>
         <div className="ob-brand">
-          <IconSparkle size={24} />
+          <span className="ob-brand-mark">
+            <img src={braidLogoUrl} alt="" className="ob-brand-logo" aria-hidden="true" />
+          </span>
           <span className="ob-brand-name">Braid</span>
         </div>
-      </div>
 
-      <div className="ob-progress-row">
-        <div className="ob-progress-bar">
+        <div className="ob-rail-summary">
+          <span className="ob-rail-kicker">{t('onboarding.welcome.eyebrow')}</span>
+          <span className="ob-rail-counter">
+            {currentStep + 1} {t('onboarding.of')} {totalSteps}
+          </span>
+        </div>
+
+        <ol className="ob-step-rail">
           {Array.from({ length: totalSteps }, (_, i) => (
-            <div
+            <li
               key={i}
-              className={`ob-progress-segment${
+              className={`ob-rail-step${
                 i < currentStep
-                  ? ' ob-progress-segment--done'
+                  ? ' ob-rail-step--done'
                   : i === currentStep
-                    ? ' ob-progress-segment--active'
+                    ? ' ob-rail-step--active'
                     : ''
               }`}
-              title={STEP_LABEL_KEYS[i] ? t(STEP_LABEL_KEYS[i]) : undefined}
-            />
+              aria-current={i === currentStep ? 'step' : undefined}
+            >
+              <span className="ob-rail-node">
+                {i < currentStep ? <IconCheckFill size={10} /> : i + 1}
+              </span>
+              <span className="ob-rail-label">
+                {STEP_LABEL_KEYS[i] ? t(STEP_LABEL_KEYS[i]) : ''}
+              </span>
+            </li>
           ))}
-        </div>
-        <span className="ob-progress-counter">
-          {currentStep + 1} {t('onboarding.of')} {totalSteps}
+        </ol>
+      </aside>
+
+      <section className="ob-panel">
+        <span id="ob-current-step-title" className="ob-sr-only">
+          {currentStepLabel}
         </span>
-      </div>
 
-      <div className="ob-content">{children}</div>
+        <div className="ob-mobile-progress">
+          <div className="ob-progress-bar" aria-hidden="true">
+            {Array.from({ length: totalSteps }, (_, i) => (
+              <span
+                key={i}
+                className={`ob-progress-segment${
+                  i < currentStep
+                    ? ' ob-progress-segment--done'
+                    : i === currentStep
+                      ? ' ob-progress-segment--active'
+                      : ''
+                }`}
+              />
+            ))}
+          </div>
+          <span className="ob-progress-counter">
+            {currentStep + 1} {t('onboarding.of')} {totalSteps}
+          </span>
+        </div>
 
-      <div className="ob-footer">
-        <div className="ob-footer-left">
-          {showSkip && (
-            <button className="ob-skip-link" onClick={onSkip}>
-              {t('onboarding.skipSetup')}
-            </button>
-          )}
+        <div className="ob-content">{children}</div>
+
+        <div className="ob-footer">
+          <div className="ob-footer-left">
+            {showSkip && (
+              <button className="ob-skip-link" onClick={onSkip}>
+                {t('onboarding.skipSetup')}
+              </button>
+            )}
+          </div>
+          <div className="ob-footer-right">
+            {showBack && currentStep > 0 && (
+              <Button onClick={onBack}>
+                <IconArrowLeft size={12} />
+                {t('onboarding.back')}
+              </Button>
+            )}
+            {showContinue && (
+              <Button variant="primary" onClick={onContinue} disabled={!canContinue}>
+                {continueLabel ?? t('onboarding.continue')}
+                <kbd className="ob-kbd">&#8984;&#9166;</kbd>
+              </Button>
+            )}
+          </div>
         </div>
-        <div className="ob-footer-right">
-          {showBack && currentStep > 0 && (
-            <Button onClick={onBack}>
-              <IconArrowLeft size={12} />
-              {t('onboarding.back')}
-            </Button>
-          )}
-          {showContinue && (
-            <Button variant="primary" onClick={onContinue} disabled={!canContinue}>
-              {continueLabel ?? t('onboarding.continue')}
-              <kbd className="ob-kbd">&#8984;&#9166;</kbd>
-            </Button>
-          )}
-        </div>
-      </div>
+      </section>
     </div>
   )
 }

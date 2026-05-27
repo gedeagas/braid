@@ -90,8 +90,16 @@ function SkipConfirmDialog({ onSkip, onCancel }: { onSkip: () => void; onCancel:
   const { t } = useTranslation('common')
   return (
     <div className="ob-skip-dialog-backdrop" onClick={onCancel}>
-      <div className="ob-skip-dialog" onClick={(e) => e.stopPropagation()}>
-        <h3 className="ob-skip-dialog-title">{t('onboarding.skipConfirm.title')}</h3>
+      <div
+        className="ob-skip-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ob-skip-dialog-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 id="ob-skip-dialog-title" className="ob-skip-dialog-title">
+          {t('onboarding.skipConfirm.title')}
+        </h3>
         <p className="ob-skip-dialog-desc">{t('onboarding.skipConfirm.desc')}</p>
         <div className="ob-skip-dialog-actions">
           <Button onClick={onSkip}>{t('onboarding.skipConfirm.skip')}</Button>
@@ -232,6 +240,7 @@ function OnboardingContent() {
       tabIndex={-1}
       role="dialog"
       aria-modal="true"
+      aria-labelledby="ob-current-step-title"
       onClick={handleBackdropClick}
     >
       <OnboardingLayout
