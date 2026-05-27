@@ -75,7 +75,7 @@ function ActivityBarAppItem({
           draggable={!disabledWarning}
           aria-disabled={Boolean(disabledWarning)}
           aria-label={tooltip}
-          {...dragHandlers}
+          {...(!disabledWarning ? dragHandlers : {})}
         >
           <span className="app-favicon-active-ring">
             <AppFavicon url={app.url} name={app.name} size={20} />

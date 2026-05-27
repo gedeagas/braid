@@ -25,4 +25,12 @@ describe('getDisabledEmbeddedAppWarningKey', () => {
       url: 'https://notion.so',
     })).toBeNull()
   })
+
+  it('handles null, undefined, or incomplete app objects gracefully', () => {
+    expect(getDisabledEmbeddedAppWarningKey(null)).toBeNull()
+    expect(getDisabledEmbeddedAppWarningKey(undefined)).toBeNull()
+    expect(getDisabledEmbeddedAppWarningKey({})).toBeNull()
+    expect(getDisabledEmbeddedAppWarningKey({ name: 'Spotify' })).toBe(SPOTIFY_DISABLED_WARNING_KEY)
+    expect(getDisabledEmbeddedAppWarningKey({ url: 'https://open.spotify.com' })).toBe(SPOTIFY_DISABLED_WARNING_KEY)
+  })
 })

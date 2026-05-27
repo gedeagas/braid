@@ -21,7 +21,7 @@
 }
 
 .settings-apps-preset--disabled {
-  border-color: var(--amber-tint-30);
+  border-color: var(--amber-tint-30, rgba(230, 162, 60, 0.3));
 }
 
 .settings-apps-preset-disabled-label {
@@ -36,7 +36,7 @@
   gap: var(--space-8);
   margin-top: var(--space-8);
   padding: var(--space-8) var(--space-10);
-  border: 1px solid var(--amber-tint-30);
+  border: 1px solid var(--amber-tint-30, rgba(230, 162, 60, 0.3));
   border-radius: var(--radius);
   background: var(--amber-tint-6);
   color: var(--text-primary);
