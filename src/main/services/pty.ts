@@ -91,6 +91,8 @@ export interface IPtyService {
   onExit(ptyId: string, callback: (ptyId: string, exitCode: number) => void): () => void
   /** List active PTY instances, optionally filtered by worktree path. */
   listInstances(worktreePath?: string): Array<{ ptyId: string; cwd: string }>
+  /** List active PTY instances with their OS process IDs. */
+  listInstancesWithPid(): Array<{ ptyId: string; cwd: string; pid: number | null }>
 }
 
 // ── Legacy in-process service ────────────────────────────────────────────────
@@ -262,6 +264,14 @@ class PtyService implements IPtyService {
       if (!worktreePath || instance.cwd === worktreePath) {
         results.push({ ptyId: id, cwd: instance.cwd })
       }
+    }
+    return results
+  }
+
+  listInstancesWithPid(): Array<{ ptyId: string; cwd: string; pid: number | null }> {
+    const results: Array<{ ptyId: string; cwd: string; pid: number | null }> = []
+    for (const [id, instance] of this.instances) {
+      results.push({ ptyId: id, cwd: instance.cwd, pid: instance.process.pid ?? null })
     }
     return results
   }

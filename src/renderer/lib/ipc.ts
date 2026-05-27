@@ -377,3 +377,17 @@ export const lsp = {
   onDiagnosticsUpdate: (cb: (update: { filePath: string; diagnostics: import('@/types').LspDiagnostic[] }) => void) =>
     api().lsp.onDiagnosticsUpdate(cb as (update: unknown) => void) as () => void,
 }
+
+export const rateLimits = {
+  get: () =>
+    api().rateLimits.get() as Promise<import('../../shared/rate-limit-types').RateLimitState>,
+  refresh: () =>
+    api().rateLimits.refresh() as Promise<import('../../shared/rate-limit-types').RateLimitState>,
+  onUpdate: (cb: (state: import('../../shared/rate-limit-types').RateLimitState) => void) =>
+    api().rateLimits.onUpdate(cb as (state: unknown) => void) as () => void,
+}
+
+export const resource = {
+  getSnapshot: () =>
+    api().resource.getSnapshot() as Promise<import('../../shared/rate-limit-types').ResourceSnapshot>,
+}

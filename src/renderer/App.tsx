@@ -28,6 +28,7 @@ import { useAutoUpdate } from '@/hooks/useAutoUpdate'
 import { initUpdateListeners } from '@/store/updater'
 import * as actions from '@/lib/appActions'
 import { initAgentDetection } from '@/lib/agentDetection'
+import { UsageStatusBar } from '@/components/StatusBar/UsageStatusBar'
 
 export default function App() {
   const autoUpdate = useAutoUpdate()
@@ -208,6 +209,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
+      <div className="app-shell">
       <div className="app">
         <ActivityBar />
         <div className="sidebar-panel" style={{ width: sidebarPanelOpen ? sidebarWidth : 0, minWidth: sidebarPanelOpen ? SIDEBAR_MIN_WIDTH : 0 }}>
@@ -232,6 +234,8 @@ export default function App() {
             <WebAppOverlay />
           </div>
         )}
+      </div>
+      <UsageStatusBar />
       </div>
       <SettingsOverlay />
       <ShortcutsModal />

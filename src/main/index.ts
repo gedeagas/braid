@@ -21,7 +21,7 @@ process.on('unhandledRejection', (reason) => logger.error('Unhandled rejection',
 import { app, BrowserWindow, clipboard, components, desktopCapturer, Menu, session, shell, nativeImage } from 'electron'
 import { join } from 'path'
 import { APP_DISPLAY_NAME } from './appBrand'
-import { registerIpcHandlers } from './ipc'
+import { registerIpcHandlers, rateLimitService } from './ipc'
 import { createAppMenu } from './menu'
 import { windowCaptureService } from './services/windowCapture'
 import { lspService } from './services/lsp'
@@ -204,6 +204,10 @@ app.whenReady().then(async () => {
 
   createWindow()
   createAppMenu(mainWindow!)
+
+  // Rate limit polling service
+  rateLimitService.attach(mainWindow!)
+  rateLimitService.start()
 
   // Auto-updater (only in packaged builds)
   if (app.isPackaged) {
