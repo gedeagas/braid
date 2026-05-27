@@ -420,6 +420,8 @@
     "colCache": "Cache",
     "colReasoning": "Penalaran",
     "unknown": "Tidak diketahui",
+    "unknownLocation": "Lokasi tidak diketahui",
+    "multipleLocations": "Beberapa lokasi",
     "notAvailable": "n/a"
   },
   "about": {

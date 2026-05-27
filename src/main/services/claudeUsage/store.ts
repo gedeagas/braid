@@ -1,5 +1,6 @@
 import { app } from 'electron'
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
+import { mkdir, rename, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
 import type {
   ClaudeUsageBreakdownKind,
@@ -109,7 +110,7 @@ function getDefaultState(): ClaudeUsagePersistedState {
   }
 }
 
-type WorktreeProvider = () => ClaudeUsageWorktreeRef[]
+type WorktreeProvider = () => Promise<ClaudeUsageWorktreeRef[]>
 
 export class ClaudeUsageStore {
   private state: ClaudeUsagePersistedState
@@ -146,12 +147,12 @@ export class ClaudeUsageStore {
     }
   }
 
-  private writeToDisk(): void {
+  private async writeToDisk(): Promise<void> {
     const dir = dirname(this.filePath)
-    if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
     const tmp = `${this.filePath}.${process.pid}.${Date.now()}.tmp`
-    writeFileSync(tmp, JSON.stringify(this.state, null, 2), 'utf-8')
-    renameSync(tmp, this.filePath)
+    await mkdir(dir, { recursive: true })
+    await writeFile(tmp, JSON.stringify(this.state, null, 2), 'utf-8')
+    await rename(tmp, this.filePath)
   }
 
   private getWorktreeFingerprint(refs: ClaudeUsageWorktreeRef[]): string {
@@ -160,7 +161,7 @@ export class ClaudeUsageStore {
 
   async setEnabled(enabled: boolean): Promise<ClaudeUsageScanState> {
     this.state.scanState.enabled = enabled
-    this.writeToDisk()
+    await this.writeToDisk()
     return this.getScanState()
   }
 
@@ -168,7 +169,7 @@ export class ClaudeUsageStore {
     const enabled = this.state.scanState.enabled
     this.state = getDefaultState()
     this.state.scanState.enabled = enabled
-    this.writeToDisk()
+    await this.writeToDisk()
     return this.getScanState()
   }
 
@@ -188,7 +189,7 @@ export class ClaudeUsageStore {
         return this.getScanState()
       }
     }
-    const worktrees = this.getWorktrees()
+    const worktrees = await this.getWorktrees()
     await this.runScan(worktrees, this.getWorktreeFingerprint(worktrees))
     return this.getScanState()
   }
@@ -199,12 +200,12 @@ export class ClaudeUsageStore {
       return
     }
 
-    const nextWorktrees = worktrees ?? this.getWorktrees()
+    const nextWorktrees = worktrees ?? await this.getWorktrees()
     const nextFingerprint = fingerprint ?? this.getWorktreeFingerprint(nextWorktrees)
 
     this.state.scanState.lastScanStartedAt = Date.now()
     this.state.scanState.lastScanError = null
-    this.writeToDisk()
+    await this.writeToDisk()
 
     this.scanPromise = (async () => {
       try {
@@ -218,10 +219,10 @@ export class ClaudeUsageStore {
         this.state.worktreeFingerprint = nextFingerprint
         this.state.scanState.lastScanCompletedAt = Date.now()
         this.state.scanState.lastScanError = null
-        this.writeToDisk()
+        await this.writeToDisk()
       } catch (err) {
         this.state.scanState.lastScanError = err instanceof Error ? err.message : String(err)
-        this.writeToDisk()
+        await this.writeToDisk()
       } finally {
         this.scanPromise = null
       }

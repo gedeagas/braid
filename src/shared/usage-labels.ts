@@ -1,0 +1,2 @@
+export const USAGE_UNKNOWN_LOCATION_LABEL = '__braid_usage_unknown_location__'
+export const USAGE_MULTIPLE_LOCATIONS_LABEL = '__braid_usage_multiple_locations__'

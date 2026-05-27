@@ -420,6 +420,8 @@
     "colCache": "缓存",
     "colReasoning": "推理",
     "unknown": "未知",
+    "unknownLocation": "未知位置",
+    "multipleLocations": "多个位置",
     "notAvailable": "n/a"
   },
   "about": {

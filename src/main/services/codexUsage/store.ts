@@ -1,5 +1,6 @@
 import { app } from 'electron'
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
+import { mkdir, rename, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
 import type {
   CodexUsageBreakdownKind,
@@ -15,6 +16,10 @@ import type {
 import type { CodexUsagePersistedState, CodexUsageWorktreeRef } from './types'
 import { scanCodexUsageFiles } from './scanner'
 import { logger } from '../../lib/logger'
+import {
+  USAGE_MULTIPLE_LOCATIONS_LABEL,
+  USAGE_UNKNOWN_LOCATION_LABEL,
+} from '../../../shared/usage-labels'
 
 const SCHEMA_VERSION = 1
 const STALE_MS = 5 * 60_000
@@ -82,7 +87,13 @@ function getDefaultState(): CodexUsagePersistedState {
   }
 }
 
-type WorktreeProvider = () => CodexUsageWorktreeRef[]
+function getSessionProjectLabel(breakdown: { projectLabel: string }[]): string {
+  if (breakdown.length === 0) return USAGE_UNKNOWN_LOCATION_LABEL
+  if (breakdown.length === 1) return breakdown[0].projectLabel
+  return USAGE_MULTIPLE_LOCATIONS_LABEL
+}
+
+type WorktreeProvider = () => Promise<CodexUsageWorktreeRef[]>
 
 export class CodexUsageStore {
   private state: CodexUsagePersistedState
@@ -113,12 +124,12 @@ export class CodexUsageStore {
     }
   }
 
-  private writeToDisk(): void {
+  private async writeToDisk(): Promise<void> {
     const dir = dirname(this.filePath)
-    if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
     const tmp = `${this.filePath}.${process.pid}.${Date.now()}.tmp`
-    writeFileSync(tmp, JSON.stringify(this.state, null, 2), 'utf-8')
-    renameSync(tmp, this.filePath)
+    await mkdir(dir, { recursive: true })
+    await writeFile(tmp, JSON.stringify(this.state, null, 2), 'utf-8')
+    await rename(tmp, this.filePath)
   }
 
   private getWorktreeFingerprint(refs: CodexUsageWorktreeRef[]): string {
@@ -127,7 +138,7 @@ export class CodexUsageStore {
 
   async setEnabled(enabled: boolean): Promise<CodexUsageScanState> {
     this.state.scanState.enabled = enabled
-    this.writeToDisk()
+    await this.writeToDisk()
     return this.getScanState()
   }
 
@@ -135,7 +146,7 @@ export class CodexUsageStore {
     const enabled = this.state.scanState.enabled
     this.state = getDefaultState()
     this.state.scanState.enabled = enabled
-    this.writeToDisk()
+    await this.writeToDisk()
     return this.getScanState()
   }
 
@@ -154,18 +165,18 @@ export class CodexUsageStore {
         return this.getScanState()
       }
     }
-    const worktrees = this.getWorktrees()
+    const worktrees = await this.getWorktrees()
     await this.runScan(worktrees, this.getWorktreeFingerprint(worktrees))
     return this.getScanState()
   }
 
   private async runScan(worktrees?: CodexUsageWorktreeRef[], fingerprint?: string): Promise<void> {
     if (this.scanPromise) { await this.scanPromise; return }
-    const nextWorktrees = worktrees ?? this.getWorktrees()
+    const nextWorktrees = worktrees ?? await this.getWorktrees()
     const nextFingerprint = fingerprint ?? this.getWorktreeFingerprint(nextWorktrees)
     this.state.scanState.lastScanStartedAt = Date.now()
     this.state.scanState.lastScanError = null
-    this.writeToDisk()
+    await this.writeToDisk()
 
     this.scanPromise = (async () => {
       try {
@@ -176,10 +187,10 @@ export class CodexUsageStore {
         this.state.worktreeFingerprint = nextFingerprint
         this.state.scanState.lastScanCompletedAt = Date.now()
         this.state.scanState.lastScanError = null
-        this.writeToDisk()
+        await this.writeToDisk()
       } catch (err) {
         this.state.scanState.lastScanError = err instanceof Error ? err.message : String(err)
-        this.writeToDisk()
+        await this.writeToDisk()
       } finally { this.scanPromise = null }
     })()
     await this.scanPromise
@@ -267,7 +278,18 @@ export class CodexUsageStore {
     }
     for (const s of this.getFilteredSessions(scope, range)) {
       if (kind === 'model') { const r = rows.get(s.model ?? 'unknown'); if (r) r.sessions++ }
-      else { for (const l of s.locationBreakdown) { const r = rows.get(l.locationKey); if (r) r.sessions++ } }
+      else {
+        const matching = s.locationBreakdown.filter((l) =>
+          scope === 'all' ? true : l.worktreeId !== null
+        )
+        const seen = new Set<string>()
+        for (const l of matching) {
+          if (seen.has(l.locationKey)) continue
+          seen.add(l.locationKey)
+          const r = rows.get(l.locationKey)
+          if (r) r.sessions++
+        }
+      }
     }
     for (const r of rows.values()) {
       if (kind === 'model') r.estimatedCostUsd = estimateCostUsd(r.key, r.inputTokens, r.cachedInputTokens, r.outputTokens)
@@ -283,12 +305,31 @@ export class CodexUsageStore {
   private buildRecentSessions(scope: CodexUsageScope, range: CodexUsageRange, limit = 12): CodexUsageSessionRow[] {
     return this.getFilteredSessions(scope, range).slice(0, limit).map((s) => {
       const dur = Math.max(0, Math.round((new Date(s.lastTimestamp).getTime() - new Date(s.firstTimestamp).getTime()) / 60_000))
+      const matching = s.locationBreakdown.filter((l) =>
+        scope === 'all' ? true : l.worktreeId !== null
+      )
+      const locations = matching.length > 0 ? matching : s.locationBreakdown
+      const totals = locations.reduce(
+        (acc, l) => ({
+          events: acc.events + l.eventCount,
+          inputTokens: acc.inputTokens + l.inputTokens,
+          cachedInputTokens: acc.cachedInputTokens + l.cachedInputTokens,
+          outputTokens: acc.outputTokens + l.outputTokens,
+          reasoningOutputTokens: acc.reasoningOutputTokens + l.reasoningOutputTokens,
+          totalTokens: acc.totalTokens + l.totalTokens,
+        }),
+        { events: 0, inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, reasoningOutputTokens: 0, totalTokens: 0 }
+      )
       return {
         sessionId: s.sessionId, lastActiveAt: s.lastTimestamp, durationMinutes: dur,
-        projectLabel: s.primaryProjectLabel, model: s.model, events: s.eventCount,
-        inputTokens: s.totalInputTokens, cachedInputTokens: s.totalCachedInputTokens,
-        outputTokens: s.totalOutputTokens, reasoningOutputTokens: s.totalReasoningOutputTokens,
-        totalTokens: s.totalTokens,
+        projectLabel: getSessionProjectLabel(locations),
+        model: s.model,
+        events: totals.events,
+        inputTokens: totals.inputTokens,
+        cachedInputTokens: totals.cachedInputTokens,
+        outputTokens: totals.outputTokens,
+        reasoningOutputTokens: totals.reasoningOutputTokens,
+        totalTokens: totals.totalTokens,
       }
     })
   }

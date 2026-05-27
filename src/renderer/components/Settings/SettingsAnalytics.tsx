@@ -22,6 +22,10 @@ import type {
   CodexUsageSessionRow,
   CodexUsageSummary,
 } from '../../../shared/codex-usage-types'
+import {
+  USAGE_MULTIPLE_LOCATIONS_LABEL,
+  USAGE_UNKNOWN_LOCATION_LABEL,
+} from '../../../shared/usage-labels'
 
 type Tab = 'claude' | 'codex'
 
@@ -34,6 +38,15 @@ function totalClaudeTokens(summary: ClaudeUsageSummary): number {
 function pct(numerator: number, denominator: number, emptyLabel: string): string {
   if (denominator <= 0) return emptyLabel
   return `${Math.round((numerator / denominator) * 100)}%`
+}
+
+function formatUsageLabel(
+  label: string,
+  labels: { unknownLocation: string; multipleLocations: string }
+): string {
+  if (label === USAGE_UNKNOWN_LOCATION_LABEL) return labels.unknownLocation
+  if (label === USAGE_MULTIPLE_LOCATIONS_LABEL) return labels.multipleLocations
+  return label
 }
 
 function StatCard({ label, value, tone = 'default' }: { label: string; value: string; tone?: 'default' | 'primary' }) {
@@ -76,11 +89,13 @@ function BreakdownSection<T extends ClaudeUsageBreakdownRow | CodexUsageBreakdow
   rows,
   getValue,
   getMeta,
+  formatLabel = (label) => label,
 }: {
   title: string
   rows: T[]
   getValue: (row: T) => number
   getMeta: (row: T) => string
+  formatLabel?: (label: string) => string
 }) {
   const sliced = rows.slice(0, 5)
   const max = Math.max(1, ...sliced.map(getValue))
@@ -92,10 +107,11 @@ function BreakdownSection<T extends ClaudeUsageBreakdownRow | CodexUsageBreakdow
       <div className="analytics-breakdown-list">
         {sliced.map((row) => {
           const value = getValue(row)
+          const label = formatLabel(row.label)
           return (
             <div key={row.key} className="analytics-breakdown-row">
               <div className="analytics-breakdown-copy">
-                <span className="analytics-breakdown-name" title={row.label}>{row.label}</span>
+                <span className="analytics-breakdown-name" title={label}>{label}</span>
                 <span className="analytics-breakdown-meta">{getMeta(row)}</span>
               </div>
               <div className="analytics-breakdown-value">
@@ -202,17 +218,23 @@ function ClaudeSessionsTable({ sessions, labels }: { sessions: ClaudeUsageSessio
             </tr>
           </thead>
           <tbody>
-            {sessions.map((row) => (
-              <tr key={row.sessionId}>
-                <td>{fmtTime(row.lastActiveAt)}</td>
-                <td className="analytics-table-primary" title={row.projectLabel}>{row.projectLabel}</td>
-                <td title={row.model ?? labels.unknown}>{row.model ?? labels.unknown}</td>
-                <td>{row.turns}</td>
-                <td>{fmtTokens(row.inputTokens)}</td>
-                <td>{fmtTokens(row.outputTokens)}</td>
-                <td>{fmtTokens(row.cacheReadTokens + row.cacheWriteTokens)}</td>
-              </tr>
-            ))}
+            {sessions.map((row) => {
+              const projectLabel = formatUsageLabel(row.projectLabel, {
+                unknownLocation: labels.unknownLocation,
+                multipleLocations: labels.multipleLocations,
+              })
+              return (
+                <tr key={row.sessionId}>
+                  <td>{fmtTime(row.lastActiveAt)}</td>
+                  <td className="analytics-table-primary" title={projectLabel}>{projectLabel}</td>
+                  <td title={row.model ?? labels.unknown}>{row.model ?? labels.unknown}</td>
+                  <td>{row.turns}</td>
+                  <td>{fmtTokens(row.inputTokens)}</td>
+                  <td>{fmtTokens(row.outputTokens)}</td>
+                  <td>{fmtTokens(row.cacheReadTokens + row.cacheWriteTokens)}</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -239,17 +261,23 @@ function CodexSessionsTable({ sessions, labels }: { sessions: CodexUsageSessionR
             </tr>
           </thead>
           <tbody>
-            {sessions.map((row) => (
-              <tr key={row.sessionId}>
-                <td>{fmtTime(row.lastActiveAt)}</td>
-                <td className="analytics-table-primary" title={row.projectLabel}>{row.projectLabel}</td>
-                <td title={row.model ?? labels.unknown}>{row.model ?? labels.unknown}</td>
-                <td>{row.events}</td>
-                <td>{fmtTokens(row.inputTokens)}</td>
-                <td>{fmtTokens(row.outputTokens)}</td>
-                <td>{fmtTokens(row.reasoningOutputTokens)}</td>
-              </tr>
-            ))}
+            {sessions.map((row) => {
+              const projectLabel = formatUsageLabel(row.projectLabel, {
+                unknownLocation: labels.unknownLocation,
+                multipleLocations: labels.multipleLocations,
+              })
+              return (
+                <tr key={row.sessionId}>
+                  <td>{fmtTime(row.lastActiveAt)}</td>
+                  <td className="analytics-table-primary" title={projectLabel}>{projectLabel}</td>
+                  <td title={row.model ?? labels.unknown}>{row.model ?? labels.unknown}</td>
+                  <td>{row.events}</td>
+                  <td>{fmtTokens(row.inputTokens)}</td>
+                  <td>{fmtTokens(row.outputTokens)}</td>
+                  <td>{fmtTokens(row.reasoningOutputTokens)}</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -281,6 +309,10 @@ function ClaudePane() {
   const enabled = scan?.enabled ?? false
   const hasData = summary?.hasAnyData ?? false
   const totalTokens = summary ? totalClaudeTokens(summary) : 0
+  const locationLabels = useMemo(() => ({
+    unknownLocation: t('analytics.unknownLocation'),
+    multipleLocations: t('analytics.multipleLocations'),
+  }), [t])
 
   const scopeOptions = useMemo<Option<ClaudeUsageScope>[]>(() => [
     { value: 'braid', label: t('analytics.scopeBraid') },
@@ -380,6 +412,7 @@ function ClaudePane() {
                 rows={projects}
                 getValue={(row) => row.inputTokens + row.outputTokens + row.cacheReadTokens + row.cacheWriteTokens}
                 getMeta={(row) => t('analytics.sessionsTurnsMeta', { sessions: row.sessions, turns: row.turns })}
+                formatLabel={(label) => formatUsageLabel(label, locationLabels)}
               />
 
               <ClaudeSessionsTable
@@ -394,6 +427,8 @@ function ClaudePane() {
                   output: t('analytics.colOutput'),
                   cache: t('analytics.colCache'),
                   unknown: t('analytics.unknown'),
+                  unknownLocation: locationLabels.unknownLocation,
+                  multipleLocations: locationLabels.multipleLocations,
                 }}
               />
             </>
@@ -430,6 +465,10 @@ function CodexPane() {
   const cacheRate = summary
     ? pct(summary.cachedInputTokens, summary.inputTokens, t('analytics.notAvailable'))
     : t('analytics.notAvailable')
+  const locationLabels = useMemo(() => ({
+    unknownLocation: t('analytics.unknownLocation'),
+    multipleLocations: t('analytics.multipleLocations'),
+  }), [t])
 
   const scopeOptions = useMemo<Option<CodexUsageScope>[]>(() => [
     { value: 'braid', label: t('analytics.scopeBraid') },
@@ -528,6 +567,7 @@ function CodexPane() {
                 rows={projects}
                 getValue={(row) => row.totalTokens}
                 getMeta={(row) => t('analytics.sessionsEventsMeta', { sessions: row.sessions, events: row.events })}
+                formatLabel={(label) => formatUsageLabel(label, locationLabels)}
               />
 
               <CodexSessionsTable
@@ -542,6 +582,8 @@ function CodexPane() {
                   output: t('analytics.colOutput'),
                   reasoning: t('analytics.colReasoning'),
                   unknown: t('analytics.unknown'),
+                  unknownLocation: locationLabels.unknownLocation,
+                  multipleLocations: locationLabels.multipleLocations,
                 }}
               />
             </>

@@ -3,6 +3,10 @@ import type {
   ClaudeUsageDailyAggregate,
   ClaudeUsageSession,
 } from './types'
+import {
+  USAGE_MULTIPLE_LOCATIONS_LABEL,
+  USAGE_UNKNOWN_LOCATION_LABEL,
+} from '../../../shared/usage-labels'
 
 export function finalizeSessions(sessionsById: Map<string, ClaudeUsageSession>): ClaudeUsageSession[] {
   for (const session of sessionsById.values()) {
@@ -170,7 +174,7 @@ export function aggregateTurns(turns: ClaudeUsageAttributedTurn[]): {
 }
 
 export function getSessionProjectLabel(breakdown: { projectLabel: string }[]): string {
-  if (breakdown.length === 0) return 'Unknown location'
+  if (breakdown.length === 0) return USAGE_UNKNOWN_LOCATION_LABEL
   if (breakdown.length === 1) return breakdown[0].projectLabel
-  return 'Multiple locations'
+  return USAGE_MULTIPLE_LOCATIONS_LABEL
 }

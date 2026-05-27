@@ -420,6 +420,8 @@
     "colCache": "キャッシュ",
     "colReasoning": "推論",
     "unknown": "不明",
+    "unknownLocation": "不明な場所",
+    "multipleLocations": "複数の場所",
     "notAvailable": "n/a"
   },
   "about": {

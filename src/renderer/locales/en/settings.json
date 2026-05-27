@@ -420,6 +420,8 @@
     "colCache": "Cache",
     "colReasoning": "Reasoning",
     "unknown": "Unknown",
+    "unknownLocation": "Unknown location",
+    "multipleLocations": "Multiple locations",
     "notAvailable": "n/a"
   },
   "about": {

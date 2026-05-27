@@ -3,7 +3,7 @@ import { ipcMain, dialog, shell, app, nativeImage, clipboard, BrowserWindow } fr
 import { existsSync } from 'fs'
 import { writeFile } from 'fs/promises'
 import { randomUUID } from 'crypto'
-import { execFile } from 'child_process'
+import { execFile, type ExecFileOptionsWithStringEncoding } from 'child_process'
 import { tmpdir, homedir } from 'os'
 import { join } from 'path'
 import { storageService } from './services/storage'
@@ -33,6 +33,22 @@ import { ClaudeUsageStore } from './services/claudeUsage'
 import type { ClaudeUsageScope, ClaudeUsageRange, ClaudeUsageBreakdownKind } from '../shared/claude-usage-types'
 import { CodexUsageStore } from './services/codexUsage'
 import type { CodexUsageScope, CodexUsageRange, CodexUsageBreakdownKind } from '../shared/codex-usage-types'
+
+function execFileText(
+  file: string,
+  args: string[],
+  options: ExecFileOptionsWithStringEncoding
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile(file, args, options, (error, stdout) => {
+      if (error) {
+        reject(error)
+        return
+      }
+      resolve(stdout)
+    })
+  })
+}
 
 // In-process settings cache — renderer pushes values here so main-process
 // services (agent.ts, pty.ts) can read them synchronously.
@@ -646,14 +662,17 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('updater:install', () => installUpdate())
   ipcMain.handle('updater:check', () => checkForUpdates())
 
-  // ── Usage Analytics (shared worktree provider) ─────────────────────────
-  const usageWorktreeProvider = () => {
+  // Usage Analytics (shared worktree provider)
+  const usageWorktreeProvider = async () => {
     const data = storageService.load()
     const refs: Array<{ worktreeId: string; path: string; displayName: string }> = []
     for (const project of data.projects ?? []) {
       try {
-        const output = require('child_process')
-          .execFileSync('git', ['worktree', 'list', '--porcelain'], { cwd: project.path, encoding: 'utf-8', timeout: 5000 }) as string
+        const output = await execFileText('git', ['worktree', 'list', '--porcelain'], {
+          cwd: project.path,
+          encoding: 'utf-8',
+          timeout: 5000,
+        })
         let currentPath: string | null = null
         let currentBranch: string | null = null
         for (const line of output.split('\n')) {
@@ -695,7 +714,7 @@ export function registerIpcHandlers(): void {
     claudeUsageStore.getRecentSessions(args.scope, args.range, args.limit)
   )
 
-  // ── Codex Usage Analytics ─────────────────────────────────────────────
+  // Codex Usage Analytics
   const codexUsage = new CodexUsageStore(usageWorktreeProvider)
 
   ipcMain.handle('codexUsage:getScanState', () => codexUsage.getScanState())

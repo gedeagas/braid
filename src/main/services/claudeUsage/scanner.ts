@@ -13,6 +13,7 @@ import type {
   ClaudeUsageWorktreeRef,
 } from './types'
 import { aggregateTurns, finalizeSessions, mergeSessions, mergeDailyAggregates } from './aggregation'
+import { USAGE_UNKNOWN_LOCATION_LABEL } from '../../../shared/usage-labels'
 
 export { getSessionProjectLabel } from './aggregation'
 
@@ -60,7 +61,7 @@ function isContainedPath(parent: string, child: string): boolean {
 }
 
 function getDefaultProjectLabel(cwd: string | null): string {
-  if (!cwd) return 'Unknown location'
+  if (!cwd) return USAGE_UNKNOWN_LOCATION_LABEL
   const parts = cwd.replace(/\\/g, '/').split('/').filter(Boolean)
   if (parts.length >= 2) return parts.slice(-2).join('/')
   return parts.at(-1) ?? cwd
@@ -222,16 +223,14 @@ export async function buildWorktreeLookup(
 
 function findContainingWorktree(
   cwd: string,
-  lookup: Map<string, ClaudeUsageWorktreeRef>
+  lookup: Map<string, ClaudeUsageWorktreeRef>,
+  sortedEntries: Array<[string, ClaudeUsageWorktreeRef]>
 ): ClaudeUsageWorktreeRef | null {
   const normalized = normalizeComparablePath(cwd)
   const exact = lookup.get(normalized)
   if (exact) return exact
 
-  const sorted = [...lookup.entries()].sort(
-    ([a], [b]) => b.length - a.length
-  )
-  for (const [worktreePath, wt] of sorted) {
+  for (const [worktreePath, wt] of sortedEntries) {
     if (isContainedPath(worktreePath, normalized)) return wt
   }
   return null
@@ -243,6 +242,9 @@ export async function attributeTurns(
 ): Promise<ClaudeUsageAttributedTurn[]> {
   const attributed: ClaudeUsageAttributedTurn[] = []
   const cwdCache = new Map<string, string>()
+  const sortedWorktrees = [...worktreeLookup.entries()].sort(
+    ([a], [b]) => b.length - a.length
+  )
 
   for (const turn of turns) {
     const day = localDayFromTimestamp(turn.timestamp)
@@ -258,7 +260,7 @@ export async function attributeTurns(
         canonical = await canonicalizePath(turn.cwd)
         cwdCache.set(turn.cwd, canonical)
       }
-      const wt = findContainingWorktree(canonical, worktreeLookup)
+      const wt = findContainingWorktree(canonical, worktreeLookup, sortedWorktrees)
       if (wt) {
         worktreeId = wt.worktreeId
         projectKey = `worktree:${worktreeId}`

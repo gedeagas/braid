@@ -12,6 +12,7 @@ import type {
   CodexUsageSession,
   CodexUsageWorktreeRef,
 } from './types'
+import { USAGE_UNKNOWN_LOCATION_LABEL } from '../../../shared/usage-labels'
 
 const CODEX_SESSIONS_DIR = join(homedir(), '.codex', 'sessions')
 const FILE_SCAN_BATCH_SIZE = 4
@@ -51,7 +52,7 @@ function isContainedPath(parent: string, child: string): boolean {
 }
 
 function getDefaultProjectLabel(cwd: string | null): string {
-  if (!cwd) return 'Unknown location'
+  if (!cwd) return USAGE_UNKNOWN_LOCATION_LABEL
   const parts = cwd.replace(/\\/g, '/').split('/').filter(Boolean)
   if (parts.length >= 2) return parts.slice(-2).join('/')
   return parts.at(-1) ?? cwd
@@ -198,12 +199,13 @@ export async function buildWorktreeLookup(
 
 function findContainingWorktree(
   cwd: string,
-  lookup: Map<string, CodexUsageWorktreeRef>
+  lookup: Map<string, CodexUsageWorktreeRef>,
+  sortedEntries: Array<[string, CodexUsageWorktreeRef]>
 ): CodexUsageWorktreeRef | null {
   const n = normalizeComparablePath(cwd)
   const exact = lookup.get(n)
   if (exact) return exact
-  for (const [p, wt] of [...lookup.entries()].sort(([a], [b]) => b.length - a.length)) {
+  for (const [p, wt] of sortedEntries) {
     if (isContainedPath(p, n)) return wt
   }
   return null
@@ -215,6 +217,7 @@ export async function attributeEvents(
 ): Promise<CodexUsageAttributedEvent[]> {
   const result: CodexUsageAttributedEvent[] = []
   const cwdCache = new Map<string, string>()
+  const sortedWorktrees = [...worktreeLookup.entries()].sort(([a], [b]) => b.length - a.length)
 
   for (const ev of events) {
     const day = localDay(ev.timestamp)
@@ -226,7 +229,7 @@ export async function attributeEvents(
     if (ev.cwd) {
       let c = cwdCache.get(ev.cwd)
       if (c === undefined) { c = await canonicalizePath(ev.cwd); cwdCache.set(ev.cwd, c) }
-      const wt = findContainingWorktree(c, worktreeLookup)
+      const wt = findContainingWorktree(c, worktreeLookup, sortedWorktrees)
       if (wt) {
         worktreeId = wt.worktreeId
         projectKey = `worktree:${worktreeId}`
@@ -320,6 +323,51 @@ export function aggregateEvents(events: CodexUsageAttributedEvent[]): {
   }
 }
 
+function mergeSession(target: Map<string, CodexUsageSession>, session: CodexUsageSession): void {
+  const existing = target.get(session.sessionId)
+  if (!existing) {
+    target.set(session.sessionId, structuredClone(session))
+    return
+  }
+
+  if (session.firstTimestamp < existing.firstTimestamp) existing.firstTimestamp = session.firstTimestamp
+  if (session.lastTimestamp > existing.lastTimestamp) existing.lastTimestamp = session.lastTimestamp
+  existing.model = session.model ?? existing.model
+  existing.eventCount += session.eventCount
+  existing.totalInputTokens += session.totalInputTokens
+  existing.totalCachedInputTokens += session.totalCachedInputTokens
+  existing.totalOutputTokens += session.totalOutputTokens
+  existing.totalReasoningOutputTokens += session.totalReasoningOutputTokens
+  existing.totalTokens += session.totalTokens
+
+  for (const loc of session.locationBreakdown) {
+    const existingLoc = existing.locationBreakdown.find((l) => l.locationKey === loc.locationKey)
+    if (existingLoc) {
+      existingLoc.eventCount += loc.eventCount
+      existingLoc.inputTokens += loc.inputTokens
+      existingLoc.cachedInputTokens += loc.cachedInputTokens
+      existingLoc.outputTokens += loc.outputTokens
+      existingLoc.reasoningOutputTokens += loc.reasoningOutputTokens
+      existingLoc.totalTokens += loc.totalTokens
+    } else {
+      existing.locationBreakdown.push({ ...loc })
+    }
+  }
+}
+
+function finalizeSessions(sessionsById: Map<string, CodexUsageSession>): CodexUsageSession[] {
+  for (const session of sessionsById.values()) {
+    session.locationBreakdown.sort((a, b) => b.totalTokens - a.totalTokens)
+    const primary = session.locationBreakdown[0]
+    if (primary) {
+      session.primaryWorktreeId = primary.worktreeId
+      session.primaryProjectLabel = primary.projectLabel
+    }
+  }
+
+  return [...sessionsById.values()].sort((a, b) => b.lastTimestamp.localeCompare(a.lastTimestamp))
+}
+
 export async function scanCodexUsageFiles(
   worktrees: CodexUsageWorktreeRef[],
   previousFiles: CodexUsagePersistedFile[] = []
@@ -354,14 +402,7 @@ export async function scanCodexUsageFiles(
       if (!processed) continue
       processedFiles.push(processed)
       for (const s of processed.sessions) {
-        const ex = allSessions.get(s.sessionId)
-        if (!ex) { allSessions.set(s.sessionId, structuredClone(s)); continue }
-        ex.eventCount += s.eventCount
-        ex.totalInputTokens += s.totalInputTokens
-        ex.totalCachedInputTokens += s.totalCachedInputTokens
-        ex.totalOutputTokens += s.totalOutputTokens
-        ex.totalReasoningOutputTokens += s.totalReasoningOutputTokens
-        ex.totalTokens += s.totalTokens
+        mergeSession(allSessions, s)
       }
       for (const d of processed.dailyAggregates) {
         const k = [d.day, d.model ?? 'unknown', d.projectKey].join('::')
@@ -380,7 +421,7 @@ export async function scanCodexUsageFiles(
 
   return {
     processedFiles,
-    sessions: [...allSessions.values()].sort((a, b) => b.lastTimestamp.localeCompare(a.lastTimestamp)),
+    sessions: finalizeSessions(allSessions),
     dailyAggregates: [...allDaily.values()].sort((a, b) => a.day.localeCompare(b.day)),
   }
 }

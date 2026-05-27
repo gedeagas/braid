@@ -38,8 +38,10 @@ export function ClaudeDailyChart({
   daily: ClaudeDay[]
   labels: { input: string; output: string; cacheRead: string; cacheWrite: string }
 }) {
-  const sliced = daily.slice(-10)
-  const max = useMemo(() => Math.max(1, ...sliced.map(claudeTotal)), [sliced])
+  const { sliced, max } = useMemo(() => {
+    const sliced = daily.slice(-10)
+    return { sliced, max: Math.max(1, ...sliced.map(claudeTotal)) }
+  }, [daily])
   if (sliced.length === 0) return null
 
   return (
@@ -77,8 +79,10 @@ export function CodexDailyChart({
   daily: CodexDay[]
   labels: { input: string; cached: string; output: string; reasoning: string }
 }) {
-  const sliced = daily.slice(-10)
-  const max = useMemo(() => Math.max(1, ...sliced.map(codexTotal)), [sliced])
+  const { sliced, max } = useMemo(() => {
+    const sliced = daily.slice(-10)
+    return { sliced, max: Math.max(1, ...sliced.map(codexTotal)) }
+  }, [daily])
   if (sliced.length === 0) return null
 
   return (
