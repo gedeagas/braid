@@ -28,7 +28,6 @@ const TOTAL_STEPS = STEPS.length
 interface State {
   currentStep: number
   checks: Record<CheckKey, CheckStatus>
-  installAttempted: Partial<Record<CheckKey, boolean>>
   showGhAuthDialog: boolean
 }
 
@@ -38,14 +37,12 @@ type Action =
   | { type: 'back' }
   | { type: 'start_checks' }
   | { type: 'set_check'; key: CheckKey; status: CheckStatus }
-  | { type: 'mark_install_attempted'; key: CheckKey }
   | { type: 'show_gh_auth' }
   | { type: 'hide_gh_auth' }
 
 const initialState: State = {
   currentStep: 0,
   checks: { git: 'pending', gh: 'pending', ghAuth: 'pending', acli: 'pending' },
-  installAttempted: {},
   showGhAuthDialog: false,
 }
 
@@ -64,8 +61,6 @@ function reducer(state: State, action: Action): State {
       }
     case 'set_check':
       return { ...state, checks: { ...state.checks, [action.key]: action.status } }
-    case 'mark_install_attempted':
-      return { ...state, installAttempted: { ...state.installAttempted, [action.key]: true } }
     case 'show_gh_auth':
       return { ...state, showGhAuthDialog: true }
     case 'hide_gh_auth':
@@ -126,17 +121,20 @@ function OnboardingContent() {
     return () => cancelAnimationFrame(frame)
   }, [])
 
-  // Escape key opens skip confirmation
+  // Escape key opens or closes skip confirmation
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
+      if (e.key !== 'Escape') return
+      e.preventDefault()
+      if (showSkipConfirm) {
+        setShowSkipConfirm(false)
+      } else if (!state.showGhAuthDialog) {
         setShowSkipConfirm(true)
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [])
+  }, [showSkipConfirm, state.showGhAuthDialog])
 
   // Auto-advance past project step when a project is added
   useEffect(() => {
@@ -178,7 +176,6 @@ function OnboardingContent() {
       dispatch({ type: 'show_gh_auth' })
       return
     }
-    dispatch({ type: 'mark_install_attempted', key })
     dispatch({ type: 'set_check', key, status: 'installing' })
     try { await shell.installTool(key) } catch { /* recheck below */ }
     dispatch({ type: 'set_check', key, status: 'checking' })
@@ -232,6 +229,9 @@ function OnboardingContent() {
 
   const step = STEPS[state.currentStep]
   const isLastStep = step === 'explore'
+  const hasActiveEnvironmentCheck = step === 'environment' && Object.values(state.checks).some(
+    (status) => status === 'checking' || status === 'installing',
+  )
 
   return (
     <div
@@ -249,7 +249,7 @@ function OnboardingContent() {
         onBack={goBack}
         onContinue={isLastStep ? handleFinish : goNext}
         onSkip={askSkip}
-        canContinue
+        canContinue={!hasActiveEnvironmentCheck}
         showBack={state.currentStep > 0}
         showSkip={!isLastStep}
         showContinue
@@ -262,10 +262,8 @@ function OnboardingContent() {
         {step === 'environment' && (
           <EnvironmentStep
             checks={state.checks}
-            installAttempted={state.installAttempted}
             onRunChecks={runChecks}
             onInstall={installAndRecheck}
-            onOpenExternal={shell.openExternal}
           />
         )}
         {step === 'project' && <ProjectStep />}

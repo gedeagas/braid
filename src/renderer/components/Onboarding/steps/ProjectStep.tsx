@@ -5,6 +5,7 @@ import { useUIStore } from '@/store/ui'
 import { Button } from '@/components/ui/Button'
 import { Spinner } from '@/components/ui/Spinner'
 import { IconGitFork } from '@/components/shared/icons'
+import { SK } from '@/lib/storageKeys'
 import * as ipc from '@/lib/ipc'
 
 export function ProjectStep() {
@@ -17,7 +18,7 @@ export function ProjectStep() {
   const [homePath, setHomePath] = useState('')
 
   useEffect(() => {
-    const stored = localStorage.getItem('braid:homePath')
+    const stored = localStorage.getItem(SK.homePath)
     if (stored) setHomePath(stored)
   }, [])
 

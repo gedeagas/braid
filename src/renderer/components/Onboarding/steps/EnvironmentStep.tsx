@@ -118,10 +118,8 @@ function JiraCard({
 
 interface Props {
   checks: Record<CheckKey, CheckStatus>
-  installAttempted: Partial<Record<CheckKey, boolean>>
   onRunChecks: () => void
   onInstall: (key: CheckKey) => void
-  onOpenExternal: (url: string) => void
 }
 
 export function EnvironmentStep({ checks, onRunChecks, onInstall }: Props) {

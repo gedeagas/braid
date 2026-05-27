@@ -56,7 +56,9 @@ export function ThemeStep() {
   const activeThemeId = useUIStore((s) => s.activeThemeId)
   const setTheme = useUIStore((s) => s.setTheme)
 
-  const featured = FEATURED_IDS.map((id) => builtinThemes.find((t) => t.id === id)!).filter(Boolean)
+  const featured = FEATURED_IDS
+    .map((id) => builtinThemes.find((t) => t.id === id))
+    .filter((theme): theme is ThemePalette => Boolean(theme))
 
   const handleSelect = (theme: ThemePalette) => {
     setTheme(theme.id)
