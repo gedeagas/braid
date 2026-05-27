@@ -30,11 +30,69 @@
   "toastErrorCount": "{{count}}件のセッションで問題が発生",
   "toastWaitingInputCount": "{{count}}件のセッションがあなたの対応待ち",
   "onboarding": {
+    "of": "/",
+    "back": "戻る",
+    "continue": "続ける",
+    "skipSetup": "セットアップをスキップ",
+    "skipConfirm": {
+      "title": "セットアップをスキップしますか?",
+      "desc": "すぐ終わります! 設定からいつでもやり直せます。",
+      "skip": "スキップ",
+      "keepGoing": "続ける"
+    },
+    "stepLabel": {
+      "welcome": "ようこそ",
+      "agent": "エージェント",
+      "theme": "テーマ",
+      "notifications": "通知",
+      "integrations": "連携",
+      "project": "プロジェクト",
+      "explore": "探索"
+    },
+    "agent": {
+      "title": "デフォルトエージェントを選択",
+      "subtitle": "Braidはすべてのコーディングエージェントで動作します。最もよく使うものを選択してください。いつでも変更できます。",
+      "detected": "お使いのシステムで検出  ·  {{count}}",
+      "showMore": "さらに{{count}}個のエージェントを表示→"
+    },
     "welcome": {
+      "eyebrow": "BRAID へようこそ",
       "title": "Braidへようこそ",
-      "subtitle": "AIを活用したGitワークスペース",
-      "description": "BraidはClaude AIとGitワークツリーを組み合わせ、複数のコーディングエージェントを並列実行できます。",
+      "story": "Braidは複数のAIコーディングエージェントとGitワークツリーを組み合わせ、別々のブランチで並列タスクを実行し、差分の確認、PRの管理、そして素早いデプロイを一つのウィンドウから行えます。",
+      "chooseLang": "言語を選択",
+      "subtitle": "複数のコーディングエージェントを並列実行、それぞれ独自のブランチで。",
+      "description": "BraidはClaude AIとGitワークツリーを組み合わせ、コンテキスト切り替えなしで複数のタスクを同時に管理できます。",
       "getStarted": "はじめる"
+    },
+    "theme": {
+      "title": "自分好みにカスタマイズ",
+      "subtitle": "長時間見つめることになるテーマを選びましょう。",
+      "moreHint": "他のテーマは 設定 > 外観 から選べます。"
+    },
+    "notifications": {
+      "title": "通知を設定",
+      "subtitle": "エージェントの完了やヘルプが必要な場合にBraidがお知らせします。",
+      "allowTitle": "macOSでBraidを許可",
+      "allowDesc": "システム設定を開き、Braidが通知を送信できることを確認してください。",
+      "openMacSettings": "Mac設定を開く",
+      "chooseSound": "サウンドを選択",
+      "chooseSoundHint": "デスクトップ通知の後に再生されるアラート音を選択します。",
+      "sound": "通知音",
+      "sendTest": "テスト通知を送信",
+      "testBody": "通知が正常に動作しています！"
+    },
+    "integrations": {
+      "title": "インテグレーションを接続",
+      "subtitle": "GitHubやJiraを接続してBraidを最大限に活用しましょう。",
+      "benefit1": "各ワークツリーでIssueの状態、PRレビュー状況、CIチェックを確認",
+      "benefit2": "Braidを離れずにプルリクエストの閲覧、コメント、マージが可能",
+      "benefit3": "コードと一緒にJiraのIssue、スプリント、担当者を追跡",
+      "gitDesc": "コードのバージョン管理",
+      "ghDesc": "プルリクエスト、Issue、チェックステータス。",
+      "jiraDesc": "Issue、スプリント、担当者。",
+      "connected": "接続済み",
+      "connect": "接続",
+      "recheck": "再確認"
     },
     "doctor": {
       "title": "環境チェック",
@@ -48,16 +106,35 @@
       "openDocs": "ドキュメントを開く",
       "logIn": "ログイン",
       "progressGit": "Xcodeツールをインストール中…",
-      "progressClaude": "Claude Codeをインストール中…",
       "progressGh": "GitHub CLIをインストール中…",
       "progressGhAuth": "ブラウザ認証を待っています…",
       "progressAcli": "Atlassian CLIをインストール中…"
     },
     "project": {
-      "title": "最初のプロジェクトを追加",
-      "subtitle": "ローカルのGitリポジトリを開くか、GitHubからクローンしてください",
+      "title": "コードを指定",
+      "subtitle": "フォルダを開くか、リポジトリをクローンして始めましょう。",
+      "openFolder": "フォルダを開く",
+      "openFolderDesc": "ローカルディレクトリを選択。Gitリポジトリでなくても可。",
+      "browseBtn": "参照...",
+      "workspace": "ワークスペース",
+      "cloneRepo": "リポジトリをクローン",
+      "cloneRepoDesc": "HTTPSまたはSSH URLを貼り付け。",
+      "clone": "クローン",
+      "notARepo": "そのフォルダはGitリポジトリではありません。",
+      "addError": "プロジェクトを追加できませんでした。",
+      "cloneError": "リポジトリのクローンに失敗しました。",
       "openProject": "プロジェクトを開く",
       "skip": "後で追加する"
+    },
+    "explore": {
+      "title": "Braidを探索",
+      "subtitle": "Braidでできることのクイックツアーを体験しましょう。",
+      "feature1": "複数のAIエージェントを別々のブランチで実行",
+      "feature2": "差分、PR、CIチェックを一箇所で確認",
+      "feature3": "各ワークツリーに組み込みターミナル",
+      "feature4": "ミッションコントロールでブランチ横断管理",
+      "takeTour": "ツアーを開始",
+      "finish": "使い始める"
     }
   },
   "ghAuth": {

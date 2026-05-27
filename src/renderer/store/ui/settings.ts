@@ -8,6 +8,7 @@ import { loadStr, loadBool, loadInt, loadFloat } from './helpers'
 const VALID_MODEL_IDS: readonly string[] = ['claude-opus-4-7', 'claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5-20251001']
 const VALID_EFFORT_LEVELS = new Set<string>(EFFORT_LEVELS.map((l) => l.id))
 const DEFAULT_MODEL: ModelId = 'claude-sonnet-4-6'
+const DEFAULT_AGENT_ID = 'claude'
 function isValidNewTabAction(v: string): boolean {
   if (v === 'chat' || v === 'claudeCode' || v === 'terminal') return true
   return /^agent:[a-zA-Z0-9-]+$/.test(v)
@@ -46,6 +47,7 @@ export interface SettingsSlice {
   commandPaletteOpen: boolean
 
   // AI
+  defaultAgentId: string
   defaultModel: ModelId
   defaultThinking: boolean
   defaultExtendedContext: boolean
@@ -106,6 +108,7 @@ export interface SettingsSlice {
   closeQuickOpen: () => void
   openCommandPalette: () => void
   closeCommandPalette: () => void
+  setDefaultAgentId: (id: string) => void
   setDefaultModel: (model: ModelId) => void
   setDefaultThinking: (v: boolean) => void
   setDefaultExtendedContext: (v: boolean) => void
@@ -149,6 +152,7 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   quickOpenOpen: false,
   commandPaletteOpen: false,
 
+  defaultAgentId: loadStr(SK.defaultAgentId, DEFAULT_AGENT_ID),
   defaultModel: loadDefaultModel(),
   defaultThinking: loadBool(SK.defaultThinking, false),
   defaultExtendedContext: loadBool(SK.defaultExtendedContext, false),
@@ -228,6 +232,10 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   openCommandPalette: () => set({ commandPaletteOpen: true }),
   closeCommandPalette: () => set({ commandPaletteOpen: false }),
 
+  setDefaultAgentId: (id) => {
+    localStorage.setItem(SK.defaultAgentId, id)
+    set({ defaultAgentId: id })
+  },
   setDefaultModel: (model) => {
     localStorage.setItem(SK.defaultModel, model)
     set({ defaultModel: model })

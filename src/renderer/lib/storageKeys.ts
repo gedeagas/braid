@@ -45,6 +45,7 @@ export const SK = {
   activeCenterViewPrefix:     `${prefix}:activeCenterView:`,
 
   // ── Settings — AI ──────────────────────────────────────────────────────
+  defaultAgentId:             `${prefix}:defaultAgentId`,
   defaultModel:               `${prefix}:defaultModel`,
   defaultThinking:            `${prefix}:defaultThinking`,
   defaultExtendedContext:     `${prefix}:defaultExtendedContext`,

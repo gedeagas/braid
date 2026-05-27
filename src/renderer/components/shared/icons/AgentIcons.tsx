@@ -74,11 +74,31 @@ const DroidIcon = ({ size }: { size: number }) => (
   </svg>
 )
 
+/** Gemini - Google Gemini sparkle mark */
+const GeminiIcon = ({ size }: { size: number }) => (
+  <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
+    <path
+      d="M16 2C16 2 18.5 10.5 22 14s12 6 12 6-10.5 2.5-14 6-6 12-6 12-2.5-10.5-6-14S-2 18-2 18s10.5-2.5 14-6 6-12 6-12z"
+      fill="currentColor"
+      transform="translate(-1 -1) scale(1.03)"
+    />
+  </svg>
+)
+
+/** Antigravity - stylized "A" mark */
+const AntigravityIcon = ({ size }: { size: number }) => (
+  <svg width={size} height={size} viewBox="0 0 32 32" fill="currentColor">
+    <path d="M16 3L4 28h5l2.5-6h9l2.5 6h5L16 3zm0 9l3 7h-6l3-7z" />
+  </svg>
+)
+
 // ─── Agent icon map for inline SVG heroes ────────────────────────────────────
 
 const BRAND_ICON_MAP: Record<string, (props: { size: number }) => React.JSX.Element> = {
   claude: ({ size }) => <IconClaude size={size} />,
   codex: ({ size }) => <IconCodex size={size} />,
+  gemini: GeminiIcon,
+  antigravity: AntigravityIcon,
   copilot: CopilotIcon,
   pi: PiIcon,
   omp: OmpIcon,
