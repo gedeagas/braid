@@ -22,6 +22,8 @@ export type CenterView =
 
 export type ToolMessageStyle = 'funny' | 'boring'
 export type ActivityIndicatorStyle = 'spinner' | 'dots' | 'waveform'
+export type SidebarGroupBy = 'none' | 'status' | 'pr' | 'project'
+export type SidebarSortBy = 'manual' | 'recent' | 'name'
 
 /** Git status codes returned by `git status --porcelain`. */
 export type GitStatusCode = 'M' | 'A' | 'D' | 'R' | '?'
@@ -95,6 +97,20 @@ function saveWorktreeOrders(orders: Record<string, string[]>): void {
   try { localStorage.setItem(SK.worktreeOrders, JSON.stringify(orders)) } catch {}
 }
 
+function loadSidebarGroupBy(): SidebarGroupBy {
+  const value = loadStr(SK.sidebarGroupBy, 'project')
+  return value === 'none' || value === 'status' || value === 'pr' || value === 'project'
+    ? value
+    : 'project'
+}
+
+function loadSidebarSortBy(): SidebarSortBy {
+  const value = loadStr(SK.sidebarSortBy, 'manual')
+  return value === 'manual' || value === 'recent' || value === 'name'
+    ? value
+    : 'manual'
+}
+
 // Module-level: remembers whether the sidebar was open before an overlay (MC or web app) took over.
 // Set when entering MC or opening a web app; cleared when returning to Explorer.
 let sidebarBeforeOverlay: boolean | null = null
@@ -129,6 +145,11 @@ export interface LayoutSlice {
   newlyAddedWorktreeId: string | null
   missionControlActive: boolean
   projectAvatarVisible: boolean
+  sidebarGroupBy: SidebarGroupBy
+  sidebarSortBy: SidebarSortBy
+  sidebarFilterQuery: string
+  sidebarHideSleeping: boolean
+  sidebarHideDefaultBranch: boolean
   sidebarPanelOpen: boolean
   rightPanelVisible: boolean
   sidebarWidth: number
@@ -162,6 +183,12 @@ export interface LayoutSlice {
   setNewlyAddedWorktreeId: (id: string | null) => void
   prependWorktreeToOrder: (projectId: string, worktreeId: string) => void
   setProjectAvatarVisible: (visible: boolean) => void
+  setSidebarGroupBy: (groupBy: SidebarGroupBy) => void
+  setSidebarSortBy: (sortBy: SidebarSortBy) => void
+  setSidebarFilterQuery: (query: string) => void
+  setSidebarHideSleeping: (hide: boolean) => void
+  setSidebarHideDefaultBranch: (hide: boolean) => void
+  clearSidebarFilters: () => void
   toggleMissionControl: () => void
   setMissionControlActive: (active: boolean) => void
   toggleSidebar: () => void
@@ -230,6 +257,11 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
   skipDeleteWorktreeConfirm: localStorage.getItem(SK.skipDeleteWorktreeConfirm) === 'true',
   newlyAddedWorktreeId: null,
   projectAvatarVisible: loadBool(SK.projectAvatarVisible, true),
+  sidebarGroupBy: loadSidebarGroupBy(),
+  sidebarSortBy: loadSidebarSortBy(),
+  sidebarFilterQuery: loadStr(SK.sidebarFilterQuery, ''),
+  sidebarHideSleeping: loadBool(SK.sidebarHideSleeping, false),
+  sidebarHideDefaultBranch: loadBool(SK.sidebarHideDefaultBranch, false),
   missionControlActive: loadBool(SK.missionControlActive, false),
   sidebarPanelOpen: (() => {
     const saved = localStorage.getItem(SK.sidebarPanelOpen)
@@ -543,6 +575,46 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
   setProjectAvatarVisible: (visible) => {
     localStorage.setItem(SK.projectAvatarVisible, String(visible))
     set({ projectAvatarVisible: visible })
+  },
+
+  setSidebarGroupBy: (groupBy) => {
+    localStorage.setItem(SK.sidebarGroupBy, groupBy)
+    set({ sidebarGroupBy: groupBy })
+  },
+
+  setSidebarSortBy: (sortBy) => {
+    localStorage.setItem(SK.sidebarSortBy, sortBy)
+    set({ sidebarSortBy: sortBy })
+  },
+
+  setSidebarFilterQuery: (query) => {
+    localStorage.setItem(SK.sidebarFilterQuery, query)
+    set({ sidebarFilterQuery: query })
+  },
+
+  setSidebarHideSleeping: (hide) => {
+    localStorage.setItem(SK.sidebarHideSleeping, String(hide))
+    set({ sidebarHideSleeping: hide })
+  },
+
+  setSidebarHideDefaultBranch: (hide) => {
+    localStorage.setItem(SK.sidebarHideDefaultBranch, String(hide))
+    set({ sidebarHideDefaultBranch: hide })
+  },
+
+  clearSidebarFilters: () => {
+    localStorage.setItem(SK.sidebarGroupBy, 'project')
+    localStorage.setItem(SK.sidebarSortBy, 'manual')
+    localStorage.setItem(SK.sidebarFilterQuery, '')
+    localStorage.setItem(SK.sidebarHideSleeping, 'false')
+    localStorage.setItem(SK.sidebarHideDefaultBranch, 'false')
+    set({
+      sidebarGroupBy: 'project',
+      sidebarSortBy: 'manual',
+      sidebarFilterQuery: '',
+      sidebarHideSleeping: false,
+      sidebarHideDefaultBranch: false,
+    })
   },
 
   toggleMissionControl: () => {

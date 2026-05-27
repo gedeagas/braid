@@ -6,7 +6,7 @@ import { cleanIpcError } from '@/lib/ipc'
 import { validateBranchName } from '@/lib/branchValidation'
 import { randomBranchName } from '@/lib/randomBranch'
 import { useTranslation } from 'react-i18next'
-import { IconGitBranch, IconChevronDownFill, IconCheckFill, IconSettings } from '@/components/shared/icons'
+import { IconGitBranch, IconChevronDownFill, IconCheckFill, IconSettings, IconRefresh } from '@/components/shared/icons'
 import { Button, Combobox, Dialog, Spinner } from '@/components/ui'
 import { copyFilesReducer } from './copyFilesReducer'
 import { JiraLookupField, useJiraAvailable } from './JiraLookupField'
@@ -159,102 +159,113 @@ export function AddWorktreeDialog({ projectId, repoPath, onClose }: Props) {
       isOpen={true}
       onClose={onClose}
       title={t('addWorktreeTitle')}
+      className="dialog--add-worktree"
       actions={
         <>
           <Button onClick={onClose} disabled={d.creating}>
             {t('cancel', { ns: 'common' })}
           </Button>
           <Button variant="primary" onClick={handleAdd} disabled={d.loadingRemotes} loading={d.creating}>
+            {!d.creating && <IconGitBranch size={14} />}
             {d.creating ? t('creating', { ns: 'common' }) : t('create', { ns: 'common' })}
           </Button>
         </>
       }
     >
-      {/* Origin branch selector */}
-      <div className="dialog-field">
-        <label>{t('originBranchLabel')} <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}>{t('originBranchHint')}</span></label>
-        <Combobox
-          items={d.remotes}
-          value={d.origin}
-          onSelect={selectOriginBranch}
-          disabled={d.loadingRemotes || d.creating}
-          filterPlaceholder={t('searchOriginBranches')}
-          emptyText={t('noBranchesMatch')}
-          className="branch-combobox"
-          triggerClassName="branch-combobox__trigger"
-          renderItem={(item, { isSelected }) => (
-            <>
-              {item}
-              {isSelected && (
-                <IconCheckFill style={{ marginLeft: 'auto', color: 'var(--accent)', flexShrink: 0 }} />
+      <div className="add-worktree-form">
+        <div className={`add-worktree-grid${jiraAvailable ? '' : ' add-worktree-grid--single'}`}>
+          <div className="dialog-field">
+            <label>
+              {t('originBranchLabel')}
+              <span className="dialog-label-hint">{t('originBranchHint')}</span>
+            </label>
+            <Combobox
+              items={d.remotes}
+              value={d.origin}
+              onSelect={selectOriginBranch}
+              disabled={d.loadingRemotes || d.creating}
+              filterPlaceholder={t('searchOriginBranches')}
+              emptyText={t('noBranchesMatch')}
+              className="branch-combobox"
+              triggerClassName="branch-combobox__trigger"
+              renderItem={(item, { isSelected }) => (
+                <>
+                  <span className="branch-combobox__item-label">{item}</span>
+                  {isSelected && (
+                    <IconCheckFill className="branch-combobox__check" />
+                  )}
+                </>
               )}
-            </>
-          )}
-        >
-          <IconGitBranch size={13} style={{ opacity: 0.6, flexShrink: 0 }} />
-          <span className="branch-combobox__value">
-            {d.loadingRemotes
-              ? t('fetchingBranches')
-              : d.origin || t('noRemoteBranches')}
-          </span>
-          {!d.loadingRemotes && (
-            <IconChevronDownFill style={{ opacity: 0.5, flexShrink: 0 }} />
-          )}
-          {d.loadingRemotes && <Spinner size="sm" />}
-        </Combobox>
-      </div>
-
-      {/* Jira ticket lookup */}
-      {jiraAvailable && (
-        <JiraLookupField
-          disabled={d.creating}
-          branchPrefix={defaultBranchPrefix}
-          jiraBaseUrl={jiraBaseUrl}
-          onResolved={handleJiraResolved}
-          onError={() => {}}
-        />
-      )}
-
-      {/* Local branch name */}
-      <div className="dialog-field">
-        <label>{t('localBranchLabel')}</label>
-        <div style={{ display: 'flex', gap: 'var(--space-8)' }}>
-          <input
-            value={d.branch}
-            onChange={(e) => {
-              const val = e.target.value
-              dd({ type: 'setBranch', value: val, error: val.trim() ? (validateBranchName(val.trim()) ?? '') : '' })
-            }}
-            onKeyDown={(e) => e.key === 'Enter' && !d.loadingRemotes && !d.creating && handleAdd()}
-            autoFocus
-            disabled={d.loadingRemotes || d.creating}
-            placeholder={d.loadingRemotes ? t('fetchingBranches') : t('localBranchPlaceholder')}
-          />
-          <Button onClick={handleReroll} title={t('randomNameTitle')} disabled={d.loadingRemotes || d.creating}>
-            🎲
-          </Button>
-        </div>
-        {d.error && (
-          <div style={{ color: 'var(--red)', fontSize: 'var(--text-base)', marginTop: 'var(--space-4)' }}>
-            {d.error}
+            >
+              <IconGitBranch className="branch-combobox__leading-icon" size={13} />
+              <span className="branch-combobox__value">
+                {d.loadingRemotes
+                  ? t('fetchingBranches')
+                  : d.origin || t('noRemoteBranches')}
+              </span>
+              {!d.loadingRemotes && (
+                <IconChevronDownFill className="branch-combobox__chevron" />
+              )}
+              {d.loadingRemotes && <Spinner size="sm" />}
+            </Combobox>
           </div>
+
+          {jiraAvailable && (
+            <JiraLookupField
+              disabled={d.creating}
+              branchPrefix={defaultBranchPrefix}
+              jiraBaseUrl={jiraBaseUrl}
+              onResolved={handleJiraResolved}
+              onError={() => {}}
+            />
+          )}
+        </div>
+
+        <div className="dialog-field add-worktree-branch-field">
+          <label>{t('localBranchLabel')}</label>
+          <div className="add-worktree-branch-row">
+            <input
+              value={d.branch}
+              onChange={(e) => {
+                const val = e.target.value
+                dd({ type: 'setBranch', value: val, error: val.trim() ? (validateBranchName(val.trim()) ?? '') : '' })
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && !d.loadingRemotes && !d.creating && handleAdd()}
+              autoFocus
+              disabled={d.loadingRemotes || d.creating}
+              placeholder={d.loadingRemotes ? t('fetchingBranches') : t('localBranchPlaceholder')}
+            />
+            <Button
+              className="add-worktree-reroll-button"
+              onClick={handleReroll}
+              title={t('randomNameTitle')}
+              aria-label={t('randomNameTitle')}
+              disabled={d.loadingRemotes || d.creating}
+            >
+              <IconRefresh size={14} />
+            </Button>
+          </div>
+          {d.error && (
+            <div className="add-worktree-field-error">
+              {d.error}
+            </div>
+          )}
+        </div>
+
+        <CopyFilesSection state={copyState} dispatch={copyDispatch} />
+        {!copyState.loading && (
+          <button
+            className="copy-files-settings-link"
+            onClick={() => {
+              useUIStore.getState().openSettings(`project:${projectId}`)
+              onClose()
+            }}
+          >
+            <IconSettings size={11} />
+            {t('configureInSettings')}
+          </button>
         )}
       </div>
-
-      {/* Copy files */}
-      <CopyFilesSection state={copyState} dispatch={copyDispatch} />
-      {!copyState.loading && (
-        <button
-          className="copy-files-settings-link"
-          onClick={() => {
-            useUIStore.getState().openSettings(`project:${projectId}`)
-            onClose()
-          }}
-        >
-          <IconSettings size={11} />
-          {t('configureInSettings')}
-        </button>
-      )}
     </Dialog>
   )
 }

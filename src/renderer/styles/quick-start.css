@@ -1,59 +1,247 @@
-/* ── Add Project dialog overrides ─────────────────────────────────────────── */
-
 .dialog--add-project {
-  min-width: 520px;
-  max-width: 600px;
+  width: min(760px, calc(100vw - 32px));
+  min-width: 0;
+  max-width: none;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: var(--shadow-elevation-xl);
 }
 
-.dialog--add-project .dialog-tab {
-  font-size: var(--text-lg);
-  padding: var(--space-8) var(--space-14);
+.dialog--add-project h2 {
+  margin: 0;
+  padding: var(--space-20) var(--space-24) var(--space-16);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  font-size: var(--text-4xl);
+  line-height: var(--leading-tight);
 }
 
 .dialog--add-project .dialog-field label {
-  font-size: var(--text-lg);
+  display: block;
+  margin-bottom: var(--space-8);
+  color: var(--text-secondary);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0;
 }
 
 .dialog--add-project .dialog-field input {
-  font-size: var(--text-xl);
+  min-height: 38px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-8) var(--space-12);
+  font-size: var(--text-md);
+  line-height: var(--leading-tight);
+  transition:
+    border-color var(--duration-fast),
+    box-shadow var(--duration-fast),
+    background var(--duration-fast);
 }
 
-.dialog--add-project .dialog-tabs + .dialog-field {
-  margin-top: var(--space-8);
+.dialog--add-project .dialog-field input:focus {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-focus);
 }
 
-/* ── Quick Start template cards ──────────────────────────────────────────── */
+.dialog--add-project .dialog-field input:disabled {
+  color: var(--text-muted);
+  opacity: 0.72;
+}
+
+.dialog--add-project .dialog-input-row {
+  align-items: stretch;
+}
+
+.dialog--add-project .dialog-input-row input {
+  min-width: 0;
+}
+
+.dialog--add-project .dialog-input-row .btn {
+  flex-shrink: 0;
+  min-height: 38px;
+  border-radius: var(--radius-lg);
+}
+
+.dialog--add-project .dialog-actions {
+  margin-top: 0;
+  padding: var(--space-14) var(--space-20);
+  border-top: 1px solid var(--border);
+  background: var(--bg-secondary);
+  flex-wrap: wrap;
+}
+
+.dialog--add-project .dialog-actions .btn {
+  min-height: 34px;
+}
+
+.dialog--add-project .dialog-actions .btn-primary svg,
+.dialog--add-project .dialog-input-row .btn svg {
+  flex-shrink: 0;
+}
+
+.add-project-layout {
+  display: grid;
+  grid-template-columns: 188px minmax(0, 1fr);
+  min-height: 282px;
+  background: var(--bg-secondary);
+}
+
+.add-project-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-14);
+  border-right: 1px solid var(--border);
+  background: var(--bg-tertiary);
+}
+
+.add-project-tab {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 6px;
+  align-items: center;
+  gap: var(--space-10);
+  min-height: 46px;
+  padding: var(--space-8) var(--space-10);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0;
+  text-align: left;
+  transition:
+    background var(--duration-fast),
+    border-color var(--duration-fast),
+    color var(--duration-fast),
+    box-shadow var(--duration-fast);
+}
+
+.add-project-tab:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.add-project-tab:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.add-project-tab--active {
+  background: var(--bg-secondary);
+  border-color: var(--border);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-elevation-xs);
+}
+
+.add-project-tab__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  transition:
+    background var(--duration-fast),
+    border-color var(--duration-fast),
+    color var(--duration-fast);
+}
+
+.add-project-tab--active .add-project-tab__icon {
+  border-color: var(--accent-tint-22);
+  background: var(--accent-tint-6);
+  color: var(--accent);
+}
+
+.add-project-tab__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.add-project-tab__indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: transparent;
+}
+
+.add-project-tab--active .add-project-tab__indicator {
+  background: var(--accent);
+}
+
+.add-project-panel {
+  min-width: 0;
+  padding: 18px var(--space-20) var(--space-16);
+  background: var(--bg-secondary);
+}
+
+.add-project-panel > .dialog-field:last-child {
+  margin-bottom: 0;
+}
+
+.dialog--add-project .dialog-error {
+  margin: var(--space-12) 0 0;
+  padding: var(--space-10) var(--space-12);
+  border: 1px solid var(--red-tint-35, var(--red));
+  border-radius: var(--radius-lg);
+  background: var(--red-tint-10, rgba(229, 72, 77, 0.1));
+  color: var(--red);
+  font-size: var(--text-md);
+  line-height: var(--leading-snug);
+}
+
+.dialog--add-project .dialog-clone-progress {
+  border-radius: var(--radius-lg);
+}
+
+.dialog--add-project .dialog-scaffold-log {
+  border-radius: var(--radius);
+}
 
 .template-grid {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-10);
   margin-top: var(--space-8);
   align-items: stretch;
 }
 
 .template-card {
-  flex: 1 1 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   text-align: left;
-  gap: var(--space-6);
-  padding: var(--space-12) var(--space-14);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-secondary);
-  cursor: pointer;
-  transition: border-color var(--duration-fast), background var(--duration-fast);
+  gap: var(--space-8);
   min-width: 0;
+  min-height: 126px;
+  padding: var(--space-14);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-primary);
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast),
+    background var(--duration-fast),
+    box-shadow var(--duration-fast),
+    transform var(--duration-fast);
 }
 
 .template-card:hover:not(:disabled) {
   border-color: var(--text-tertiary);
+  transform: translateY(-1px);
 }
 
 .template-card--selected {
   border-color: var(--accent);
   background: var(--accent-tint-6);
+  box-shadow: var(--shadow-focus);
 }
 
 .template-card:disabled {
@@ -64,26 +252,40 @@
 .template-card__header {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-6);
+  gap: var(--space-8);
+  width: 100%;
+  min-width: 0;
 }
 
 .template-card__icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
   color: var(--text-secondary);
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .template-card--selected .template-card__icon {
+  border-color: var(--accent-tint-22);
+  background: var(--accent-tint-6);
   color: var(--accent);
 }
 
 .template-card__name {
-  font-size: var(--text-lg);
+  min-width: 0;
+  font-size: var(--text-md);
   color: var(--text-primary);
   font-weight: var(--weight-semibold);
   line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .template-card__desc {
@@ -116,8 +318,6 @@
   border-color: var(--accent-tint-22);
   background: transparent;
 }
-
-/* ── Live name validation feedback ───────────────────────────────────────── */
 
 .quick-start-feedback {
   display: flex;
@@ -169,8 +369,6 @@
   50%      { opacity: 0.85; transform: scale(1.05); }
 }
 
-/* ── Path preview (shown when name + location resolve to a full path) ─── */
-
 .quick-start-path-preview {
   margin-top: var(--space-4);
   display: flex;
@@ -196,4 +394,69 @@
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+}
+
+@media (max-width: 680px) {
+  .dialog--add-project {
+    width: calc(100vw - 24px);
+  }
+
+  .add-project-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .add-project-tabs {
+    flex-direction: row;
+    gap: var(--space-6);
+    overflow-x: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: var(--space-10);
+  }
+
+  .add-project-tab {
+    flex: 1 1 0;
+    grid-template-columns: 28px minmax(0, 1fr);
+    min-width: 0;
+  }
+
+  .add-project-tab__icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .add-project-tab__indicator {
+    display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .dialog--add-project h2 {
+    padding: var(--space-16) var(--space-16) var(--space-12);
+    font-size: var(--text-3xl);
+  }
+
+  .add-project-panel {
+    padding: var(--space-14);
+  }
+
+  .dialog--add-project .dialog-actions {
+    padding: var(--space-12) var(--space-14);
+  }
+
+  .template-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 440px) {
+  .dialog--add-project .dialog-input-row {
+    flex-direction: column;
+  }
+
+  .dialog--add-project .dialog-input-row .btn {
+    justify-content: center;
+  }
 }

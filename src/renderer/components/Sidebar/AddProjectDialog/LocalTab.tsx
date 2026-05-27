@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import * as ipc from '@/lib/ipc'
 import { useTranslation } from 'react-i18next'
+import { FolderOpen } from '@react-symbols/icons/folders'
 import { Button, Spinner, Checkbox } from '@/components/ui'
 import type { State, Action } from './types'
 
@@ -81,6 +82,7 @@ export function LocalTab({ state, dispatch, existingPaths, addProject, onClose, 
             autoFocus
           />
           <Button onClick={handleBrowse} disabled={state.phase.kind !== 'idle'}>
+            <FolderOpen width={14} height={14} aria-hidden="true" />
             {t('browse', { ns: 'common' })}
           </Button>
         </div>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import * as ipc from '@/lib/ipc'
 import type { CreateTemplateFailureReason } from '@/lib/ipc'
 import { useTranslation } from 'react-i18next'
+import { FolderOpen } from '@react-symbols/icons/folders'
 import { Button, Spinner } from '@/components/ui'
 import { IconFile, IconBolt, IconCheckmark } from '@/components/shared/icons'
 import { validateProjectName } from '@shared/projectName'
@@ -320,6 +321,7 @@ export function QuickStartTab({ state, dispatch, existingPaths, addProject, onCl
             disabled={state.creating}
           />
           <Button onClick={handleBrowseLocation} disabled={state.creating}>
+            <FolderOpen width={14} height={14} aria-hidden="true" />
             {t('browse', { ns: 'common' })}
           </Button>
         </div>

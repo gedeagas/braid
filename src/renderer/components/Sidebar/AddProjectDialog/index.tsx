@@ -3,7 +3,7 @@ import { useProjectsStore } from '@/store/projects'
 import { useUIStore } from '@/store/ui'
 import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/react/shallow'
-import { IconGridFill, IconGitHub, IconSparkle } from '@/components/shared/icons'
+import { IconBolt, IconCheckmark, IconGitHub, IconGridFill, IconPlus, IconSparkle } from '@/components/shared/icons'
 import { Dialog, Button } from '@/components/ui'
 import { isValidProjectName } from '@shared/projectName'
 import { reducer, initialState } from './types'
@@ -57,6 +57,13 @@ export function AddProjectDialog() {
     return t('add', { ns: 'common' })
   }
 
+  const getPrimaryIcon = () => {
+    if (state.tab === 'quickstart') return <IconBolt size={14} />
+    if (state.tab === 'github') return <IconGitHub size={14} />
+    if (isPicker) return <IconCheckmark size={14} />
+    return <IconPlus size={14} />
+  }
+
   const primaryDisabled = isBusy || (isPicker && state.selectedRepos.size === 0)
     || (state.tab === 'quickstart' && !isValidProjectName(state.projectName.trim()))
     || (state.tab === 'quickstart' && !state.projectLocation.trim())
@@ -84,62 +91,79 @@ export function AddProjectDialog() {
               {t('cancel', { ns: 'common' })}
             </Button>
             <Button variant="primary" onClick={handlePrimaryClick} disabled={primaryDisabled}>
+              {getPrimaryIcon()}
               {getPrimaryLabel()}
             </Button>
           </>
         )
       }
     >
-      {/* Tab switcher */}
-      <div className="dialog-tabs">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            className={`dialog-tab${state.tab === tab.id ? ' dialog-tab--active' : ''}`}
-            onClick={() => dispatch({ type: 'setTab', tab: tab.id })}
-            disabled={isBusy}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
+      <div className="add-project-layout">
+        <div className="add-project-tabs" role="tablist" aria-label={t('addProjectTitle')}>
+          {tabs.map((tab) => {
+            const active = state.tab === tab.id
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                aria-controls={`add-project-panel-${tab.id}`}
+                className={`add-project-tab${active ? ' add-project-tab--active' : ''}`}
+                onClick={() => dispatch({ type: 'setTab', tab: tab.id })}
+                disabled={isBusy}
+              >
+                <span className="add-project-tab__icon" aria-hidden="true">
+                  {tab.icon}
+                </span>
+                <span className="add-project-tab__label">{tab.label}</span>
+                <span className="add-project-tab__indicator" aria-hidden="true" />
+              </button>
+            )
+          })}
+        </div>
+
+        <div
+          className="add-project-panel"
+          id={`add-project-panel-${state.tab}`}
+          role="tabpanel"
+        >
+          {state.tab === 'quickstart' && (
+            <QuickStartTab
+              state={state}
+              dispatch={dispatch}
+              existingPaths={existingPaths}
+              addProject={addProject}
+              onClose={onClose}
+              onActionRef={actionRef}
+            />
+          )}
+
+          {state.tab === 'local' && (
+            <LocalTab
+              state={state}
+              dispatch={dispatch}
+              existingPaths={existingPaths}
+              addProject={addProject}
+              onClose={onClose}
+              onActionRef={actionRef}
+            />
+          )}
+
+          {state.tab === 'github' && (
+            <GitHubTab
+              state={state}
+              dispatch={dispatch}
+              existingRemoteOrigins={existingRemoteOrigins}
+              addProject={addProject}
+              onClose={onClose}
+              onActionRef={actionRef}
+            />
+          )}
+
+          {state.error && <div className="dialog-error">{state.error}</div>}
+        </div>
       </div>
-
-      {state.tab === 'quickstart' && (
-        <QuickStartTab
-          state={state}
-          dispatch={dispatch}
-          existingPaths={existingPaths}
-          addProject={addProject}
-          onClose={onClose}
-          onActionRef={actionRef}
-        />
-      )}
-
-      {state.tab === 'local' && (
-        <LocalTab
-          state={state}
-          dispatch={dispatch}
-          existingPaths={existingPaths}
-          addProject={addProject}
-          onClose={onClose}
-          onActionRef={actionRef}
-        />
-      )}
-
-      {state.tab === 'github' && (
-        <GitHubTab
-          state={state}
-          dispatch={dispatch}
-          existingRemoteOrigins={existingRemoteOrigins}
-          addProject={addProject}
-          onClose={onClose}
-          onActionRef={actionRef}
-        />
-      )}
-
-      {/* Error */}
-      {state.error && <div className="dialog-error">{state.error}</div>}
     </Dialog>
   )
 }

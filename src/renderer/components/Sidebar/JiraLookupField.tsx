@@ -82,7 +82,10 @@ export function JiraLookupField({ disabled, branchPrefix, jiraBaseUrl, onResolve
 
   return (
     <div className="dialog-field">
-      <label>{t('jiraTicketLabel')} <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}>{t('jiraTicketHint')}</span></label>
+      <label>
+        {t('jiraTicketLabel')}
+        <span className="dialog-label-hint">{t('jiraTicketHint')}</span>
+      </label>
       <input
         value={input}
         onChange={(e) => handleChange(e.target.value)}

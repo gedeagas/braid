@@ -87,6 +87,11 @@ export const SK = {
   tabDisplayMode:             `${prefix}:tabDisplayMode`,
   chatCompactMode:            `${prefix}:chatCompactMode`,
   projectAvatarVisible:       `${prefix}:projectAvatarVisible`,
+  sidebarGroupBy:             `${prefix}:sidebarGroupBy`,
+  sidebarSortBy:              `${prefix}:sidebarSortBy`,
+  sidebarFilterQuery:         `${prefix}:sidebarFilterQuery`,
+  sidebarHideSleeping:        `${prefix}:sidebarHideSleeping`,
+  sidebarHideDefaultBranch:   `${prefix}:sidebarHideDefaultBranch`,
 
   // ── i18n ───────────────────────────────────────────────────────────────
   language:                   `${prefix}:language`,
