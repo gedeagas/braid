@@ -17,10 +17,6 @@ const ACTIVE_CLAUDE_SERVICE = 'Claude Code-credentials'
 
 let proxyConfigured = false
 
-// ---------------------------------------------------------------------------
-// Proxy bridging
-// ---------------------------------------------------------------------------
-
 async function ensureProxyFromEnv(): Promise<void> {
   if (proxyConfigured) return
   proxyConfigured = true
@@ -322,9 +318,13 @@ async function fetchViaPty(): Promise<ProviderRateLimits> {
       }
     }, PTY_TIMEOUT_MS)
 
+    function safeWrite(data: string): void {
+      try { term.write(data) } catch { /* PTY already closed */ }
+    }
+
     function startEnterPresses(): void {
       if (enterInterval) return
-      enterInterval = setInterval(() => { if (!resolved && !stopDetected) term.write('\r') }, 800)
+      enterInterval = setInterval(() => { if (!resolved && !stopDetected) safeWrite('\r') }, 800)
     }
 
     function finalize(): void {
@@ -347,7 +347,7 @@ async function fetchViaPty(): Promise<ProviderRateLimits> {
     setTimeout(() => {
       if (resolved) return
       sentUsage = true
-      term.write('/usage\r')
+      safeWrite('/usage\r')
       startEnterPresses()
     }, STARTUP_DELAY_MS)
 
@@ -356,8 +356,8 @@ async function fetchViaPty(): Promise<ProviderRateLimits> {
       if (output.length > MAX_OUTPUT_LENGTH) output = output.slice(-MAX_OUTPUT_LENGTH)
 
       const chunk = stripAnsi(data)
-      if (TRUST_PROMPT_RE.test(chunk)) { term.write('y\r'); return }
-      if (sentUsage && COMMAND_PALETTE_RE.test(chunk)) term.write('\r')
+      if (TRUST_PROMPT_RE.test(chunk)) { safeWrite('y\r'); return }
+      if (sentUsage && COMMAND_PALETTE_RE.test(chunk)) safeWrite('\r')
 
       if (sentUsage && !stopDetected) {
         const clean = stripAnsi(output)

@@ -81,6 +81,7 @@ function readHistory(key: string): number[] {
 async function enumerateProcesses(): Promise<ProcIndex> {
   const byPid = new Map<number, ProcRow>()
   const childrenOf = new Map<number, number[]>()
+  if (process.platform === 'win32') return { byPid, childrenOf }
   try {
     const { stdout } = await execAsync('ps -eo pid=,ppid=,pcpu=,rss=', {
       maxBuffer: PS_MAX_BUFFER, timeout: PS_TIMEOUT_MS,

@@ -256,7 +256,7 @@ type DaemonSession = { sessionId: string; cwd: string; cols: number; rows: numbe
 type WorktreeRow = {
   worktreeId: string
   name: string
-  terminals: { id: string; label: string; cpu: number; memory: number }[]
+  terminals: { id: string; label: string }[]
   cpu: number
   memory: number
 }
@@ -307,10 +307,7 @@ function ResourcePanel({ snapshot }: { snapshot: ResourceSnapshot | null }) {
         let wtCpu = 0, wtMem = 0
         for (const e of ptyEntries) { wtCpu += e.cpu; wtMem += e.memory }
 
-        const terminals = bigTerminals.map((t, i) => {
-          const pty = ptyEntries[i]
-          return { id: t.id, label: t.label, cpu: pty?.cpu ?? 0, memory: pty?.memory ?? 0 }
-        })
+        const terminals = bigTerminals.map(t => ({ id: t.id, label: t.label }))
         if (bigTerminals.length > 0 || ptyEntries.length > 0) {
           rows.push({ worktreeId: wt.id, name: wt.branch || wt.id, terminals, cpu: wtCpu, memory: wtMem })
         }
@@ -371,8 +368,8 @@ function ResourcePanel({ snapshot }: { snapshot: ResourceSnapshot | null }) {
                 <div key={t.id} className="rmpanel__session-row">
                   <span className="rmpanel__session-dot" />
                   <span className="rmpanel__session-label">{t.label}</span>
-                  <span className="rmpanel__session-cpu">{formatCpu(t.cpu)}</span>
-                  <span className="rmpanel__session-mem">{formatMemory(t.memory)}</span>
+                  <span className="rmpanel__session-cpu">--</span>
+                  <span className="rmpanel__session-mem">--</span>
                 </div>
               ))}
             </div>
@@ -437,13 +434,12 @@ function ResourceSegment() {
   }, [])
 
   const fetchSessions = useCallback(async () => {
-    try { setSessions(await ipc.pty.listSessions()) } catch { /* ignore */ }
+    try { setSessions(await ipc.pty.listSessions()) } catch { setSessions([]) }
   }, [])
 
   useEffect(() => {
     void fetchSnapshot()
-    void fetchSessions()
-  }, [fetchSnapshot, fetchSessions])
+  }, [fetchSnapshot])
 
   useEffect(() => {
     if (!open) return
@@ -454,12 +450,8 @@ function ResourceSegment() {
     return () => { clearInterval(memTimer); clearInterval(sessTimer) }
   }, [open, fetchSnapshot, fetchSessions])
 
-  useEffect(() => {
-    const id = setInterval(() => void fetchSessions(), SESSION_POLL_MS)
-    return () => clearInterval(id)
-  }, [fetchSessions])
-
   const memLabel = snapshot ? formatMemory(snapshot.totalMemory) : '--'
+  const sessionCount = open ? sessions.length : (snapshot?.ptyUsage.length ?? 0)
 
   return (
     <div style={{ position: 'relative' }}>
@@ -468,7 +460,7 @@ function ResourceSegment() {
         <span className="usage-status-bar__label">{memLabel}</span>
         <span className="usage-status-bar__sep">&middot;</span>
         <TerminalIcon size={13} />
-        <span className="usage-status-bar__label">{sessions.length}</span>
+        <span className="usage-status-bar__label">{sessionCount}</span>
       </button>
       {open && (
         <div ref={panelRef} className="usage-status-bar__popover usage-status-bar__popover--right usage-status-bar__popover--wide">

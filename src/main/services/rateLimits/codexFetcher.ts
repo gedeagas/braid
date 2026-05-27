@@ -110,6 +110,7 @@ async function fetchViaRpc(): Promise<ProviderRateLimits> {
     const child = spawn(codexCommand, ['-s', 'read-only', '-a', 'untrusted', 'app-server'], {
       stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true, env: { ...process.env },
     })
+    child.stdin.on('error', () => {})
 
     const timeout = setTimeout(() => {
       if (!resolved) {
