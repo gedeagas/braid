@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useRef } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useUIStore } from '@/store/ui'
+import { getDisabledEmbeddedAppWarningKey } from '@/lib/embeddedApps'
 import { AttentionChips } from './AttentionChips'
 
 /** Derive partition key from URL's root domain so apps on the same domain share auth.
@@ -39,7 +40,9 @@ export const WebAppOverlay = memo(function WebAppOverlay() {
   const setLastUrl = useUIStore((s) => s.setWebAppLastUrl)
 
   // Only mount webviews for visible + non-dormant apps to save memory
-  const mountedApps = embeddedApps.filter((a) => a.visible && !dormantAppIds.has(a.id))
+  const mountedApps = embeddedApps.filter((a) =>
+    a.visible && !dormantAppIds.has(a.id) && !getDisabledEmbeddedAppWarningKey(a)
+  )
 
   // Track which webviews already have listeners attached
   const attachedRef = useRef(new Set<string>())
@@ -109,7 +112,7 @@ export const WebAppOverlay = memo(function WebAppOverlay() {
     }) as EventListener)
 
     // Robust fallback: poll getTitle() for SPAs that update document.title via JS
-    // without triggering page-title-updated (e.g. Slack, Gmail, Spotify).
+    // without triggering page-title-updated (e.g. Slack, Gmail).
     // Uses did-navigate (not dom-ready) so polling restarts after full navigations
     // like OAuth redirects.
     const ensurePolling = (): void => {

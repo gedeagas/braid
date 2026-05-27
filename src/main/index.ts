@@ -120,12 +120,12 @@ function createWindow(): void {
   }
 }
 
-// Allow Spotify and other web apps to autoplay audio/video without a gesture.
+// Allow embedded web apps to autoplay audio/video without a gesture.
 // Must be set before app.whenReady() to take effect.
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
 
-// Spoof Chrome UA only for webapp partition sessions so sites like Spotify
-// serve their standard Chrome-compatible player bundles.
+// Spoof Chrome UA only for webapp partition sessions so embedded apps serve
+// their standard Chrome-compatible bundles.
 const CHROME_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) ' +
   'AppleWebKit/537.36 (KHTML, like Gecko) ' +
@@ -134,8 +134,8 @@ const CHROME_UA =
 function configureWebAppSession(sess: import('electron').Session): void {
   sess.setUserAgent(CHROME_UA)
 
-  // Web app sessions are user-initiated (Spotify, etc.) - grant all permissions
-  // so playback, DRM, clipboard, and other features work without prompts.
+  // Web app sessions are user-initiated - grant all permissions so playback,
+  // DRM, clipboard, and other features work without prompts.
   sess.setPermissionRequestHandler((_wc, _permission, callback) => {
     callback(true)
   })

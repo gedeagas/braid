@@ -6,6 +6,7 @@ import { AppFavicon } from '@/components/shared/AppFavicon'
 import { ContextMenu, type ContextMenuItem } from '@/components/shared/ContextMenu'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { useTabReorder } from '@/hooks/useTabReorder'
+import { getDisabledEmbeddedAppWarningKey } from '@/lib/embeddedApps'
 import type { EmbeddedApp } from '@/types'
 
 interface AppItemProps {
@@ -32,8 +33,10 @@ function ActivityBarAppItem({
   app, isActive, isDormant, isDragging, isDragOver, badge,
   onToggle, onQuit, onHide, onRemove, dragHandlers,
 }: AppItemProps) {
-  const { t } = useTranslation('sidebar')
+  const { t } = useTranslation(['sidebar', 'settings'])
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+  const disabledWarningKey = getDisabledEmbeddedAppWarningKey(app)
+  const disabledWarning = disabledWarningKey ? t(`settings:${disabledWarningKey}`) : null
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
@@ -43,7 +46,8 @@ function ActivityBarAppItem({
 
   const menuItems: ContextMenuItem[] = [
     {
-      label: isDormant ? t('appRelaunch') : t('appQuit'),
+      label: disabledWarning ? t('settings:apps.disabled') : isDormant ? t('appRelaunch') : t('appQuit'),
+      disabled: Boolean(disabledWarning),
       onClick: () => isDormant ? onToggle(app.id) : onQuit(app.id),
     },
     { label: t('appHideFromDock'), onClick: () => onHide(app.id) },
@@ -52,28 +56,31 @@ function ActivityBarAppItem({
   ]
 
   const effectiveActive = isActive && !isDormant
+  const tooltip = disabledWarning ?? (isDormant ? t('appDormant', { name: app.name }) : app.name)
 
   return (
     <>
-      <Tooltip content={isDormant ? t('appDormant', { name: app.name }) : app.name} position="right">
+      <Tooltip content={tooltip} position="right">
         <button
           className={[
             'activity-bar-item',
-            effectiveActive ? 'activity-bar-item--active' : '',
+            effectiveActive && !disabledWarning ? 'activity-bar-item--active' : '',
             isDormant ? 'activity-bar-app--dormant' : '',
+            disabledWarning ? 'activity-bar-app--disabled' : '',
             isDragging ? 'activity-bar-app--dragging' : '',
             isDragOver ? 'activity-bar-app--drag-over' : '',
           ].filter(Boolean).join(' ')}
-          onClick={() => onToggle(app.id)}
+          onClick={() => { if (!disabledWarning) onToggle(app.id) }}
           onContextMenu={handleContextMenu}
-          draggable
-          aria-label={isDormant ? t('appDormant', { name: app.name }) : app.name}
-          {...dragHandlers}
+          draggable={!disabledWarning}
+          aria-disabled={Boolean(disabledWarning)}
+          aria-label={tooltip}
+          {...(!disabledWarning ? dragHandlers : {})}
         >
           <span className="app-favicon-active-ring">
             <AppFavicon url={app.url} name={app.name} size={20} />
           </span>
-          {badge !== 0 && (
+          {!disabledWarning && badge !== 0 && (
             <span className="activity-bar-app-badge" aria-label={t('appBadgeUnread', { count: badge })}>
               {badge > 0 ? badge : ''}
             </span>

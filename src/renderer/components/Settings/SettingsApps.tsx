@@ -5,6 +5,7 @@ import { useUIStore } from '@/store/ui'
 import { AppFavicon } from '@/components/shared/AppFavicon'
 import { useTabReorder } from '@/hooks/useTabReorder'
 import { Toggle } from '@/components/shared/Toggle'
+import { getDisabledEmbeddedAppWarningKey } from '@/lib/embeddedApps'
 import type { EmbeddedApp } from '@/types'
 
 interface Preset {
@@ -83,11 +84,15 @@ export function SettingsApps() {
     if (!trimUrl.startsWith('http://') && !trimUrl.startsWith('https://')) {
       dispatch({ type: 'setError', value: t('apps.invalidUrl') }); return
     }
+    const disabledWarningKey = getDisabledEmbeddedAppWarningKey({ name: trimName, url: trimUrl })
+    if (disabledWarningKey) { dispatch({ type: 'setError', value: t(disabledWarningKey) }); return }
     addEmbeddedApp({ id: crypto.randomUUID(), name: trimName, url: trimUrl, visible: true })
     dispatch({ type: 'reset' })
   }, [form, addEmbeddedApp, t])
 
   const handleAddPreset = useCallback((preset: Preset) => {
+    if (getDisabledEmbeddedAppWarningKey(preset)) return
+
     if (preset.workspaceUrlTemplate) {
       dispatch({ type: 'startWorkspace', preset: preset.name })
     } else {
@@ -120,19 +125,47 @@ export function SettingsApps() {
         <div className="settings-apps-presets">
           {PRESETS.map((preset) => {
             const alreadyAdded = embeddedApps.some((a) => a.name === preset.name)
+            const disabledWarningKey = getDisabledEmbeddedAppWarningKey(preset)
+            const warningId = disabledWarningKey ? `settings-apps-preset-${preset.name.toLowerCase()}-warning` : undefined
             return (
               <button
                 key={preset.name}
-                className="btn btn--sm"
-                disabled={alreadyAdded}
+                className={[
+                  'btn',
+                  'btn--sm',
+                  disabledWarningKey ? 'settings-apps-preset--disabled' : '',
+                ].filter(Boolean).join(' ')}
+                disabled={alreadyAdded || Boolean(disabledWarningKey)}
+                aria-describedby={warningId}
+                title={disabledWarningKey ? t(disabledWarningKey) : undefined}
                 onClick={() => handleAddPreset(preset)}
               >
                 <AppFavicon url={preset.url} name={preset.name} size={14} />
-                {alreadyAdded ? t('apps.added') : preset.name}
+                {disabledWarningKey ? preset.name : alreadyAdded ? t('apps.added') : preset.name}
+                {disabledWarningKey && (
+                  <span className="settings-apps-preset-disabled-label">
+                    {t('apps.disabled')}
+                  </span>
+                )}
               </button>
             )
           })}
         </div>
+        {PRESETS.map((preset) => {
+          const disabledWarningKey = getDisabledEmbeddedAppWarningKey(preset)
+          if (!disabledWarningKey) return null
+
+          return (
+            <div
+              key={`${preset.name}-warning`}
+              id={`settings-apps-preset-${preset.name.toLowerCase()}-warning`}
+              className="settings-apps-warning"
+            >
+              <span className="settings-apps-warning-label">{t('apps.disabled')}</span>
+              <span>{t(disabledWarningKey)}</span>
+            </div>
+          )
+        })}
         {form.pendingPreset && (() => {
           const preset = PRESETS.find((p) => p.name === form.pendingPreset)
           if (!preset) return null
@@ -196,39 +229,47 @@ export function SettingsApps() {
           <div className="settings-field">
             <span className="settings-section-subtitle">{t('apps.configuredHeader')}</span>
             <div className="settings-apps-list">
-              {embeddedApps.map((app: EmbeddedApp) => (
-                <div
-                  key={app.id}
-                  className={[
-                    'settings-apps-list-row',
-                    dragKey === app.id ? 'settings-apps-list-row--dragging' : '',
-                    overKey === app.id ? 'settings-apps-list-row--drag-over' : '',
-                  ].filter(Boolean).join(' ')}
-                  draggable
-                  onDragStart={onDragStart(app.id)}
-                  onDragOver={onDragOver(app.id)}
-                  onDragLeave={onDragLeave}
-                  onDrop={onDrop(app.id)}
-                  onDragEnd={onDragEnd}
-                >
-                  <span className="settings-apps-drag-handle">⠿</span>
-                  <AppFavicon url={app.url} name={app.name} size={16} />
-                  <span className="settings-apps-list-name">{app.name}</span>
-                  <span className="settings-apps-list-url">{app.url}</span>
-                  <button
-                    className="btn btn--sm"
-                    onClick={() => app.visible ? hideWebApp(app.id) : showWebApp(app.id)}
+              {embeddedApps.map((app: EmbeddedApp) => {
+                const disabledWarningKey = getDisabledEmbeddedAppWarningKey(app)
+                return (
+                  <div
+                    key={app.id}
+                    className={[
+                      'settings-apps-list-row',
+                      disabledWarningKey ? 'settings-apps-list-row--disabled' : '',
+                      dragKey === app.id ? 'settings-apps-list-row--dragging' : '',
+                      overKey === app.id ? 'settings-apps-list-row--drag-over' : '',
+                    ].filter(Boolean).join(' ')}
+                    draggable
+                    title={disabledWarningKey ? t(disabledWarningKey) : undefined}
+                    onDragStart={onDragStart(app.id)}
+                    onDragOver={onDragOver(app.id)}
+                    onDragLeave={onDragLeave}
+                    onDrop={onDrop(app.id)}
+                    onDragEnd={onDragEnd}
                   >
-                    {app.visible ? t('apps.hide') : t('apps.show')}
-                  </button>
-                  <button
-                    className="btn btn-danger btn--sm"
-                    onClick={() => removeEmbeddedApp(app.id)}
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
+                    <span className="settings-apps-drag-handle">⠿</span>
+                    <AppFavicon url={app.url} name={app.name} size={16} />
+                    <span className="settings-apps-list-name">{app.name}</span>
+                    <span className="settings-apps-list-url">{app.url}</span>
+                    {disabledWarningKey && (
+                      <span className="settings-apps-list-warning">{t('apps.disabled')}</span>
+                    )}
+                    <button
+                      className="btn btn--sm"
+                      onClick={() => app.visible ? hideWebApp(app.id) : showWebApp(app.id)}
+                    >
+                      {app.visible ? t('apps.hide') : t('apps.show')}
+                    </button>
+                    <button
+                      className="btn btn-danger btn--sm"
+                      onClick={() => removeEmbeddedApp(app.id)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )
+              })}
             </div>
           </div>
         </>
