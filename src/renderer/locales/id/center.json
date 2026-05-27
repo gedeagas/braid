@@ -354,5 +354,15 @@
   "codeReviewFilterOpen": "Terbuka ({{count}})",
   "codeReviewFilterResolved": "Terselesaikan ({{count}})",
   "codeReviewNoResolved": "Tidak ada komentar terselesaikan",
-  "codeReviewNoOpen": "Tidak ada komentar terbuka"
+  "codeReviewNoOpen": "Tidak ada komentar terbuka",
+  "codeReviewStatsReviews": "Ulasan",
+  "codeReviewStatsOpen": "Terbuka",
+  "codeReviewStatsResolved": "Terselesaikan",
+  "codeReviewStatsFiles": "File",
+  "codeReviewReply": "Balas",
+  "codeReviewReplyPlaceholder": "Tulis balasan...",
+  "codeReviewSendReply": "Kirim balasan",
+  "codeReviewSendingReply": "Mengirim...",
+  "codeReviewCancelReply": "Batal",
+  "codeReviewReplyFailed": "Tidak dapat mengirim balasan"
 }

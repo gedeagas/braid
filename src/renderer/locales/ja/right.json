@@ -340,6 +340,7 @@
   "reviewCommented": "コメント",
   "reviewDismissed": "却下",
   "reviewNoReviews": "レビューはまだありません",
+  "reviewLatestReviews": "最新のレビュー",
   "reviewComments_one": "{{count}}件のコメント",
   "reviewComments_other": "{{count}}件のコメント",
   "reviewUnresolved_one": "{{count}} 未解決",

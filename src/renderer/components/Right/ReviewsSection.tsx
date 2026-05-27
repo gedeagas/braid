@@ -1,16 +1,15 @@
 /**
  * ReviewsSection - renders PR code reviews inline in the Checks tab.
  *
- * Shows up to 3 deduplicated review rows (latest per author), each with
- * avatar, author name, state badge, and optional body snippet. A "See all"
- * button appears when there are more reviews or inline comments to explore.
+ * Shows a compact PR review summary in the Checks tab.
+ * A "See all" button opens the full review panel for complete threads.
  */
+import type { KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { SectionHeader } from '@/components/ui'
-import { ActionButton } from './ChecksSections'
-import type { PrReview, PrReviewData, ReviewState } from '@/types'
+import { SectionHeader } from '@/components/ui/SectionHeader'
+import type { PrReview, PrReviewComment, PrReviewData, ReviewState } from '@/types'
 
-const MAX_INLINE = 3
+const MAX_INLINE_REVIEWS = 3
 
 interface ReviewsSectionProps {
   reviews: PrReviewData
@@ -29,6 +28,24 @@ function dedupeReviews(reviews: PrReview[]): PrReview[] {
   }
   return Array.from(byAuthor.values())
     .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
+}
+
+const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto', style: 'short' })
+
+function formatTime(iso: string): string {
+  try {
+    const d = new Date(iso)
+    const diffMs = Date.now() - d.getTime()
+    const diffMinutes = Math.round(diffMs / 60000)
+    const diffHours = Math.round(diffMs / (1000 * 60 * 60))
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24))
+    if (Math.abs(diffMinutes) < 60) return rtf.format(-diffMinutes, 'minute')
+    if (Math.abs(diffHours) < 24) return rtf.format(-diffHours, 'hour')
+    if (Math.abs(diffDays) < 7) return rtf.format(-diffDays, 'day')
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  } catch {
+    return ''
+  }
 }
 
 function reviewStateClass(state: ReviewState): string {
@@ -56,23 +73,45 @@ function ReviewStateBadge({ state }: { state: ReviewState }) {
   )
 }
 
-function ReviewRow({ review, onClick }: { review: PrReview; onClick: () => void }) {
+function ReviewActionButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button className="checks-action-btn checks-action-btn--secondary" onClick={onClick}>
+      {label}
+    </button>
+  )
+}
+
+function handleKeyboardActivate(e: KeyboardEvent<HTMLElement>, onClick: () => void) {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault()
+    onClick()
+  }
+}
+
+function ReviewAvatar({ author, avatarUrl }: { author: string; avatarUrl: string }) {
+  if (avatarUrl) {
+    return <img className="review-avatar" src={avatarUrl} alt={author} />
+  }
+  return <span className="review-avatar-fallback">{author.trim().charAt(0) || '?'}</span>
+}
+
+function ReviewCard({ review, onClick }: { review: PrReview; onClick: () => void }) {
   return (
     <div
-      className="review-row"
+      className="review-summary-row"
       role="button"
       tabIndex={0}
       onClick={onClick}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
+      onKeyDown={(e) => handleKeyboardActivate(e, onClick)}
     >
-      {review.authorAvatarUrl ? (
-        <img className="review-avatar" src={review.authorAvatarUrl} alt={review.author} />
-      ) : (
-        <span className="review-avatar-fallback">{review.author[0]}</span>
-      )}
-      <span className="review-author">{review.author}</span>
-      <ReviewStateBadge state={review.state} />
-      {review.body && <span className="review-snippet">{review.body}</span>}
+      <ReviewAvatar author={review.author} avatarUrl={review.authorAvatarUrl} />
+      <div className="review-preview-content">
+        <div className="review-preview-header">
+          <span className="review-author">{review.author}</span>
+          <ReviewStateBadge state={review.state} />
+          <span className="review-preview-time">{formatTime(review.submittedAt)}</span>
+        </div>
+      </div>
     </div>
   )
 }
@@ -81,13 +120,9 @@ export function ReviewsSection({ reviews, onOpenReview }: ReviewsSectionProps) {
   const { t } = useTranslation('right')
 
   const latestReviews = dedupeReviews(reviews.reviews)
-  if (latestReviews.length === 0 && reviews.comments.length === 0) return null
-
-  const displayReviews = latestReviews.slice(0, MAX_INLINE)
-  const hasMore = latestReviews.length > MAX_INLINE || reviews.comments.length > 0
-
-  // Count resolved/unresolved root comments
   const rootComments = reviews.comments.filter((c) => c.inReplyToId === null)
+  if (latestReviews.length === 0 && rootComments.length === 0) return null
+
   const resolvedCount = rootComments.filter((c) => c.isResolved).length
   const unresolvedCount = rootComments.length - resolvedCount
 
@@ -95,22 +130,20 @@ export function ReviewsSection({ reviews, onOpenReview }: ReviewsSectionProps) {
     <div className="checks-section">
       <SectionHeader
         title={t('codeReviews')}
-        count={latestReviews.length || undefined}
-        action={hasMore ? (
-          <ActionButton label={t('seeAllReviews')} onClick={onOpenReview} />
-        ) : undefined}
+        count={latestReviews.length + rootComments.length || undefined}
+        action={(
+          <ReviewActionButton label={t('seeAllReviews')} onClick={onOpenReview} />
+        )}
       />
-      <div className="checks-rows">
-        {displayReviews.map((review) => (
-          <ReviewRow key={review.id} review={review} onClick={onOpenReview} />
-        ))}
+
+      <div className="review-section-content">
         {rootComments.length > 0 && (
           <div
-            className="review-row"
+            className="review-summary-card"
             role="button"
             tabIndex={0}
             onClick={onOpenReview}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenReview() } }}
+            onKeyDown={(e) => handleKeyboardActivate(e, onOpenReview)}
           >
             <span className="review-thread-counts">
               {unresolvedCount > 0 && (
@@ -124,6 +157,15 @@ export function ReviewsSection({ reviews, onOpenReview }: ReviewsSectionProps) {
                 </span>
               )}
             </span>
+          </div>
+        )}
+
+        {latestReviews.length > 0 && (
+          <div className="review-subsection">
+            <div className="review-subsection-title">{t('reviewLatestReviews')}</div>
+            {latestReviews.slice(0, MAX_INLINE_REVIEWS).map((review) => (
+              <ReviewCard key={review.id} review={review} onClick={onOpenReview} />
+            ))}
           </div>
         )}
       </div>

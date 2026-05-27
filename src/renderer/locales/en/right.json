@@ -340,6 +340,7 @@
   "reviewCommented": "Commented",
   "reviewDismissed": "Dismissed",
   "reviewNoReviews": "No reviews yet",
+  "reviewLatestReviews": "Latest reviews",
   "reviewComments_one": "{{count}} comment",
   "reviewComments_other": "{{count}} comments",
   "reviewUnresolved_one": "{{count}} open",

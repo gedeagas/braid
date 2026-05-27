@@ -229,6 +229,8 @@ const api = {
       ipcRenderer.invoke('github:markPrReady', worktreePath),
     getReviews: (worktreePath: string, forceRefresh?: boolean) =>
       ipcRenderer.invoke('github:getReviews', worktreePath, forceRefresh),
+    replyToReviewComment: (worktreePath: string, commentId: number, body: string) =>
+      ipcRenderer.invoke('github:replyToReviewComment', worktreePath, commentId, body) as Promise<void>,
     startDeviceFlow: () =>
       ipcRenderer.invoke('github:startDeviceFlow') as Promise<{
         userCode: string; verificationUri: string; expiresIn: number

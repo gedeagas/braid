@@ -4,8 +4,10 @@
  * Shows all PR reviews (summary cards) and inline comments grouped by file.
  * Accessed from the Checks tab "See all" button or clicking a review row.
  */
-import { useEffect, useReducer, useCallback, useMemo, memo } from 'react'
+import { useEffect, useReducer, useCallback, useMemo, memo, useState, type MouseEvent } from 'react'
+import ReactMarkdown, { type Components } from 'react-markdown'
 import { useTranslation } from 'react-i18next'
+import remarkGfm from 'remark-gfm'
 import * as ipc from '@/lib/ipc'
 import { useUIStore } from '@/store/ui'
 import { EmptyState, Spinner } from '@/components/ui'
@@ -41,6 +43,19 @@ function reducer(state: State, action: Action): State {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+const markdownPlugins = [remarkGfm]
+
+const markdownComponents: Components = {
+  a: ({ href, children }) => {
+    const onClick = (e: MouseEvent<HTMLAnchorElement>) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (href) ipc.shell.openExternal(href)
+    }
+    return <a href={href} onClick={onClick}>{children}</a>
+  },
+}
+
 function dedupeReviews(reviews: PrReview[]): PrReview[] {
   const byAuthor = new Map<string, PrReview>()
   for (const r of reviews) {
@@ -54,6 +69,15 @@ function dedupeReviews(reviews: PrReview[]): PrReview[] {
     .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
 }
 
+function compareComments(a: PrReviewComment, b: PrReviewComment): number {
+  const resolution = Number(a.isResolved) - Number(b.isResolved)
+  if (resolution !== 0) return resolution
+  const aLine = a.line ?? a.originalLine ?? Number.MAX_SAFE_INTEGER
+  const bLine = b.line ?? b.originalLine ?? Number.MAX_SAFE_INTEGER
+  if (aLine !== bLine) return aLine - bLine
+  return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+}
+
 function groupCommentsByFile(comments: PrReviewComment[]): Map<string, PrReviewComment[]> {
   const rootComments = comments.filter((c) => c.inReplyToId === null)
   const groups = new Map<string, PrReviewComment[]>()
@@ -62,8 +86,15 @@ function groupCommentsByFile(comments: PrReviewComment[]): Map<string, PrReviewC
     list.push(c)
     groups.set(c.path, list)
   }
-  // Sort by file path
-  return new Map([...groups.entries()].sort(([a], [b]) => a.localeCompare(b)))
+  for (const list of groups.values()) {
+    list.sort(compareComments)
+  }
+  return new Map([...groups.entries()].sort(([aPath, aComments], [bPath, bComments]) => {
+    const aOpen = aComments.filter((c) => !c.isResolved).length
+    const bOpen = bComments.filter((c) => !c.isResolved).length
+    if (aOpen !== bOpen) return bOpen - aOpen
+    return aPath.localeCompare(bPath)
+  }))
 }
 
 function getReplies(comments: PrReviewComment[], parentId: number): PrReviewComment[] {
@@ -108,6 +139,17 @@ function stateLabel(state: ReviewState, t: (key: string) => string): string {
     case 'DISMISSED': return t('reviewDismissed')
     default: return ''
   }
+}
+
+function CodeReviewMarkdown({ body }: { body: string }) {
+  if (!body.trim()) return null
+  return (
+    <div className="code-review-markdown">
+      <ReactMarkdown remarkPlugins={markdownPlugins} components={markdownComponents}>
+        {body}
+      </ReactMarkdown>
+    </div>
+  )
 }
 
 // ─── Diff hunk renderer with Shiki syntax highlighting ───────────────────────
@@ -184,18 +226,19 @@ function ReviewCard({ review, t }: { review: PrReview; t: (key: string) => strin
           </span>
           <span className="code-review-card-time">{formatTime(review.submittedAt)}</span>
         </div>
-        {review.body && <div className="code-review-card-body">{review.body}</div>}
+        <CodeReviewMarkdown body={review.body} />
       </div>
     </div>
   )
 }
 
 function CommentItem({
-  comment, allComments, isRoot, t,
+  comment, allComments, isRoot, replyState, t,
 }: {
   comment: PrReviewComment
   allComments: PrReviewComment[]
   isRoot?: boolean
+  replyState?: ReplyState
   t: (key: string, opts?: Record<string, unknown>) => string
 }) {
   const openUrl = () => ipc.shell.openExternal(comment.htmlUrl)
@@ -232,7 +275,7 @@ function CommentItem({
             <span className="code-review-comment-time">{formatTime(comment.createdAt)}</span>
           </div>
           {comment.diffHunk && <DiffHunk raw={comment.diffHunk} filePath={comment.path} />}
-          <div className="code-review-comment-body">{comment.body}</div>
+          <CodeReviewMarkdown body={comment.body} />
         </div>
       </div>
       {replies.length > 0 && (
@@ -242,7 +285,75 @@ function CommentItem({
           ))}
         </div>
       )}
+      {isRoot && replyState && (
+        <ReplySlot commentId={comment.id} replyState={replyState} t={t} />
+      )}
     </>
+  )
+}
+
+interface ReplyState {
+  replyingToId: number | null
+  draft: string
+  submittingId: number | null
+  error: string | null
+  onStart: (commentId: number) => void
+  onCancel: () => void
+  onDraftChange: (value: string) => void
+  onSubmit: (commentId: number) => void
+}
+
+function ReplySlot({
+  commentId, replyState, t,
+}: {
+  commentId: number
+  replyState: ReplyState
+  t: (key: string, opts?: Record<string, unknown>) => string
+}) {
+  const isActive = replyState.replyingToId === commentId
+  const isSubmitting = replyState.submittingId === commentId
+
+  if (!isActive) {
+    return (
+      <div className="code-review-reply-slot">
+        <button className="code-review-reply-button" onClick={() => replyState.onStart(commentId)}>
+          {t('codeReviewReply')}
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="code-review-reply-slot">
+      <div className="code-review-reply-composer">
+        <textarea
+          className="code-review-reply-textarea"
+          value={replyState.draft}
+          onChange={(e) => replyState.onDraftChange(e.target.value)}
+          placeholder={t('codeReviewReplyPlaceholder')}
+          rows={4}
+          disabled={isSubmitting}
+          autoFocus
+        />
+        {replyState.error && <div className="code-review-reply-error">{replyState.error}</div>}
+        <div className="code-review-reply-actions">
+          <button
+            className="code-review-reply-cancel"
+            onClick={replyState.onCancel}
+            disabled={isSubmitting}
+          >
+            {t('codeReviewCancelReply')}
+          </button>
+          <button
+            className="code-review-reply-submit"
+            onClick={() => replyState.onSubmit(commentId)}
+            disabled={isSubmitting || !replyState.draft.trim()}
+          >
+            {isSubmitting ? t('codeReviewSendingReply') : t('codeReviewSendReply')}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -255,13 +366,17 @@ interface Props {
 export function CodeReviewView({ worktreePath }: Props) {
   const { t } = useTranslation(['center', 'right'])
   const [state, dispatch] = useReducer(reducer, { data: null, loading: true, error: false, filter: 'all' })
+  const [replyingToId, setReplyingToId] = useState<number | null>(null)
+  const [replyDraft, setReplyDraft] = useState('')
+  const [submittingReplyId, setSubmittingReplyId] = useState<number | null>(null)
+  const [replyError, setReplyError] = useState<string | null>(null)
   const openFile = useUIStore((s) => s.openFile)
   const closeCodeReview = useUIStore((s) => s.closeCodeReview)
 
-  const load = useCallback(async () => {
-    dispatch({ type: 'LOAD_START' })
+  const load = useCallback(async (forceRefresh = false, showLoading = true) => {
+    if (showLoading) dispatch({ type: 'LOAD_START' })
     try {
-      const data = await ipc.github.getReviews(worktreePath) as PrReviewData
+      const data = await ipc.github.getReviews(worktreePath, forceRefresh) as PrReviewData
       dispatch({ type: 'LOAD_DONE', data })
     } catch {
       dispatch({ type: 'LOAD_ERROR' })
@@ -298,6 +413,10 @@ export function CodeReviewView({ worktreePath }: Props) {
   )
 
   const inlineCount = rootComments.length
+  const commentedFileCount = useMemo(
+    () => new Set(rootComments.map((c) => c.path)).size,
+    [rootComments],
+  )
 
   const handleBack = useCallback(() => {
     closeCodeReview()
@@ -308,6 +427,55 @@ export function CodeReviewView({ worktreePath }: Props) {
     const fullPath = worktreePath + '/' + path
     openFile(fullPath)
   }, [worktreePath, openFile])
+
+  const handleStartReply = useCallback((commentId: number) => {
+    setReplyingToId(commentId)
+    setReplyDraft('')
+    setReplyError(null)
+  }, [])
+
+  const handleCancelReply = useCallback(() => {
+    setReplyingToId(null)
+    setReplyDraft('')
+    setReplyError(null)
+  }, [])
+
+  const handleSubmitReply = useCallback(async (commentId: number) => {
+    const body = replyDraft.trim()
+    if (!body) return
+
+    setSubmittingReplyId(commentId)
+    setReplyError(null)
+    try {
+      await ipc.github.replyToReviewComment(worktreePath, commentId, body)
+      setReplyingToId(null)
+      setReplyDraft('')
+      await load(true, false)
+    } catch {
+      setReplyError(t('center:codeReviewReplyFailed'))
+    } finally {
+      setSubmittingReplyId(null)
+    }
+  }, [load, replyDraft, t, worktreePath])
+
+  const replyState = useMemo<ReplyState>(() => ({
+    replyingToId,
+    draft: replyDraft,
+    submittingId: submittingReplyId,
+    error: replyError,
+    onStart: handleStartReply,
+    onCancel: handleCancelReply,
+    onDraftChange: setReplyDraft,
+    onSubmit: handleSubmitReply,
+  }), [
+    replyingToId,
+    replyDraft,
+    submittingReplyId,
+    replyError,
+    handleStartReply,
+    handleCancelReply,
+    handleSubmitReply,
+  ])
 
   if (state.loading) {
     return (
@@ -343,6 +511,14 @@ export function CodeReviewView({ worktreePath }: Props) {
         onBack={handleBack}
         t={t}
         summary={t('center:codeReviewSummary', { reviewCount: dedupedReviews.length, commentCount: inlineCount })}
+      />
+
+      <CodeReviewOverview
+        reviewCount={dedupedReviews.length}
+        unresolvedCount={unresolvedCount}
+        resolvedCount={resolvedCount}
+        fileCount={commentedFileCount}
+        t={(key) => t(`center:${key}`)}
       />
 
       {/* Filter bar - only show when there are inline comments */}
@@ -387,6 +563,11 @@ export function CodeReviewView({ worktreePath }: Props) {
               <span className="code-review-file-path" onClick={() => handleOpenFile(filePath)}>
                 {filePath}
               </span>
+              {comments.some((c) => !c.isResolved) && (
+                <span className="code-review-file-open">
+                  {t('center:codeReviewFilterOpen', { count: comments.filter((c) => !c.isResolved).length })}
+                </span>
+              )}
               <span className="code-review-file-count">
                 {t('right:reviewComments', { count: comments.filter((c) => c.inReplyToId === null).length })}
               </span>
@@ -398,6 +579,7 @@ export function CodeReviewView({ worktreePath }: Props) {
                   comment={comment}
                   allComments={filteredComments}
                   isRoot
+                  replyState={replyState}
                   t={(k, opts) => t(`center:${k}`, opts as Record<string, string>)}
                 />
               ))}
@@ -412,6 +594,33 @@ export function CodeReviewView({ worktreePath }: Props) {
           />
         )}
       </div>
+    </div>
+  )
+}
+
+function CodeReviewOverview({
+  reviewCount, unresolvedCount, resolvedCount, fileCount, t,
+}: {
+  reviewCount: number
+  unresolvedCount: number
+  resolvedCount: number
+  fileCount: number
+  t: (key: string) => string
+}) {
+  const items = [
+    { label: t('codeReviewStatsReviews'), value: reviewCount, tone: 'neutral' },
+    { label: t('codeReviewStatsOpen'), value: unresolvedCount, tone: 'open' },
+    { label: t('codeReviewStatsResolved'), value: resolvedCount, tone: 'resolved' },
+    { label: t('codeReviewStatsFiles'), value: fileCount, tone: 'neutral' },
+  ]
+  return (
+    <div className="code-review-overview">
+      {items.map((item) => (
+        <div key={item.label} className={`code-review-overview-item code-review-overview-item--${item.tone}`}>
+          <span className="code-review-overview-value">{item.value}</span>
+          <span className="code-review-overview-label">{item.label}</span>
+        </div>
+      ))}
     </div>
   )
 }

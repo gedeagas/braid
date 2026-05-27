@@ -372,5 +372,15 @@
   "codeReviewFilterOpen": "未解决 ({{count}})",
   "codeReviewFilterResolved": "已解决 ({{count}})",
   "codeReviewNoResolved": "没有已解决的评论",
-  "codeReviewNoOpen": "没有未解决的评论"
+  "codeReviewNoOpen": "没有未解决的评论",
+  "codeReviewStatsReviews": "审查",
+  "codeReviewStatsOpen": "未解决",
+  "codeReviewStatsResolved": "已解决",
+  "codeReviewStatsFiles": "文件",
+  "codeReviewReply": "回复",
+  "codeReviewReplyPlaceholder": "写回复...",
+  "codeReviewSendReply": "发送回复",
+  "codeReviewSendingReply": "发送中...",
+  "codeReviewCancelReply": "取消",
+  "codeReviewReplyFailed": "无法发布回复"
 }

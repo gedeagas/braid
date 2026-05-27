@@ -298,6 +298,29 @@ class GitHubService {
     return await this.reviewsCache.get(worktreePath, () => this._fetchReviews(worktreePath), { forceRefresh })
   }
 
+  async replyToReviewComment(worktreePath: string, commentId: number, body: string): Promise<void> {
+    const trimmedBody = body.trim()
+    if (!trimmedBody) throw new Error('Reply body is required')
+
+    const nwo = await resolveNwo(worktreePath)
+    const pr = await this.getPrStatus(worktreePath)
+    if (!pr) throw new Error('No pull request found for this worktree')
+
+    await this.gh(
+      [
+        'api',
+        `repos/${nwo}/pulls/${pr.number}/comments/${commentId}/replies`,
+        '-X',
+        'POST',
+        '-f',
+        `body=${trimmedBody}`,
+      ],
+      worktreePath,
+      true,
+    )
+    this.reviewsCache.invalidate(worktreePath)
+  }
+
   private async _fetchReviews(worktreePath: string): Promise<PrReviewData> {
     const nwo = await resolveNwo(worktreePath)
     const pr = await this.getPrStatus(worktreePath)

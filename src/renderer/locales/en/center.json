@@ -372,5 +372,15 @@
   "codeReviewFilterOpen": "Open ({{count}})",
   "codeReviewFilterResolved": "Resolved ({{count}})",
   "codeReviewNoResolved": "No resolved comments",
-  "codeReviewNoOpen": "No open comments"
+  "codeReviewNoOpen": "No open comments",
+  "codeReviewStatsReviews": "Reviews",
+  "codeReviewStatsOpen": "Open",
+  "codeReviewStatsResolved": "Resolved",
+  "codeReviewStatsFiles": "Files",
+  "codeReviewReply": "Reply",
+  "codeReviewReplyPlaceholder": "Write a reply...",
+  "codeReviewSendReply": "Send reply",
+  "codeReviewSendingReply": "Sending...",
+  "codeReviewCancelReply": "Cancel",
+  "codeReviewReplyFailed": "Could not post reply"
 }
