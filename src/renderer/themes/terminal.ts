@@ -1,5 +1,7 @@
 import type { ITheme } from '@xterm/xterm'
 
+export const TERMINAL_MINIMUM_CONTRAST_RATIO = 4.5
+
 /** Read a CSS variable from :root, with fallback */
 function cssVar(name: string, fallback: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
