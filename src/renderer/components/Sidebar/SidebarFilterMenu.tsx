@@ -78,8 +78,15 @@ export function SidebarFilterMenu() {
       if (rootRef.current?.contains(target) || popoverRef.current?.contains(target)) return
       setOpen(false)
     }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false)
+    }
     document.addEventListener('mousedown', handlePointerDown)
-    return () => document.removeEventListener('mousedown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
   }, [open])
 
   useLayoutEffect(() => {
@@ -106,6 +113,7 @@ export function SidebarFilterMenu() {
     if (e.key !== 'Escape') return
     e.preventDefault()
     if (query.trim() !== '') {
+      e.stopPropagation()
       setQuery('')
     } else {
       setOpen(false)

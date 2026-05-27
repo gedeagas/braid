@@ -139,26 +139,31 @@ function scoreWorktree(project: Project, worktree: Worktree, query: string): num
 }
 
 export function buildVisibleProjects(
-  projects: Project[],
-  filters: SidebarFilterOptions
+  projects: Project[] | null | undefined,
+  filters: SidebarFilterOptions | null | undefined
 ): VisibleProject[] {
-  const query = filters.query.trim().toLowerCase()
+  if (!projects || !filters) return []
+
+  const query = (filters.query || '').trim().toLowerCase()
   const hasQuery = query.length > 0
   const hasWorktreeFilters = filters.hideSleeping || filters.hideDefaultBranch
+  const worktreeOrders = filters.worktreeOrders ?? {}
+  const pinnedWorktrees = filters.pinnedWorktrees ?? new Set<string>()
+  const awakeWorktreeIds = filters.awakeWorktreeIds ?? new Set<string>()
 
   if (!hasQuery && !hasWorktreeFilters) {
     return projects.map((project) => ({
       project,
-      worktrees: buildOrderedWorktrees(project, filters.worktreeOrders, filters.pinnedWorktrees),
+      worktrees: buildOrderedWorktrees(project, worktreeOrders, pinnedWorktrees),
     }))
   }
 
   const visibleProjects: ScoredProject[] = []
   for (const project of projects) {
-    const orderedWorktrees = buildOrderedWorktrees(project, filters.worktreeOrders, filters.pinnedWorktrees)
+    const orderedWorktrees = buildOrderedWorktrees(project, worktreeOrders, pinnedWorktrees)
     const filteredWorktrees = orderedWorktrees.filter((worktree) => {
       if (filters.hideDefaultBranch && worktree.isMain) return false
-      if (filters.hideSleeping && !filters.awakeWorktreeIds.has(worktree.id)) return false
+      if (filters.hideSleeping && !awakeWorktreeIds.has(worktree.id)) return false
       return true
     })
 

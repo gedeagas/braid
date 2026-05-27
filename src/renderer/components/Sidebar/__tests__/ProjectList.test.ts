@@ -37,6 +37,11 @@ function options(overrides: Partial<SidebarFilterOptions> = {}): SidebarFilterOp
 }
 
 describe('buildVisibleProjects', () => {
+  it('returns no projects when projects or filters are missing', () => {
+    expect(buildVisibleProjects(undefined, options())).toEqual([])
+    expect(buildVisibleProjects([], undefined)).toEqual([])
+  })
+
   it('keeps all projects when no filters are active', () => {
     const alpha = makeProject('alpha', 'Alpha', [])
     const beta = makeProject('beta', 'Beta', [

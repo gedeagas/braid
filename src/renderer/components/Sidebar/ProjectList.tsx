@@ -133,6 +133,7 @@ export function ProjectList({ onAddWorktree }: Props) {
   const sessions = useSessionsStore((s) => s.sessions)
   const prCache = usePrCacheStore((s) => s.cache)
   const fetchPr = usePrCacheStore((s) => s.fetchPr)
+  const fetchingPaths = useRef<Set<string>>(new Set())
   const { t: tSidebar } = useTranslation('sidebar')
 
   const [projDraggingId, setProjDraggingId] = useState<string | null>(null)
@@ -150,7 +151,8 @@ export function ProjectList({ onAddWorktree }: Props) {
 
   const sessionsByWorktree = useMemo(() => {
     const map = new Map<string, AgentSession[]>()
-    for (const session of Object.values(sessions)) {
+    for (const session of Object.values(sessions ?? {})) {
+      if (!session?.worktreeId) continue
       const list = map.get(session.worktreeId)
       if (list) list.push(session)
       else map.set(session.worktreeId, [session])
@@ -176,10 +178,11 @@ export function ProjectList({ onAddWorktree }: Props) {
   const awakeWorktreeIds = useMemo(() => {
     const ids = new Set<string>()
     for (const [worktreeId, worktreeSessions] of sessionsByWorktree) {
-      if (worktreeSessions.some((session) => session.status !== 'inactive')) ids.add(worktreeId)
+      if (worktreeSessions.some((session) => session && session.status !== 'inactive')) ids.add(worktreeId)
     }
-    for (const [worktreeId, tabs] of Object.entries(bigTerminalsByWorktree)) {
-      if (tabs.some((tab) => bigTerminalStatusById[tab.id])) ids.add(worktreeId)
+    const terminalStatusById = bigTerminalStatusById ?? {}
+    for (const [worktreeId, tabs] of Object.entries(bigTerminalsByWorktree ?? {})) {
+      if (tabs?.some((tab) => tab && terminalStatusById[tab.id])) ids.add(worktreeId)
     }
     return ids
   }, [sessionsByWorktree, bigTerminalsByWorktree, bigTerminalStatusById])
@@ -216,14 +219,19 @@ export function ProjectList({ onAddWorktree }: Props) {
   const worktreeItems = useMemo((): WorktreeListItem[] => {
     let manualIndex = 0
     const items: WorktreeListItem[] = []
-    for (const { project, worktrees } of visibleProjects) {
+    const terminalStatusById = bigTerminalStatusById ?? {}
+    const terminalsByWorktree = bigTerminalsByWorktree ?? {}
+    const cachedPrs = prCache ?? {}
+    for (const { project, worktrees } of visibleProjects ?? []) {
+      if (!project || !worktrees) continue
       for (const worktree of worktrees) {
+        if (!worktree) continue
         const worktreeSessions = sessionsByWorktree.get(worktree.id) ?? []
-        const terminalTabs = bigTerminalsByWorktree[worktree.id] ?? []
+        const terminalTabs = terminalsByWorktree[worktree.id] ?? []
         const terminalStatuses = terminalTabs
-          .map((tab) => bigTerminalStatusById[tab.id])
+          .map((tab) => tab && terminalStatusById[tab.id])
           .filter((status): status is AgentStatusEntry => Boolean(status))
-        const prEntry = prCache[worktree.path]
+        const prEntry = cachedPrs[worktree.path]
         items.push({
           project,
           worktree,
@@ -241,8 +249,16 @@ export function ProjectList({ onAddWorktree }: Props) {
   useEffect(() => {
     if (sidebarGroupBy !== 'pr') return
     for (const item of worktreeItems) {
-      const entry = prCache[item.worktree.path]
-      if (!entry || entry.fetchedAt === 0) void fetchPr(item.worktree.path)
+      const path = item.worktree.path
+      const entry = prCache[path]
+      if ((!entry || entry.fetchedAt === 0) && !fetchingPaths.current.has(path)) {
+        fetchingPaths.current.add(path)
+        void fetchPr(path)
+          .catch(() => undefined)
+          .finally(() => {
+            fetchingPaths.current.delete(path)
+          })
+      }
     }
   }, [sidebarGroupBy, worktreeItems, prCache, fetchPr])
 
@@ -252,16 +268,17 @@ export function ProjectList({ onAddWorktree }: Props) {
   )
 
   const visibleProjectsForRender = useMemo(() => {
-    if (sidebarSortBy === 'manual') return visibleProjects
+    if (sidebarSortBy === 'manual') return visibleProjects ?? []
     const itemsByProject = new Map<string, WorktreeListItem[]>()
-    for (const item of sortedWorktreeItems) {
+    for (const item of sortedWorktreeItems ?? []) {
+      if (!item?.project) continue
       const items = itemsByProject.get(item.project.id)
       if (items) items.push(item)
       else itemsByProject.set(item.project.id, [item])
     }
-    const projectsForRender = visibleProjects.map(({ project, worktrees }) => ({
+    const projectsForRender = (visibleProjects ?? []).map(({ project, worktrees }) => ({
       project,
-      worktrees: itemsByProject.get(project.id)?.map((item) => item.worktree) ?? worktrees,
+      worktrees: itemsByProject.get(project.id)?.map((item) => item.worktree) ?? worktrees ?? [],
     }))
     if (sidebarSortBy === 'recent') {
       projectsForRender.sort((a, b) => {
@@ -279,15 +296,18 @@ export function ProjectList({ onAddWorktree }: Props) {
   const navItems = useMemo((): NavItem[] => {
     const items: NavItem[] = []
     if (sidebarGroupBy !== 'project') {
-      for (const item of sortedWorktreeItems) {
+      for (const item of sortedWorktreeItems ?? []) {
+        if (!item?.project || !item.worktree) continue
         items.push({ kind: 'worktree', projectId: item.project.id, worktreeId: item.worktree.id })
       }
       return items
     }
-    for (const { project, worktrees } of visibleProjectsForRender) {
+    for (const { project, worktrees } of visibleProjectsForRender ?? []) {
+      if (!project) continue
       items.push({ kind: 'project', projectId: project.id })
       if (expandedProjects.has(project.id) || hasSearchQuery) {
-        for (const wt of worktrees) {
+        for (const wt of worktrees ?? []) {
+          if (!wt) continue
           items.push({ kind: 'worktree', projectId: project.id, worktreeId: wt.id })
         }
       }
@@ -389,34 +409,38 @@ export function ProjectList({ onAddWorktree }: Props) {
 
   const projectIds = useMemo(() => orderedProjects.map((p) => p.id), [orderedProjects])
   const canReorder = !hasActiveFilters
-  const flatWorktreeRegisterRefs = useMemo(
-    () => new Map(sortedWorktreeItems.map((item) => [
-      item.worktree.id,
-      (el: HTMLElement | null) => handleRegisterRef(`worktree:${item.worktree.id}`, el)
-    ])),
-    [sortedWorktreeItems, handleRegisterRef]
-  )
+  const flatWorktreeRegisterRefs = useMemo(() => {
+    const refs = new Map<string, (el: HTMLElement | null) => void>()
+    for (const item of sortedWorktreeItems ?? []) {
+      if (!item?.worktree) continue
+      refs.set(item.worktree.id, (el: HTMLElement | null) => {
+        handleRegisterRef(`worktree:${item.worktree.id}`, el)
+      })
+    }
+    return refs
+  }, [sortedWorktreeItems, handleRegisterRef])
 
   const worktreeSections = useMemo(() => {
+    const items = sortedWorktreeItems ?? []
     if (sidebarGroupBy === 'status') {
       return [
-        { id: 'working', label: tSidebar('groupStatusWorking'), items: sortedWorktreeItems.filter((item) => item.status === 'working') },
-        { id: 'permission', label: tSidebar('groupStatusPermission'), items: sortedWorktreeItems.filter((item) => item.status === 'permission') },
-        { id: 'done', label: tSidebar('groupStatusDone'), items: sortedWorktreeItems.filter((item) => item.status === 'done') },
-        { id: 'active', label: tSidebar('groupStatusActive'), items: sortedWorktreeItems.filter((item) => item.status === 'active') },
-        { id: 'inactive', label: tSidebar('groupStatusSleeping'), items: sortedWorktreeItems.filter((item) => item.status === 'inactive') },
+        { id: 'working', label: tSidebar('groupStatusWorking'), items: items.filter((item) => item?.status === 'working') },
+        { id: 'permission', label: tSidebar('groupStatusPermission'), items: items.filter((item) => item?.status === 'permission') },
+        { id: 'done', label: tSidebar('groupStatusDone'), items: items.filter((item) => item?.status === 'done') },
+        { id: 'active', label: tSidebar('groupStatusActive'), items: items.filter((item) => item?.status === 'active') },
+        { id: 'inactive', label: tSidebar('groupStatusSleeping'), items: items.filter((item) => item?.status === 'inactive') },
       ].filter((section) => section.items.length > 0)
     }
     if (sidebarGroupBy === 'pr') {
       return [
-        { id: 'open', label: tSidebar('groupPrOpen'), items: sortedWorktreeItems.filter((item) => prGroupFor(item.pr) === 'open') },
-        { id: 'draft', label: tSidebar('groupPrDraft'), items: sortedWorktreeItems.filter((item) => prGroupFor(item.pr) === 'draft') },
-        { id: 'mergedClosed', label: tSidebar('groupPrMergedClosed'), items: sortedWorktreeItems.filter((item) => prGroupFor(item.pr) === 'mergedClosed') },
-        { id: 'none', label: tSidebar('groupPrNone'), items: sortedWorktreeItems.filter((item) => prGroupFor(item.pr) === 'none') },
-        { id: 'checking', label: tSidebar('groupPrChecking'), items: sortedWorktreeItems.filter((item) => prGroupFor(item.pr) === 'checking') },
+        { id: 'open', label: tSidebar('groupPrOpen'), items: items.filter((item) => item && prGroupFor(item.pr) === 'open') },
+        { id: 'draft', label: tSidebar('groupPrDraft'), items: items.filter((item) => item && prGroupFor(item.pr) === 'draft') },
+        { id: 'mergedClosed', label: tSidebar('groupPrMergedClosed'), items: items.filter((item) => item && prGroupFor(item.pr) === 'mergedClosed') },
+        { id: 'none', label: tSidebar('groupPrNone'), items: items.filter((item) => item && prGroupFor(item.pr) === 'none') },
+        { id: 'checking', label: tSidebar('groupPrChecking'), items: items.filter((item) => item && prGroupFor(item.pr) === 'checking') },
       ].filter((section) => section.items.length > 0)
     }
-    return [{ id: 'none', label: null, items: sortedWorktreeItems }]
+    return [{ id: 'none', label: null, items }]
   }, [sidebarGroupBy, sortedWorktreeItems, tSidebar])
 
   if (projects.length === 0) {
