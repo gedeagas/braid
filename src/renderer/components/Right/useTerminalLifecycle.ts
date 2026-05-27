@@ -54,18 +54,20 @@ export function useTerminalLifecycle({
       if (state.terminalFontSize !== prevSize) {
         prevSize = state.terminalFontSize
         for (const cached of terminalCache.values()) {
-          let fitCols = 0, fitRows = 0
           for (const tab of cached.tabs) {
             tab.term.options.fontSize = prevSize
-            try {
-              tab.fitAddon.fit()
-              if (tab.term.cols > 0) { fitCols = tab.term.cols; fitRows = tab.term.rows }
-            } catch { /* ignore */ }
           }
-          if (fitCols > 0) {
-            for (const tab of cached.tabs) {
-              if (tab.ptyId) ipc.pty.resize(tab.ptyId, fitCols, fitRows)
-            }
+          const activeTab = cached.tabs.find((t) => t.id === cached.activeTabId) || cached.tabs[0]
+          if (activeTab) {
+            try {
+              activeTab.fitAddon.fit()
+              const { cols, rows } = activeTab.term
+              if (cols > 0 && rows > 0) {
+                for (const tab of cached.tabs) {
+                  if (tab.ptyId) ipc.pty.resize(tab.ptyId, cols, rows)
+                }
+              }
+            } catch { /* ignore */ }
           }
         }
       }
