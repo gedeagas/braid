@@ -49,13 +49,10 @@ function computeWorktreeStatus(sessions: AgentSession[], terminalStatuses: Agent
 function computeActivityAt(project: Project, worktree: Worktree, sessions: AgentSession[], terminalStatuses: AgentStatusEntry[]): number {
   let activityAt = project.createdAt
   for (const session of sessions) {
-    activityAt = Math.max(
-      activityAt,
-      session.runStartedAt ?? 0,
-      session.runCompletedAt ?? 0,
-      session.createdAt,
-      ...session.messages.map((message) => message.timestamp)
-    )
+    activityAt = Math.max(activityAt, session.runStartedAt ?? 0, session.runCompletedAt ?? 0, session.createdAt)
+    for (const message of session.messages) {
+      activityAt = Math.max(activityAt, message.timestamp)
+    }
   }
   for (const status of terminalStatuses) {
     activityAt = Math.max(activityAt, status.updatedAt)

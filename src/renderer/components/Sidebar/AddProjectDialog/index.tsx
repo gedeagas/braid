@@ -75,6 +75,7 @@ export function AddProjectDialog() {
     { id: 'github', icon: <IconGitHub />, label: t('githubUrlTab') },
     { id: 'quickstart', icon: <IconSparkle />, label: t('quickStartTab') },
   ]
+  const panelId = 'add-project-panel'
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -105,10 +106,11 @@ export function AddProjectDialog() {
             return (
               <button
                 key={tab.id}
+                id={`add-project-tab-${tab.id}`}
                 type="button"
                 role="tab"
                 aria-selected={active}
-                aria-controls={`add-project-panel-${tab.id}`}
+                aria-controls={panelId}
                 className={`add-project-tab${active ? ' add-project-tab--active' : ''}`}
                 onClick={() => dispatch({ type: 'setTab', tab: tab.id })}
                 disabled={isBusy}
@@ -125,8 +127,9 @@ export function AddProjectDialog() {
 
         <div
           className="add-project-panel"
-          id={`add-project-panel-${state.tab}`}
+          id={panelId}
           role="tabpanel"
+          aria-labelledby={`add-project-tab-${state.tab}`}
         >
           {state.tab === 'quickstart' && (
             <QuickStartTab

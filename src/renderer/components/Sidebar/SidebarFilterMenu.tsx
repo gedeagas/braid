@@ -57,6 +57,11 @@ export function SidebarFilterMenu() {
   ]
   const activeSortLabel = sortOptions.find((option) => option.value === sortBy)?.label ?? t('sortManual')
 
+  const closePopover = useCallback((restoreFocus = false) => {
+    setOpen(false)
+    if (restoreFocus) requestAnimationFrame(() => triggerRef.current?.focus())
+  }, [])
+
   const updatePopoverRect = useCallback(() => {
     const trigger = triggerRef.current
     if (!trigger) return
@@ -76,10 +81,10 @@ export function SidebarFilterMenu() {
     function handlePointerDown(e: MouseEvent) {
       const target = e.target as Node
       if (rootRef.current?.contains(target) || popoverRef.current?.contains(target)) return
-      setOpen(false)
+      closePopover()
     }
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key === 'Escape') closePopover(true)
     }
     document.addEventListener('mousedown', handlePointerDown)
     document.addEventListener('keydown', handleKeyDown)
@@ -87,7 +92,7 @@ export function SidebarFilterMenu() {
       document.removeEventListener('mousedown', handlePointerDown)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [open])
+  }, [open, closePopover])
 
   useLayoutEffect(() => {
     if (!open) return
@@ -112,13 +117,20 @@ export function SidebarFilterMenu() {
   const handleSearchKeyDown = useCallback((e: ReactKeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Escape') return
     e.preventDefault()
+    e.stopPropagation()
     if (query.trim() !== '') {
-      e.stopPropagation()
       setQuery('')
     } else {
-      setOpen(false)
+      closePopover(true)
     }
-  }, [query, setQuery])
+  }, [query, setQuery, closePopover])
+
+  const handlePopoverKeyDown = useCallback((e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Escape') return
+    e.preventDefault()
+    e.stopPropagation()
+    closePopover(true)
+  }, [closePopover])
 
   return (
     <div ref={rootRef} className="sidebar-filter-menu">
@@ -142,6 +154,7 @@ export function SidebarFilterMenu() {
           role="dialog"
           aria-label={t('projectFilters')}
           style={{ top: popoverRect.top, left: popoverRect.left, width: popoverRect.width }}
+          onKeyDown={handlePopoverKeyDown}
         >
           <div className="sidebar-filter-section">
             <div className="sidebar-filter-section-title">{t('groupBy')}</div>
