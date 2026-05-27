@@ -3,7 +3,7 @@ import * as ipc from '@/lib/ipc'
 import { useTerminalFileDrop } from '@/hooks/useTerminalFileDrop'
 import { useTerminalClipboardPaste } from '@/hooks/useTerminalClipboardPaste'
 import { useUIStore } from '@/store/ui'
-import { getOrCreate, reThemeAllBigTerminals, type BigTermEntry } from './bigTerminalCache'
+import { getOrCreate, reThemeAllBigTerminals, updateBigTerminalAgentId, type BigTermEntry } from './bigTerminalCache'
 import { activateWebgl, disposeWebgl } from '@/components/Right/terminalCache'
 import { TerminalSearch } from '@/components/shared/TerminalSearch'
 import { BranchBar } from './BranchBar'
@@ -46,7 +46,7 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, agen
     // Clear container of any stale children (safety net for tab switch).
     while (el.firstChild) el.removeChild(el.firstChild)
 
-    const entry = getOrCreate(terminalId, worktreePath, initialCommand)
+    const entry = getOrCreate(terminalId, worktreePath, initialCommand, agentId)
     entryRef.current = entry
 
     // Attach xterm to DOM (open on first mount, re-append on remount).
@@ -114,6 +114,10 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, agen
       }
     }
   }, [terminalId, worktreePath])
+
+  useEffect(() => {
+    updateBigTerminalAgentId(terminalId, agentId)
+  }, [terminalId, agentId])
 
   // Re-theme ALL cached big terminals when app theme changes (not just this one).
   useEffect(() => {

@@ -139,9 +139,10 @@ export const createTerminalsSlice: StateCreator<UIState, [], [], TerminalsSlice>
       let next: AgentStatusEntry
       if (prev) {
         next = updateAgentStatusEntry(prev, payload)
+        if (next === prev) return s
       } else {
         // Create initial entry, then merge full payload to capture toolName etc.
-        const initial = createAgentStatusEntry(payload.state, payload.agentType)
+        const initial = createAgentStatusEntry(payload.state, payload.agentType, payload.source)
         next = payload.toolName ? { ...initial, toolName: payload.toolName } : initial
       }
       return { bigTerminalStatusById: { ...s.bigTerminalStatusById, [terminalId]: next } }

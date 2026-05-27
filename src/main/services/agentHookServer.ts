@@ -132,6 +132,8 @@ const EVENT_MAPS: Record<AgentHookTarget, Record<string, AgentStatusState>> = {
   },
 }
 
+const CODEX_USER_INPUT_TOOL_NAME = 'request_user_input'
+
 /** Valid agent IDs for URL routing. */
 const VALID_AGENTS = new Set<string>(Object.keys(EVENT_MAPS))
 
@@ -148,7 +150,16 @@ function parseRoute(url: string | undefined): AgentHookTarget | null {
 }
 
 /** Map an event name to a status state using the agent-specific mapping. */
-function mapEventToState(agentId: AgentHookTarget, event: string): AgentStatusState | null {
+export function mapHookEventToState(
+  agentId: AgentHookTarget,
+  event: string,
+  toolName?: string
+): AgentStatusState | null {
+  // Codex prompts created by request_user_input block on the user before the
+  // tool completes, so treat its PreToolUse hook as a waiting-for-input state.
+  if (agentId === 'codex' && event === 'PreToolUse' && toolName === CODEX_USER_INPUT_TOOL_NAME) {
+    return 'waiting'
+  }
   return EVENT_MAPS[agentId]?.[event] ?? null
 }
 
@@ -210,7 +221,7 @@ export async function startAgentHookServer(): Promise<{ port: number; token: str
           const parsed = JSON.parse(body) as HookRequestBody
           if (!parsed.terminalId || !parsed.event) return
 
-          const state = mapEventToState(agentId, parsed.event)
+          const state = mapHookEventToState(agentId, parsed.event, parsed.toolName)
           if (!state) return
 
           const status: AgentHookStatus = {

@@ -16,6 +16,14 @@ export interface TitleDetectionResult {
   agentType: AgentType | null
 }
 
+export interface TitleDetectionOptions {
+  /**
+   * Catalog agent for the terminal tab. Used only when the title/status marker
+   * is ambiguous, such as shared braille spinners.
+   */
+  expectedAgentType?: AgentType
+}
+
 // ── Per-agent Unicode markers ────────────────────────────────────────────────
 
 // Claude Code: braille spinners when working, eight-spoked asterisk when idle
@@ -68,21 +76,25 @@ function detectAgentTypeFromTitle(title: string): AgentType | null {
  * 1. Agent-specific Unicode markers (most reliable)
  * 2. Generic status keywords (fallback)
  */
-export function detectAgentStatusFromTitle(title: string): TitleDetectionResult | null {
+export function detectAgentStatusFromTitle(
+  title: string,
+  options: TitleDetectionOptions = {}
+): TitleDetectionResult | null {
   if (!title) return null
   const first = title.charAt(0)
+  const expectedAgentType = options.expectedAgentType ?? null
 
   // ── Claude Code ──────────────────────────────────────────────────────────
   // Braille spinners = working
   if (BRAILLE_SPINNERS.has(first)) {
     return {
       state: 'working',
-      agentType: detectAgentTypeFromTitle(title) ?? 'claude'
+      agentType: detectAgentTypeFromTitle(title) ?? expectedAgentType ?? 'claude'
     }
   }
   // Idle marker
   if (first === CLAUDE_IDLE) {
-    return { state: 'done', agentType: 'claude' }
+    return { state: 'done', agentType: detectAgentTypeFromTitle(title) ?? expectedAgentType ?? 'claude' }
   }
 
   // ── Gemini CLI ───────────────────────────────────────────────────────────
@@ -100,14 +112,14 @@ export function detectAgentStatusFromTitle(title: string): TitleDetectionResult 
   if (first === '?') {
     return {
       state: 'waiting',
-      agentType: detectAgentTypeFromTitle(title)
+      agentType: detectAgentTypeFromTitle(title) ?? expectedAgentType
     }
   }
 
   // ── Generic keyword-based detection ──────────────────────────────────────
   // Check for agent name in the title body to identify the agent type,
   // then use keyword matching for status.
-  const agentType = detectAgentTypeFromTitle(title)
+  const agentType = detectAgentTypeFromTitle(title) ?? expectedAgentType
 
   if (WAITING_KEYWORDS.test(title)) {
     return { state: 'waiting', agentType }
@@ -133,10 +145,11 @@ export function detectAgentStatusFromTitle(title: string): TitleDetectionResult 
  */
 export function registerTitleDetection(
   term: Terminal,
-  onStatus: (result: TitleDetectionResult) => void
+  onStatus: (result: TitleDetectionResult) => void,
+  options: TitleDetectionOptions = {}
 ): void {
   term.onTitleChange((title) => {
-    const result = detectAgentStatusFromTitle(title)
+    const result = detectAgentStatusFromTitle(title, options)
     if (result) onStatus(result)
   })
 }

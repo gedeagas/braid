@@ -11,18 +11,19 @@ import * as copilot from './copilot'
 import * as cursor from './cursor'
 import * as grok from './grok'
 import * as droid from './droid'
+import * as codex from './codex'
 import type { AgentHookService } from './types'
 
 export type { AgentHookTarget, AgentHookService } from './types'
 
-// Agents that use the standard JSON hooks format and can be auto-installed.
+// Agents that use supported hook config formats and can be auto-installed.
 // Not included:
-//   - codex: requires TOML trust entries in a managed Codex home directory
 //   - hermes: uses a Python plugin system + YAML config, not JSON hooks
-// These agents still have server-side event mappings so they work if hooks
+// Excluded agents can still have server-side event mappings so they work if hooks
 // are installed by other means (e.g. manually or via the agent's own tooling).
 const ALL_SERVICES: { name: string; service: AgentHookService }[] = [
   { name: 'claude', service: claude },
+  { name: 'codex', service: codex },
   { name: 'gemini', service: gemini },
   { name: 'antigravity', service: antigravity },
   { name: 'copilot', service: copilot },
