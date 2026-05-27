@@ -56,7 +56,18 @@ export function useTerminalLifecycle({
         for (const cached of terminalCache.values()) {
           for (const tab of cached.tabs) {
             tab.term.options.fontSize = prevSize
-            try { tab.fitAddon.fit() } catch { /* ignore */ }
+          }
+          const activeTab = cached.tabs.find((t) => t.id === cached.activeTabId) || cached.tabs[0]
+          if (activeTab) {
+            try {
+              activeTab.fitAddon.fit()
+              const { cols, rows } = activeTab.term
+              if (cols > 0 && rows > 0) {
+                for (const tab of cached.tabs) {
+                  if (tab.ptyId) ipc.pty.resize(tab.ptyId, cols, rows)
+                }
+              }
+            } catch { /* ignore */ }
           }
         }
       }
@@ -144,7 +155,10 @@ export function useTerminalLifecycle({
           requestAnimationFrame(() => {
             try {
               activeTab.fitAddon.fit()
-              if (activeTab.ptyId) ipc.pty.resize(activeTab.ptyId, activeTab.term.cols, activeTab.term.rows)
+              const { cols, rows } = activeTab.term
+              for (const t of restoredTabs) {
+                if (t.ptyId) ipc.pty.resize(t.ptyId, cols, rows)
+              }
             } catch { /* ignore */ }
           })
         }
@@ -195,7 +209,10 @@ export function useTerminalLifecycle({
         }
         try {
           tab.fitAddon.fit()
-          if (tab.ptyId) ipc.pty.resize(tab.ptyId, tab.term.cols, tab.term.rows)
+          const { cols, rows } = tab.term
+          for (const t of tabsRef.current) {
+            if (t.ptyId) ipc.pty.resize(t.ptyId, cols, rows)
+          }
         } catch { /* ignore */ }
       }
     })
