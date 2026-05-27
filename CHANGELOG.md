@@ -5,6 +5,20 @@ All notable changes to Braid are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [26.2.4] - 2026-05-27
+
+### Other
+
+- Disable Spotify embedded app (#102)
+- Fix Codex terminal input notifications (#101)
+- Improve terminal contrast in light themes (#100)
+
+### Contributors
+
+Thanks to [@gedeagas](https://github.com/gedeagas) for their contributions to this release!
+
+---
+
 ## [26.2.3] - 2026-05-26
 
 ### Added
