@@ -480,6 +480,33 @@ const api = {
     }>>,
     removeDevice: (deviceId: string) => ipcRenderer.invoke('mobile:removeDevice', deviceId) as Promise<void>,
   },
+  // Claude Usage Analytics
+  claudeUsage: {
+    getScanState: () => ipcRenderer.invoke('claudeUsage:getScanState'),
+    setEnabled: (args: { enabled: boolean }) => ipcRenderer.invoke('claudeUsage:setEnabled', args),
+    clearData: () => ipcRenderer.invoke('claudeUsage:clearData'),
+    refresh: (args?: { force?: boolean }) => ipcRenderer.invoke('claudeUsage:refresh', args),
+    getSnapshot: (args: { scope: string; range: string; limit?: number; force?: boolean }) => ipcRenderer.invoke('claudeUsage:getSnapshot', args),
+    getSummary: (args: { scope: string; range: string }) => ipcRenderer.invoke('claudeUsage:getSummary', args),
+    getDaily: (args: { scope: string; range: string }) => ipcRenderer.invoke('claudeUsage:getDaily', args),
+    getBreakdown: (args: { scope: string; range: string; kind: string }) => ipcRenderer.invoke('claudeUsage:getBreakdown', args),
+    getRecentSessions: (args: { scope: string; range: string; limit?: number }) => ipcRenderer.invoke('claudeUsage:getRecentSessions', args),
+  },
+
+  // Codex Usage Analytics
+  codexUsage: {
+    getScanState: () => ipcRenderer.invoke('codexUsage:getScanState'),
+    setEnabled: (args: { enabled: boolean }) => ipcRenderer.invoke('codexUsage:setEnabled', args),
+    clearData: () => ipcRenderer.invoke('codexUsage:clearData'),
+    refresh: (args?: { force?: boolean }) => ipcRenderer.invoke('codexUsage:refresh', args),
+    getSnapshot: (args: { scope: string; range: string; limit?: number; force?: boolean }) => ipcRenderer.invoke('codexUsage:getSnapshot', args),
+    getSummary: (args: { scope: string; range: string }) => ipcRenderer.invoke('codexUsage:getSummary', args),
+    getDaily: (args: { scope: string; range: string }) => ipcRenderer.invoke('codexUsage:getDaily', args),
+    getBreakdown: (args: { scope: string; range: string; kind: string }) => ipcRenderer.invoke('codexUsage:getBreakdown', args),
+    getRecentSessions: (args: { scope: string; range: string; limit?: number }) => ipcRenderer.invoke('codexUsage:getRecentSessions', args),
+  },
+
+  // Rate Limits
   rateLimits: {
     get: () => ipcRenderer.invoke('rateLimits:get'),
     refresh: () => ipcRenderer.invoke('rateLimits:refresh'),
@@ -489,6 +516,8 @@ const api = {
       return () => { ipcRenderer.removeListener('rateLimits:update', handler) }
     },
   },
+
+  // Resource Usage
   resource: {
     getSnapshot: () => ipcRenderer.invoke('resource:getSnapshot'),
   },

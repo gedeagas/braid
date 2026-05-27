@@ -378,6 +378,30 @@ export const lsp = {
     api().lsp.onDiagnosticsUpdate(cb as (update: unknown) => void) as () => void,
 }
 
+export const claudeUsage = {
+  getScanState: () => api().claudeUsage.getScanState(),
+  setEnabled: (args: { enabled: boolean }) => api().claudeUsage.setEnabled(args),
+  clearData: () => api().claudeUsage.clearData(),
+  refresh: (args?: { force?: boolean }) => api().claudeUsage.refresh(args),
+  getSnapshot: (args: { scope: string; range: string; limit?: number; force?: boolean }) => api().claudeUsage.getSnapshot(args),
+  getSummary: (args: { scope: string; range: string }) => api().claudeUsage.getSummary(args),
+  getDaily: (args: { scope: string; range: string }) => api().claudeUsage.getDaily(args),
+  getBreakdown: (args: { scope: string; range: string; kind: string }) => api().claudeUsage.getBreakdown(args),
+  getRecentSessions: (args: { scope: string; range: string; limit?: number }) => api().claudeUsage.getRecentSessions(args),
+}
+
+export const codexUsage = {
+  getScanState: () => api().codexUsage.getScanState(),
+  setEnabled: (args: { enabled: boolean }) => api().codexUsage.setEnabled(args),
+  clearData: () => api().codexUsage.clearData(),
+  refresh: (args?: { force?: boolean }) => api().codexUsage.refresh(args),
+  getSnapshot: (args: { scope: string; range: string; limit?: number; force?: boolean }) => api().codexUsage.getSnapshot(args),
+  getSummary: (args: { scope: string; range: string }) => api().codexUsage.getSummary(args),
+  getDaily: (args: { scope: string; range: string }) => api().codexUsage.getDaily(args),
+  getBreakdown: (args: { scope: string; range: string; kind: string }) => api().codexUsage.getBreakdown(args),
+  getRecentSessions: (args: { scope: string; range: string; limit?: number }) => api().codexUsage.getRecentSessions(args),
+}
+
 export const rateLimits = {
   get: () =>
     api().rateLimits.get() as Promise<import('../../shared/rate-limit-types').RateLimitState>,
