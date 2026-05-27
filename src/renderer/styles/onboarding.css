@@ -376,7 +376,7 @@
 .ob-kbd {
   display: inline-flex;
   align-items: center;
-  font-family: var(--font-system);
+  font-family: var(--font-sans, system-ui);
   font-size: var(--text-xs);
   color: inherit;
   opacity: 0.5;

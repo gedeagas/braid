@@ -79,7 +79,8 @@
       "chooseSoundHint": "デスクトップ通知の後に再生されるアラート音を選択します。",
       "sound": "通知音",
       "sendTest": "テスト通知を送信",
-      "testBody": "通知が正常に動作しています！"
+      "testBody": "通知が正常に動作しています！",
+      "permissionRequired": "システム設定で通知を有効にしてから、もう一度お試しください。"
     },
     "integrations": {
       "title": "インテグレーションを接続",

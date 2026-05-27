@@ -4,6 +4,7 @@ import { Toggle } from '@/components/shared/Toggle'
 import { Button } from '@/components/ui/Button'
 import { shell } from '@/lib/ipc'
 import { IconSettings } from '@/components/shared/icons'
+import { flash } from '@/store/flash'
 
 export function NotificationStep() {
   const { t } = useTranslation('common')
@@ -15,9 +16,18 @@ export function NotificationStep() {
   }
 
   const sendTestNotification = () => {
-    new Notification('Braid', {
-      body: t('onboarding.notifications.testBody'),
-    })
+    if (!('Notification' in window) || Notification.permission !== 'granted') {
+      flash('warning', t('onboarding.notifications.permissionRequired'))
+      return
+    }
+
+    try {
+      new Notification('Braid', {
+        body: t('onboarding.notifications.testBody'),
+      })
+    } catch {
+      flash('warning', t('onboarding.notifications.permissionRequired'))
+    }
   }
 
   return (

@@ -79,7 +79,8 @@
       "chooseSoundHint": "Pick the alert Braid plays after a desktop notification is delivered.",
       "sound": "Notification Sound",
       "sendTest": "Send Test Notification",
-      "testBody": "Notifications are working!"
+      "testBody": "Notifications are working!",
+      "permissionRequired": "Enable notifications in System Settings, then try again."
     },
     "integrations": {
       "title": "Connect your integrations",

@@ -79,7 +79,8 @@
       "chooseSoundHint": "Pilih suara yang diputar setelah notifikasi desktop dikirim.",
       "sound": "Suara Notifikasi",
       "sendTest": "Kirim Notifikasi Tes",
-      "testBody": "Notifikasi berfungsi!"
+      "testBody": "Notifikasi berfungsi!",
+      "permissionRequired": "Aktifkan notifikasi di Pengaturan Sistem, lalu coba lagi."
     },
     "integrations": {
       "title": "Hubungkan integrasi Anda",

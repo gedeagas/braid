@@ -79,7 +79,8 @@
       "chooseSoundHint": "选择桌面通知发送后播放的提示音。",
       "sound": "通知声音",
       "sendTest": "发送测试通知",
-      "testBody": "通知正常工作！"
+      "testBody": "通知正常工作！",
+      "permissionRequired": "请先在系统设置中启用通知，然后重试。"
     },
     "integrations": {
       "title": "连接你的集成",
