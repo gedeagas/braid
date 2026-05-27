@@ -3,7 +3,7 @@ import * as ipc from '@/lib/ipc'
 import { useTerminalFileDrop } from '@/hooks/useTerminalFileDrop'
 import { useTerminalClipboardPaste } from '@/hooks/useTerminalClipboardPaste'
 import { useUIStore } from '@/store/ui'
-import { getOrCreate, reThemeAllBigTerminals, type BigTermEntry } from './bigTerminalCache'
+import { getOrCreate, reThemeAllBigTerminals, updateBigTerminalAgentId, type BigTermEntry } from './bigTerminalCache'
 import { activateWebgl, disposeWebgl } from '@/components/Right/terminalCache'
 import { TerminalSearch } from '@/components/shared/TerminalSearch'
 import { BranchBar } from './BranchBar'
@@ -113,7 +113,11 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, agen
         el.removeChild(entry.term.element)
       }
     }
-  }, [terminalId, worktreePath, initialCommand, agentId])
+  }, [terminalId, worktreePath])
+
+  useEffect(() => {
+    updateBigTerminalAgentId(terminalId, agentId)
+  }, [terminalId, agentId])
 
   // Re-theme ALL cached big terminals when app theme changes (not just this one).
   useEffect(() => {

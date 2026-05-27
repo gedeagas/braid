@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from 'fs'
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import type * as Os from 'os'
@@ -64,9 +64,35 @@ describe('codex hook service', () => {
     expect(configToml).toContain('trusted_hash = "sha256:')
 
     const script = readFileSync(join(tmpHome, '.braid', 'hooks', 'agent-status-codex.sh'), 'utf-8')
-    expect(script).toContain('BRAID_HOOK_VERSION=11')
-    expect(script).toContain('[ -z "$BRAID_HOOK_PORT" ] || [ -z "$BRAID_HOOK_TOKEN" ] || [ -z "$BRAID_TERMINAL_ID" ]')
+    expect(script).toContain('BRAID_HOOK_VERSION=12')
+    expect(script).toContain('if [ -z "$BRAID_HOOK_PORT" ] || [ -z "$BRAID_HOOK_TOKEN" ] || [ -z "$BRAID_TERMINAL_ID" ]; then')
     expect(script).toContain('\\"name\\"')
+  })
+
+  it('preserves symlinked config.toml when updating trust entries', async () => {
+    const codexDir = join(tmpHome, '.codex')
+    const dotfilesDir = join(tmpHome, 'dotfiles')
+    mkdirSync(codexDir, { recursive: true })
+    mkdirSync(dotfilesDir, { recursive: true })
+
+    const configPath = join(codexDir, 'config.toml')
+    const targetPath = join(dotfilesDir, 'codex-config.toml')
+    writeFileSync(targetPath, '# existing config\n', 'utf-8')
+
+    try {
+      symlinkSync(targetPath, configPath)
+    } catch {
+      return
+    }
+
+    const { ensureHooks, areHooksInstalled } = await loadCodexHookService()
+    ensureHooks()
+
+    expect(areHooksInstalled()).toBe(true)
+    expect(lstatSync(configPath).isSymbolicLink()).toBe(true)
+    expect(readFileSync(targetPath, 'utf-8')).toContain(':pre_tool_use:0:0')
+    expect(existsSync(`${configPath}.bak`)).toBe(false)
+    expect(existsSync(`${targetPath}.bak`)).toBe(false)
   })
 
   it('trusts the actual managed hook index when user hooks already exist', async () => {

@@ -7,7 +7,7 @@
 //   4. POSTs to /hook/<agentId> on the loopback server
 
 /** Current hook script version. Bump to force re-install on next app launch. */
-export const HOOK_SCRIPT_VERSION = 11
+export const HOOK_SCRIPT_VERSION = 12
 
 export interface HookScriptOptions {
   /** Agent identifier - determines the POST endpoint path */
@@ -41,7 +41,9 @@ if [ -f "$HOOK_CONFIG" ]; then
 fi
 
 # Guard: only run inside Braid big terminals
-[ -z "$BRAID_HOOK_PORT" ] || [ -z "$BRAID_HOOK_TOKEN" ] || [ -z "$BRAID_TERMINAL_ID" ] && ${stdoutGuard}
+if [ -z "$BRAID_HOOK_PORT" ] || [ -z "$BRAID_HOOK_TOKEN" ] || [ -z "$BRAID_TERMINAL_ID" ]; then
+  ${stdoutGuard}
+fi
 
 # Read stdin (agent sends hook event JSON payload)
 input=$(cat)

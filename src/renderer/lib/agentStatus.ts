@@ -23,11 +23,24 @@ export const AGENT_STATUS_STATES = ['working', 'blocked', 'waiting', 'done'] as 
 
 export type AgentStatusState = (typeof AGENT_STATUS_STATES)[number]
 
+// ── Status sources ───────────────────────────────────────────────────────────
+
+export const AGENT_STATUS_SOURCES = ['title', 'terminal_scan', 'hook'] as const
+export type AgentStatusSource = (typeof AGENT_STATUS_SOURCES)[number]
+
+const AGENT_STATUS_SOURCE_PRIORITY: Record<AgentStatusSource, number> = {
+  title: 1,
+  terminal_scan: 2,
+  hook: 3,
+}
+
 // ── Payloads ─────────────────────────────────────────────────────────────────
 
 /** Payload from an OSC 9999 sequence or title-based detection. */
 export interface AgentStatusPayload {
   state: AgentStatusState
+  /** Detection source. Higher-priority sources protect against fallback churn. */
+  source?: AgentStatusSource
   /** Agent type identifier, e.g. 'claude', 'codex', 'gemini'. */
   agentType?: AgentType
   /** Tool currently being executed, e.g. "Edit", "Bash". */
@@ -64,19 +77,23 @@ export interface AgentStatusEntry {
   stateHistory: AgentStateHistoryEntry[]
   /** Timestamp of the last status update. */
   updatedAt: number
+  /** Source of the current state. */
+  source: AgentStatusSource
 }
 
 /** Create an initial (empty) status entry. */
 export function createAgentStatusEntry(
   state: AgentStatusState,
-  agentType?: AgentType
+  agentType?: AgentType,
+  source: AgentStatusSource = 'title'
 ): AgentStatusEntry {
   return {
     state,
     agentType: agentType ?? null,
     toolName: null,
     stateHistory: [{ state, timestamp: Date.now() }],
-    updatedAt: Date.now()
+    updatedAt: Date.now(),
+    source
   }
 }
 
@@ -85,16 +102,45 @@ export function updateAgentStatusEntry(
   prev: AgentStatusEntry,
   payload: AgentStatusPayload
 ): AgentStatusEntry {
+  const payloadSource = payload.source ?? 'title'
+  const payloadPriority = AGENT_STATUS_SOURCE_PRIORITY[payloadSource]
+  const prevPriority = AGENT_STATUS_SOURCE_PRIORITY[prev.source]
+  const isLowerPriority = payloadPriority < prevPriority
+  const stateChanged = payload.state !== prev.state
+
+  if (isLowerPriority && stateChanged) return prev
+
+  const nextSource = isLowerPriority ? prev.source : payloadSource
+  const nextAgentType = isLowerPriority
+    ? prev.agentType ?? payload.agentType ?? null
+    : payload.agentType ?? prev.agentType
+  const nextToolName = isLowerPriority
+    ? prev.toolName
+    : payload.toolName !== undefined ? payload.toolName : prev.toolName
+  const metadataChanged = nextAgentType !== prev.agentType || nextToolName !== prev.toolName
+  const sourceChanged = nextSource !== prev.source
+
+  if (!stateChanged && !metadataChanged && !sourceChanged) return prev
+  if (!stateChanged) {
+    return {
+      ...prev,
+      agentType: nextAgentType,
+      toolName: nextToolName,
+      source: nextSource
+    }
+  }
+
   const now = Date.now()
   const history = [...prev.stateHistory, { state: payload.state, timestamp: now }]
   if (history.length > MAX_HISTORY) history.splice(0, history.length - MAX_HISTORY)
 
   return {
     state: payload.state,
-    agentType: payload.agentType ?? prev.agentType,
-    toolName: payload.toolName !== undefined ? payload.toolName : prev.toolName,
+    agentType: nextAgentType,
+    toolName: nextToolName,
     stateHistory: history,
-    updatedAt: now
+    updatedAt: now,
+    source: nextSource
   }
 }
 

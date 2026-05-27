@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, realpathSync, renameSync, unlinkSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, unlinkSync, writeFileSync } from 'fs'
 import { createHash, randomUUID } from 'crypto'
 import { dirname, join } from 'path'
 
@@ -180,14 +180,22 @@ function removeTrustBlock(content: string, key: string): string {
 }
 
 function writeConfigAtomically(configPath: string, contents: string): void {
-  const dir = dirname(configPath)
+  let targetPath = configPath
+  if (existsSync(configPath)) {
+    try {
+      targetPath = realpathSync.native(configPath)
+    } catch {
+      targetPath = configPath
+    }
+  }
+
+  const dir = dirname(targetPath)
   mkdirSync(dir, { recursive: true })
   const tmpPath = join(dir, `.${Date.now()}-${randomUUID()}.tmp`)
   let renamed = false
   try {
-    writeFileSync(tmpPath, contents, 'utf-8')
-    if (existsSync(configPath)) copyFileSync(configPath, `${configPath}.bak`)
-    renameSync(tmpPath, configPath)
+    writeFileSync(tmpPath, contents, { encoding: 'utf-8', mode: 0o600 })
+    renameSync(tmpPath, targetPath)
     renamed = true
   } finally {
     if (!renamed) {
