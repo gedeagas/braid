@@ -324,6 +324,8 @@
     "urlPlaceholder": "https://...",
     "add": "添加",
     "added": "已添加",
+    "disabled": "已停用",
+    "spotifyDisabledWarning": "Spotify 暂时停用，等待我们修复播放稳定性问题。",
     "configuredHeader": "已配置的应用",
     "show": "显示",
     "hide": "隐藏",

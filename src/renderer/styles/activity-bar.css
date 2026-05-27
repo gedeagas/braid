@@ -141,6 +141,20 @@
   opacity: 0.45;
 }
 
+.activity-bar-app--disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.activity-bar-app--disabled:hover {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.activity-bar-app--disabled .app-favicon-active-ring {
+  filter: grayscale(1);
+}
+
 .activity-bar-app--dragging {
   opacity: 0.4;
 }

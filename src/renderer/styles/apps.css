@@ -12,6 +12,44 @@
   gap: var(--space-6);
 }
 
+.settings-apps-presets .btn:disabled,
+.settings-apps-presets .btn:disabled:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.settings-apps-preset--disabled {
+  border-color: var(--amber-tint-30);
+}
+
+.settings-apps-preset-disabled-label {
+  color: var(--amber);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+}
+
+.settings-apps-warning {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin-top: var(--space-8);
+  padding: var(--space-8) var(--space-10);
+  border: 1px solid var(--amber-tint-30);
+  border-radius: var(--radius);
+  background: var(--amber-tint-6);
+  color: var(--text-primary);
+  font-size: var(--text-base);
+}
+
+.settings-apps-warning-label {
+  color: var(--amber);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+}
+
 .settings-apps-custom-row {
   display: flex;
   gap: var(--space-8);
@@ -46,6 +84,11 @@
   border-top: 2px solid var(--accent);
 }
 
+.settings-apps-list-row--disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+
 .settings-apps-drag-handle {
   color: var(--text-muted);
   font-size: var(--text-base);
@@ -67,6 +110,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.settings-apps-list-warning {
+  color: var(--amber);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  flex-shrink: 0;
 }
 
 /* ── Web App Overlay ─────────────────────────────────────────────────────── */
