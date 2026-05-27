@@ -1,5 +1,5 @@
 // ── Grok Hook Service ────────────────────────────────────────────────────────
-// Config: ~/.grok/hooks/orca-status.json (dedicated file in hooks dir)
+// Config: ~/.grok/hooks/braid-status.json (dedicated file in hooks dir)
 
 import { homedir } from 'os'
 import { join } from 'path'
@@ -18,6 +18,6 @@ const EVENTS = [
 
 export const { ensureHooks, removeHooks, areHooksInstalled } = createAgentHookService({
   agentId: 'grok',
-  configPath: join(homedir(), '.grok', 'hooks', 'orca-status.json'),
+  configPath: join(homedir(), '.grok', 'hooks', 'braid-status.json'),
   events: EVENTS,
 })
