@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { IconChevronRight, IconChevronDown, IconClose, IconSearch, IconSliders } from '@/components/shared/icons'
@@ -49,6 +49,11 @@ export function SearchInput({
   // don't accidentally restrict searches by typing in the include field.
   const [showFilters, setShowFilters] = useState(() => !!(includeGlobs || excludeGlobs))
   const hasActiveFilters = !!(includeGlobs || excludeGlobs)
+
+  useEffect(() => {
+    if (hasActiveFilters) setShowFilters(true)
+  }, [hasActiveFilters])
+
   const handleClearQuery = () => {
     onQueryChange('')
     queryRef.current?.focus()
@@ -80,6 +85,7 @@ export function SearchInput({
               onKeyDown={(e) => {
                 if (e.key === 'Escape' && query) {
                   e.preventDefault()
+                  e.stopPropagation()
                   handleClearQuery()
                 }
               }}
@@ -134,7 +140,7 @@ export function SearchInput({
           </div>
 
           {showReplace && (
-            <div className="search-input-wrap">
+            <div className="search-input-wrap search-input-wrap--replace">
               <input
                 type="text"
                 className="search-input"
