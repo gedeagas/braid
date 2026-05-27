@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Terminal } from '@xterm/xterm'
 import * as ipc from '@/lib/ipc'
-import { getTerminalTheme } from '@/themes/terminal'
+import { getTerminalMinimumContrastRatio, getTerminalTheme } from '@/themes/terminal'
 import { useUIStore } from '@/store/ui'
 import { createTerminal, activateWebgl } from './terminalCache'
 import '@xterm/xterm/css/xterm.css'
@@ -92,6 +92,7 @@ export function TerminalPanel({ worktreePath }: Props) {
         requestAnimationFrame(() => {
           if (termRef.current) {
             termRef.current.options.theme = getTerminalTheme()
+            termRef.current.options.minimumContrastRatio = getTerminalMinimumContrastRatio()
           }
         })
       }

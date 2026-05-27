@@ -1,5 +1,14 @@
 import type { ITheme } from '@xterm/xterm'
 
+export const TERMINAL_LIGHT_MINIMUM_CONTRAST_RATIO = 4.5
+export const TERMINAL_DARK_MINIMUM_CONTRAST_RATIO = 1
+
+export function getTerminalMinimumContrastRatio(): number {
+  return document.documentElement.getAttribute('data-theme') === 'light'
+    ? TERMINAL_LIGHT_MINIMUM_CONTRAST_RATIO
+    : TERMINAL_DARK_MINIMUM_CONTRAST_RATIO
+}
+
 /** Read a CSS variable from :root, with fallback */
 function cssVar(name: string, fallback: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
