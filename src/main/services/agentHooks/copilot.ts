@@ -1,5 +1,5 @@
 // ── Copilot Hook Service ─────────────────────────────────────────────────────
-// Config: ~/.copilot/hooks/orca.json (dedicated file, not the main settings)
+// Config: ~/.copilot/hooks/braid.json (dedicated file, not the main settings)
 // Note: Copilot uses PascalCase event names in its hooks config
 
 import { homedir } from 'os'
@@ -24,6 +24,6 @@ const EVENTS = [
 
 export const { ensureHooks, removeHooks, areHooksInstalled } = createAgentHookService({
   agentId: 'copilot',
-  configPath: join(homedir(), '.copilot', 'hooks', 'orca.json'),
+  configPath: join(homedir(), '.copilot', 'hooks', 'braid.json'),
   events: EVENTS,
 })

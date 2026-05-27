@@ -1,46 +1,36 @@
-// ---------------------------------------------------------------------------
-// Global rate limit store — account-wide, shared across all sessions
-// ---------------------------------------------------------------------------
-//
-// Rate limits are per-account, not per-session. Any session that receives a
-// rate_limit_event updates this global store so every RateLimitBars instance
-// reacts immediately — even if the event came from a different session.
-//
-// Hydrates from localStorage on init. Persists on every update with TTL-based
-// expiry matching the rate limit window (5h, 7d, etc.).
-//
-
 import { create } from 'zustand'
-import { loadRateLimits, saveRateLimitEntry } from '@/lib/rateLimitCache'
-import type { RateLimitInfo } from '@/types'
+import type { RateLimitState } from '../../shared/rate-limit-types'
+import * as ipc from '@/lib/ipc'
 
-interface RateLimitsState {
-  /** Keyed by rateLimitType (five_hour, seven_day, etc.) */
-  limits: Record<string, RateLimitInfo>
-
-  /** Called from eventHandler when any session receives a rate_limit_event */
-  update: (entry: RateLimitInfo) => void
+interface RateLimitsStore {
+  state: RateLimitState
+  isRefreshing: boolean
+  refresh: () => Promise<void>
 }
 
-export const useRateLimitsStore = create<RateLimitsState>((set) => ({
-  limits: loadRateLimits() ?? {},
+export const useRateLimitsStore = create<RateLimitsStore>((set) => ({
+  state: { claude: null, codex: null },
+  isRefreshing: false,
 
-  update: (entry) => {
-    set((s) => ({
-      limits: { ...s.limits, [entry.rateLimitType]: entry }
-    }))
-    saveRateLimitEntry(entry)
+  refresh: async () => {
+    set({ isRefreshing: true })
+    try {
+      const fresh = await ipc.rateLimits.refresh()
+      set({ state: fresh })
+    } catch (err) {
+      console.error('Failed to refresh rate limits:', err)
+    } finally {
+      set({ isRefreshing: false })
+    }
   },
 }))
 
-// Listen for cross-window localStorage changes (different Electron windows / worktrees)
 if (typeof window !== 'undefined') {
-  window.addEventListener('storage', (e) => {
-    if (e.key?.endsWith(':rateLimits') && e.newValue) {
-      const fresh = loadRateLimits()
-      if (fresh) {
-        useRateLimitsStore.setState({ limits: fresh })
-      }
-    }
+  ipc.rateLimits.get()
+    .then((state) => useRateLimitsStore.setState({ state }))
+    .catch((err) => console.error('Failed to fetch initial rate limits:', err))
+
+  ipc.rateLimits.onUpdate((state) => {
+    useRateLimitsStore.setState({ state })
   })
 }

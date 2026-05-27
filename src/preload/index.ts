@@ -480,6 +480,18 @@ const api = {
     }>>,
     removeDevice: (deviceId: string) => ipcRenderer.invoke('mobile:removeDevice', deviceId) as Promise<void>,
   },
+  rateLimits: {
+    get: () => ipcRenderer.invoke('rateLimits:get'),
+    refresh: () => ipcRenderer.invoke('rateLimits:refresh'),
+    onUpdate: (cb: (state: unknown) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, state: unknown) => cb(state)
+      ipcRenderer.on('rateLimits:update', handler)
+      return () => { ipcRenderer.removeListener('rateLimits:update', handler) }
+    },
+  },
+  resource: {
+    getSnapshot: () => ipcRenderer.invoke('resource:getSnapshot'),
+  },
 }
 
 export type ElectronAPI = typeof api

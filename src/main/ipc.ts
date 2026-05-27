@@ -1,5 +1,9 @@
 import { logger } from './lib/logger'
 import { ipcMain, dialog, shell, app, nativeImage, clipboard, BrowserWindow } from 'electron'
+import { RateLimitService } from './services/rateLimits/service'
+import { collectResourceSnapshot } from './services/rateLimits/resourceCollector'
+
+export const rateLimitService = new RateLimitService()
 import { existsSync } from 'fs'
 import { writeFile } from 'fs/promises'
 import { randomUUID } from 'crypto'
@@ -641,6 +645,13 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('updater:download', () => downloadUpdate())
   ipcMain.handle('updater:install', () => installUpdate())
   ipcMain.handle('updater:check', () => checkForUpdates())
+
+  // ── Rate Limits ───────────────────────────────────────────────────────────
+  ipcMain.handle('rateLimits:get', () => rateLimitService.getState())
+  ipcMain.handle('rateLimits:refresh', () => rateLimitService.refresh())
+
+  // ── Resource Usage ───────────────────────────────────────────────────────
+  ipcMain.handle('resource:getSnapshot', () => collectResourceSnapshot())
 
   // ── Menu ──────────────────────────────────────────────────────────────────
   ipcMain.on('menu:closeWindow', () => {
