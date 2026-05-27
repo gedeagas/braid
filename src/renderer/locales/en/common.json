@@ -30,11 +30,70 @@
   "toastErrorCount": "{{count}} sessions need attention",
   "toastWaitingInputCount": "{{count}} sessions waiting for you",
   "onboarding": {
+    "of": "of",
+    "back": "Back",
+    "continue": "Continue",
+    "skipSetup": "Skip setup",
+    "skipConfirm": {
+      "title": "Skip onboarding?",
+      "desc": "It won't take long! You can always revisit from Settings.",
+      "skip": "Skip",
+      "keepGoing": "No, keep going"
+    },
+    "stepLabel": {
+      "welcome": "Welcome",
+      "agent": "Agent",
+      "theme": "Theme",
+      "notifications": "Notifications",
+      "integrations": "Integrations",
+      "project": "Project",
+      "explore": "Explore"
+    },
+    "agent": {
+      "title": "Pick your default agent",
+      "subtitle": "Braid works with every CLI agent. Choose the one you'll reach for most. Switch any time.",
+      "detected": "DETECTED ON YOUR SYSTEM  ·  {{count}}",
+      "showMore": "Show {{count}} more agents→"
+    },
     "welcome": {
+      "eyebrow": "WELCOME TO BRAID",
       "title": "Welcome to Braid",
-      "subtitle": "Your AI-powered Git workspace",
-      "description": "Braid combines Claude AI with Git worktrees so you can run multiple coding agents in parallel — each on its own branch.",
+      "story": "Braid weaves multiple AI coding agents together with Git worktrees - so you can run parallel tasks on separate branches, review diffs, manage PRs, and ship faster, all from one window.",
+      "chooseLang": "Choose your language",
+      "subtitle": "Run multiple coding agents in parallel, each on its own branch.",
+      "description": "Braid combines Claude AI with Git worktrees so you can manage multiple tasks at once - without context switching.",
       "getStarted": "Get Started"
+    },
+    "theme": {
+      "title": "Make it feel like home",
+      "subtitle": "Pick the look you want to stare at for hours.",
+      "moreHint": "More themes available in Settings > Appearance."
+    },
+    "notifications": {
+      "title": "Set up notifications",
+      "subtitle": "Braid will notify you when agents are done or need help.",
+      "allowTitle": "Allow Braid in macOS",
+      "allowDesc": "Open System Settings and make sure Braid is allowed to send notifications.",
+      "openMacSettings": "Open Mac Settings",
+      "chooseSound": "Choose a sound",
+      "chooseSoundHint": "Pick the alert Braid plays after a desktop notification is delivered.",
+      "sound": "Notification Sound",
+      "sendTest": "Send Test Notification",
+      "testBody": "Notifications are working!",
+      "permissionRequired": "Enable notifications in System Settings, then try again."
+    },
+    "integrations": {
+      "title": "Connect your integrations",
+      "subtitle": "Connect GitHub or Jira to get the most out of Braid.",
+      "benefit1": "See issue state, PR review status, and CI checks on every worktree",
+      "benefit2": "Read, comment on, and merge pull requests without leaving Braid",
+      "benefit3": "Track Jira issues, sprints, and assignees alongside your code",
+      "gitDesc": "Version control for your code",
+      "ghDesc": "Pull requests, issues, and check status.",
+      "jiraDesc": "Issues, sprints, and assignees.",
+      "connected": "Connected",
+      "connect": "Connect",
+      "recheck": "Re-check"
     },
     "doctor": {
       "title": "Environment Check",
@@ -44,20 +103,39 @@
       "continueAnyway": "Continue anyway",
       "optional": "optional",
       "install": "Install",
-      "installing": "Installing…",
+      "installing": "Installing...",
       "openDocs": "Open docs",
       "logIn": "Log in",
-      "progressGit": "Installing Xcode tools…",
-      "progressClaude": "Installing Claude Code…",
-      "progressGh": "Installing GitHub CLI…",
-      "progressGhAuth": "Waiting for browser authentication…",
-      "progressAcli": "Installing Atlassian CLI…"
+      "progressGit": "Installing Xcode tools...",
+      "progressGh": "Installing GitHub CLI...",
+      "progressGhAuth": "Waiting for browser authentication...",
+      "progressAcli": "Installing Atlassian CLI..."
     },
     "project": {
-      "title": "Add Your First Project",
-      "subtitle": "Open a local Git repo or clone one from GitHub",
+      "title": "Point Braid at some code",
+      "subtitle": "Open a folder or clone a repo to get started.",
+      "openFolder": "Open a folder",
+      "openFolderDesc": "Choose any local directory, git repo or not.",
+      "browseBtn": "Browse...",
+      "workspace": "Workspace",
+      "cloneRepo": "Clone a repo",
+      "cloneRepoDesc": "Paste an HTTPS or SSH URL.",
+      "clone": "Clone",
+      "notARepo": "That folder is not a Git repository.",
+      "addError": "Could not add project.",
+      "cloneError": "Failed to clone repository.",
       "openProject": "Open Project",
       "skip": "Skip for now"
+    },
+    "explore": {
+      "title": "Explore Braid",
+      "subtitle": "Take a quick tour of what Braid can do.",
+      "feature1": "Run multiple AI agents on separate branches",
+      "feature2": "Review diffs, PRs, and CI checks in one place",
+      "feature3": "Built-in terminal for every worktree",
+      "feature4": "Mission Control kanban for cross-branch oversight",
+      "takeTour": "Take the tour",
+      "finish": "Get started"
     }
   },
   "ghAuth": {

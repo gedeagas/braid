@@ -30,11 +30,70 @@
   "toastErrorCount": "{{count}} sesi membutuhkan perhatian",
   "toastWaitingInputCount": "{{count}} sesi menunggu Anda",
   "onboarding": {
+    "of": "dari",
+    "back": "Kembali",
+    "continue": "Lanjutkan",
+    "skipSetup": "Lewati pengaturan",
+    "skipConfirm": {
+      "title": "Lewati onboarding?",
+      "desc": "Tidak akan lama! Anda bisa kembali dari Pengaturan kapan saja.",
+      "skip": "Lewati",
+      "keepGoing": "Tidak, lanjutkan"
+    },
+    "stepLabel": {
+      "welcome": "Selamat Datang",
+      "agent": "Agen",
+      "theme": "Tema",
+      "notifications": "Notifikasi",
+      "integrations": "Integrasi",
+      "project": "Proyek",
+      "explore": "Jelajahi"
+    },
+    "agent": {
+      "title": "Pilih agen default Anda",
+      "subtitle": "Braid bekerja dengan semua agen CLI. Pilih yang paling sering Anda gunakan. Bisa diganti kapan saja.",
+      "detected": "TERDETEKSI DI SISTEM ANDA  ·  {{count}}",
+      "showMore": "Tampilkan {{count}} agen lainnya→"
+    },
     "welcome": {
+      "eyebrow": "SELAMAT DATANG DI BRAID",
       "title": "Selamat Datang di Braid",
-      "subtitle": "Ruang kerja Git bertenaga AI",
-      "description": "Braid menggabungkan Claude AI dengan Git worktree sehingga Anda bisa menjalankan beberapa agen coding secara paralel — masing-masing di cabangnya sendiri.",
+      "story": "Braid menjalin beberapa agen AI coding dengan Git worktree - sehingga Anda bisa menjalankan tugas paralel di cabang terpisah, meninjau diff, mengelola PR, dan deploy lebih cepat, semua dari satu jendela.",
+      "chooseLang": "Pilih bahasa Anda",
+      "subtitle": "Jalankan beberapa agen coding secara paralel, masing-masing di cabangnya sendiri.",
+      "description": "Braid menggabungkan Claude AI dengan Git worktree sehingga Anda bisa mengelola beberapa tugas sekaligus - tanpa beralih konteks.",
       "getStarted": "Mulai"
+    },
+    "theme": {
+      "title": "Buat terasa seperti rumah",
+      "subtitle": "Pilih tampilan yang akan Anda lihat berjam-jam.",
+      "moreHint": "Tema lainnya tersedia di Pengaturan > Tampilan."
+    },
+    "notifications": {
+      "title": "Atur notifikasi",
+      "subtitle": "Braid akan memberi tahu Anda saat agen selesai atau butuh bantuan.",
+      "allowTitle": "Izinkan Braid di macOS",
+      "allowDesc": "Buka Pengaturan Sistem dan pastikan Braid diizinkan mengirim notifikasi.",
+      "openMacSettings": "Buka Pengaturan Mac",
+      "chooseSound": "Pilih suara",
+      "chooseSoundHint": "Pilih suara yang diputar setelah notifikasi desktop dikirim.",
+      "sound": "Suara Notifikasi",
+      "sendTest": "Kirim Notifikasi Tes",
+      "testBody": "Notifikasi berfungsi!",
+      "permissionRequired": "Aktifkan notifikasi di Pengaturan Sistem, lalu coba lagi."
+    },
+    "integrations": {
+      "title": "Hubungkan integrasi Anda",
+      "subtitle": "Hubungkan GitHub atau Jira untuk memaksimalkan Braid.",
+      "benefit1": "Lihat status issue, review PR, dan CI check di setiap worktree",
+      "benefit2": "Baca, komentari, dan merge pull request tanpa meninggalkan Braid",
+      "benefit3": "Lacak issue, sprint, dan assignee Jira bersama kode Anda",
+      "gitDesc": "Kontrol versi untuk kode Anda",
+      "ghDesc": "Pull request, issue, dan status check.",
+      "jiraDesc": "Issue, sprint, dan assignee.",
+      "connected": "Terhubung",
+      "connect": "Hubungkan",
+      "recheck": "Periksa ulang"
     },
     "doctor": {
       "title": "Pemeriksaan Lingkungan",
@@ -44,20 +103,39 @@
       "continueAnyway": "Lanjutkan saja",
       "optional": "opsional",
       "install": "Instal",
-      "installing": "Menginstal…",
+      "installing": "Menginstal...",
       "openDocs": "Buka docs",
       "logIn": "Masuk",
-      "progressGit": "Menginstal Xcode tools…",
-      "progressClaude": "Menginstal Claude Code…",
-      "progressGh": "Menginstal GitHub CLI…",
-      "progressGhAuth": "Menunggu autentikasi browser…",
-      "progressAcli": "Menginstal Atlassian CLI…"
+      "progressGit": "Menginstal Xcode tools...",
+      "progressGh": "Menginstal GitHub CLI...",
+      "progressGhAuth": "Menunggu autentikasi browser...",
+      "progressAcli": "Menginstal Atlassian CLI..."
     },
     "project": {
-      "title": "Tambahkan Proyek Pertama",
-      "subtitle": "Buka repo Git lokal atau klon dari GitHub",
+      "title": "Arahkan Braid ke kode",
+      "subtitle": "Buka folder atau klon repo untuk memulai.",
+      "openFolder": "Buka folder",
+      "openFolderDesc": "Pilih direktori lokal mana saja, repo git atau bukan.",
+      "browseBtn": "Telusuri...",
+      "workspace": "Ruang kerja",
+      "cloneRepo": "Klon repo",
+      "cloneRepoDesc": "Tempel URL HTTPS atau SSH.",
+      "clone": "Klon",
+      "notARepo": "Folder tersebut bukan repositori Git.",
+      "addError": "Tidak dapat menambahkan proyek.",
+      "cloneError": "Gagal mengklon repositori.",
       "openProject": "Buka Proyek",
       "skip": "Lewati untuk sekarang"
+    },
+    "explore": {
+      "title": "Jelajahi Braid",
+      "subtitle": "Ikuti tur singkat tentang apa yang bisa dilakukan Braid.",
+      "feature1": "Jalankan beberapa agen AI di cabang terpisah",
+      "feature2": "Tinjau diff, PR, dan CI check di satu tempat",
+      "feature3": "Terminal bawaan untuk setiap worktree",
+      "feature4": "Mission Control kanban untuk pengawasan lintas cabang",
+      "takeTour": "Ikuti tur",
+      "finish": "Mulai"
     }
   },
   "ghAuth": {

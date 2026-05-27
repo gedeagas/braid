@@ -74,11 +74,29 @@ const DroidIcon = ({ size }: { size: number }) => (
   </svg>
 )
 
+/** Gemini - Google Gemini sparkle mark */
+const GeminiIcon = ({ size }: { size: number }) => (
+  <svg width={size} height={size} viewBox="0 0 32 32" fill="currentColor">
+    <path
+      d="M16 3c1.6 6.2 4.8 9.4 11 11-6.2 1.6-9.4 4.8-11 11-1.6-6.2-4.8-9.4-11-11 6.2-1.6 9.4-4.8 11-11Z"
+    />
+  </svg>
+)
+
+/** Antigravity - stylized "A" mark */
+const AntigravityIcon = ({ size }: { size: number }) => (
+  <svg width={size} height={size} viewBox="0 0 32 32" fill="currentColor">
+    <path d="M16 3L4 28h5l2.5-6h9l2.5 6h5L16 3zm0 9l3 7h-6l3-7z" />
+  </svg>
+)
+
 // ─── Agent icon map for inline SVG heroes ────────────────────────────────────
 
 const BRAND_ICON_MAP: Record<string, (props: { size: number }) => React.JSX.Element> = {
   claude: ({ size }) => <IconClaude size={size} />,
   codex: ({ size }) => <IconCodex size={size} />,
+  gemini: GeminiIcon,
+  antigravity: AntigravityIcon,
   copilot: CopilotIcon,
   pi: PiIcon,
   omp: OmpIcon,
@@ -128,7 +146,15 @@ function AgentLetterIcon({ letter, size }: { letter: string; size: number }) {
 // ─── Main dispatch component ─────────────────────────────────────────────────
 
 /** Agent icon component - dispatches to brand SVG, Google favicon, or letter fallback. */
-export function AgentIcon({ agentId, size = 14 }: { agentId?: string; size?: number }) {
+export function AgentIcon({
+  agentId,
+  size = 14,
+  allowRemote = true,
+}: {
+  agentId?: string
+  size?: number
+  allowRemote?: boolean
+}) {
   if (!agentId) {
     return <AgentLetterIcon letter="?" size={size} />
   }
@@ -140,7 +166,7 @@ export function AgentIcon({ agentId, size = 14 }: { agentId?: string; size?: num
   // Tier 2: Google favicon via catalog domain
   const entry = getAgentEntry(agentId)
   const letter = (agentId.charAt(0) || '?').toUpperCase()
-  if (entry?.faviconDomain) {
+  if (allowRemote && entry?.faviconDomain) {
     return <AgentFaviconIcon domain={entry.faviconDomain} size={size} fallbackLetter={letter} />
   }
 

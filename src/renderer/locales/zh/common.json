@@ -30,11 +30,70 @@
   "toastErrorCount": "{{count}} 个会话需要关注",
   "toastWaitingInputCount": "{{count}} 个会话等待你的回复",
   "onboarding": {
+    "of": "/",
+    "back": "返回",
+    "continue": "继续",
+    "skipSetup": "跳过设置",
+    "skipConfirm": {
+      "title": "跳过引导?",
+      "desc": "不会花太长时间! 你可以随时在设置中重新开始。",
+      "skip": "跳过",
+      "keepGoing": "继续设置"
+    },
+    "stepLabel": {
+      "welcome": "欢迎",
+      "agent": "Agent",
+      "theme": "主题",
+      "notifications": "通知",
+      "integrations": "集成",
+      "project": "项目",
+      "explore": "探索"
+    },
+    "agent": {
+      "title": "选择默认 Agent",
+      "subtitle": "Braid 支持所有 CLI Agent，选择你最常用的，随时可以切换。",
+      "detected": "在你的系统中检测到  ·  {{count}}",
+      "showMore": "显示其他 {{count}} 个 Agent→"
+    },
     "welcome": {
+      "eyebrow": "欢迎使用 BRAID",
       "title": "欢迎使用 Braid",
-      "subtitle": "AI 驱动的 Git 工作区",
-      "description": "Braid 将 Claude AI 与 Git worktree 结合，让你可以并行运行多个编程 Agent，每个 Agent 都在独立的分支上工作。",
+      "story": "Braid 将多个 AI 编程 Agent 与 Git worktree 编织在一起 - 你可以在不同分支上并行执行任务、审查差异、管理 PR，并在同一个窗口中更快地交付代码。",
+      "chooseLang": "选择你的语言",
+      "subtitle": "并行运行多个编程 Agent，每个都在独立的分支上。",
+      "description": "Braid 将 Claude AI 与 Git worktree 结合，让你无需切换上下文就能同时管理多个任务。",
       "getStarted": "开始使用"
+    },
+    "theme": {
+      "title": "个性化定制",
+      "subtitle": "选择你将长时间注视的外观主题。",
+      "moreHint": "更多主题可在 设置 > 外观 中选择。"
+    },
+    "notifications": {
+      "title": "设置通知",
+      "subtitle": "当 Agent 完成任务或需要帮助时，Braid 会通知你。",
+      "allowTitle": "在 macOS 中允许 Braid",
+      "allowDesc": "打开系统设置，确保 Braid 被允许发送通知。",
+      "openMacSettings": "打开 Mac 设置",
+      "chooseSound": "选择提示音",
+      "chooseSoundHint": "选择桌面通知发送后播放的提示音。",
+      "sound": "通知声音",
+      "sendTest": "发送测试通知",
+      "testBody": "通知正常工作！",
+      "permissionRequired": "请先在系统设置中启用通知，然后重试。"
+    },
+    "integrations": {
+      "title": "连接你的集成",
+      "subtitle": "连接 GitHub 或 Jira，充分利用 Braid。",
+      "benefit1": "在每个 worktree 上查看 Issue 状态、PR 审核状况和 CI 检查",
+      "benefit2": "无需离开 Braid 即可阅读、评论和合并 Pull Request",
+      "benefit3": "在代码旁追踪 Jira Issue、Sprint 和负责人",
+      "gitDesc": "代码版本控制",
+      "ghDesc": "Pull request、Issue 和检查状态。",
+      "jiraDesc": "Issue、Sprint 和负责人。",
+      "connected": "已连接",
+      "connect": "连接",
+      "recheck": "重新检查"
     },
     "doctor": {
       "title": "环境检查",
@@ -44,20 +103,39 @@
       "continueAnyway": "仍然继续",
       "optional": "可选",
       "install": "安装",
-      "installing": "安装中…",
+      "installing": "安装中...",
       "openDocs": "查看文档",
       "logIn": "登录",
-      "progressGit": "正在安装 Xcode 工具…",
-      "progressClaude": "正在安装 Claude Code…",
-      "progressGh": "正在安装 GitHub CLI…",
-      "progressGhAuth": "等待浏览器认证…",
-      "progressAcli": "正在安装 Atlassian CLI…"
+      "progressGit": "正在安装 Xcode 工具...",
+      "progressGh": "正在安装 GitHub CLI...",
+      "progressGhAuth": "等待浏览器认证...",
+      "progressAcli": "正在安装 Atlassian CLI..."
     },
     "project": {
-      "title": "添加你的第一个项目",
-      "subtitle": "打开本地 Git 仓库或从 GitHub 克隆",
+      "title": "将 Braid 指向代码",
+      "subtitle": "打开文件夹或克隆仓库以开始。",
+      "openFolder": "打开文件夹",
+      "openFolderDesc": "选择任意本地目录，Git 仓库与否均可。",
+      "browseBtn": "浏览...",
+      "workspace": "工作区",
+      "cloneRepo": "克隆仓库",
+      "cloneRepoDesc": "粘贴 HTTPS 或 SSH URL。",
+      "clone": "克隆",
+      "notARepo": "该文件夹不是 Git 仓库。",
+      "addError": "无法添加项目。",
+      "cloneError": "克隆仓库失败。",
       "openProject": "打开项目",
       "skip": "稍后再说"
+    },
+    "explore": {
+      "title": "探索 Braid",
+      "subtitle": "快速了解 Braid 能做什么。",
+      "feature1": "在不同分支上运行多个 AI Agent",
+      "feature2": "在一个地方查看差异、PR 和 CI 检查",
+      "feature3": "每个 worktree 都有内置终端",
+      "feature4": "Mission Control 看板实现跨分支监管",
+      "takeTour": "开始导览",
+      "finish": "开始使用"
     }
   },
   "ghAuth": {
