@@ -7,6 +7,7 @@ import { useProjectsStore } from '@/store/projects'
 import { useTranslation } from 'react-i18next'
 import { OverviewBanner } from '@/components/MissionControl/OverviewBanner'
 import { ContextMenu } from '@/components/shared/ContextMenu'
+import { SidebarFilterMenu } from './SidebarFilterMenu'
 
 export const SidebarView = memo(function SidebarView() {
   const showAddProject = useUIStore((s) => s.showAddProject)
@@ -28,6 +29,7 @@ export const SidebarView = memo(function SidebarView() {
       <div className="sidebar-header">
         <span className="sidebar-title">{t('projects')}</span>
         <div className="sidebar-header-actions">
+          <SidebarFilterMenu />
           <button
             className="sidebar-add-btn"
             onClick={() => setShowAddProject(true)}

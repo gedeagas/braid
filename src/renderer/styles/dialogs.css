@@ -251,6 +251,240 @@
   gap: var(--space-8);
 }
 
+.dialog-label-hint {
+  margin-left: var(--space-4);
+  color: var(--text-tertiary);
+  font-weight: var(--weight-normal);
+}
+
+.dialog--add-worktree {
+  width: min(660px, calc(100vw - 32px));
+  min-width: 0;
+  max-width: none;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: var(--shadow-elevation-xl);
+}
+
+.dialog--add-worktree h2 {
+  margin: 0;
+  padding: var(--space-20) var(--space-24) var(--space-16);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  font-size: var(--text-4xl);
+  line-height: var(--leading-tight);
+}
+
+.dialog--add-worktree .dialog-actions {
+  margin-top: 0;
+  padding: var(--space-14) var(--space-20);
+  border-top: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.dialog--add-worktree .dialog-actions .btn {
+  min-height: 34px;
+}
+
+.dialog--add-worktree .dialog-actions .btn-primary svg {
+  flex-shrink: 0;
+}
+
+.add-worktree-form {
+  padding: var(--space-20);
+}
+
+.add-worktree-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-14);
+  margin-bottom: var(--space-16);
+}
+
+.add-worktree-grid--single {
+  grid-template-columns: 1fr;
+}
+
+.add-worktree-grid .dialog-field,
+.add-worktree-branch-field {
+  margin-bottom: 0;
+}
+
+.dialog--add-worktree .dialog-field label {
+  display: block;
+  margin-bottom: var(--space-8);
+  color: var(--text-secondary);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0;
+}
+
+.dialog--add-worktree .dialog-field input {
+  min-height: 38px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-8) var(--space-12);
+  color: var(--text-primary);
+  font-size: var(--text-md);
+  line-height: var(--leading-tight);
+  transition:
+    border-color var(--duration-fast),
+    box-shadow var(--duration-fast),
+    background var(--duration-fast);
+}
+
+.dialog--add-worktree .dialog-field input:focus {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-focus);
+}
+
+.dialog--add-worktree .dialog-field input:disabled {
+  color: var(--text-muted);
+  opacity: 0.72;
+}
+
+.add-worktree-branch-row {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-8);
+}
+
+.add-worktree-branch-row input {
+  min-width: 0;
+  flex: 1;
+}
+
+.add-worktree-reroll-button {
+  width: 38px;
+  min-width: 38px;
+  min-height: 38px;
+  justify-content: center;
+  padding: 0;
+  border-radius: var(--radius-lg);
+}
+
+.add-worktree-reroll-button svg {
+  flex-shrink: 0;
+}
+
+.add-worktree-field-error {
+  margin-top: var(--space-8);
+  padding: var(--space-8) var(--space-10);
+  border: 1px solid var(--red-tint-35, var(--red));
+  border-radius: var(--radius-lg);
+  background: var(--red-tint-10, rgba(229, 72, 77, 0.1));
+  color: var(--red);
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
+}
+
+.dialog--add-worktree .branch-combobox__trigger {
+  min-height: 38px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-8) var(--space-12);
+  transition:
+    border-color var(--duration-fast),
+    box-shadow var(--duration-fast),
+    background var(--duration-fast);
+}
+
+.dialog--add-worktree .branch-combobox__trigger:focus {
+  box-shadow: var(--shadow-focus);
+}
+
+.branch-combobox__leading-icon,
+.branch-combobox__chevron,
+.branch-combobox__check {
+  flex-shrink: 0;
+}
+
+.branch-combobox__leading-icon {
+  color: var(--text-muted);
+}
+
+.branch-combobox__chevron {
+  color: var(--text-muted);
+}
+
+.branch-combobox__item-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.branch-combobox__check {
+  margin-left: auto;
+  color: var(--accent);
+}
+
+.dialog--add-worktree .copy-files-section {
+  margin-top: var(--space-16);
+  padding: var(--space-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-primary);
+}
+
+.dialog--add-worktree .copy-files-header {
+  margin-bottom: var(--space-10);
+}
+
+.dialog--add-worktree .copy-files-settings-link {
+  margin-top: var(--space-12);
+  padding: var(--space-6) var(--space-8);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+}
+
+.dialog--add-worktree .copy-files-settings-link:hover {
+  border-color: var(--border);
+  background: var(--bg-hover);
+}
+
+.dialog--add-worktree .jira-lookup-status,
+.dialog--add-worktree .jira-lookup-error {
+  margin-top: var(--space-8);
+}
+
+.dialog--add-worktree .jira-lookup-error {
+  padding: var(--space-8) var(--space-10);
+  border: 1px solid var(--red-tint-35, var(--red));
+  border-radius: var(--radius-lg);
+  background: var(--red-tint-10, rgba(229, 72, 77, 0.1));
+}
+
+.dialog--add-worktree .jira-lookup-card {
+  margin-top: var(--space-8);
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg);
+}
+
+@media (max-width: 640px) {
+  .dialog--add-worktree {
+    width: calc(100vw - 24px);
+  }
+
+  .add-worktree-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 440px) {
+  .dialog--add-worktree h2 {
+    padding: var(--space-16) var(--space-16) var(--space-12);
+    font-size: var(--text-3xl);
+  }
+
+  .add-worktree-form {
+    padding: var(--space-14);
+  }
+
+  .dialog--add-worktree .dialog-actions {
+    padding: var(--space-12) var(--space-14);
+  }
+}
+
 /* ── Copy Files (Add Worktree dialog) ─────────────────────────────── */
 
 .copy-files-section {

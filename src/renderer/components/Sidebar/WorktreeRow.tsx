@@ -18,6 +18,8 @@ interface Props {
   draggingId: string | null
   isNew?: boolean
   isFocused?: boolean
+  draggable?: boolean
+  projectName?: string
   onRegisterRef?: (el: HTMLElement | null) => void
 }
 
@@ -39,7 +41,7 @@ function rowReducer(state: RowState, action: RowAction): RowState {
   }
 }
 
-export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused, onRegisterRef }: Props) {
+export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused, draggable = true, projectName, onRegisterRef }: Props) {
   const selectedWorktreeId = useUIStore((s) => s.selectedWorktreeId)
   const selectWorktree = useUIStore((s) => s.selectWorktree)
   const setMissionControlActive = useUIStore((s) => s.setMissionControlActive)
@@ -153,7 +155,7 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
         role="option"
         aria-selected={isSelected}
         tabIndex={isFocused ? 0 : -1}
-        draggable
+        draggable={draggable}
         data-worktree-id={worktree.id}
         onClick={() => selectWorktree(worktree.projectId, worktree.id)}
         onDoubleClick={() => setMissionControlActive(false)}
@@ -195,7 +197,7 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
           </span>
           <span className="worktree-branch-secondary">
             <IconGitBranch size={9} />
-            <span>{worktree.branch}</span>
+            <span>{projectName ? `${projectName} / ${worktree.branch}` : worktree.branch}</span>
           </span>
         </div>
         <div className="worktree-row-actions">

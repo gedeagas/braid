@@ -9,7 +9,7 @@ import * as ipc from '@/lib/ipc'
 import type { Project, Worktree } from '@/types'
 import { useTranslation } from 'react-i18next'
 import { MIME_PROJECT, MIME_WORKTREE } from '@/lib/appBrand'
-import { buildOrderedWorktrees } from './ProjectList'
+import { buildOrderedWorktrees } from './ProjectListFiltering'
 
 // ─── ProjectAvatar ────────────────────────────────────────────────────────────
 
@@ -72,6 +72,10 @@ function groupRowReducer(state: GroupRowState, action: GroupRowAction): GroupRow
 
 export interface ProjectGroupRowProps {
   project: Project
+  worktrees?: Worktree[]
+  forceExpanded?: boolean
+  canReorder?: boolean
+  showFilteredCount?: boolean
   onAddWorktree: (projectId: string) => void
   projDraggingId: string | null
   projDragOverId: string | null
@@ -87,6 +91,10 @@ export interface ProjectGroupRowProps {
 
 export function ProjectGroupRow({
   project,
+  worktrees,
+  forceExpanded = false,
+  canReorder = true,
+  showFilteredCount = false,
   onAddWorktree,
   projDraggingId,
   projDragOverId,
@@ -116,11 +124,12 @@ export function ProjectGroupRow({
   const { t } = useTranslation('sidebar')
 
   const orderedWorktrees = useMemo(
-    () => buildOrderedWorktrees(project, worktreeOrders, pinnedWorktrees),
-    [project, worktreeOrders, pinnedWorktrees]
+    () => worktrees ?? buildOrderedWorktrees(project, worktreeOrders, pinnedWorktrees),
+    [project, worktrees, worktreeOrders, pinnedWorktrees]
   )
 
   const worktreeIds = useMemo(() => orderedWorktrees.map((w) => w.id), [orderedWorktrees])
+  const showsWorktrees = forceExpanded || isExpanded
 
   // Stable per-worktree ref callbacks — avoids creating a new closure per render
   // (which would trigger WorktreeRow's useEffect([onRegisterRef]) on every render)
@@ -153,9 +162,13 @@ export function ProjectGroupRow({
       ]
         .filter(Boolean)
         .join(' ')}
-      draggable
+      draggable={canReorder}
       data-project-id={project.id}
       onDragStart={(e) => {
+        if (!canReorder) {
+          e.preventDefault()
+          return
+        }
         const target = e.target as HTMLElement
         if (target.closest('[data-worktree-id]')) return
         e.dataTransfer.setData(MIME_PROJECT, project.id)
@@ -163,6 +176,7 @@ export function ProjectGroupRow({
         onProjDragStart(e, project.id)
       }}
       onDragOver={(e) => {
+        if (!canReorder) return
         if (e.dataTransfer.types.includes(MIME_WORKTREE)) return
         if (!e.dataTransfer.types.includes(MIME_PROJECT)) return
         e.preventDefault()
@@ -170,10 +184,12 @@ export function ProjectGroupRow({
         onProjDragOver(e, project.id)
       }}
       onDragLeave={(e) => {
+        if (!canReorder) return
         if (e.dataTransfer.types.includes(MIME_WORKTREE)) return
         onProjDragLeave()
       }}
       onDrop={(e) => {
+        if (!canReorder) return
         if (e.dataTransfer.types.includes(MIME_WORKTREE)) return
         if (!e.dataTransfer.types.includes(MIME_PROJECT)) return
         e.preventDefault()
@@ -195,7 +211,7 @@ export function ProjectGroupRow({
           groupDispatch({ type: 'OPEN_MENU', x: e.clientX, y: e.clientY })
         }}
       >
-        <span className={`project-chevron ${isExpanded ? 'expanded' : ''}`}>&#9654;</span>
+        <span className={`project-chevron ${showsWorktrees ? 'expanded' : ''}`}>&#9654;</span>
         {projectAvatarVisible && <ProjectAvatar name={project.name} avatarUrl={project.avatarUrl} />}
         <span className="project-name">{project.name}</span>
 
@@ -204,7 +220,7 @@ export function ProjectGroupRow({
         )}
 
         <span className="project-actions">
-          <span className="project-count">{project.worktrees.length}</span>
+          <span className="project-count">{showFilteredCount ? orderedWorktrees.length : project.worktrees.length}</span>
           <Tooltip content={t('projectSettings')} position="right">
             <button
               className="btn-icon btn-icon-sm"
@@ -231,9 +247,13 @@ export function ProjectGroupRow({
         </span>
       </div>
 
-      {isExpanded && (
+      {showsWorktrees && (
         <div
           onDragStart={(e) => {
+            if (!canReorder) {
+              e.preventDefault()
+              return
+            }
             e.stopPropagation()
             const row = (e.target as HTMLElement).closest<HTMLElement>('[data-worktree-id]')
             if (!row) return
@@ -243,6 +263,7 @@ export function ProjectGroupRow({
             groupDispatch({ type: 'WT_DRAG_START', id })
           }}
           onDragOver={(e) => {
+            if (!canReorder) return
             e.stopPropagation()
             if (!e.dataTransfer.types.includes(MIME_WORKTREE)) return
             if (e.dataTransfer.types.includes(MIME_PROJECT)) return
@@ -252,6 +273,7 @@ export function ProjectGroupRow({
             if (row) groupDispatch({ type: 'WT_DRAG_OVER', id: row.dataset.worktreeId! })
           }}
           onDragLeave={(e) => {
+            if (!canReorder) return
             e.stopPropagation()
             const related = e.relatedTarget as HTMLElement | null
             if (!related || !e.currentTarget.contains(related)) {
@@ -259,6 +281,7 @@ export function ProjectGroupRow({
             }
           }}
           onDrop={(e) => {
+            if (!canReorder) return
             e.stopPropagation()
             e.preventDefault()
             const fromId = e.dataTransfer.getData(MIME_WORKTREE)
@@ -277,6 +300,7 @@ export function ProjectGroupRow({
             <WorktreeRow
               key={wt.id}
               worktree={wt}
+              draggable={canReorder}
               draggingId={wtDraggingId}
               dragOverId={wtDragOverId}
               isNew={wt.id === newlyAddedWorktreeId}
