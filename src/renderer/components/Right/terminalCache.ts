@@ -6,7 +6,7 @@ import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { SearchAddon } from '@xterm/addon-search'
 import { LigaturesAddon } from '@xterm/addon-ligatures'
 import * as ipc from '@/lib/ipc'
-import { getTerminalTheme, TERMINAL_MINIMUM_CONTRAST_RATIO } from '@/themes/terminal'
+import { getTerminalMinimumContrastRatio, getTerminalTheme } from '@/themes/terminal'
 import { useUIStore } from '@/store/ui'
 import { SK } from '@/lib/storageKeys'
 
@@ -99,7 +99,7 @@ export function createTerminal(): { term: Terminal; fitAddon: FitAddon; searchAd
     theme: getTerminalTheme(),
     fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', monospace",
     fontSize: useUIStore.getState().terminalFontSize,
-    minimumContrastRatio: TERMINAL_MINIMUM_CONTRAST_RATIO,
+    minimumContrastRatio: getTerminalMinimumContrastRatio(),
     cursorBlink: true,
     allowProposedApi: true
   })
@@ -195,9 +195,11 @@ export function loadRightTerminalTabs(worktreePath: string): PersistedTabInfo[] 
 /** Re-theme all cached terminals when the app theme changes */
 export function reThemeAllTerminals(): void {
   const theme = getTerminalTheme()
+  const minimumContrastRatio = getTerminalMinimumContrastRatio()
   for (const cached of terminalCache.values()) {
     for (const tab of cached.tabs) {
       tab.term.options.theme = theme
+      tab.term.options.minimumContrastRatio = minimumContrastRatio
     }
   }
 }

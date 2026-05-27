@@ -1,10 +1,17 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { getTerminalTheme } from '../terminal'
+import {
+  getTerminalMinimumContrastRatio,
+  getTerminalTheme,
+  TERMINAL_DARK_MINIMUM_CONTRAST_RATIO,
+  TERMINAL_LIGHT_MINIMUM_CONTRAST_RATIO
+} from '../terminal'
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/
 
 // Simulate CSS custom properties on document.documentElement
 beforeEach(() => {
+  document.documentElement.removeAttribute('data-theme')
+
   const vars: Record<string, string> = {
     '--bg-primary': '#0d1117',
     '--text-primary': '#e6edf3',
@@ -79,5 +86,13 @@ describe('getTerminalTheme', () => {
   it('includes selectionBackground', () => {
     const theme = getTerminalTheme()
     expect(theme.selectionBackground).toBeTruthy()
+  })
+
+  it('enforces contrast only for light themes', () => {
+    document.documentElement.setAttribute('data-theme', 'light')
+    expect(getTerminalMinimumContrastRatio()).toBe(TERMINAL_LIGHT_MINIMUM_CONTRAST_RATIO)
+
+    document.documentElement.setAttribute('data-theme', 'dark')
+    expect(getTerminalMinimumContrastRatio()).toBe(TERMINAL_DARK_MINIMUM_CONTRAST_RATIO)
   })
 })

@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 import * as ipc from '@/lib/ipc'
 import { useUIStore } from '@/store/ui'
 import { useProjectsStore } from '@/store/projects'
-import { getTerminalTheme, TERMINAL_MINIMUM_CONTRAST_RATIO } from '@/themes/terminal'
+import { getTerminalMinimumContrastRatio, getTerminalTheme } from '@/themes/terminal'
 import { activateWebgl } from './terminalCache'
 import { IconWrench } from '@/components/shared/icons'
 import { Button, EmptyState } from '@/components/ui'
@@ -39,7 +39,7 @@ function getOrCreateCache(worktreePath: string): CachedSetup {
     theme: getTerminalTheme(),
     fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', monospace",
     fontSize: useUIStore.getState().terminalFontSize,
-    minimumContrastRatio: TERMINAL_MINIMUM_CONTRAST_RATIO,
+    minimumContrastRatio: getTerminalMinimumContrastRatio(),
     cursorBlink: false,
     disableStdin: true,
     allowProposedApi: true
@@ -191,8 +191,10 @@ export function SetupPanel({ worktreePath, projectId, hidden }: Props) {
       if (state.activeThemeId !== prevId) {
         prevId = state.activeThemeId
         requestAnimationFrame(() => {
+          const minimumContrastRatio = getTerminalMinimumContrastRatio()
           for (const cached of setupCache.values()) {
             cached.term.options.theme = getTerminalTheme()
+            cached.term.options.minimumContrastRatio = minimumContrastRatio
           }
         })
       }
