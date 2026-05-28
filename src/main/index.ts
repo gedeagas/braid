@@ -40,6 +40,7 @@ process.stderr?.on?.('error', () => {})
 
 let mainWindow: BrowserWindow | null = null
 const htmlPreviewSessions = new WeakSet<import('electron').Session>()
+let htmlPreviewSession: import('electron').Session | null = null
 
 function isHttpUrl(url: string): boolean {
   try {
@@ -70,6 +71,14 @@ function configureHtmlPreviewSession(sess: import('electron').Session): void {
   sess.setDisplayMediaRequestHandler((_request, callback) => {
     callback({ video: undefined, audio: undefined })
   })
+}
+
+function getHtmlPreviewSession(): import('electron').Session {
+  if (!htmlPreviewSession) {
+    htmlPreviewSession = session.fromPartition(HTML_PREVIEW_PARTITION)
+    configureHtmlPreviewSession(htmlPreviewSession)
+  }
+  return htmlPreviewSession
 }
 
 function createWindow(): void {
@@ -134,7 +143,7 @@ function createWindow(): void {
 
     if (isHtmlPreview) {
       webPreferences.plugins = false
-      configureHtmlPreviewSession(session.fromPartition(HTML_PREVIEW_PARTITION))
+      configureHtmlPreviewSession(getHtmlPreviewSession())
     }
   })
 
@@ -161,8 +170,10 @@ function createWindow(): void {
 
     if (isHtmlPreview) {
       webviewContents.on('will-navigate', (event, url) => {
-        if (isFileUrl(url) || (!isHttpUrl(url) && url !== 'about:blank')) {
-          event.preventDefault()
+        if (url === 'about:blank') return
+        event.preventDefault()
+        if (isHttpUrl(url)) {
+          shell.openExternal(url)
         }
       })
     }
@@ -225,12 +236,17 @@ function configureWebAppSession(sess: import('electron').Session): void {
   })
 }
 
-app.on('session-created', (sess) => {
-  if (sess === session.defaultSession) return
-  configureWebAppSession(sess)
-})
-
 app.whenReady().then(async () => {
+  getHtmlPreviewSession()
+  app.on('session-created', (sess) => {
+    if (sess === session.defaultSession) return
+    if (sess === getHtmlPreviewSession()) {
+      configureHtmlPreviewSession(sess)
+      return
+    }
+    configureWebAppSession(sess)
+  })
+
   // Resolve login-shell PATH early so all CLI lookups see the user's full PATH.
   await waitForEnrichedEnv()
 
