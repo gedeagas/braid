@@ -31,6 +31,7 @@ import { ensureAllAgentHooks } from './services/agentHooks'
 import { startAgentHookServer, stopAgentHookServer } from './services/agentHookServer'
 import { ptyService } from './services/pty'
 import { mobileServer } from './services/mobileServer'
+import { HTML_PREVIEW_PARTITION } from '../shared/html-preview'
 
 // Prevent EPIPE errors from crashing the process when stdout/stderr pipes break
 // (common in Electron when the renderer detaches or during hot-reload).
@@ -38,6 +39,47 @@ process.stdout?.on?.('error', () => {})
 process.stderr?.on?.('error', () => {})
 
 let mainWindow: BrowserWindow | null = null
+const htmlPreviewSessions = new WeakSet<import('electron').Session>()
+let htmlPreviewSession: import('electron').Session | null = null
+
+function isHttpUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+function isFileUrl(url: string): boolean {
+  try {
+    return new URL(url).protocol === 'file:'
+  } catch {
+    return false
+  }
+}
+
+function isWebAppPartition(partition: string): boolean {
+  return /^persist:webapp-[A-Za-z0-9._-]+$/.test(partition)
+}
+
+function configureHtmlPreviewSession(sess: import('electron').Session): void {
+  if (htmlPreviewSessions.has(sess)) return
+  htmlPreviewSessions.add(sess)
+  sess.setPermissionRequestHandler((_wc, _permission, callback) => callback(false))
+  sess.setPermissionCheckHandler(() => false)
+  sess.setDisplayMediaRequestHandler((_request, callback) => {
+    callback({ video: undefined, audio: undefined })
+  })
+}
+
+function getHtmlPreviewSession(): import('electron').Session {
+  if (!htmlPreviewSession) {
+    htmlPreviewSession = session.fromPartition(HTML_PREVIEW_PARTITION)
+    configureHtmlPreviewSession(htmlPreviewSession)
+  }
+  return htmlPreviewSession
+}
 
 function createWindow(): void {
   const iconPath = join(__dirname, '../../build/icon.png')
@@ -71,21 +113,70 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
+  mainWindow.webContents.on('will-attach-webview', (event, webPreferences, params) => {
+    const src = typeof params.src === 'string' ? params.src : ''
+    const partition =
+      typeof params.partition === 'string'
+        ? params.partition
+        : typeof webPreferences.partition === 'string'
+          ? webPreferences.partition
+          : ''
+    const isHtmlPreview =
+      partition === HTML_PREVIEW_PARTITION && isFileUrl(src)
+    const isEmbeddedWebApp =
+      isWebAppPartition(partition) && isHttpUrl(src)
+
+    if (!isHtmlPreview && !isEmbeddedWebApp) {
+      event.preventDefault()
+      return
+    }
+
+    delete webPreferences.preload
+    delete (webPreferences as Record<string, unknown>).preloadURL
+    webPreferences.nodeIntegration = false
+    webPreferences.nodeIntegrationInSubFrames = false
+    webPreferences.contextIsolation = true
+    webPreferences.sandbox = true
+    webPreferences.webSecurity = true
+    webPreferences.allowRunningInsecureContent = false
+    webPreferences.partition = partition
+
+    if (isHtmlPreview) {
+      webPreferences.plugins = false
+      configureHtmlPreviewSession(getHtmlPreviewSession())
+    }
+  })
+
   // When a <webview> tries to open a new window (e.g. Slack auth, links),
   // navigate the webview in-place instead of spawning a popup.
   // Also enable native right-click context menu (copy, paste, etc.).
   mainWindow.webContents.on('did-attach-webview', (_event, webviewContents) => {
+    const isHtmlPreview = htmlPreviewSessions.has(webviewContents.session)
     // Belt-and-suspenders: also configure the webview's session here in case
     // session-created fires too late for some Electron/ASAR edge case.
-    configureWebAppSession(webviewContents.session)
+    if (isHtmlPreview) {
+      configureHtmlPreviewSession(webviewContents.session)
+    } else {
+      configureWebAppSession(webviewContents.session)
+    }
 
     // Auth flows (OAuth popups, SSO) should open in the system browser where
     // the user's session cookies already exist. Regular same-origin navigations
     // are handled in-place by the webview itself.
     webviewContents.setWindowOpenHandler(({ url }) => {
-      shell.openExternal(url)
+      if (!isHtmlPreview || isHttpUrl(url)) shell.openExternal(url)
       return { action: 'deny' }
     })
+
+    if (isHtmlPreview) {
+      webviewContents.on('will-navigate', (event, url) => {
+        if (url === 'about:blank') return
+        event.preventDefault()
+        if (isHttpUrl(url)) {
+          shell.openExternal(url)
+        }
+      })
+    }
 
     // Suppress ERR_ABORTED (-3) from auth redirect chains — these are expected
     // when sites redirect through SSO (e.g. Notion → Google SSO → back).
@@ -145,12 +236,17 @@ function configureWebAppSession(sess: import('electron').Session): void {
   })
 }
 
-app.on('session-created', (sess) => {
-  if (sess === session.defaultSession) return
-  configureWebAppSession(sess)
-})
-
 app.whenReady().then(async () => {
+  getHtmlPreviewSession()
+  app.on('session-created', (sess) => {
+    if (sess === session.defaultSession) return
+    if (sess === getHtmlPreviewSession()) {
+      configureHtmlPreviewSession(sess)
+      return
+    }
+    configureWebAppSession(sess)
+  })
+
   // Resolve login-shell PATH early so all CLI lookups see the user's full PATH.
   await waitForEnrichedEnv()
 
