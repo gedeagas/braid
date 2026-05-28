@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { findSyncTriggerCommand, triggerWorktreeRefreshIfNeeded } from '../handlers/worktreeSync'
+import { findCliRefreshTrigger, findSyncTriggerCommand, triggerWorktreeRefreshIfNeeded } from '../handlers/worktreeSync'
 import type { WorktreeSyncDeps } from '../handlers/types'
 import type { ToolCall } from '@/types'
 
@@ -20,6 +20,7 @@ function makeDeps(overrides: Partial<WorktreeSyncDeps> = {}): WorktreeSyncDeps {
     getWorktreePath: vi.fn().mockReturnValue('/home/user/project'),
     findProjectByWorktreePath: vi.fn().mockReturnValue({ id: 'proj-1' }),
     refreshWorktrees: vi.fn().mockResolvedValue(undefined),
+    invalidateJiraCache: vi.fn().mockResolvedValue(undefined),
     ...overrides
   }
 }
@@ -45,7 +46,7 @@ describe('findSyncTriggerCommand', () => {
     expect(findSyncTriggerCommand(patches, toolCalls)).toBeNull()
   })
 
-  it('returns null for Bash commands without git push or gh pr create', () => {
+  it('returns null for Bash commands without refresh-triggering CLI commands', () => {
     const patches = [{ toolUseId: 'tc-1' }]
     const toolCalls = [makeBashToolCall('tc-1', 'ls -la')]
     expect(findSyncTriggerCommand(patches, toolCalls)).toBeNull()
@@ -63,6 +64,27 @@ describe('findSyncTriggerCommand', () => {
     expect(findSyncTriggerCommand(patches, toolCalls)).toBe('gh pr create --title "My PR"')
   })
 
+  it('returns command string for mutating gh pr commands', () => {
+    const patches = [{ toolUseId: 'tc-1' }]
+    const toolCalls = [makeBashToolCall('tc-1', 'gh pr edit 12 --add-label ready')]
+    expect(findSyncTriggerCommand(patches, toolCalls)).toBe('gh pr edit 12 --add-label ready')
+  })
+
+  it('returns command string for mutating acli workitem commands', () => {
+    const patches = [{ toolUseId: 'tc-1' }]
+    const toolCalls = [makeBashToolCall('tc-1', 'acli jira workitem transition USRN-123 --status "In Progress"')]
+    expect(findSyncTriggerCommand(patches, toolCalls)).toBe('acli jira workitem transition USRN-123 --status "In Progress"')
+  })
+
+  it('ignores read-only gh and acli commands', () => {
+    const patches = [{ toolUseId: 'tc-1' }, { toolUseId: 'tc-2' }]
+    const toolCalls = [
+      makeBashToolCall('tc-1', 'gh pr view --json title'),
+      makeBashToolCall('tc-2', 'acli jira workitem view USRN-123 --json')
+    ]
+    expect(findSyncTriggerCommand(patches, toolCalls)).toBeNull()
+  })
+
   it('returns null when Bash input is malformed JSON', () => {
     const patches = [{ toolUseId: 'tc-1' }]
     const toolCalls: ToolCall[] = [{ id: 'tc-1', name: 'Bash', input: 'not-json' }]
@@ -75,14 +97,26 @@ describe('findSyncTriggerCommand', () => {
     expect(findSyncTriggerCommand(patches, toolCalls)).toBeNull()
   })
 
-  it('returns on first match, ignoring subsequent patches', () => {
+  it('returns all matched commands for multi-result events', () => {
     const patches = [{ toolUseId: 'tc-1' }, { toolUseId: 'tc-2' }]
     const toolCalls = [
       makeBashToolCall('tc-1', 'git push'),
       makeBashToolCall('tc-2', 'gh pr create')
     ]
-    // Should return the first match
-    expect(findSyncTriggerCommand(patches, toolCalls)).toBe('git push')
+    expect(findSyncTriggerCommand(patches, toolCalls)).toBe('git push\ngh pr create')
+  })
+
+  it('merges refresh resources for multi-result events', () => {
+    const patches = [{ toolUseId: 'tc-1' }, { toolUseId: 'tc-2' }]
+    const toolCalls = [
+      makeBashToolCall('tc-1', 'git push'),
+      makeBashToolCall('tc-2', 'acli jira workitem transition USRN-123 --status Done')
+    ]
+    expect(findCliRefreshTrigger(patches, toolCalls)?.plan).toEqual(expect.objectContaining({
+      resources: ['gitStatus', 'syncStatus', 'pr', 'checks', 'jira'],
+      refreshWorktrees: true,
+      invalidateJiraCache: true,
+    }))
   })
 
   it('matches git push with flags', () => {
@@ -140,6 +174,29 @@ describe('triggerWorktreeRefreshIfNeeded', () => {
     const toolCalls = [makeBashToolCall('tc-1', 'gh pr create --title "Test"')]
     triggerWorktreeRefreshIfNeeded('sess-1', patches, toolCalls, deps)
     await Promise.resolve()
+    expect(deps.refreshWorktrees).toHaveBeenCalledWith('proj-1')
+  })
+
+  it('invalidates Jira cache on mutating acli commands', async () => {
+    const deps = makeDeps()
+    const patches = [{ toolUseId: 'tc-1' }]
+    const toolCalls = [makeBashToolCall('tc-1', 'acli jira workitem edit USRN-123 --summary "Updated"')]
+    triggerWorktreeRefreshIfNeeded('sess-1', patches, toolCalls, deps)
+    await Promise.resolve()
+    expect(deps.invalidateJiraCache).toHaveBeenCalled()
+    expect(deps.refreshWorktrees).not.toHaveBeenCalled()
+  })
+
+  it('refreshes merged resources for multi-result events', async () => {
+    const deps = makeDeps()
+    const patches = [{ toolUseId: 'tc-1' }, { toolUseId: 'tc-2' }]
+    const toolCalls = [
+      makeBashToolCall('tc-1', 'git push origin main'),
+      makeBashToolCall('tc-2', 'acli jira workitem transition USRN-123 --status Done')
+    ]
+    triggerWorktreeRefreshIfNeeded('sess-1', patches, toolCalls, deps)
+    await Promise.resolve()
+    expect(deps.invalidateJiraCache).toHaveBeenCalled()
     expect(deps.refreshWorktrees).toHaveBeenCalledWith('proj-1')
   })
 

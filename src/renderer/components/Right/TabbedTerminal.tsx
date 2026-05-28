@@ -15,6 +15,7 @@ import {
 import { useTerminalLifecycle } from './useTerminalLifecycle'
 import { useTerminalFileDrop } from '@/hooks/useTerminalFileDrop'
 import { useTerminalClipboardPaste } from '@/hooks/useTerminalClipboardPaste'
+import { createTerminalCommandObserver } from '@/lib/terminalCommandRefresh'
 import '@xterm/xterm/css/xterm.css'
 
 export { cleanupTerminals } from './terminalCache'
@@ -207,9 +208,14 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
       const result = await ipc.pty.reattach(tab.id)
       if (result && result.snapshot) {
         tab.ptyId = result.sessionId
+        const observer = createTerminalCommandObserver(worktreePathRef.current, { refreshWorktrees: true })
+        tab.commandObserver = observer
         tab.term.write(result.snapshot)
         tab.term.write('\r\n\x1b[2m[session reconnected]\x1b[0m\r\n')
-        tab.term.onData((data: string) => ipc.pty.write(result.sessionId, data))
+        tab.term.onData((data: string) => {
+          observer.accept(data)
+          ipc.pty.write(result.sessionId, data)
+        })
         requestAnimationFrame(() => {
           try { tab.fitAddon.fit(); ipc.pty.resize(result.sessionId, tab.term.cols, tab.term.rows) } catch { /* ignore */ }
         })
@@ -222,14 +228,22 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
     try {
       const id = await ipc.pty.spawn(worktreePathRef.current, { BRAID_TERMINAL_ID: tab.id })
       tab.ptyId = id
-      tab.term.onData((data: string) => ipc.pty.write(id, data))
+      const observer = createTerminalCommandObserver(worktreePathRef.current, { refreshWorktrees: true })
+      tab.commandObserver = observer
+      tab.term.onData((data: string) => {
+        observer.accept(data)
+        ipc.pty.write(id, data)
+      })
       requestAnimationFrame(() => {
         try { tab.fitAddon.fit(); ipc.pty.resize(id, tab.term.cols, tab.term.rows) } catch { /* ignore */ }
       })
       if (pendingCommandRef.current) {
         const cmd = pendingCommandRef.current
         pendingCommandRef.current = null
-        setTimeout(() => ipc.pty.write(id, cmd + '\n'), 100)
+        setTimeout(() => {
+          observer.accept(cmd + '\n')
+          ipc.pty.write(id, cmd + '\n')
+        }, 100)
       }
     } catch (err) {
       tab.term.write(`\x1b[31mError: ${err instanceof Error ? err.message : 'Failed to spawn terminal'}\x1b[0m\r\n`)
@@ -253,7 +267,7 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
     dispatch({ type: 'UPDATE_TABS', fn: (prev) => {
       const idx = prev.findIndex((t) => t.id === tabId)
       const tab = prev[idx]
-      if (tab) { if (tab.ptyId) ipc.pty.kill(tab.ptyId); tab.resizeObserver?.disconnect(); tab.term.dispose(); containerRefs.current.delete(tabId) }
+      if (tab) { if (tab.ptyId) ipc.pty.kill(tab.ptyId); tab.commandObserver?.dispose(); tab.resizeObserver?.disconnect(); tab.term.dispose(); containerRefs.current.delete(tabId) }
       const next = prev.filter((t) => t.id !== tabId)
       tabsRef.current = next
       const cached = terminalCache.get(worktreePathRef.current)

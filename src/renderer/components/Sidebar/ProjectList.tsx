@@ -131,6 +131,7 @@ export function ProjectList({ onAddWorktree }: Props) {
   const prCache = usePrCacheStore((s) => s.cache)
   const fetchPr = usePrCacheStore((s) => s.fetchPr)
   const fetchingPaths = useRef<Set<string>>(new Set())
+  const forceNextPrGroupRefreshRef = useRef(true)
   const { t: tSidebar } = useTranslation('sidebar')
 
   const [projDraggingId, setProjDraggingId] = useState<string | null>(null)
@@ -244,13 +245,19 @@ export function ProjectList({ onAddWorktree }: Props) {
   }, [visibleProjects, sessionsByWorktree, bigTerminalsByWorktree, bigTerminalStatusById, prCache])
 
   useEffect(() => {
-    if (sidebarGroupBy !== 'pr') return
+    if (sidebarGroupBy !== 'pr') {
+      forceNextPrGroupRefreshRef.current = true
+      return
+    }
+    const forceRefresh = forceNextPrGroupRefreshRef.current
+    forceNextPrGroupRefreshRef.current = false
+
     for (const item of worktreeItems) {
       const path = item.worktree.path
       const entry = prCache[path]
-      if ((!entry || entry.fetchedAt === 0) && !fetchingPaths.current.has(path)) {
+      if ((forceRefresh || !entry || entry.fetchedAt === 0) && !fetchingPaths.current.has(path)) {
         fetchingPaths.current.add(path)
-        void fetchPr(path)
+        void fetchPr(path, { force: forceRefresh && !!entry && entry.fetchedAt > 0 })
           .catch(() => undefined)
           .finally(() => {
             fetchingPaths.current.delete(path)

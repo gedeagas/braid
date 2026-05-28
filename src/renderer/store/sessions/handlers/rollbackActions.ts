@@ -16,6 +16,7 @@ import { sessionWorktreePaths } from '../storage'
 import { persistSession } from '../persistence'
 import { updateSession } from '../stateUtils'
 import type { SessionsState } from '../storeTypes'
+import { requestWorktreeRefresh } from '@/lib/worktreeRefresh'
 
 export const createRollbackActions: StateCreator<
   SessionsState,
@@ -78,8 +79,10 @@ export const createRollbackActions: StateCreator<
       const ui = useUIStore.getState()
       ui.setChangesCount(worktreePath, status.length)
       ui.bumpDiffRevision(worktreePath)
+      requestWorktreeRefresh(worktreePath, 'files', { reason: 'git-mutation', force: true })
     } catch {
       // Best-effort - the 10s auto-poll will catch up if this fails.
+      requestWorktreeRefresh(worktreePath, ['files', 'gitStatus'], { reason: 'git-mutation', force: true })
     }
 
     // Truncate messages and stash the resume anchor for the next send.

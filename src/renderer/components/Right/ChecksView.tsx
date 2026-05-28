@@ -19,6 +19,7 @@ import { useProjectsStore } from '@/store/projects'
 import { IconRefresh } from '@/components/shared/icons'
 import { DEFAULT_PR_PROMPT } from '@/lib/prPrompt'
 import { isOnline, onOnline } from '@/lib/online'
+import { requestWorktreeRefresh, subscribeWorktreeRefresh } from '@/lib/worktreeRefresh'
 import { JiraSection } from './JiraSection'
 import { ReviewsSection } from './ReviewsSection'
 import { PushErrorPanel } from './PushErrorPanel'
@@ -53,6 +54,11 @@ interface ChecksSnapshot {
 }
 
 const checksCache = new Map<string, ChecksSnapshot>()
+
+interface LoadOptions {
+  forceGithub?: boolean
+  forceJira?: boolean
+}
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
 
@@ -155,11 +161,13 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
 
   // ─── Data fetching ────────────────────────────────────────────────────────
 
-  const load = useCallback(async (forceRefresh?: boolean) => {
+  const load = useCallback(async (options?: boolean | LoadOptions) => {
+    const forceGithub = typeof options === 'boolean' ? options : options?.forceGithub === true
+    const forceJira = typeof options === 'boolean' ? options : options?.forceJira === true
     try {
       const [prResult, jiraFetch] = await Promise.all([
-        ipc.github.getPrStatus(worktreePath, forceRefresh) as Promise<PrStatus | null>,
-        (ipc.jira.getIssuesForBranch(worktreePath, jiraBaseUrl || undefined) as Promise<JiraResult>)
+        ipc.github.getPrStatus(worktreePath, forceGithub) as Promise<PrStatus | null>,
+        (ipc.jira.getIssuesForBranch(worktreePath, jiraBaseUrl || undefined, forceJira) as Promise<JiraResult>)
           .catch((): 'error' => 'error'),
       ])
 
@@ -181,10 +189,10 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
       if (prResult) {
         const syncBranch = upstream ?? prResult.baseRefName ?? 'main'
         const [checksData, deploymentsData, syncData, reviewsData] = await Promise.all([
-          ipc.github.getChecks(worktreePath, forceRefresh),
-          ipc.github.getDeployments(worktreePath, forceRefresh),
-          ipc.github.getGitSyncStatus(worktreePath, syncBranch, forceRefresh),
-          ipc.github.getReviews(worktreePath, forceRefresh).catch(() => null),
+          ipc.github.getChecks(worktreePath, forceGithub),
+          ipc.github.getDeployments(worktreePath, forceGithub),
+          ipc.github.getGitSyncStatus(worktreePath, syncBranch, forceGithub),
+          ipc.github.getReviews(worktreePath, forceGithub).catch(() => null),
         ])
         latestChecks = (checksData as CheckRun[]) ?? []
         latestDeployments = (deploymentsData as Deployment[]) ?? []
@@ -291,8 +299,21 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
   // ─── Effects ──────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (isActive) load()
-  }, [isActive, load])
+    if (!isActive) return
+    return subscribeWorktreeRefresh(worktreePath, ['pr', 'checks', 'syncStatus', 'jira'], (event) => {
+      const forceGithub = event.force && event.resources.some((resource) =>
+        resource === 'pr' || resource === 'checks' || resource === 'syncStatus'
+      )
+      const forceJira = event.force && event.resources.includes('jira')
+      void load({ forceGithub, forceJira })
+    })
+  }, [isActive, worktreePath, load])
+
+  useEffect(() => {
+    if (isActive) {
+      requestWorktreeRefresh(worktreePath, ['pr', 'checks', 'syncStatus', 'jira'], { reason: 'external', force: true })
+    }
+  }, [isActive, worktreePath])
 
   // Re-fetch when external code (e.g. PrMergeBar) updates the PR cache
   const cacheFetchedAt = usePrCacheStore((s) => s.cache[worktreePath]?.fetchedAt ?? 0)
@@ -313,15 +334,32 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
     if (pr?.state === 'MERGED' || pr?.state === 'CLOSED') return
 
     let timer: ReturnType<typeof setInterval> | null = null
-    const start = () => { if (!timer) timer = setInterval(() => { if (isOnline()) load() }, hasPending ? POLL_FAST_MS : POLL_SLOW_MS) }
+    const start = () => {
+      if (!timer) {
+        timer = setInterval(() => {
+          if (isOnline()) requestWorktreeRefresh(worktreePath, ['pr', 'checks', 'syncStatus', 'jira'], { reason: 'poll' })
+        }, hasPending ? POLL_FAST_MS : POLL_SLOW_MS)
+      }
+    }
     const stop = () => { if (timer) { clearInterval(timer); timer = null } }
-    const onVisibility = () => { if (document.hidden) { stop() } else { load(); start() } }
+    const onVisibility = () => {
+      if (document.hidden) {
+        stop()
+      } else {
+        requestWorktreeRefresh(worktreePath, ['pr', 'checks', 'syncStatus', 'jira'], { reason: 'external' })
+        start()
+      }
+    }
 
     if (!document.hidden) start()
     document.addEventListener('visibilitychange', onVisibility)
-    const unsubOnline = onOnline(() => { load(); stop(); start() })
+    const unsubOnline = onOnline(() => {
+      requestWorktreeRefresh(worktreePath, ['pr', 'checks', 'syncStatus', 'jira'], { reason: 'online' })
+      stop()
+      start()
+    })
     return () => { stop(); document.removeEventListener('visibilitychange', onVisibility); unsubOnline() }
-  }, [isActive, pr?.state, hasPending, load])
+  }, [isActive, pr?.state, hasPending, worktreePath])
 
   // ─── Render ───────────────────────────────────────────────────────────────
 

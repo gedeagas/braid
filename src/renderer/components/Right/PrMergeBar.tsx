@@ -7,6 +7,7 @@ import { useSessionsStore } from '@/store/sessions'
 import { useUIStore } from '@/store/ui'
 import { flash } from '@/store/flash'
 import { DEFAULT_MERGE_CONFLICT_PROMPT } from '@/lib/mergeConflictPrompt'
+import { requestWorktreeRefresh } from '@/lib/worktreeRefresh'
 import { Button, Spinner } from '@/components/ui'
 import { IconMergeGraph, IconExternalLinkSmall, IconChevronDownSmall } from '@/components/shared/icons'
 
@@ -161,7 +162,7 @@ export function PrMergeBar({ worktreePath, worktreeId }: Props) {
       flash('error', msg, 5_000)
     } finally {
       // Always refresh PR status — confirm with real data from GitHub.
-      usePrCacheStore.getState().fetchPr(worktreePath)
+      requestWorktreeRefresh(worktreePath, ['pr', 'checks', 'syncStatus'], { reason: 'pr-mutation', force: true })
     }
   }, [worktreePath, t])
 
@@ -189,7 +190,7 @@ export function PrMergeBar({ worktreePath, worktreeId }: Props) {
       dispatch({ type: 'MARK_READY_ERROR', error: msg })
       flash('error', msg, 5_000)
     } finally {
-      usePrCacheStore.getState().fetchPr(worktreePath)
+      requestWorktreeRefresh(worktreePath, ['pr', 'checks', 'syncStatus'], { reason: 'pr-mutation', force: true })
     }
   }, [worktreePath, t])
 

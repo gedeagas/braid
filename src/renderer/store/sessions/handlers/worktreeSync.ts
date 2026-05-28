@@ -1,20 +1,25 @@
 // ---------------------------------------------------------------------------
-// Worktree sync side effect — trigger refresh after git push / gh pr create
+// Worktree sync side effect - trigger refresh after CLI commands that mutate state
 // Pure parsing logic separated from store side effect for testability
 // ---------------------------------------------------------------------------
 
 import type { ToolCall } from '@/types'
 import type { ToolResultPatch, WorktreeSyncDeps } from './types'
-import { sessionWorktreePaths } from '../storage'
-import { useProjectsStore } from '@/store/projects'
+import { classifyCliRefreshCommand, mergeCliRefreshPlans, type CliRefreshPlan } from '@/lib/cliRefresh'
+import { requestWorktreeRefresh } from '@/lib/worktreeRefresh'
 
 // ---------------------------------------------------------------------------
-// Pure: detect whether a git push or gh pr create was just executed
+// Pure: detect whether a refresh-triggering CLI command was just executed
 // ---------------------------------------------------------------------------
+
+interface ToolCliRefreshTrigger {
+  command: string
+  plan: CliRefreshPlan
+}
 
 /**
  * Given the result patches from a user event and the tool calls they reference,
- * returns the Bash command string if a sync-triggering command was executed.
+ * returns the Bash command string if a refresh-triggering command was executed.
  *
  * Pure function: no state access, no side effects.
  * Returns null when no sync is needed.
@@ -23,6 +28,15 @@ export function findSyncTriggerCommand(
   patches: Pick<ToolResultPatch, 'toolUseId'>[],
   toolCalls: ToolCall[]
 ): string | null {
+  return findCliRefreshTrigger(patches, toolCalls)?.command ?? null
+}
+
+export function findCliRefreshTrigger(
+  patches: Pick<ToolResultPatch, 'toolUseId'>[],
+  toolCalls: ToolCall[]
+): ToolCliRefreshTrigger | null {
+  const commands: string[] = []
+  let mergedPlan: CliRefreshPlan | null = null
   for (const patch of patches) {
     const tc = toolCalls.find((t) => t.id === patch.toolUseId)
     if (tc?.name !== 'Bash') continue
@@ -34,11 +48,13 @@ export function findSyncTriggerCommand(
       continue
     }
 
-    if (cmd && (cmd.includes('git push') || cmd.includes('gh pr create'))) {
-      return cmd
-    }
+    if (!cmd) continue
+    const plan = classifyCliRefreshCommand(cmd)
+    if (!plan) continue
+    commands.push(cmd)
+    mergedPlan = mergeCliRefreshPlans(mergedPlan, plan)
   }
-  return null
+  return mergedPlan ? { command: commands.join('\n'), plan: mergedPlan } : null
 }
 
 // ---------------------------------------------------------------------------
@@ -46,8 +62,8 @@ export function findSyncTriggerCommand(
 // ---------------------------------------------------------------------------
 
 /**
- * Fire-and-forget: if the patches include a git push or gh pr create result,
- * refresh the owning project's worktrees.
+ * Fire-and-forget: if the patches include a mutating git/gh/acli command,
+ * refresh the affected resource keys for the owning worktree.
  *
  * @param sessionId - Session that executed the tool
  * @param patches - Tool result patches from the user event
@@ -60,36 +76,23 @@ export function triggerWorktreeRefreshIfNeeded(
   toolCalls: ToolCall[],
   deps: WorktreeSyncDeps
 ): void {
-  const cmd = findSyncTriggerCommand(patches, toolCalls)
-  if (!cmd) return
+  const trigger = findCliRefreshTrigger(patches, toolCalls)
+  if (!trigger) return
 
   const worktreePath = deps.getWorktreePath(sessionId)
   if (!worktreePath) return
 
-  const project = deps.findProjectByWorktreePath(worktreePath)
-  if (!project) return
+  if (trigger.plan.invalidateJiraCache) {
+    void deps.invalidateJiraCache?.()
+  }
 
-  deps.refreshWorktrees(project.id).catch(() => {})
-}
+  requestWorktreeRefresh(worktreePath, trigger.plan.resources, {
+    reason: trigger.plan.reason,
+    force: trigger.plan.force,
+  })
 
-// ---------------------------------------------------------------------------
-// Production factory
-// ---------------------------------------------------------------------------
-
-/**
- * Creates the real WorktreeSyncDeps wired to live stores.
- * Use this in production; pass mock objects in tests.
- */
-export function createWorktreeSyncDeps(): WorktreeSyncDeps {
-  return {
-    getWorktreePath: (sessionId) => sessionWorktreePaths.get(sessionId),
-    findProjectByWorktreePath: (wtPath) => {
-      const project = useProjectsStore.getState().projects.find((p) =>
-        p.worktrees.some((w) => w.path === wtPath)
-      )
-      return project ? { id: project.id } : undefined
-    },
-    refreshWorktrees: (projectId) =>
-      useProjectsStore.getState().refreshWorktrees(projectId)
+  if (trigger.plan.refreshWorktrees) {
+    const project = deps.findProjectByWorktreePath(worktreePath)
+    if (project) deps.refreshWorktrees(project.id).catch(() => {})
   }
 }

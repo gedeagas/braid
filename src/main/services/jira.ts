@@ -90,7 +90,7 @@ class JiraService {
   /**
    * @param overrideBaseUrl Optional URL from user settings — takes priority over everything.
    */
-  async getIssuesForBranch(worktreePath: string, overrideBaseUrl?: string): Promise<JiraResult> {
+  async getIssuesForBranch(worktreePath: string, overrideBaseUrl?: string, forceRefresh?: boolean): Promise<JiraResult> {
     const available = await this.isAvailable()
     if (!available) return { available: false, issues: [] }
 
@@ -102,7 +102,7 @@ class JiraService {
     const detectedUrl = await this.getDetectedBaseUrl()
     const overrideUrl = overrideBaseUrl?.trim() || null
 
-    const results = await Promise.allSettled(keys.map((k) => this.getIssue(k, overrideUrl, detectedUrl)))
+    const results = await Promise.allSettled(keys.map((k) => this.getIssue(k, overrideUrl, detectedUrl, forceRefresh)))
     const issues = results
       .filter((r): r is PromiseFulfilledResult<JiraIssue | null> => r.status === 'fulfilled')
       .map((r) => r.value)
@@ -111,7 +111,7 @@ class JiraService {
     return { available: true, issues }
   }
 
-  private async getIssue(key: string, overrideUrl: string | null, detectedUrl: string | null): Promise<JiraIssue | null> {
+  private async getIssue(key: string, overrideUrl: string | null, detectedUrl: string | null, forceRefresh?: boolean): Promise<JiraIssue | null> {
     const data = await this.issueDataCache.get(key, async () => {
       try {
         const { stdout } = await exec('acli', ['jira', 'workitem', 'view', key, '--json'], {
@@ -122,7 +122,7 @@ class JiraService {
       } catch {
         return null
       }
-    })
+    }, { forceRefresh })
     if (!data) return null
     return this.parseIssue(data, overrideUrl, detectedUrl)
   }
@@ -161,12 +161,20 @@ class JiraService {
    * Fetch a single Jira issue by key (e.g. "PROJ-1234").
    * Returns null if acli is not installed, key is not found, or fetch fails.
    */
-  async getIssueByKey(key: string, overrideBaseUrl?: string): Promise<JiraIssue | null> {
+  async getIssueByKey(key: string, overrideBaseUrl?: string, forceRefresh?: boolean): Promise<JiraIssue | null> {
     const available = await this.isAvailable()
     if (!available) return null
     const detectedUrl = await this.getDetectedBaseUrl()
     const overrideUrl = overrideBaseUrl?.trim() || null
-    return this.getIssue(key, overrideUrl, detectedUrl)
+    return this.getIssue(key, overrideUrl, detectedUrl, forceRefresh)
+  }
+
+  invalidateCache(key?: string): void {
+    if (key) {
+      this.issueDataCache.invalidate(key.toUpperCase())
+      return
+    }
+    this.issueDataCache.clear()
   }
 
   private async getBranchName(worktreePath: string): Promise<string> {

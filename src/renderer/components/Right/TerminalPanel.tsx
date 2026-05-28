@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Terminal } from '@xterm/xterm'
 import * as ipc from '@/lib/ipc'
+import { createTerminalCommandObserver } from '@/lib/terminalCommandRefresh'
 import { getTerminalMinimumContrastRatio, getTerminalTheme } from '@/themes/terminal'
 import { useUIStore } from '@/store/ui'
 import { createTerminal, activateWebgl } from './terminalCache'
@@ -15,6 +16,7 @@ export function TerminalPanel({ worktreePath }: Props) {
   const termRef = useRef<Terminal | null>(null)
   const ptyIdRef = useRef<string | null>(null)
   const observerRef = useRef<ResizeObserver | null>(null)
+  const commandObserverRef = useRef<ReturnType<typeof createTerminalCommandObserver> | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -34,8 +36,11 @@ export function TerminalPanel({ worktreePath }: Props) {
       .spawn(worktreePath)
       .then((id: string) => {
         ptyIdRef.current = id
+        const commandObserver = createTerminalCommandObserver(worktreePath, { refreshWorktrees: true })
+        commandObserverRef.current = commandObserver
 
         term.onData((data: string) => {
+          commandObserver.accept(data)
           ipc.pty.write(id, data)
         })
 
@@ -74,6 +79,8 @@ export function TerminalPanel({ worktreePath }: Props) {
       removeData()
       removeExit()
       observerRef.current?.disconnect()
+      commandObserverRef.current?.dispose()
+      commandObserverRef.current = null
       if (ptyIdRef.current) {
         ipc.pty.kill(ptyIdRef.current)
         ptyIdRef.current = null

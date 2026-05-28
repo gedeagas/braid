@@ -20,6 +20,7 @@ import { DiagnosticsPanel } from './DiagnosticsPanel'
 import { BinaryImagePreview, BinaryPlaceholder } from './BinaryFilePreview'
 import { isBinaryFile, isImageFile } from '@/lib/binaryFile'
 import { pendingReveal } from '@/lib/pendingReveal'
+import { requestWorktreeRefresh } from '@/lib/worktreeRefresh'
 
 interface Props {
   filePath: string | null
@@ -246,10 +247,11 @@ export function FileViewer({ filePath, projectRoot = null, onDirtyChange }: Prop
     try {
       await ipc.git.writeFile(filePath, currentValue)
       dispatch({ type: 'saveDone', content: currentValue })
+      requestWorktreeRefresh(projectRoot, 'gitStatus', { reason: 'git-mutation', force: true })
     } catch {
       dispatch({ type: 'saveFail', error: t('fileSaveError') })
     }
-  }, [filePath, state.saving, state.savedContent, t])
+  }, [filePath, projectRoot, state.saving, state.savedContent, t])
 
   useEffect(() => { handleSaveRef.current = handleSave }, [handleSave])
 

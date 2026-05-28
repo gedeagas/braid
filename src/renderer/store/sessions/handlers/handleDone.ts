@@ -9,8 +9,8 @@ import { persistSession } from '../persistence'
 import { stopPeriodicFlush, flushStreamingBuffer } from '../streaming'
 import { pendingTurnUsage } from './handleStreaming'
 import { sessionWorktreePaths } from '../storage'
-import { DOM_EVENT_FILES_CHANGED } from '@/lib/appBrand'
 import * as ipc from '@/lib/ipc'
+import { requestWorktreeRefresh } from '@/lib/worktreeRefresh'
 import { resolveEagerTitle, scheduleRefinedTitle, createTitleManagerDeps } from './titleManager'
 import { maybeShowToast, fireDesktopNotification, createNotificationDeps } from './notifications'
 
@@ -69,9 +69,7 @@ export async function handleDone(
     // Invalidate main-process caches so the next IPC call fetches fresh data
     ipc.git.invalidateFileTree(wtPath).catch(() => {})
     ipc.git.invalidateTrackedFiles(wtPath).catch(() => {})
-    window.dispatchEvent(
-      new CustomEvent(DOM_EVENT_FILES_CHANGED, { detail: { worktreePath: wtPath } })
-    )
+    requestWorktreeRefresh(wtPath, ['files', 'gitStatus'], { reason: 'agent-done', force: true })
   }
 
   // Resolve eagerly-started title (was kicked off at sendMessage time with just

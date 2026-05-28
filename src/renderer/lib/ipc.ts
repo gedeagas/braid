@@ -338,10 +338,11 @@ export const notes = {
 export const jira = {
   isAvailable: () => api().jira.isAvailable(),
   recheckAvailability: () => api().jira.recheckAvailability() as Promise<boolean>,
-  getIssuesForBranch: (worktreePath: string, overrideBaseUrl?: string) =>
-    api().jira.getIssuesForBranch(worktreePath, overrideBaseUrl) as Promise<import('@/types').JiraResult>,
-  getIssueByKey: (key: string, overrideBaseUrl?: string) =>
-    api().jira.getIssueByKey(key, overrideBaseUrl) as Promise<import('@/types').JiraIssue | null>,
+  getIssuesForBranch: (worktreePath: string, overrideBaseUrl?: string, forceRefresh?: boolean) =>
+    api().jira.getIssuesForBranch(worktreePath, overrideBaseUrl, forceRefresh) as Promise<import('@/types').JiraResult>,
+  getIssueByKey: (key: string, overrideBaseUrl?: string, forceRefresh?: boolean) =>
+    api().jira.getIssueByKey(key, overrideBaseUrl, forceRefresh) as Promise<import('@/types').JiraIssue | null>,
+  invalidateCache: (key?: string) => api().jira.invalidateCache(key) as Promise<void>,
 }
 
 export const lsp = {

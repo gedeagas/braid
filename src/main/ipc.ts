@@ -263,12 +263,13 @@ export function registerIpcHandlers(): void {
   // Jira (optional — only available if acli is installed)
   ipcMain.handle('jira:isAvailable', () => jiraService.isAvailable())
   ipcMain.handle('jira:recheckAvailability', () => jiraService.recheckAvailability())
-  ipcMain.handle('jira:getIssuesForBranch', (_e, worktreePath: string, overrideBaseUrl?: string) =>
-    jiraService.getIssuesForBranch(worktreePath, overrideBaseUrl)
+  ipcMain.handle('jira:getIssuesForBranch', (_e, worktreePath: string, overrideBaseUrl?: string, forceRefresh?: boolean) =>
+    jiraService.getIssuesForBranch(worktreePath, overrideBaseUrl, forceRefresh)
   )
-  ipcMain.handle('jira:getIssueByKey', (_e, key: string, overrideBaseUrl?: string) =>
-    jiraService.getIssueByKey(key, overrideBaseUrl)
+  ipcMain.handle('jira:getIssueByKey', (_e, key: string, overrideBaseUrl?: string, forceRefresh?: boolean) =>
+    jiraService.getIssueByKey(key, overrideBaseUrl, forceRefresh)
   )
+  ipcMain.handle('jira:invalidateCache', (_e, key?: string) => jiraService.invalidateCache(key))
 
   // Sessions
   ipcMain.handle('sessions:save', (_e, data: PersistedSession) => sessionStorageService.saveSession(data))

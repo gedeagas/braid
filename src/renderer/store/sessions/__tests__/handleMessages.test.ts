@@ -4,7 +4,9 @@ import type { AgentSession, Message, ToolCall, ContentBlock } from '@/types'
 
 vi.mock('../persistence', () => ({ persistSession: vi.fn(), bindSessionsStore: vi.fn() }))
 vi.mock('../handlers/worktreeSync', () => ({
-  triggerWorktreeRefreshIfNeeded: vi.fn(),
+  triggerWorktreeRefreshIfNeeded: vi.fn()
+}))
+vi.mock('../handlers/worktreeSyncDeps', () => ({
   createWorktreeSyncDeps: vi.fn(() => ({}))
 }))
 

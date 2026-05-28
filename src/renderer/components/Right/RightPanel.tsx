@@ -32,6 +32,10 @@ import type { RightPanelTab } from '@/types'
 export const RightPanel = memo(function RightPanel() {
   const { t } = useTranslation('right')
   const activeTab = useUIStore((s) => s.rightPanelTab)
+  const rightPanelVisible = useUIStore((s) => s.rightPanelVisible)
+  const missionControlActive = useUIStore((s) => s.missionControlActive)
+  const activeWebAppId = useUIStore((s) => s.activeWebAppId)
+  const webAppsEnabled = useUIStore((s) => s.webAppsEnabled)
   const setTab = useUIStore((s) => s.setRightPanelTab)
   const selectedProjectId = useUIStore((s) => s.selectedProjectId)
   const selectedWorktreeId = useUIStore((s) => s.selectedWorktreeId)
@@ -54,9 +58,10 @@ export const RightPanel = memo(function RightPanel() {
 
   const project = useProjectsStore((s) => s.projects.find((p) => p.id === selectedProjectId))
   const worktree = project?.worktrees.find((w) => w.id === selectedWorktreeId)
-  const pr = usePrStatus(worktree?.path ?? '')
+  const pr = usePrStatus(worktree?.path ?? '', { forceRefreshOnMount: true })
 
   const isMobile = project?.platform === 'mobile'
+  const panelActive = rightPanelVisible && !missionControlActive && !(webAppsEnabled && activeWebAppId)
   const changesCount = useUIStore((s) => s.changesCounts[worktree?.path ?? ''] ?? 0)
 
   const TABS: { id: RightPanelTab; label: string; tooltip: string; badge?: number; icon: ComponentType<{ size?: number }> }[] = [
@@ -107,10 +112,10 @@ export const RightPanel = memo(function RightPanel() {
               <SearchView worktreePath={worktree.path} />
             </div>
             <div style={{ display: activeTab === 'changes' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-              <ChangesView key={worktree.path} worktreePath={worktree.path} />
+              <ChangesView key={worktree.path} worktreePath={worktree.path} isActive={panelActive && activeTab === 'changes'} />
             </div>
             <div style={{ display: activeTab === 'overview' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-              <ChecksView key={worktree.path} worktreePath={worktree.path} worktreeId={worktree.id} isActive={activeTab === 'overview'} />
+              <ChecksView key={worktree.path} worktreePath={worktree.path} worktreeId={worktree.id} isActive={panelActive && activeTab === 'overview'} />
             </div>
             <div style={{ display: activeTab === 'notes' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
               <Suspense fallback={<Spinner size="md" />}>

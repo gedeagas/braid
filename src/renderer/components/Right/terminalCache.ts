@@ -9,6 +9,7 @@ import * as ipc from '@/lib/ipc'
 import { getTerminalMinimumContrastRatio, getTerminalTheme } from '@/themes/terminal'
 import { useUIStore } from '@/store/ui'
 import { SK } from '@/lib/storageKeys'
+import type { TerminalCommandObserver } from '@/lib/terminalCommandRefresh'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -19,6 +20,7 @@ export interface TermTab {
   term: Terminal
   fitAddon: FitAddon
   resizeObserver: ResizeObserver | null
+  commandObserver?: TerminalCommandObserver | null
 }
 
 export interface CachedTerminals {
@@ -88,6 +90,7 @@ export function cleanupTerminals(worktreePath: string): void {
   if (!cached) return
   for (const tab of cached.tabs) {
     if (tab.ptyId) ipc.pty.kill(tab.ptyId)
+    tab.commandObserver?.dispose()
     tab.resizeObserver?.disconnect()
     tab.term.dispose()
   }
