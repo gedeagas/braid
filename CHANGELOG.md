@@ -5,6 +5,30 @@ All notable changes to Braid are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [26.2.5] - 2026-05-28
+
+### Added
+
+- add reply-to-review and enhanced review UI (#109)
+- project list filtering, sorting, and activity tracking (#107)
+- add persistent usage status bar with rate limit polling (#103)
+
+### Fixed
+
+- propagate terminal resize to all tabs, not just the active one (#104)
+
+### Other
+
+- Improve right panel search UI (#108)
+- Refresh onboarding setup flow (#106)
+- Add local usage analytics (#105)
+
+### Contributors
+
+Thanks to [@gedeagas](https://github.com/gedeagas) for their contributions to this release!
+
+---
+
 ## [26.2.4] - 2026-05-27
 
 ### Other

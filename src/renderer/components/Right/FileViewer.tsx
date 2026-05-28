@@ -21,6 +21,8 @@ import { BinaryImagePreview, BinaryPlaceholder } from './BinaryFilePreview'
 import { isBinaryFile, isImageFile } from '@/lib/binaryFile'
 import { pendingReveal } from '@/lib/pendingReveal'
 import { requestWorktreeRefresh } from '@/lib/worktreeRefresh'
+import { HtmlFilePreview } from './HtmlFilePreview'
+import { isHtmlPreviewFile } from '@/lib/htmlPreview'
 
 interface Props {
   filePath: string | null
@@ -34,7 +36,7 @@ const EXT_TO_LANG: Record<string, string> = {
   ts: 'typescript', tsx: 'typescriptreact',
   js: 'javascript', jsx: 'javascriptreact',
   json: 'json', md: 'markdown', css: 'css', scss: 'scss',
-  html: 'html', yml: 'yaml', yaml: 'yaml', py: 'python',
+  html: 'html', htm: 'html', yml: 'yaml', yaml: 'yaml', py: 'python',
   rs: 'rust', go: 'go', swift: 'swift', kt: 'kotlin', kts: 'kotlin',
   java: 'java', m: 'objective-c', mm: 'objective-c', php: 'php',
   sh: 'shell', bash: 'shell', zsh: 'shell', toml: 'ini',
@@ -77,7 +79,7 @@ interface State {
 }
 
 type Action =
-  | { type: 'loadStart' }
+  | { type: 'loadStart'; showPreview?: boolean }
   | { type: 'loadDone'; content: string }
   | { type: 'loadFail' }
   | { type: 'change'; content: string; savedContent: string }
@@ -92,7 +94,15 @@ type Action =
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case 'loadStart':
-      return { ...state, loading: true, isDirty: false, saveError: null, diagnosticsOpen: false, markerCount: 0 }
+      return {
+        ...state,
+        loading: true,
+        isDirty: false,
+        saveError: null,
+        diagnosticsOpen: false,
+        markerCount: 0,
+        showPreview: action.showPreview ?? false,
+      }
     case 'loadDone':
       return { ...state, loading: false, savedContent: action.content, currentContent: action.content }
     case 'loadFail':
@@ -224,7 +234,7 @@ export function FileViewer({ filePath, projectRoot = null, onDirtyChange }: Prop
       pendingRevealRef.current = target
       setRevealing(true)
     }
-    dispatch({ type: 'loadStart' })
+    dispatch({ type: 'loadStart', showPreview: isHtmlPreviewFile(filePath) })
     ipc.git
       .readFile(filePath)
       .then((text: string) => {
@@ -241,7 +251,7 @@ export function FileViewer({ filePath, projectRoot = null, onDirtyChange }: Prop
 
   const handleSave = useCallback(async () => {
     if (!filePath || state.saving) return
-    const currentValue = editorRef.current?.getValue() ?? ''
+    const currentValue = editorRef.current?.getValue() ?? state.currentContent
     if (currentValue === state.savedContent) return
     dispatch({ type: 'saveStart' })
     try {
@@ -251,7 +261,7 @@ export function FileViewer({ filePath, projectRoot = null, onDirtyChange }: Prop
     } catch {
       dispatch({ type: 'saveFail', error: t('fileSaveError') })
     }
-  }, [filePath, projectRoot, state.saving, state.savedContent, t])
+  }, [filePath, projectRoot, state.saving, state.currentContent, state.savedContent, t])
 
   useEffect(() => { handleSaveRef.current = handleSave }, [handleSave])
 
@@ -326,6 +336,8 @@ export function FileViewer({ filePath, projectRoot = null, onDirtyChange }: Prop
   const fileName = filePath.split('/').slice(-2).join('/')
   const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
   const isMarkdown = ext === 'md' || ext === 'mdx'
+  const isHtmlPreview = isHtmlPreviewFile(filePath)
+  const canPreview = isMarkdown || isHtmlPreview
   const isBinary = isBinaryFile(filePath)
 
   // Binary file rendering (images, fonts, etc.)
@@ -389,7 +401,7 @@ export function FileViewer({ filePath, projectRoot = null, onDirtyChange }: Prop
           {state.saveError && (
             <span style={{ fontSize: 13, color: 'var(--red)' }}>{state.saveError}</span>
           )}
-          {isMarkdown && (
+          {canPreview && (
             <button
               className={`file-viewer-save-btn ${state.showPreview ? 'active' : ''}`}
               onClick={() => dispatch({ type: 'togglePreview' })}
@@ -418,6 +430,11 @@ export function FileViewer({ filePath, projectRoot = null, onDirtyChange }: Prop
           <div className="md-preview">
             <StreamingMarkdown content={state.currentContent} enableAnimation={false} />
           </div>
+        ) : isHtmlPreview && state.showPreview ? (
+          <HtmlFilePreview
+            filePath={filePath}
+            title={`${fileName} preview`}
+          />
         ) : (
           // Wrap the Editor so we can toggle visibility from React state.
           // While `revealing` is true the user wouldn't see meaningful
@@ -427,7 +444,7 @@ export function FileViewer({ filePath, projectRoot = null, onDirtyChange }: Prop
             <Editor
               height="100%"
               language={toMonacoLanguage(languageId)}
-              defaultValue={state.savedContent}
+              defaultValue={state.currentContent}
               theme={MONACO_THEME_NAME}
               onMount={handleEditorMount}
               onChange={handleChange}
