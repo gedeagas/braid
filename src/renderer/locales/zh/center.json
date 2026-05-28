@@ -359,7 +359,6 @@
   "rateLimitWarning": "!",
   "codeReviewTitle": "代码审查",
   "codeReviewSummary": "{{reviewCount}} 个审查, {{commentCount}} 条内联评论",
-  "codeReviewBack": "返回",
   "codeReviewOpenFile": "打开文件",
   "codeReviewLine": "L{{line}}",
   "codeReviewNoReviews": "暂无审查",

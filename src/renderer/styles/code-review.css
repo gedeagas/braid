@@ -187,28 +187,10 @@
 .code-review-header {
   display: flex;
   align-items: center;
-  gap: var(--space-12);
+  gap: var(--space-10);
   padding: var(--space-12) var(--space-16);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-}
-
-.code-review-header-back {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-4);
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  border-radius: var(--radius);
-  transition: color var(--duration-fast), background var(--duration-fast);
-}
-
-.code-review-header-back:hover {
-  color: var(--text-primary);
-  background: var(--bg-hover);
 }
 
 .code-review-header-title {

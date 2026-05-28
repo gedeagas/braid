@@ -341,7 +341,6 @@
   "rateLimitWarning": "!",
   "codeReviewTitle": "Ulasan Kode",
   "codeReviewSummary": "{{reviewCount}} ulasan, {{commentCount}} komentar inline",
-  "codeReviewBack": "Kembali",
   "codeReviewOpenFile": "Buka file",
   "codeReviewLine": "L{{line}}",
   "codeReviewNoReviews": "Belum ada ulasan",

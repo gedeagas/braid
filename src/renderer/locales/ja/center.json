@@ -342,7 +342,6 @@
   "rateLimitWarning": "!",
   "codeReviewTitle": "コードレビュー",
   "codeReviewSummary": "{{reviewCount}}件のレビュー、{{commentCount}}件のインラインコメント",
-  "codeReviewBack": "戻る",
   "codeReviewOpenFile": "ファイルを開く",
   "codeReviewLine": "L{{line}}",
   "codeReviewNoReviews": "レビューなし",

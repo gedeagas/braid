@@ -13,7 +13,7 @@ import { formatRelativeTime } from '@/lib/relativeTime'
 import { resolveSafeExternalUrl } from '@/lib/safeExternalUrl'
 import { useUIStore } from '@/store/ui'
 import { EmptyState, Spinner } from '@/components/ui'
-import { IconArrowLeft, IconFile } from '@/components/shared/icons'
+import { IconFile } from '@/components/shared/icons'
 import { useShikiHighlight } from '@/hooks/useShikiHighlight'
 import type { PrReview, PrReviewComment, PrReviewData, ReviewState } from '@/types'
 
@@ -367,7 +367,6 @@ export function CodeReviewView({ worktreePath }: Props) {
   const [submittingReplyId, setSubmittingReplyId] = useState<number | null>(null)
   const [replyError, setReplyError] = useState<string | null>(null)
   const openFile = useUIStore((s) => s.openFile)
-  const closeCodeReview = useUIStore((s) => s.closeCodeReview)
 
   const load = useCallback(async (forceRefresh = false, showLoading = true) => {
     if (showLoading) dispatch({ type: 'LOAD_START' })
@@ -415,10 +414,6 @@ export function CodeReviewView({ worktreePath }: Props) {
     () => new Set(rootComments.map((c) => c.path)).size,
     [rootComments],
   )
-
-  const handleBack = useCallback(() => {
-    closeCodeReview()
-  }, [closeCodeReview])
 
   const handleOpenFile = useCallback((path: string) => {
     // File paths from GitHub are relative to repo root, which matches worktree
@@ -498,7 +493,7 @@ export function CodeReviewView({ worktreePath }: Props) {
   if (state.error || !state.data) {
     return (
       <div className="code-review-view">
-        <CodeReviewHeader onBack={handleBack} t={t} />
+        <CodeReviewHeader t={t} />
         <EmptyState title={t('center:codeReviewEmpty')} hint={t('center:codeReviewEmptyHint')} />
       </div>
     )
@@ -507,7 +502,7 @@ export function CodeReviewView({ worktreePath }: Props) {
   if (dedupedReviews.length === 0 && inlineCount === 0) {
     return (
       <div className="code-review-view">
-        <CodeReviewHeader onBack={handleBack} t={t} />
+        <CodeReviewHeader t={t} />
         <EmptyState title={t('center:codeReviewEmpty')} hint={t('center:codeReviewEmptyHint')} />
       </div>
     )
@@ -516,7 +511,6 @@ export function CodeReviewView({ worktreePath }: Props) {
   return (
     <div className="code-review-view">
       <CodeReviewHeader
-        onBack={handleBack}
         t={t}
         summary={t('center:codeReviewSummary', { reviewCount: dedupedReviews.length, commentCount: inlineCount })}
       />
@@ -637,17 +631,13 @@ function CodeReviewOverview({
 }
 
 function CodeReviewHeader({
-  onBack, t, summary,
+  t, summary,
 }: {
-  onBack: () => void
   t: (key: string, opts?: Record<string, unknown>) => string
   summary?: string
 }) {
   return (
     <div className="code-review-header">
-      <button className="code-review-header-back" onClick={onBack} aria-label={t('center:codeReviewBack')}>
-        <IconArrowLeft size={16} />
-      </button>
       <span className="code-review-header-title">{t('center:codeReviewTitle')}</span>
       {summary && <span className="code-review-header-summary">{summary}</span>}
     </div>

@@ -100,6 +100,7 @@ describe('CodeReviewView', () => {
     expect(screen.getAllByText('const value = 1').length).toBeGreaterThan(0)
     expect(screen.getByText('summary')).toBeDefined()
     expect(screen.getByText('src/open.ts')).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'codeReviewBack' })).toBeNull()
   })
 
   it('opens only safe markdown links and suppresses markdown images', async () => {
