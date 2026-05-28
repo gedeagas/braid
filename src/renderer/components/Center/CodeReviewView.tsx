@@ -9,6 +9,8 @@ import ReactMarkdown, { type Components } from 'react-markdown'
 import { useTranslation } from 'react-i18next'
 import remarkGfm from 'remark-gfm'
 import * as ipc from '@/lib/ipc'
+import { formatRelativeTime } from '@/lib/relativeTime'
+import { resolveSafeExternalUrl } from '@/lib/safeExternalUrl'
 import { useUIStore } from '@/store/ui'
 import { EmptyState, Spinner } from '@/components/ui'
 import { IconArrowLeft, IconFile } from '@/components/shared/icons'
@@ -45,15 +47,46 @@ function reducer(state: State, action: Action): State {
 
 const markdownPlugins = [remarkGfm]
 
-const markdownComponents: Components = {
-  a: ({ href, children }) => {
-    const onClick = (e: MouseEvent<HTMLAnchorElement>) => {
-      e.preventDefault()
-      e.stopPropagation()
-      if (href) ipc.shell.openExternal(href)
-    }
-    return <a href={href} onClick={onClick}>{children}</a>
-  },
+function createMarkdownComponents(baseUrl: string): Components {
+  return {
+    a: ({ href, children }) => {
+      const safeUrl = resolveSafeExternalUrl(href, baseUrl)
+      const onClick = (e: MouseEvent<HTMLAnchorElement>) => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (safeUrl) ipc.shell.openExternal(safeUrl)
+      }
+      return <a href={safeUrl ?? undefined} onClick={onClick}>{children}</a>
+    },
+    img: () => null,
+  }
+}
+
+const getOpenCount = (comments: PrReviewComment[]) => comments.reduce(
+  (count, comment) => count + (comment.isResolved ? 0 : 1),
+  0,
+)
+
+function groupCommentsByFile(comments: PrReviewComment[]): Map<string, PrReviewComment[]> {
+  const rootComments = comments.filter((c) => c.inReplyToId === null)
+  const groups = new Map<string, PrReviewComment[]>()
+  for (const c of rootComments) {
+    const list = groups.get(c.path) ?? []
+    list.push(c)
+    groups.set(c.path, list)
+  }
+
+  const entries = Array.from(groups.entries()).map(([path, groupComments]) => {
+    groupComments.sort(compareComments)
+    return { path, comments: groupComments, openCount: getOpenCount(groupComments) }
+  })
+
+  entries.sort((a, b) => {
+    if (a.openCount !== b.openCount) return b.openCount - a.openCount
+    return a.path.localeCompare(b.path)
+  })
+
+  return new Map(entries.map(({ path, comments }) => [path, comments]))
 }
 
 function dedupeReviews(reviews: PrReview[]): PrReview[] {
@@ -78,48 +111,10 @@ function compareComments(a: PrReviewComment, b: PrReviewComment): number {
   return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
 }
 
-function groupCommentsByFile(comments: PrReviewComment[]): Map<string, PrReviewComment[]> {
-  const rootComments = comments.filter((c) => c.inReplyToId === null)
-  const groups = new Map<string, PrReviewComment[]>()
-  for (const c of rootComments) {
-    const list = groups.get(c.path) ?? []
-    list.push(c)
-    groups.set(c.path, list)
-  }
-  for (const list of groups.values()) {
-    list.sort(compareComments)
-  }
-  return new Map([...groups.entries()].sort(([aPath, aComments], [bPath, bComments]) => {
-    const aOpen = aComments.filter((c) => !c.isResolved).length
-    const bOpen = bComments.filter((c) => !c.isResolved).length
-    if (aOpen !== bOpen) return bOpen - aOpen
-    return aPath.localeCompare(bPath)
-  }))
-}
-
 function getReplies(comments: PrReviewComment[], parentId: number): PrReviewComment[] {
   return comments
     .filter((c) => c.inReplyToId === parentId)
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-}
-
-const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'always', style: 'short' })
-
-function formatTime(iso: string): string {
-  try {
-    const d = new Date(iso)
-    const now = new Date()
-    const diffMs = now.getTime() - d.getTime()
-    const diffMinutes = Math.max(1, Math.round(diffMs / 60000))
-    const diffHours = Math.round(diffMs / (1000 * 60 * 60))
-    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24))
-    if (diffMinutes < 60) return rtf.format(-diffMinutes, 'minute')
-    if (diffHours < 24) return rtf.format(-diffHours, 'hour')
-    if (diffDays < 7) return rtf.format(-diffDays, 'day')
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-  } catch {
-    return ''
-  }
 }
 
 function reviewStateClass(state: ReviewState): string {
@@ -141,11 +136,12 @@ function stateLabel(state: ReviewState, t: (key: string) => string): string {
   }
 }
 
-function CodeReviewMarkdown({ body }: { body: string }) {
+function CodeReviewMarkdown({ body, baseUrl }: { body: string; baseUrl: string }) {
+  const components = useMemo(() => createMarkdownComponents(baseUrl), [baseUrl])
   if (!body.trim()) return null
   return (
     <div className="code-review-markdown">
-      <ReactMarkdown remarkPlugins={markdownPlugins} components={markdownComponents}>
+      <ReactMarkdown skipHtml remarkPlugins={markdownPlugins} components={components}>
         {body}
       </ReactMarkdown>
     </div>
@@ -224,9 +220,9 @@ function ReviewCard({ review, t }: { review: PrReview; t: (key: string) => strin
           <span className={`review-state-badge ${reviewStateClass(review.state)}`}>
             {stateLabel(review.state, t)}
           </span>
-          <span className="code-review-card-time">{formatTime(review.submittedAt)}</span>
+          <span className="code-review-card-time">{formatRelativeTime(review.submittedAt)}</span>
         </div>
-        <CodeReviewMarkdown body={review.body} />
+        <CodeReviewMarkdown body={review.body} baseUrl={review.htmlUrl} />
       </div>
     </div>
   )
@@ -272,10 +268,10 @@ function CommentItem({
                 {comment.isResolved ? t('codeReviewResolved') : t('codeReviewOpen')}
               </span>
             )}
-            <span className="code-review-comment-time">{formatTime(comment.createdAt)}</span>
+            <span className="code-review-comment-time">{formatRelativeTime(comment.createdAt)}</span>
           </div>
           {comment.diffHunk && <DiffHunk raw={comment.diffHunk} filePath={comment.path} />}
-          <CodeReviewMarkdown body={comment.body} />
+          <CodeReviewMarkdown body={comment.body} baseUrl={comment.htmlUrl} />
         </div>
       </div>
       {replies.length > 0 && (
@@ -367,7 +363,7 @@ export function CodeReviewView({ worktreePath }: Props) {
   const { t } = useTranslation(['center', 'right'])
   const [state, dispatch] = useReducer(reducer, { data: null, loading: true, error: false, filter: 'all' })
   const [replyingToId, setReplyingToId] = useState<number | null>(null)
-  const [replyDraft, setReplyDraft] = useState('')
+  const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({})
   const [submittingReplyId, setSubmittingReplyId] = useState<number | null>(null)
   const [replyError, setReplyError] = useState<string | null>(null)
   const openFile = useUIStore((s) => s.openFile)
@@ -378,8 +374,10 @@ export function CodeReviewView({ worktreePath }: Props) {
     try {
       const data = await ipc.github.getReviews(worktreePath, forceRefresh) as PrReviewData
       dispatch({ type: 'LOAD_DONE', data })
+      return true
     } catch {
-      dispatch({ type: 'LOAD_ERROR' })
+      if (showLoading) dispatch({ type: 'LOAD_ERROR' })
+      return false
     }
   }, [worktreePath])
 
@@ -430,50 +428,60 @@ export function CodeReviewView({ worktreePath }: Props) {
 
   const handleStartReply = useCallback((commentId: number) => {
     setReplyingToId(commentId)
-    setReplyDraft('')
     setReplyError(null)
   }, [])
 
   const handleCancelReply = useCallback(() => {
     setReplyingToId(null)
-    setReplyDraft('')
     setReplyError(null)
   }, [])
 
+  const handleDraftChange = useCallback((value: string) => {
+    if (replyingToId === null) return
+    setReplyDrafts((prev) => ({ ...prev, [replyingToId]: value }))
+  }, [replyingToId])
+
   const handleSubmitReply = useCallback(async (commentId: number) => {
-    const body = replyDraft.trim()
+    const body = (replyDrafts[commentId] ?? '').trim()
     if (!body) return
 
     setSubmittingReplyId(commentId)
     setReplyError(null)
     try {
       await ipc.github.replyToReviewComment(worktreePath, commentId, body)
-      setReplyingToId(null)
-      setReplyDraft('')
-      await load(true, false)
     } catch {
       setReplyError(t('center:codeReviewReplyFailed'))
-    } finally {
       setSubmittingReplyId(null)
+      return
     }
-  }, [load, replyDraft, t, worktreePath])
+
+    setReplyingToId(null)
+    setReplyDrafts((prev) => {
+      const next = { ...prev }
+      delete next[commentId]
+      return next
+    })
+    setSubmittingReplyId(null)
+    void load(true, false)
+  }, [load, replyDrafts, t, worktreePath])
 
   const replyState = useMemo<ReplyState>(() => ({
     replyingToId,
-    draft: replyDraft,
+    draft: replyingToId !== null ? replyDrafts[replyingToId] ?? '' : '',
     submittingId: submittingReplyId,
     error: replyError,
     onStart: handleStartReply,
     onCancel: handleCancelReply,
-    onDraftChange: setReplyDraft,
+    onDraftChange: handleDraftChange,
     onSubmit: handleSubmitReply,
   }), [
     replyingToId,
-    replyDraft,
+    replyDrafts,
     submittingReplyId,
     replyError,
     handleStartReply,
     handleCancelReply,
+    handleDraftChange,
     handleSubmitReply,
   ])
 
@@ -556,36 +564,39 @@ export function CodeReviewView({ worktreePath }: Props) {
         )}
 
         {/* Inline comments grouped by file */}
-        {Array.from(fileGroups.entries()).map(([filePath, comments]) => (
-          <div key={filePath} className="code-review-file-group">
-            <div className="code-review-file-header">
-              <span className="code-review-file-icon"><IconFile size={14} /></span>
-              <span className="code-review-file-path" onClick={() => handleOpenFile(filePath)}>
-                {filePath}
-              </span>
-              {comments.some((c) => !c.isResolved) && (
-                <span className="code-review-file-open">
-                  {t('center:codeReviewFilterOpen', { count: comments.filter((c) => !c.isResolved).length })}
+        {Array.from(fileGroups.entries()).map(([filePath, comments]) => {
+          const openCount = getOpenCount(comments)
+          return (
+            <div key={filePath} className="code-review-file-group">
+              <div className="code-review-file-header">
+                <span className="code-review-file-icon"><IconFile size={14} /></span>
+                <span className="code-review-file-path" onClick={() => handleOpenFile(filePath)}>
+                  {filePath}
                 </span>
-              )}
-              <span className="code-review-file-count">
-                {t('right:reviewComments', { count: comments.filter((c) => c.inReplyToId === null).length })}
-              </span>
+                {openCount > 0 && (
+                  <span className="code-review-file-open">
+                    {t('center:codeReviewFilterOpen', { count: openCount })}
+                  </span>
+                )}
+                <span className="code-review-file-count">
+                  {t('right:reviewComments', { count: comments.length })}
+                </span>
+              </div>
+              <div className="code-review-comments">
+                {comments.map((comment) => (
+                  <CommentItem
+                    key={comment.id}
+                    comment={comment}
+                    allComments={filteredComments}
+                    isRoot
+                    replyState={replyState}
+                    t={(k, opts) => t(`center:${k}`, opts as Record<string, string>)}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="code-review-comments">
-              {comments.filter((c) => c.inReplyToId === null).map((comment) => (
-                <CommentItem
-                  key={comment.id}
-                  comment={comment}
-                  allComments={filteredComments}
-                  isRoot
-                  replyState={replyState}
-                  t={(k, opts) => t(`center:${k}`, opts as Record<string, string>)}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
+          )
+        })}
 
         {/* Empty filter state */}
         {state.filter !== 'all' && fileGroups.size === 0 && inlineCount > 0 && (

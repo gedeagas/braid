@@ -7,7 +7,8 @@
 import type { KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SectionHeader } from '@/components/ui/SectionHeader'
-import type { PrReview, PrReviewComment, PrReviewData, ReviewState } from '@/types'
+import { formatRelativeTime } from '@/lib/relativeTime'
+import type { PrReview, PrReviewData, ReviewState } from '@/types'
 
 const MAX_INLINE_REVIEWS = 3
 
@@ -28,24 +29,6 @@ function dedupeReviews(reviews: PrReview[]): PrReview[] {
   }
   return Array.from(byAuthor.values())
     .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
-}
-
-const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto', style: 'short' })
-
-function formatTime(iso: string): string {
-  try {
-    const d = new Date(iso)
-    const diffMs = Date.now() - d.getTime()
-    const diffMinutes = Math.round(diffMs / 60000)
-    const diffHours = Math.round(diffMs / (1000 * 60 * 60))
-    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24))
-    if (Math.abs(diffMinutes) < 60) return rtf.format(-diffMinutes, 'minute')
-    if (Math.abs(diffHours) < 24) return rtf.format(-diffHours, 'hour')
-    if (Math.abs(diffDays) < 7) return rtf.format(-diffDays, 'day')
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-  } catch {
-    return ''
-  }
 }
 
 function reviewStateClass(state: ReviewState): string {
@@ -109,7 +92,7 @@ function ReviewCard({ review, onClick }: { review: PrReview; onClick: () => void
         <div className="review-preview-header">
           <span className="review-author">{review.author}</span>
           <ReviewStateBadge state={review.state} />
-          <span className="review-preview-time">{formatTime(review.submittedAt)}</span>
+          <span className="review-preview-time">{formatRelativeTime(review.submittedAt)}</span>
         </div>
       </div>
     </div>
