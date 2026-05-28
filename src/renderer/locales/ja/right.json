@@ -10,6 +10,7 @@
   "searchMatchCase": "大文字小文字を区別",
   "searchWholeWord": "単語単位で一致",
   "searchRegex": "正規表現を使用",
+  "searchClear": "検索をクリア",
   "searchToggleReplace": "置換の切り替え",
   "searchFiltersSection": "フィルター",
   "searchToggleFilters": "ファイルフィルターの切り替え",

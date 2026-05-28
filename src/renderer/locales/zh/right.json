@@ -10,6 +10,7 @@
   "searchMatchCase": "区分大小写",
   "searchWholeWord": "全词匹配",
   "searchRegex": "使用正则表达式",
+  "searchClear": "清除搜索",
   "searchToggleReplace": "切换替换",
   "searchFiltersSection": "过滤器",
   "searchToggleFilters": "切换文件过滤器",
