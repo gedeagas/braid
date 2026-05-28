@@ -98,4 +98,29 @@ describe('useChangesActions', () => {
     expect(bumpDiffRevision).toHaveBeenCalledTimes(2)
     expect(result.current.state.changes).toEqual(nextStatus)
   })
+
+  it('does not apply a status result after unmount', async () => {
+    const status: GitChange[] = [
+      { file: 'src/a.ts', status: 'M', staged: false, additions: 2, deletions: 1 },
+    ]
+    let resolveStatus!: (value: GitChange[]) => void
+    vi.mocked(ipc.git.getStatus).mockImplementationOnce(() =>
+      new Promise((resolve) => { resolveStatus = resolve })
+    )
+    const { result, unmount } = setup()
+
+    let loadPromise!: Promise<void>
+    act(() => {
+      loadPromise = result.current.actions.loadStatus()
+    })
+    unmount()
+
+    await act(async () => {
+      resolveStatus(status)
+      await loadPromise
+    })
+
+    expect(setChangesCount).not.toHaveBeenCalled()
+    expect(bumpDiffRevision).not.toHaveBeenCalled()
+  })
 })

@@ -235,6 +235,7 @@ function completeResourceDispatch(
   state: WorktreeResourceState,
   promise: Promise<void>
 ): void {
+  if (resourceStates.get(state.key) !== state) return
   if (state.inFlight !== promise) return
   state.inFlight = null
   state.completionCount += 1

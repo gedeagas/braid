@@ -27,6 +27,11 @@ vi.mock('@/store/ui', () => ({
   }
 }))
 
+const requestWorktreeRefresh = vi.hoisted(() => vi.fn())
+vi.mock('@/lib/worktreeRefresh', () => ({
+  requestWorktreeRefresh,
+}))
+
 // Mock the sessions store module so rollbackActions can import it. We replace
 // useSessionsStore with a ref that we patch per-test to point at the test store.
 const storeRef = { current: null as unknown }
@@ -180,6 +185,21 @@ describe('rollbackToUserMessage', () => {
       const { actions } = createActions({ messages: [userMsg] })
       await actions.rollbackToUserMessage('sess-1', 'msg-1')
       expect(ipc.git.getStatus).toHaveBeenCalledWith('/repo')
+      expect(requestWorktreeRefresh).toHaveBeenCalledWith('/repo', ['files', 'gitStatus', 'syncStatus'], {
+        reason: 'git-mutation',
+        force: true,
+      })
+    })
+
+    it('requests the same rollback refresh resources when status fetch fails', async () => {
+      vi.mocked(ipc.git.getStatus).mockRejectedValueOnce(new Error('status failed'))
+      const userMsg = makeMsg({ id: 'msg-1', role: 'user', snapshotSha: 'abc123' })
+      const { actions } = createActions({ messages: [userMsg] })
+      await actions.rollbackToUserMessage('sess-1', 'msg-1')
+      expect(requestWorktreeRefresh).toHaveBeenCalledWith('/repo', ['files', 'gitStatus', 'syncStatus'], {
+        reason: 'git-mutation',
+        force: true,
+      })
     })
   })
 

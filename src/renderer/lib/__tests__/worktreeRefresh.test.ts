@@ -252,4 +252,33 @@ describe('worktreeRefresh', () => {
       expect.objectContaining({ resourceKey: 'worktree:/repo:jira', observerCount: 0 }),
     ])
   })
+
+  it('does not revive cleaned-up state when an in-flight refresh completes', async () => {
+    let resolveRefresh!: () => void
+    const handler = vi.fn(() => new Promise<void>((resolve) => {
+      resolveRefresh = resolve
+    }))
+    subscribeWorktreeRefresh('/repo', 'checks', handler)
+
+    requestWorktreeRefresh('/repo', 'checks', { reason: 'external' })
+    await flushRefreshes()
+
+    requestWorktreeRefresh('/repo', 'checks', { reason: 'poll', force: true })
+    await flushRefreshes()
+
+    expect(getWorktreeRefreshMetrics()).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        resourceKey: 'worktree:/repo:checks',
+        inFlight: true,
+        pending: true,
+      }),
+    ]))
+
+    cleanupWorktreeRefresh('/repo')
+    resolveRefresh()
+    await flushRefreshes()
+
+    expect(handler).toHaveBeenCalledTimes(1)
+    expect(getWorktreeRefreshMetrics()).toEqual([])
+  })
 })

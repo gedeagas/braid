@@ -67,14 +67,17 @@ export function createTerminalCommandObserver(
   options: ApplyOptions = {}
 ): TerminalCommandObserver {
   let line = ''
+  let disposed = false
   const timers = new Set<ReturnType<typeof setTimeout>>()
 
   const schedule = (command: string) => {
+    if (disposed) return
     const plan = classifyCliRefreshCommand(command)
     if (!plan) return
     for (const delay of FOLLOW_UP_DELAYS_MS) {
       const timer = setTimeout(() => {
         timers.delete(timer)
+        if (disposed) return
         applyCliRefreshPlan(worktreePath, plan, options)
       }, delay)
       timers.add(timer)
@@ -82,6 +85,7 @@ export function createTerminalCommandObserver(
   }
 
   const accept = (data: string) => {
+    if (disposed) return
     const input = stripPasteMarkers(data)
     for (let i = 0; i < input.length; i += 1) {
       const ch = input[i]
@@ -109,6 +113,7 @@ export function createTerminalCommandObserver(
   }
 
   const dispose = () => {
+    disposed = true
     for (const timer of timers) clearTimeout(timer)
     timers.clear()
   }

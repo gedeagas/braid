@@ -141,6 +141,7 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
   } = state
 
   const lastOwnFetchRef = useRef(0)
+  const mountedRef = useRef(true)
   const { t } = useTranslation('right')
 
   // Current upstream tracking branch used as the sync-status base branch
@@ -159,6 +160,8 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
   const openFile = useUIStore((s) => s.openFile)
   const setActiveCenterView = useUIStore((s) => s.setActiveCenterView)
 
+  useEffect(() => () => { mountedRef.current = false }, [])
+
   // ─── Data fetching ────────────────────────────────────────────────────────
 
   const load = useCallback(async (options?: boolean | LoadOptions) => {
@@ -170,16 +173,7 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
         (ipc.jira.getIssuesForBranch(worktreePath, jiraBaseUrl || undefined, forceJira) as Promise<JiraResult>)
           .catch((): 'error' => 'error'),
       ])
-
-      // Keep the sidebar prCache in sync — no need to wait for its 90s poll.
-      // prResult is already typed as PrStatus (canonical), so pass it through
-      // directly instead of hand-picking fields (which silently drops new ones).
-      const cacheData = prResult
-      const now = Date.now()
-      lastOwnFetchRef.current = now
-      usePrCacheStore.setState((s) => ({
-        cache: { ...s.cache, [worktreePath]: { data: cacheData, fetchedAt: now, loading: false } },
-      }))
+      if (!mountedRef.current) return
 
       let latestChecks: CheckRun[] = []
       let latestDeployments: Deployment[] = []
@@ -199,11 +193,23 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
         latestSync = syncData as GitSyncStatus
         latestReviews = reviewsData as PrReviewData | null
       }
+      if (!mountedRef.current) return
+
+      // Keep the sidebar prCache in sync, no need to wait for its 90s poll.
+      // prResult is already typed as PrStatus, so pass it through directly
+      // instead of hand-picking fields, which silently drops new ones.
+      const cacheData = prResult
+      const now = Date.now()
+      lastOwnFetchRef.current = now
+      usePrCacheStore.setState((s) => ({
+        cache: { ...s.cache, [worktreePath]: { data: cacheData, fetchedAt: now, loading: false } },
+      }))
 
       const now2 = new Date()
       dispatch({ type: 'LOAD_DONE', pr: prResult, checks: latestChecks, deployments: latestDeployments, sync: latestSync, jiraResult: jiraFetch, reviews: latestReviews, lastUpdated: now2 })
       checksCache.set(worktreePath, { pr: prResult, checks: latestChecks, deployments: latestDeployments, sync: latestSync, jiraResult: jiraFetch, reviews: latestReviews, lastUpdated: now2 })
     } catch (err) {
+      if (!mountedRef.current) return
       const st = usePrCacheStore.getState().cache[worktreePath]?.data?.state
       if (st !== 'MERGED' && st !== 'CLOSED') flash('error', cleanIpcError(err, t('loadChecksError')))
       dispatch({ type: 'LOAD_ERROR' })
@@ -214,7 +220,9 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
 
   const handleRefresh = useCallback(async () => {
     dispatch({ type: 'SET_REFRESHING', value: true })
-    try { await load(true) } finally { dispatch({ type: 'SET_REFRESHING', value: false }) }
+    try { await load(true) } finally {
+      if (mountedRef.current) dispatch({ type: 'SET_REFRESHING', value: false })
+    }
   }, [load])
 
   const handlePull = useCallback(async () => {

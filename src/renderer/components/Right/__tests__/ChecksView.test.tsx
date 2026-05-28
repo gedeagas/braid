@@ -1,9 +1,11 @@
-import { render, waitFor } from '@testing-library/react'
+import { act, render, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { requestWorktreeRefresh, resetWorktreeRefreshForTests } from '@/lib/worktreeRefresh'
 import { ChecksView } from '../ChecksView'
 
-const prCacheState = {
+const prCacheState: {
+  cache: Record<string, { data: null; fetchedAt: number; loading: boolean }>
+} = {
   cache: {
     '/repo': { data: null, fetchedAt: 123, loading: false },
   },
@@ -115,5 +117,28 @@ describe('ChecksView', () => {
       expect(ipc.github.getPrStatus).toHaveBeenCalledWith('/repo', true)
       expect(ipc.jira.getIssuesForBranch).toHaveBeenCalledWith('/repo', undefined, false)
     })
+  })
+
+  it('does not write cache after an in-flight load resolves post-unmount', async () => {
+    prCacheState.cache['/repo'] = { data: null, fetchedAt: 0, loading: false }
+    let resolvePr!: (value: null) => void
+    vi.mocked(ipc.github.getPrStatus).mockImplementationOnce(() =>
+      new Promise((resolve) => { resolvePr = resolve })
+    )
+
+    const { unmount } = render(<ChecksView worktreePath="/repo" worktreeId="wt-1" isActive={true} />)
+
+    await waitFor(() => {
+      expect(ipc.github.getPrStatus).toHaveBeenCalled()
+    })
+
+    unmount()
+    await act(async () => {
+      resolvePr(null)
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(prCacheState.cache['/repo']).toEqual({ data: null, fetchedAt: 0, loading: false })
   })
 })

@@ -112,9 +112,10 @@ class JiraService {
   }
 
   private async getIssue(key: string, overrideUrl: string | null, detectedUrl: string | null, forceRefresh?: boolean): Promise<JiraIssue | null> {
-    const data = await this.issueDataCache.get(key, async () => {
+    const upperKey = key.toUpperCase()
+    const data = await this.issueDataCache.get(upperKey, async () => {
       try {
-        const { stdout } = await exec('acli', ['jira', 'workitem', 'view', key, '--json'], {
+        const { stdout } = await exec('acli', ['jira', 'workitem', 'view', upperKey, '--json'], {
           timeout: 10_000,
           env: enrichedEnv()
         })

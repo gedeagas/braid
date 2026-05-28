@@ -69,4 +69,26 @@ describe('terminalCommandRefresh', () => {
 
     expect(requestWorktreeRefresh).not.toHaveBeenCalled()
   })
+
+  it('does not schedule refreshes after disposal', async () => {
+    const { createTerminalCommandObserver } = await import('../terminalCommandRefresh')
+    const observer = createTerminalCommandObserver('/repo')
+
+    observer.dispose()
+    observer.accept('gh pr edit 1 --add-label ready\n')
+    await vi.advanceTimersByTimeAsync(5_000)
+
+    expect(requestWorktreeRefresh).not.toHaveBeenCalled()
+  })
+
+  it('cancels scheduled refreshes on disposal', async () => {
+    const { createTerminalCommandObserver } = await import('../terminalCommandRefresh')
+    const observer = createTerminalCommandObserver('/repo')
+
+    observer.accept('gh pr edit 1 --add-label ready\n')
+    observer.dispose()
+    await vi.advanceTimersByTimeAsync(5_000)
+
+    expect(requestWorktreeRefresh).not.toHaveBeenCalled()
+  })
 })

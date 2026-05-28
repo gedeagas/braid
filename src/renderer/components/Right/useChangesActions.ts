@@ -63,6 +63,7 @@ export function useChangesActions(
 
   // ─── Load status ──────────────────────────────────────────
   const loadStatus = useCallback(async (showSpinner = false) => {
+    if (!mountedRef.current) return
     if (statusInFlightRef.current) {
       statusQueuedRef.current = (statusQueuedRef.current ?? false) || showSpinner
       return
@@ -72,6 +73,7 @@ export function useChangesActions(
     if (showSpinner) dispatch({ type: 'SET_REFRESHING', value: true })
     try {
       const status = await ipc.git.getStatus(worktreePath) as GitChange[]
+      if (!mountedRef.current) return
       const signature = gitChangeSignature(status)
       if (signature !== lastStatusSignatureRef.current) {
         lastStatusSignatureRef.current = signature
@@ -80,16 +82,19 @@ export function useChangesActions(
         useUIStore.getState().bumpDiffRevision(worktreePath)
       }
     } catch (err) {
+      if (!mountedRef.current) return
       const { cache } = usePrCacheStore.getState()
       const st = cache[worktreePath]?.data?.state
       if (st === 'MERGED' || st === 'CLOSED') return
       flashError(err, 'refreshError')
     } finally {
-      if (showSpinner) dispatch({ type: 'SET_REFRESHING', value: false })
       statusInFlightRef.current = false
 
       const queuedShowSpinner = statusQueuedRef.current
       statusQueuedRef.current = null
+      if (!mountedRef.current) return
+
+      if (showSpinner) dispatch({ type: 'SET_REFRESHING', value: false })
       if (queuedShowSpinner !== null) {
         void loadStatus(queuedShowSpinner)
       }

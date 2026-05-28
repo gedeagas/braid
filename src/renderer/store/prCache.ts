@@ -46,14 +46,26 @@ const trackedPaths = new Set<string>()
 
 /** In-flight fetch promises — prevents duplicate concurrent requests. */
 const inFlight = new Set<string>()
+const inFlightForce = new Set<string>()
+const queuedForceRefreshes = new Set<string>()
 
 export const usePrCacheStore = create<PrCacheState>((set, get) => ({
   cache: {},
 
   fetchPr: async (worktreePath, options) => {
     if (!worktreePath) return
-    if (inFlight.has(worktreePath)) return
+    if (inFlight.has(worktreePath)) {
+      if (options?.force && !inFlightForce.has(worktreePath)) {
+        queuedForceRefreshes.add(worktreePath)
+      }
+      return
+    }
     inFlight.add(worktreePath)
+    if (options?.force) {
+      inFlightForce.add(worktreePath)
+    } else {
+      inFlightForce.delete(worktreePath)
+    }
 
     // Mark as loading (only if we don't already have data)
     const existing = get().cache[worktreePath]
@@ -90,7 +102,12 @@ export const usePrCacheStore = create<PrCacheState>((set, get) => ({
         }
       }))
     } finally {
+      const runQueuedForceRefresh = queuedForceRefreshes.delete(worktreePath)
       inFlight.delete(worktreePath)
+      inFlightForce.delete(worktreePath)
+      if (runQueuedForceRefresh) {
+        void get().fetchPr(worktreePath, { force: true })
+      }
     }
   },
 
