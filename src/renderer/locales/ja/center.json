@@ -342,7 +342,6 @@
   "rateLimitWarning": "!",
   "codeReviewTitle": "コードレビュー",
   "codeReviewSummary": "{{reviewCount}}件のレビュー、{{commentCount}}件のインラインコメント",
-  "codeReviewBack": "戻る",
   "codeReviewOpenFile": "ファイルを開く",
   "codeReviewLine": "L{{line}}",
   "codeReviewNoReviews": "レビューなし",
@@ -355,5 +354,15 @@
   "codeReviewFilterOpen": "未解決 ({{count}})",
   "codeReviewFilterResolved": "解決済み ({{count}})",
   "codeReviewNoResolved": "解決済みのコメントはありません",
-  "codeReviewNoOpen": "未解決のコメントはありません"
+  "codeReviewNoOpen": "未解決のコメントはありません",
+  "codeReviewStatsReviews": "レビュー",
+  "codeReviewStatsOpen": "未解決",
+  "codeReviewStatsResolved": "解決済み",
+  "codeReviewStatsFiles": "ファイル",
+  "codeReviewReply": "返信",
+  "codeReviewReplyPlaceholder": "返信を書く...",
+  "codeReviewSendReply": "返信を送信",
+  "codeReviewSendingReply": "送信中...",
+  "codeReviewCancelReply": "キャンセル",
+  "codeReviewReplyFailed": "返信を投稿できませんでした"
 }

@@ -341,6 +341,7 @@
   "reviewCommented": "Dikomentari",
   "reviewDismissed": "Ditolak",
   "reviewNoReviews": "Belum ada ulasan",
+  "reviewLatestReviews": "Ulasan terbaru",
   "reviewComments_one": "{{count}} komentar",
   "reviewComments_other": "{{count}} komentar",
   "reviewUnresolved_one": "{{count}} terbuka",

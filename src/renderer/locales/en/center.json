@@ -359,7 +359,6 @@
   "rateLimitWarning": "!",
   "codeReviewTitle": "Code Review",
   "codeReviewSummary": "{{reviewCount}} reviews, {{commentCount}} inline comments",
-  "codeReviewBack": "Back",
   "codeReviewOpenFile": "Open file",
   "codeReviewLine": "L{{line}}",
   "codeReviewNoReviews": "No reviews",
@@ -372,5 +371,15 @@
   "codeReviewFilterOpen": "Open ({{count}})",
   "codeReviewFilterResolved": "Resolved ({{count}})",
   "codeReviewNoResolved": "No resolved comments",
-  "codeReviewNoOpen": "No open comments"
+  "codeReviewNoOpen": "No open comments",
+  "codeReviewStatsReviews": "Reviews",
+  "codeReviewStatsOpen": "Open",
+  "codeReviewStatsResolved": "Resolved",
+  "codeReviewStatsFiles": "Files",
+  "codeReviewReply": "Reply",
+  "codeReviewReplyPlaceholder": "Write a reply...",
+  "codeReviewSendReply": "Send reply",
+  "codeReviewSendingReply": "Sending...",
+  "codeReviewCancelReply": "Cancel",
+  "codeReviewReplyFailed": "Could not post reply"
 }

@@ -241,6 +241,9 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('github:getReviews', (_e, worktreePath: string, forceRefresh?: boolean) =>
     githubService.getReviews(worktreePath, forceRefresh)
   )
+  ipcMain.handle('github:replyToReviewComment', (_e, worktreePath: string, commentId: number, body: string) =>
+    githubService.replyToReviewComment(worktreePath, commentId, body)
+  )
   ipcMain.handle('github:openCheckLog', async (_e, worktreePath: string, checkUrl: string, checkName: string) => {
     const log = await githubService.getCheckRunLog(worktreePath, checkUrl)
     const safe = checkName.replace(/[^a-zA-Z0-9-_]/g, '_')

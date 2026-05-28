@@ -182,6 +182,8 @@ export const github = {
     api().github.markPrReady(worktreePath),
   getReviews: (worktreePath: string, forceRefresh?: boolean) =>
     api().github.getReviews(worktreePath, forceRefresh),
+  replyToReviewComment: (worktreePath: string, commentId: number, body: string) =>
+    api().github.replyToReviewComment(worktreePath, commentId, body),
   startDeviceFlow: () =>
     api().github.startDeviceFlow(),
   cancelDeviceFlow: () =>
