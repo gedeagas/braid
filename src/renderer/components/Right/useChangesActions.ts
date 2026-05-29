@@ -240,9 +240,9 @@ export function useChangesActions(
   }, [state.changes, worktreePath, loadStatus, dispatch])
 
   // ─── Discard ──────────────────────────────────────────────
-  const handleDiscardRequest = useCallback((e: React.MouseEvent, file: string, status: string) => {
+  const handleDiscardRequest = useCallback((e: React.MouseEvent, file: string, status: string, staged?: boolean) => {
     e.stopPropagation()
-    dispatch({ type: 'SHOW_DISCARD_CONFIRM', files: [{ file, status }] })
+    dispatch({ type: 'SHOW_DISCARD_CONFIRM', files: [{ file, status, staged }] })
   }, [dispatch])
 
   const handleDiscardAllRequest = useCallback((e: React.MouseEvent) => {

@@ -5,6 +5,7 @@ import { join } from 'path'
 import { execFileSync } from 'child_process'
 import { mainSettings } from '../ipc'
 import { getHookServerPort, getHookServerToken } from './agentHookServer'
+import { DEFAULT_TERMINAL_SCROLLBACK_LINES, getTerminalScrollbackBufferMaxLength } from '../../shared/terminal'
 
 // ── Big Terminal scrollback persistence ──────────────────────────────────────
 
@@ -23,22 +24,36 @@ function scrollbackPath(terminalId: string): string {
 
 // ── Ring Buffer ──────────────────────────────────────────────────────────────
 
-const BUFFER_MAX_LENGTH = 50_000 // 50KB per PTY
+const DEFAULT_BUFFER_MAX_LENGTH = getTerminalScrollbackBufferMaxLength(DEFAULT_TERMINAL_SCROLLBACK_LINES)
 
 /** Bounded ring buffer that stores the last N characters of terminal output. */
 class RingBuffer {
   private chunks: string[] = []
   private totalLength = 0
+  private maxLength: number
+
+  constructor(maxLength = DEFAULT_BUFFER_MAX_LENGTH) {
+    this.maxLength = Math.max(1, Math.round(maxLength))
+  }
 
   push(data: string): void {
     this.chunks.push(data)
     this.totalLength += data.length
-    while (this.totalLength > BUFFER_MAX_LENGTH && this.chunks.length > 1) {
+    this.trimToMaxLength()
+  }
+
+  setMaxLength(maxLength: number): void {
+    this.maxLength = Math.max(1, Math.round(maxLength))
+    this.trimToMaxLength()
+  }
+
+  private trimToMaxLength(): void {
+    while (this.totalLength > this.maxLength && this.chunks.length > 1) {
       const evicted = this.chunks.shift()!
       this.totalLength -= evicted.length
     }
-    if (this.totalLength > BUFFER_MAX_LENGTH && this.chunks.length === 1) {
-      this.chunks[0] = this.chunks[0].slice(this.chunks[0].length - BUFFER_MAX_LENGTH)
+    if (this.totalLength > this.maxLength && this.chunks.length === 1) {
+      this.chunks[0] = this.chunks[0].slice(this.chunks[0].length - this.maxLength)
       this.totalLength = this.chunks[0].length
     }
   }
@@ -77,6 +92,8 @@ export interface IPtyService {
   runScript(cwd: string, command: string, timeoutMs?: number): Promise<{ exitCode: number }>
   /** Read buffered output from all PTYs spawned in the given worktree path. */
   readTerminalOutput(worktreePath: string): TerminalOutput[]
+  /** Update how much output is retained for reconnect/restart snapshots. */
+  setScrollbackBufferMaxLength(maxLength: number): void
   /** Associate a ptyId with a persistent big-terminal id so the RingBuffer is flushed to disk on exit/shutdown. */
   registerBigTerminal(ptyId: string, terminalId: string): void
   /** Read the persisted scrollback for a big terminal. Returns empty string if none exists. */
@@ -173,7 +190,7 @@ class PtyService implements IPtyService {
       )
     }
 
-    const buffer = new RingBuffer()
+    const buffer = new RingBuffer(getTerminalScrollbackBufferMaxLength(mainSettings.terminalScrollback))
     const instance: PtyInstance = { process: ptyProcess, cwd: safeCwd, buffer }
 
     ptyProcess.onData((data: string) => {
@@ -239,6 +256,12 @@ class PtyService implements IPtyService {
       }
     }
     return results
+  }
+
+  setScrollbackBufferMaxLength(maxLength: number): void {
+    for (const instance of this.instances.values()) {
+      instance.buffer.setMaxLength(maxLength)
+    }
   }
 
   // ── External event subscriptions (mobile companion) ────────────────────────

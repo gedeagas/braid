@@ -121,5 +121,19 @@ export function TerminalPanel({ worktreePath }: Props) {
     return unsub
   }, [])
 
+  // Update terminal scrollback when setting changes
+  useEffect(() => {
+    let prevScrollback = useUIStore.getState().terminalScrollback
+    const unsub = useUIStore.subscribe((state) => {
+      if (state.terminalScrollback !== prevScrollback) {
+        prevScrollback = state.terminalScrollback
+        if (termRef.current) {
+          termRef.current.options.scrollback = prevScrollback
+        }
+      }
+    })
+    return unsub
+  }, [])
+
   return <div className="terminal-container" ref={containerRef} />
 }

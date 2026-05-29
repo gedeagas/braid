@@ -630,18 +630,17 @@
 }
 
 .jira-lookup-card-header {
-  display: flex;
-  align-items: baseline;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
   gap: var(--space-6);
 }
 
 .jira-lookup-card-summary {
   color: var(--text-primary);
-  flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  line-height: var(--leading-snug);
 }
 
 .jira-lookup-card-meta {

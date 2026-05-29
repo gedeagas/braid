@@ -35,6 +35,7 @@ import { CodexUsageStore } from './services/codexUsage'
 import type { CodexUsageScope, CodexUsageRange, CodexUsageBreakdownKind } from '../shared/codex-usage-types'
 import { RateLimitService } from './services/rateLimits/service'
 import { collectResourceSnapshot } from './services/rateLimits/resourceCollector'
+import { DEFAULT_TERMINAL_SCROLLBACK_LINES, clampTerminalScrollbackLines, getTerminalScrollbackBufferMaxLength } from '../shared/terminal'
 
 export const rateLimitService = new RateLimitService()
 
@@ -69,6 +70,7 @@ function shellArgs(shellPath: string, cmd: string): string[] {
 export const mainSettings = {
   apiKey: null as string | null,
   terminalShell: '',
+  terminalScrollback: DEFAULT_TERMINAL_SCROLLBACK_LINES,
   worktreeStoragePath: '',
   systemPromptSuffix: '',
   claudeCodeExecutablePath: '',
@@ -569,7 +571,16 @@ export function registerIpcHandlers(): void {
 
   // Settings — renderer pushes current values so main process can read them
   ipcMain.handle('settings:sync', (_e, values: Partial<typeof mainSettings>) => {
+    const prevScrollback = mainSettings.terminalScrollback
+    if (typeof values.terminalScrollback === 'number') {
+      values.terminalScrollback = clampTerminalScrollbackLines(values.terminalScrollback)
+    }
     Object.assign(mainSettings, values)
+    if (mainSettings.terminalScrollback !== prevScrollback) {
+      ptyService.setScrollbackBufferMaxLength(
+        getTerminalScrollbackBufferMaxLength(mainSettings.terminalScrollback),
+      )
+    }
   })
   ipcMain.handle('settings:getApiKey', () => mainSettings.apiKey)
   ipcMain.handle('settings:getTerminalShell', () => mainSettings.terminalShell)

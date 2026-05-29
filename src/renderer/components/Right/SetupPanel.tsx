@@ -39,6 +39,7 @@ function getOrCreateCache(worktreePath: string): CachedSetup {
     theme: getTerminalTheme(),
     fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', monospace",
     fontSize: useUIStore.getState().terminalFontSize,
+    scrollback: useUIStore.getState().terminalScrollback,
     minimumContrastRatio: getTerminalMinimumContrastRatio(),
     cursorBlink: false,
     disableStdin: true,
@@ -133,6 +134,7 @@ export function SetupPanel({ worktreePath, projectId, hidden }: Props) {
   useEffect(() => {
     worktreePathRef.current = worktreePath
     const cached = getOrCreateCache(worktreePath)
+    cached.term.options.scrollback = useUIStore.getState().terminalScrollback
     cachedRef.current = cached
 
     const el = containerRef.current
@@ -197,6 +199,20 @@ export function SetupPanel({ worktreePath, projectId, hidden }: Props) {
             cached.term.options.minimumContrastRatio = minimumContrastRatio
           }
         })
+      }
+    })
+    return unsub
+  }, [])
+
+  // Live scrollback limit.
+  useEffect(() => {
+    let prevScrollback = useUIStore.getState().terminalScrollback
+    const unsub = useUIStore.subscribe((state) => {
+      if (state.terminalScrollback !== prevScrollback) {
+        prevScrollback = state.terminalScrollback
+        for (const cached of setupCache.values()) {
+          cached.term.options.scrollback = prevScrollback
+        }
       }
     })
     return unsub

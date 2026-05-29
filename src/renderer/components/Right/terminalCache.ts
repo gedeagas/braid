@@ -102,6 +102,7 @@ export function createTerminal(): { term: Terminal; fitAddon: FitAddon; searchAd
     theme: getTerminalTheme(),
     fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', monospace",
     fontSize: useUIStore.getState().terminalFontSize,
+    scrollback: useUIStore.getState().terminalScrollback,
     minimumContrastRatio: getTerminalMinimumContrastRatio(),
     cursorBlink: true,
     allowProposedApi: true
@@ -203,6 +204,15 @@ export function reThemeAllTerminals(): void {
     for (const tab of cached.tabs) {
       tab.term.options.theme = theme
       tab.term.options.minimumContrastRatio = minimumContrastRatio
+    }
+  }
+}
+
+/** Update scrollback on all cached right-panel terminals. */
+export function updateScrollbackAllTerminals(lines: number): void {
+  for (const cached of terminalCache.values()) {
+    for (const tab of cached.tabs) {
+      tab.term.options.scrollback = lines
     }
   }
 }

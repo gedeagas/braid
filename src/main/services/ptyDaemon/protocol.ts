@@ -6,6 +6,7 @@
  */
 import { join } from 'path'
 import { homedir } from 'os'
+import { DEFAULT_TERMINAL_SCROLLBACK_LINES, getTerminalScrollbackBufferMaxLength } from '../../../shared/terminal'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -22,7 +23,7 @@ export const IDLE_SHUTDOWN_MS = 10 * 60 * 1000
 export const CHECKPOINT_INTERVAL_MS = 5_000
 
 /** Maximum RingBuffer size per session. */
-export const BUFFER_MAX_LENGTH = 50_000
+export const BUFFER_MAX_LENGTH = getTerminalScrollbackBufferMaxLength(DEFAULT_TERMINAL_SCROLLBACK_LINES)
 
 // ── Client -> Daemon Requests ────────────────────────────────────────────────
 
@@ -35,6 +36,7 @@ export interface SpawnRequest {
   rows: number
   env?: Record<string, string>
   shell?: string
+  bufferMaxLength?: number
 }
 
 export interface AttachRequest {
@@ -75,6 +77,12 @@ export interface ListRequest {
   type: 'list'
 }
 
+export interface SetBufferMaxLengthRequest {
+  id: string
+  type: 'setBufferMaxLength'
+  maxLength: number
+}
+
 export interface PingRequest {
   id: string
   type: 'ping'
@@ -93,6 +101,7 @@ export type DaemonRequest =
   | KillRequest
   | SnapshotRequest
   | ListRequest
+  | SetBufferMaxLengthRequest
   | PingRequest
   | ShutdownRequest
 

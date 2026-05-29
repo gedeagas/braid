@@ -12,7 +12,7 @@ describe('RingBuffer', () => {
   })
 
   it('evicts old chunks when exceeding max length', () => {
-    const buf = new RingBuffer()
+    const buf = new RingBuffer(50_000)
     // Push 60KB of data (exceeds 50KB limit)
     const chunk = 'x'.repeat(10_000)
     for (let i = 0; i < 6; i++) buf.push(chunk)
@@ -21,7 +21,7 @@ describe('RingBuffer', () => {
   })
 
   it('trims a single large chunk', () => {
-    const buf = new RingBuffer()
+    const buf = new RingBuffer(50_000)
     buf.push('x'.repeat(100_000))
     expect(buf.read().length).toBe(50_000)
   })

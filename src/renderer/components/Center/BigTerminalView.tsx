@@ -3,7 +3,7 @@ import * as ipc from '@/lib/ipc'
 import { useTerminalFileDrop } from '@/hooks/useTerminalFileDrop'
 import { useTerminalClipboardPaste } from '@/hooks/useTerminalClipboardPaste'
 import { useUIStore } from '@/store/ui'
-import { getOrCreate, reThemeAllBigTerminals, updateBigTerminalAgentId, type BigTermEntry } from './bigTerminalCache'
+import { getOrCreate, reThemeAllBigTerminals, updateBigTerminalAgentId, updateScrollbackAllBigTerminals, type BigTermEntry } from './bigTerminalCache'
 import { activateWebgl, disposeWebgl } from '@/components/Right/terminalCache'
 import { TerminalSearch } from '@/components/shared/TerminalSearch'
 import { BranchBar } from './BranchBar'
@@ -145,6 +145,18 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, agen
             if (entry.ptyId) ipc.pty.resize(entry.ptyId, entry.term.cols, entry.term.rows)
           } catch { /* ignore */ }
         }
+      }
+    })
+    return unsub
+  }, [])
+
+  // Live terminal scrollback.
+  useEffect(() => {
+    let prevScrollback = useUIStore.getState().terminalScrollback
+    const unsub = useUIStore.subscribe((state) => {
+      if (state.terminalScrollback !== prevScrollback) {
+        prevScrollback = state.terminalScrollback
+        updateScrollbackAllBigTerminals(prevScrollback)
       }
     })
     return unsub

@@ -14,6 +14,7 @@ import type { JiraResult } from '@/types'
 import { useTranslation } from 'react-i18next'
 import {
   IconCheckCircle, IconXCircleStatus, IconSkipCircle, IconSpinner, IconDeployment,
+  IconClipboardCheck, IconGitBranch, IconPlus, IconRefresh,
 } from '@/components/shared/icons'
 import { SectionHeader, StatusDot } from '@/components/ui'
 import { JiraSection } from './JiraSection'
@@ -91,12 +92,13 @@ function CheckStatusIcon({ check }: { check: CheckRun }) {
 }
 
 export function ActionButton({
-  label, onClick, variant = 'secondary', disabled = false,
+  label, onClick, variant = 'secondary', disabled = false, icon,
 }: {
   label: string
   onClick?: (e?: React.MouseEvent) => void
   variant?: 'primary' | 'secondary' | 'danger'
   disabled?: boolean
+  icon?: React.ReactNode
 }) {
   return (
     <button
@@ -105,7 +107,8 @@ export function ActionButton({
       disabled={disabled}
       style={disabled ? { opacity: 0.5, cursor: 'default' } : undefined}
     >
-      {label}
+      {icon && <span className="checks-action-btn-icon">{icon}</span>}
+      <span>{label}</span>
     </button>
   )
 }
@@ -233,7 +236,15 @@ export function ChecksSection({ checks, onSelectCheck, openingLog, onFixWithAI, 
     <div className="checks-section">
       <SectionHeader title={t('checks')} />
       {checks.length === 0 ? (
-        <div className="checks-empty">{t('noChecks')}</div>
+        <div className="checks-empty-block">
+          <div className="checks-empty-block-icon">
+            <IconClipboardCheck size={16} />
+          </div>
+          <div className="checks-empty-block-copy">
+            <div className="checks-empty-block-title">{t('noChecks')}</div>
+            <div className="checks-empty-block-hint">{t('noChecksHint')}</div>
+          </div>
+        </div>
       ) : (
         <div className="checks-rows">
           {Array.from(groups.entries()).map(([groupName, groupChecks]) => (
@@ -332,24 +343,57 @@ export function ChecksViewSkeleton() {
   )
 }
 
-export function ChecksNoPr({ creatingPr, onCreatePr, jiraResult }: {
+export function ChecksNoPr({
+  creatingPr, onCreatePr, onRefresh, refreshing, jiraResult, branchName, lastUpdated,
+}: {
   creatingPr: boolean
   onCreatePr: () => void
+  onRefresh: () => void
+  refreshing: boolean
   jiraResult: JiraResult | null | 'error'
+  branchName?: string
+  lastUpdated: Date | null
 }) {
   const { t } = useTranslation('right')
+  const updatedTime = lastUpdated?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
   return (
     <div className="checks-view">
       <div className="checks-body">
         <div className="checks-no-pr">
-          <div className="checks-no-pr-title">{t('noPr')}</div>
-          <div className="checks-no-pr-hint">{t('noPrHint')}</div>
-          <ActionButton
-            label={creatingPr ? t('creatingPr') : t('createPr')}
-            onClick={onCreatePr}
-            variant="primary"
-            disabled={creatingPr}
-          />
+          <div className="checks-no-pr-icon">
+            <IconClipboardCheck size={18} />
+          </div>
+          <div className="checks-no-pr-copy">
+            <div className="checks-no-pr-title">{t('noPr')}</div>
+            <div className="checks-no-pr-hint">{t('noPrHint')}</div>
+          </div>
+          {branchName && (
+            <div className="checks-no-pr-branch" title={branchName}>
+              <IconGitBranch size={12} />
+              <span>{branchName}</span>
+            </div>
+          )}
+          <div className="checks-no-pr-actions">
+            <ActionButton
+              label={creatingPr ? t('creatingPr') : t('createPr')}
+              onClick={onCreatePr}
+              variant="primary"
+              disabled={creatingPr}
+              icon={<IconPlus size={13} />}
+            />
+            <ActionButton
+              label={refreshing ? t('loading') : t('refresh', { ns: 'common' })}
+              onClick={onRefresh}
+              disabled={refreshing}
+              icon={<IconRefresh size={13} />}
+            />
+          </div>
+          {updatedTime && (
+            <div className="checks-no-pr-updated">
+              {t('updatedAt', { time: updatedTime })}
+            </div>
+          )}
         </div>
         <JiraSection result={jiraResult} />
       </div>

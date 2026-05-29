@@ -175,6 +175,7 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
   ensureHookListener()
   const existing = cache.get(terminalId)
   if (existing) {
+    existing.term.options.scrollback = useUIStore.getState().terminalScrollback
     updateEntryAgentId(existing, agentId)
     return existing
   }
@@ -350,6 +351,13 @@ export function reThemeAllBigTerminals(): void {
   for (const entry of cache.values()) {
     entry.term.options.theme = theme
     entry.term.options.minimumContrastRatio = minimumContrastRatio
+  }
+}
+
+/** Update scrollback on all cached big terminals. */
+export function updateScrollbackAllBigTerminals(lines: number): void {
+  for (const entry of cache.values()) {
+    entry.term.options.scrollback = lines
   }
 }
 

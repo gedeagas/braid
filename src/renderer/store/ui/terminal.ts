@@ -2,6 +2,7 @@ import { type StateCreator } from 'zustand'
 import type { UIState } from './types'
 import { SK } from '@/lib/storageKeys'
 import { loadBool, loadInt, loadStr } from './helpers'
+import { DEFAULT_TERMINAL_SCROLLBACK_LINES, clampTerminalScrollbackLines } from '@shared/terminal'
 
 export interface TerminalSlice {
   // Panel terminal dimensions (right panel)
@@ -33,7 +34,7 @@ export const createTerminalSlice: StateCreator<UIState, [], [], TerminalSlice> =
   centerTerminalCollapsed: loadBool(SK.centerTerminalCollapsed, false),
   terminalFontSize: loadInt(SK.terminalFontSize, 13),
   terminalShell: loadStr(SK.terminalShell, ''),
-  terminalScrollback: loadInt(SK.terminalScrollback, 1000),
+  terminalScrollback: clampTerminalScrollbackLines(loadInt(SK.terminalScrollback, DEFAULT_TERMINAL_SCROLLBACK_LINES)),
 
   setTerminalHeight: (height) => {
     const clamped = Math.max(120, Math.round(height))
@@ -68,7 +69,8 @@ export const createTerminalSlice: StateCreator<UIState, [], [], TerminalSlice> =
     set({ terminalShell: shell })
   },
   setTerminalScrollback: (lines) => {
-    localStorage.setItem(SK.terminalScrollback, String(lines))
-    set({ terminalScrollback: lines })
+    const clamped = clampTerminalScrollbackLines(lines)
+    localStorage.setItem(SK.terminalScrollback, String(clamped))
+    set({ terminalScrollback: clamped })
   },
 })

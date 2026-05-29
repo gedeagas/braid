@@ -121,6 +121,7 @@ export default function App() {
         systemPromptSuffix: state.systemPromptSuffix,
         claudeCodeExecutablePath: state.claudeCodeExecutablePath,
         terminalShell: state.terminalShell,
+        terminalScrollback: state.terminalScrollback,
         worktreeStoragePath: state.worktreeStoragePath,
         notifyOnDone: state.notifyOnDone,
         notifyOnError: state.notifyOnError,

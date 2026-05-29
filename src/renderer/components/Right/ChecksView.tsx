@@ -152,6 +152,13 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
     }
     return undefined
   })
+  const branchName = useProjectsStore((s) => {
+    for (const p of s.projects) {
+      const wt = p.worktrees.find((w) => w.path === worktreePath)
+      if (wt) return wt.branch
+    }
+    return undefined
+  })
 
   const jiraBaseUrl = useUIStore((s) => s.jiraBaseUrl)
   const createSession = useSessionsStore((s) => s.createSession)
@@ -373,7 +380,19 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
 
   if (loading) return <ChecksViewSkeleton />
 
-  if (!pr) return <ChecksNoPr creatingPr={creatingPr} onCreatePr={createPrWithAI} jiraResult={jiraResult} />
+  if (!pr) {
+    return (
+      <ChecksNoPr
+        creatingPr={creatingPr}
+        onCreatePr={createPrWithAI}
+        onRefresh={handleRefresh}
+        refreshing={refreshing}
+        jiraResult={jiraResult}
+        branchName={branchName}
+        lastUpdated={lastUpdated}
+      />
+    )
+  }
 
   const openPrUrl = () => {
     if (pr.url) ipc.shell.openExternal(pr.url)
