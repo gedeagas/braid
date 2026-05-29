@@ -50,6 +50,7 @@ class WindowCaptureService {
     for (const source of sources) {
       const match = EMULATOR_TITLE_PATTERNS.find((p) => p.pattern.test(source.name))
       if (match) {
+        if (process.platform !== 'darwin' && match.appName === 'Simulator') continue
         results.push({
           id: source.id,
           name: source.name,
@@ -143,6 +144,7 @@ else {
 
   /** Open macOS Screen Recording preferences pane. */
   openPermissionSettings(): void {
+    if (process.platform !== 'darwin') return
     shell.openExternal(
       'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'
     )

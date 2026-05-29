@@ -342,6 +342,7 @@
     "statusInstalling": "Installing...",
     "install": "Install",
     "installHint": "Installs via Homebrew (brew install gh). Homebrew must be installed first.",
+    "installHintLinux": "Install gh with your distro package manager, then run gh auth login.",
     "installing": "Installing...",
     "docs": "Docs",
     "authHeader": "Authentication",

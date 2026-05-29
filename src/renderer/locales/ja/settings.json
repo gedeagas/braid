@@ -342,6 +342,7 @@
     "statusInstalling": "インストール中...",
     "install": "インストール",
     "installHint": "Homebrew経由でインストールされます（brew install gh）。Homebrewが事前にインストールされている必要があります。",
+    "installHintLinux": "ディストリビューションのパッケージマネージャーでghをインストールし、gh auth loginを実行してください。",
     "installing": "インストール中...",
     "docs": "ドキュメント",
     "authHeader": "認証",

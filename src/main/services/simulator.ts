@@ -113,11 +113,17 @@ class SimulatorService implements ISimulatorService {
   }
 
   /**
-   * Find the platform-specific mobilecli binary bundled in node_modules.
+   * Find the Darwin mobilecli binary bundled in node_modules.
+   * Linux packaging is not supported yet, so Linux resolves mobilecli from PATH.
    * In packaged builds, the binary is ASAR-unpacked so it can be executed directly.
    */
   private resolveBundledCli(): string | null {
-    const binaryName = `mobilecli-darwin-${process.arch === 'arm64' ? 'arm64' : 'amd64'}`
+    if (process.platform !== 'darwin') return null
+
+    const arch = process.arch === 'arm64' ? 'arm64' : process.arch === 'x64' ? 'amd64' : null
+    if (!arch) return null
+    const binaryName = `mobilecli-darwin-${arch}`
+
     const appPath = app.getAppPath()
 
     // Packaged build: binary is in the ASAR-unpacked directory
@@ -145,8 +151,11 @@ class SimulatorService implements ISimulatorService {
     await waitForEnrichedEnv()
     const has = (bin: string) =>
       exec('which', [bin], { env: this.enrichedEnv(), timeout: 5000 }).then(() => true).catch(() => false)
+    const xcodeCheck = process.platform === 'darwin'
+      ? has('xcrun') // Xcode CLT ships simctl. iOS Simulator is macOS-only.
+      : Promise.resolve(false)
     const [xcode, androidSdk] = await Promise.all([
-      has('xcrun'),     // Xcode CLT — ships simctl
+      xcodeCheck,
       has('adb'),       // Android SDK — platform-tools
     ])
     return { xcode, androidSdk }
@@ -229,10 +238,15 @@ class SimulatorService implements ISimulatorService {
 
   // ─── Device Operations ───────────────────────────────────────────────────
 
+  private filterSupportedDevices(devices: SimulatorDevice[]): SimulatorDevice[] {
+    if (process.platform === 'darwin') return devices
+    return devices.filter((device) => device.platform !== 'ios')
+  }
+
   async listDevices(): Promise<SimulatorDevice[]> {
     try {
       const data = await this.call<{ devices: SimulatorDevice[] }>('devices.list', { includeOffline: true })
-      return data.devices ?? []
+      return this.filterSupportedDevices(data.devices ?? [])
     } catch (err) {
       logger.error('[Simulator] listDevices failed:', err)
       return []
@@ -405,6 +419,7 @@ class SimulatorService implements ISimulatorService {
    * alongside Braid while we're streaming the device screen.
    */
   async hideSimulatorWindow(): Promise<void> {
+    if (process.platform !== 'darwin') return
     await exec('osascript', [
       '-e', 'tell application "System Events" to set visible of process "Simulator" to false',
     ], { env: this.enrichedEnv() })
@@ -426,6 +441,9 @@ class SimulatorService implements ISimulatorService {
    */
   async sendKeyCombo(deviceId: string, platform: string, combo: string): Promise<void> {
     if (platform === 'ios') {
+      if (process.platform !== 'darwin') {
+        throw new Error('iOS Simulator controls are only available on macOS')
+      }
       const parts = combo.toLowerCase().split('+')
       const key = parts[parts.length - 1]
       const modifiers = parts.slice(0, -1)

@@ -106,6 +106,8 @@
       "installing": "Menginstal...",
       "openDocs": "Buka docs",
       "logIn": "Masuk",
+      "gitInstallHintLinux": "Instal Git dengan package manager distro Anda, lalu periksa ulang.",
+      "ghInstallHintLinux": "Instal gh dengan package manager distro Anda, lalu jalankan gh auth login.",
       "progressGit": "Menginstal Xcode tools...",
       "progressGh": "Menginstal GitHub CLI...",
       "progressGhAuth": "Menunggu autentikasi browser...",
@@ -212,7 +214,7 @@
     "simulator": {
       "intro": {
         "title": "Pratinjau Simulator",
-        "description": "Pratinjau dan kontrol simulator iOS & Android langsung di Braid. Ketuk, geser, dan ketik di layar perangkat secara langsung."
+        "description": "Pratinjau dan kontrol simulator dan emulator mobile yang didukung langsung di Braid. Ketuk, geser, dan ketik di layar perangkat secara langsung."
       },
       "devices": {
         "title": "Perangkat Anda",

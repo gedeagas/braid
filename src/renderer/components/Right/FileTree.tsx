@@ -203,7 +203,10 @@ export function FileTree({ worktreePath, onFileSelect }: Props) {
     if (lastApp) {
       items.push({ label: t('openInApp', { app: lastApp.name }), onClick: () => ipc.shell.openInApp(lastApp.id, menu.path) })
     }
-    items.push({ label: t('revealInFinder'), onClick: () => ipc.shell.openInApp('finder', menu.path) })
+    const revealLabel = ipc.shell.platform === 'linux'
+      ? t('revealInFileManager')
+      : t('revealInFinder')
+    items.push({ label: revealLabel, onClick: () => ipc.shell.openInApp('finder', menu.path) })
     items.push({ label: '---', onClick: () => {} })
     items.push({ label: t('copyPath'), onClick: () => navigator.clipboard.writeText(menu.path) })
     return items

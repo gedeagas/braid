@@ -53,6 +53,7 @@
   "contextMenuAddWorktree": "Tambah Worktree",
   "contextMenuRefreshWorktrees": "Muat Ulang Worktree",
   "contextMenuOpenInFinder": "Buka di Finder",
+  "contextMenuRevealInFileManager": "Tampilkan di Manajer File",
   "contextMenuRemoveProject": "Hapus Proyek",
   "deleteWorktreeTitle": "Hapus Worktree",
   "deleteWorktreeBody": "Ini akan menghapus permanen worktree '{{branch}}' dan semua filenya dari disk. Perubahan yang belum disimpan akan hilang.",

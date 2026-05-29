@@ -69,6 +69,7 @@ export const WindowCaptureView = memo(function WindowCaptureView({
   const [state, dispatch] = useReducer(reducer, initialState)
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const hostPlatform = ipc.shell.platform
 
   // Stop any active stream tracks
   const stopStream = useCallback(() => {
@@ -231,6 +232,7 @@ export const WindowCaptureView = memo(function WindowCaptureView({
           sources={state.sources}
           onCapture={startCapture}
           onRefresh={refreshSources}
+          hostPlatform={hostPlatform}
         />
       )}
       {state.phase === 'streaming' && (
@@ -249,7 +251,7 @@ export const WindowCaptureView = memo(function WindowCaptureView({
 
 // ─── Sub-views ───────────────────────────────────────────────────────────────
 
-type TFn = (key: string) => string
+type TFn = (key: string, options?: Record<string, unknown>) => string
 
 function CheckingView({ t: _t }: { t: TFn }) {
   return (
@@ -288,17 +290,22 @@ function SourceListView({
   sources,
   onCapture,
   onRefresh,
+  hostPlatform,
 }: {
   t: TFn
   sources: CaptureSource[]
   onCapture: (source: CaptureSource) => void
   onRefresh: () => void
+  hostPlatform: string
 }) {
   if (sources.length === 0) {
+    const hint = hostPlatform === 'linux'
+      ? t('windowCaptureNoSourcesHintLinux')
+      : t('windowCaptureNoSourcesHint')
     return (
       <div className="wincap-centered">
         <span className="wincap-empty-title">{t('windowCaptureNoSources')}</span>
-        <span className="wincap-empty-hint">{t('windowCaptureNoSourcesHint')}</span>
+        <span className="wincap-empty-hint">{hint}</span>
         <button className="wincap-action-btn" style={{ marginTop: 8 }} onClick={onRefresh}>
           {t('windowCaptureRefresh')}
         </button>

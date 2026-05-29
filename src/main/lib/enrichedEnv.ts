@@ -3,8 +3,9 @@ import { execFile } from 'child_process'
 /**
  * Hydrates process.env.PATH from the user's login shell.
  *
- * When Electron is launched from Finder/Dock (release builds), process.env.PATH is
- * minimal (/usr/bin:/bin:/usr/sbin:/sbin) and CLIs installed via Homebrew, nvm,
+ * When Electron is launched from the desktop shell (release builds),
+ * process.env.PATH is minimal (/usr/bin:/bin:/usr/sbin:/sbin) and CLIs
+ * installed via Homebrew, nvm,
  * pyenv, etc. are not found (ENOENT). Spawning a login shell ensures we see the
  * same PATH the user sees in a terminal.
  *
@@ -24,26 +25,38 @@ const DELIM_END = '__BRAID_PATH_END__'
 // Strip ANSI escape sequences (colored prompts, powerlevel10k, starship, etc.)
 const ANSI_RE = /\x1b\[[0-9;]*[A-Za-z]|\x1b\][^\x07]*\x07/g
 
-// Prepend common Homebrew paths as immediate fallback before probe settles (macOS only)
+// Prepend common user-install paths as immediate fallback before probe settles.
 if (process.platform !== 'win32') {
-  const HOMEBREW_PATHS = ['/opt/homebrew/bin', '/usr/local/bin']
+  const FALLBACK_PATHS = process.platform === 'darwin'
+    ? ['/opt/homebrew/bin', '/usr/local/bin']
+    : ['/usr/local/bin', '/usr/bin', '/bin', '/usr/sbin', '/sbin']
   const currentSegments = new Set((process.env.PATH ?? '').split(':'))
-  for (const p of HOMEBREW_PATHS) {
+  for (const p of FALLBACK_PATHS) {
     if (!currentSegments.has(p)) {
       process.env.PATH = process.env.PATH ? `${p}:${process.env.PATH}` : p
     }
   }
 }
 
+function defaultShell(): string {
+  return process.platform === 'darwin' ? '/bin/zsh' : '/bin/sh'
+}
+
+function shellArgs(shellPath: string, cmd: string): string[] {
+  const shellName = shellPath.split('/').pop() ?? ''
+  if (shellName === 'sh' || shellName === 'dash') return ['-c', cmd]
+  return ['-lic', cmd]
+}
+
 function probe(): Promise<void> {
   if (process.platform === 'win32') return Promise.resolve()
-  const userShell = process.env.SHELL || '/bin/zsh'
+  const userShell = process.env.SHELL || defaultShell()
   return new Promise<void>((resolve) => {
     // Use -lic (login + interactive) so .zshrc/.bashrc are sourced.
     // Tools like nvm, rbenv, pyenv, sdkman load in interactive shell configs,
     // not in login-only profiles. Without -i, their PATHs are missing.
     const cmd = `printf '%s' '${DELIM_START}'; printf '%s' "$PATH"; printf '%s' '${DELIM_END}'`
-    execFile(userShell, ['-lic', cmd], {
+    execFile(userShell, shellArgs(userShell, cmd), {
       encoding: 'utf8',
       timeout: 5000,
       env: process.env,

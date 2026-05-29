@@ -54,6 +54,16 @@ function execFileText(
   })
 }
 
+function defaultUserShell(): string {
+  return process.platform === 'darwin' ? '/bin/zsh' : '/bin/sh'
+}
+
+function shellArgs(shellPath: string, cmd: string): string[] {
+  const shellName = shellPath.split('/').pop() ?? ''
+  if (shellName === 'sh' || shellName === 'dash') return ['-c', cmd]
+  return ['-lic', cmd]
+}
+
 // In-process settings cache — renderer pushes values here so main-process
 // services (agent.ts, pty.ts) can read them synchronously.
 export const mainSettings = {
@@ -310,23 +320,26 @@ export function registerIpcHandlers(): void {
   // Returns { success: boolean } — success means the command exited 0.
   // The renderer re-checks the tool immediately after regardless of the result.
   ipcMain.handle('shell:installTool', (_e, key: string) => {
-    const userShell = process.env.SHELL || '/bin/zsh'
+    const userShell = process.env.SHELL || defaultUserShell()
 
     // For brew-based tools: bail early if brew isn't present so the UI
     // surfaces the docs link instead of leaving the user stuck in a retry loop.
     const brewInstalls: Record<string, string> = { gh: 'gh', mobilecli: 'nicklama/tap/mobilecli' }
     if (key in brewInstalls) {
+      if (process.platform !== 'darwin') return { success: false }
       const formula = brewInstalls[key]
       return new Promise<{ success: boolean }>((resolve) => {
-        execFile(userShell, ['-l', '-c', `which brew > /dev/null 2>&1 && brew install ${formula}`], { timeout: 180_000 }, (err) => resolve({ success: !err }))
+        execFile(userShell, shellArgs(userShell, `which brew > /dev/null 2>&1 && brew install ${formula}`), { timeout: 180_000 }, (err) => resolve({ success: !err }))
       })
     }
 
     const cmds: Record<string, string> = {
-      git: 'xcode-select --install',
       // Official Claude Code installer — handles PATH setup, shell completions, etc.
       claude: 'curl -fsSL https://claude.ai/install.sh | bash',
       acli: 'npm install -g @atlassian/acli',
+    }
+    if (process.platform === 'darwin') {
+      cmds.git = 'xcode-select --install'
     }
 
     // gh auth is now handled via Device Flow (github:startDeviceFlow IPC)
@@ -336,15 +349,15 @@ export function registerIpcHandlers(): void {
     if (!cmd) return { success: false }
     const timeout = 180_000
     return new Promise<{ success: boolean }>((resolve) => {
-      execFile(userShell, ['-l', '-c', cmd], { timeout }, (err) => resolve({ success: !err }))
+      execFile(userShell, shellArgs(userShell, cmd), { timeout }, (err) => resolve({ success: !err }))
     })
   })
 
   // Re-authenticate with Claude Code CLI (OAuth flow — opens browser)
   ipcMain.handle('agent:reAuth', () => {
-    const userShell = process.env.SHELL || '/bin/zsh'
+    const userShell = process.env.SHELL || defaultUserShell()
     return new Promise<{ success: boolean }>((resolve) => {
-      execFile(userShell, ['-l', '-c', 'claude auth login --web'], { timeout: 300_000 }, (err) => {
+      execFile(userShell, shellArgs(userShell, 'claude auth login --web'), { timeout: 300_000 }, (err) => {
         resolve({ success: !err })
       })
     })
@@ -399,6 +412,8 @@ export function registerIpcHandlers(): void {
   }
 
   ipcMain.handle('shell:getInstalledApps', async () => {
+    if (process.platform !== 'darwin') return []
+
     const resolved = await Promise.all(
       APP_REGISTRY.map(async ({ id, name, bundleId }) => {
         const appPath = await findAppByBundleId(bundleId)
@@ -420,6 +435,10 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('shell:openInApp', (_e, appId: string, targetPath: string) => {
+    if (process.platform !== 'darwin') {
+      shell.showItemInFolder(targetPath)
+      return
+    }
     if (appId === 'finder') return shell.showItemInFolder(targetPath)
     const bundleId = bundleIdForApp[appId]
     if (bundleId) {

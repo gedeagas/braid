@@ -84,15 +84,19 @@ function getHtmlPreviewSession(): import('electron').Session {
 function createWindow(): void {
   const iconPath = join(__dirname, '../../build/icon.png')
 
-  mainWindow = new BrowserWindow({
+  const windowOptions: Electron.BrowserWindowConstructorOptions = {
     width: 1440,
     height: 900,
     minWidth: 1024,
     minHeight: 600,
     show: false,
     icon: iconPath,
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 16, y: 16 },
+    ...(process.platform === 'darwin'
+      ? {
+          titleBarStyle: 'hiddenInset' as const,
+          trafficLightPosition: { x: 16, y: 16 },
+        }
+      : {}),
     backgroundColor: '#0d1117',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -102,7 +106,9 @@ function createWindow(): void {
       nodeIntegration: false,
       plugins: true
     }
-  })
+  }
+
+  mainWindow = new BrowserWindow(windowOptions)
 
   mainWindow.on('ready-to-show', () => {
     mainWindow!.show()
@@ -217,10 +223,22 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
 
 // Spoof Chrome UA only for webapp partition sessions so embedded apps serve
 // their standard Chrome-compatible bundles.
-const CHROME_UA =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) ' +
-  'AppleWebKit/537.36 (KHTML, like Gecko) ' +
-  'Chrome/147.0.0.0 Safari/537.36'
+function getChromeUserAgent(): string {
+  const chromeSuffix = 'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36'
+  if (process.platform === 'darwin') {
+    return `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) ${chromeSuffix}`
+  }
+  if (process.platform === 'linux') {
+    const linuxArch = process.arch === 'arm64' ? 'aarch64' : 'x86_64'
+    return `Mozilla/5.0 (X11; Linux ${linuxArch}) ${chromeSuffix}`
+  }
+  if (process.platform === 'win32') {
+    return `Mozilla/5.0 (Windows NT 10.0; Win64; x64) ${chromeSuffix}`
+  }
+  return `Mozilla/5.0 ${chromeSuffix}`
+}
+
+const CHROME_UA = getChromeUserAgent()
 
 function configureWebAppSession(sess: import('electron').Session): void {
   sess.setUserAgent(CHROME_UA)

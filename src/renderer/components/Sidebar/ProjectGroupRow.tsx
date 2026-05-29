@@ -144,11 +144,14 @@ export function ProjectGroupRow({
   const isDragging = projDraggingId === project.id
   const isDropTarget = projDragOverId === project.id
   const isHeaderFocused = focusedProjectId === project.id
+  const revealLabel = ipc.shell.platform === 'linux'
+    ? t('contextMenuRevealInFileManager')
+    : t('contextMenuOpenInFinder')
 
   const projectMenuItems: ContextMenuItem[] = [
     { label: t('contextMenuAddWorktree'), onClick: () => onAddWorktree(project.id) },
     { label: t('contextMenuRefreshWorktrees'), onClick: () => refreshWorktrees(project.id) },
-    { label: t('contextMenuOpenInFinder'), onClick: () => ipc.shell.showItemInFolder(project.path) },
+    { label: revealLabel, onClick: () => ipc.shell.showItemInFolder(project.path) },
     { label: '---', onClick: () => {} },
     { label: t('contextMenuRemoveProject'), danger: true, onClick: () => removeProject(project.id) }
   ]

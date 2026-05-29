@@ -135,10 +135,15 @@ export async function setOrientation(deviceId: string, orientation: string): Pro
 
 /**
  * Resize a PNG screenshot to `targetWidth` and convert to JPEG.
- * Uses macOS built-in `sips` — no native dependencies needed.
+ * On macOS, uses built-in `sips` with no native dependencies.
+ * Other platforms return the original PNG data.
  * Makes image pixel coordinates match logical point coordinate space.
  */
 export async function resizeScreenshot(b64: string, targetWidth: number): Promise<string> {
+  if (process.platform !== 'darwin') {
+    return b64
+  }
+
   const id = Date.now()
   const tmpIn = join(tmpdir(), `braid-ss-${id}.png`)
   const tmpOut = join(tmpdir(), `braid-ss-${id}.jpg`)
@@ -222,6 +227,10 @@ export function getActiveFramework(): typeof activeFramework {
  * its window and restores the previous frontmost app.
  */
 async function iosKeystroke(key: string, modifiers: string[] = []): Promise<void> {
+  if (process.platform !== 'darwin') {
+    throw new Error('iOS Simulator controls are only available on macOS')
+  }
+
   const modMap: Record<string, string> = { cmd: 'command down', shift: 'shift down', ctrl: 'control down', alt: 'option down' }
   const modStr = modifiers.map((m) => modMap[m] ?? `${m} down`).join(', ')
   const usingClause = modStr ? ` using {${modStr}}` : ''

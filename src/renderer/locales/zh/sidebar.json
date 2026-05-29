@@ -53,6 +53,7 @@
   "contextMenuAddWorktree": "添加 Worktree",
   "contextMenuRefreshWorktrees": "刷新 Worktree 列表",
   "contextMenuOpenInFinder": "在 Finder 中打开",
+  "contextMenuRevealInFileManager": "在文件管理器中显示",
   "contextMenuRemoveProject": "移除项目",
   "deleteWorktreeTitle": "删除 Worktree",
   "deleteWorktreeBody": "这将永久删除 '{{branch}}' worktree 及其磁盘上的所有文件。未提交的更改将会丢失。",

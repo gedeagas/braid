@@ -342,6 +342,7 @@
     "statusInstalling": "Menginstal...",
     "install": "Instal",
     "installHint": "Diinstal melalui Homebrew (brew install gh). Homebrew harus sudah terinstal terlebih dahulu.",
+    "installHintLinux": "Instal gh dengan package manager distro Anda, lalu jalankan gh auth login.",
     "installing": "Menginstal...",
     "docs": "Dokumentasi",
     "authHeader": "Autentikasi",

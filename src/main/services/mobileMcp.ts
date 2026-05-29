@@ -85,21 +85,23 @@ export async function createMobileDeviceServer() {
       // ── Screen ─────────────────────────────────────────────────────────
       _tool(
         'mobile_take_screenshot',
-        'Take a screenshot of the active device screen for visual context. Returns a JPEG image sized to logical point dimensions. Do NOT estimate coordinates from this image — use mobile_tap_element to interact with UI elements.',
+        'Take a screenshot of the active device screen for visual context. Returns an image sized to logical point dimensions when supported. Do NOT estimate coordinates from this image — use mobile_tap_element to interact with UI elements.',
         {},
         async () => {
           const id = requireDevice()
           const [b64, size] = await Promise.all([screenshot(id), getScreenSize(id)])
           if (!b64) throw new Error('Screenshot failed')
           let imgData = b64
-          let mimeType = 'image/png'
-          try {
-            imgData = await resizeScreenshot(b64, size.width)
-            mimeType = 'image/jpeg'
-          } catch { /* fall back to original PNG if sips fails */ }
+          let mimeType: 'image/png' | 'image/jpeg' = 'image/png'
+          if (process.platform === 'darwin') {
+            try {
+              imgData = await resizeScreenshot(b64, size.width)
+              mimeType = 'image/jpeg'
+            } catch { /* fall back to original PNG if sips fails */ }
+          }
           return {
             content: [
-              { type: 'image' as const, data: imgData, mimeType: mimeType as 'image/png' },
+              { type: 'image' as const, data: imgData, mimeType },
             ],
           }
         },
@@ -330,7 +332,7 @@ export async function createMobileDeviceServer() {
         async () => {
           const id = requireDevice()
           const info = await rpc<{ device: { platform?: string } }>('device.info', { deviceId: id }).catch(() => ({ device: { platform: undefined } }))
-          const platform = info.device?.platform ?? 'ios'
+          const platform = info.device?.platform ?? (process.platform === 'darwin' ? 'ios' : 'android')
           const result = await openDevMenu(id, platform)
           return { content: [{ type: 'text' as const, text: result }] }
         },

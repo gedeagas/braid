@@ -106,6 +106,8 @@
       "installing": "安装中...",
       "openDocs": "查看文档",
       "logIn": "登录",
+      "gitInstallHintLinux": "请使用发行版的包管理器安装 Git，然后重新检查。",
+      "ghInstallHintLinux": "请使用发行版的包管理器安装 gh，然后运行 gh auth login。",
       "progressGit": "正在安装 Xcode 工具...",
       "progressGh": "正在安装 GitHub CLI...",
       "progressGhAuth": "等待浏览器认证...",
@@ -212,7 +214,7 @@
     "simulator": {
       "intro": {
         "title": "模拟器预览",
-        "description": "直接在 Braid 中预览和控制 iOS 与 Android 模拟器。在实时设备屏幕上进行点击、滑动和输入操作。"
+        "description": "直接在 Braid 中预览和控制受支持的移动模拟器。在实时设备屏幕上进行点击、滑动和输入操作。"
       },
       "devices": {
         "title": "你的设备",
