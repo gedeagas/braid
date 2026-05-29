@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useReducer } from 'react'
+import { useEffect, useCallback, useReducer } from 'react'
 import { useProjectsStore } from '@/store/projects'
 import { useUIStore } from '@/store/ui'
 import * as ipc from '@/lib/ipc'
@@ -32,8 +32,16 @@ function dialogReducer(s: DialogState, a: DialogAction): DialogState {
     case 'setBranch': return { ...s, branch: a.value, userEdited: true, error: a.error ?? '' }
     case 'reroll': return { ...s, branch: a.name, userEdited: true, error: '' }
     case 'setError': return { ...s, error: a.error }
-    case 'remotesLoaded': return { ...s, remotes: a.remotes, origin: a.origin, branch: a.branch, loadingRemotes: false }
-    case 'remotesFailed': return { ...s, loadingRemotes: false, branch: a.branch }
+    case 'remotesLoaded':
+      return {
+        ...s,
+        remotes: a.remotes,
+        origin: a.origin,
+        branch: s.userEdited ? s.branch : a.branch,
+        loadingRemotes: false,
+      }
+    case 'remotesFailed':
+      return { ...s, loadingRemotes: false, branch: s.userEdited ? s.branch : a.branch }
     case 'selectOrigin': return { ...s, origin: a.origin, ...(a.branch != null ? { branch: a.branch } : {}) }
     case 'setCreating': return { ...s, creating: a.value }
   }
@@ -64,9 +72,6 @@ export function AddWorktreeDialog({ projectId, repoPath, onClose }: Props) {
 
   const jiraAvailable = useJiraAvailable()
 
-  // Ref so the fetch callback always sees the latest value without re-running the effect
-  const userEditedRef = useRef(false)
-
   const addWorktree = useProjectsStore((s) => s.addWorktree)
   const project = useProjectsStore((s) => s.projects.find((p) => p.id === projectId))
   const globalBranchPrefix = useUIStore((s) => s.defaultBranchPrefix)
@@ -74,8 +79,6 @@ export function AddWorktreeDialog({ projectId, repoPath, onClose }: Props) {
   const jiraBaseUrl = useUIStore((s) => s.jiraBaseUrl)
   const defaultBranchPrefix = project?.settings?.branchPrefix || globalBranchPrefix
   const { t } = useTranslation('sidebar')
-
-  useEffect(() => { userEditedRef.current = d.userEdited }, [d.userEdited])
 
   // Fetch remote branches via gh CLI on mount
   useEffect(() => {
@@ -91,11 +94,10 @@ export function AddWorktreeDialog({ projectId, repoPath, onClose }: Props) {
         const initial = preferred || branches[0] || ''
         const stripped = initial ? stripRemote(initial) : ''
         const baseName = !stripped || stripped === 'main' || stripped === 'master' ? randomBranchName() : stripped
-        dd({ type: 'remotesLoaded', remotes: branches, origin: initial,
-          branch: userEditedRef.current ? d.branch : withPrefix(baseName) })
+        dd({ type: 'remotesLoaded', remotes: branches, origin: initial, branch: withPrefix(baseName) })
       })
       .catch(() => {
-        if (!userEditedRef.current) dd({ type: 'remotesFailed', branch: withPrefix(randomBranchName()) })
+        dd({ type: 'remotesFailed', branch: withPrefix(randomBranchName()) })
       })
   }, [repoPath]) // eslint-disable-line react-hooks/exhaustive-deps
 

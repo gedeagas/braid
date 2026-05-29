@@ -2,69 +2,132 @@
 .changes-section-header {
   display: flex;
   align-items: center;
-  gap: var(--space-6);
-  padding: var(--space-6) var(--space-10);
+  gap: var(--space-4);
+  min-height: 36px;
+  padding: var(--space-3) var(--space-6);
   font-size: var(--text-base);
   font-weight: var(--weight-semibold);
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  cursor: pointer;
   user-select: none;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  background: var(--bg-primary);
 }
 
-.changes-section-header:hover {
+.changes-section-toggle {
+  flex: 1;
+  min-width: 0;
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: 0 var(--space-4);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.changes-section-toggle:hover {
   background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.changes-section-toggle:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .changes-section-chevron {
-  font-size: var(--text-base);
   transition: transform var(--duration-normal);
   opacity: 0.6;
+  flex-shrink: 0;
 }
 
-.changes-section-chevron.collapsed {
+.changes-section-toggle[aria-expanded="false"] .changes-section-chevron {
   transform: rotate(-90deg);
 }
 
 .changes-section-title {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .changes-section-count {
-  font-weight: var(--weight-normal);
-  opacity: 0.7;
-}
-
-.changes-section-btn {
+  min-width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
   font-size: var(--text-base);
   font-weight: var(--weight-medium);
-  color: var(--accent);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 1px var(--space-4);
-  border-radius: var(--radius-sm);
-  opacity: 0;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.changes-section-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  opacity: 0.72;
   transition: opacity var(--duration-normal);
 }
 
-.changes-section-header:hover .changes-section-btn {
+.changes-section-header:hover .changes-section-actions,
+.changes-section-header:focus-within .changes-section-actions {
   opacity: 1;
 }
 
-.changes-section-btn:hover {
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
+.changes-section-icon-btn {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0;
+  transition: background var(--duration-instant), border-color var(--duration-instant), color var(--duration-instant), opacity var(--duration-instant);
 }
 
-.changes-section-btn--danger {
+.changes-section-icon-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+.changes-section-icon-btn:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.changes-section-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.changes-section-icon-btn.danger {
   color: var(--red);
 }
 
-.changes-section-btn--danger:hover {
-  background: color-mix(in srgb, var(--red) 15%, transparent);
+.changes-section-icon-btn.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+  border-color: color-mix(in srgb, var(--red) 24%, transparent);
 }
 
 .changes-section-files {
@@ -87,8 +150,8 @@
 
 /* ============= Row Checkbox & Discard ============= */
 .change-row-checkbox {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border-radius: var(--radius-sm);
   border: 1.5px solid var(--text-muted);
   background: transparent;
@@ -100,7 +163,6 @@
   transition: all var(--duration-instant);
   padding: 0;
   color: #fff;
-  font-size: var(--text-base);
 }
 
 .change-row-checkbox:hover {
@@ -112,16 +174,27 @@
   border-color: var(--accent);
 }
 
+.change-row-checkbox:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-tint-15);
+}
+
+.change-row-checkbox svg {
+  pointer-events: none;
+}
+
 .change-row-actions {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   margin-left: auto;
+  min-width: 22px;
   opacity: 0;
   transition: opacity var(--duration-instant);
 }
 
-.change-row:hover .change-row-actions {
+.change-row:hover .change-row-actions,
+.change-row:focus-within .change-row-actions {
   opacity: 1;
 }
 
@@ -136,14 +209,22 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
   color: var(--text-muted);
-  font-size: var(--text-base);
   padding: 0;
   transition: all var(--duration-instant);
+}
+
+.change-discard-btn:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--red);
 }
 
 .change-discard-btn:hover {
   color: var(--red);
   background: color-mix(in srgb, var(--red) 12%, transparent);
+}
+
+.change-discard-btn svg {
+  pointer-events: none;
 }
 
 
@@ -185,4 +266,3 @@
   white-space: pre;
   user-select: none;
 }
-

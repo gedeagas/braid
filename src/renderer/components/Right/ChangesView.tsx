@@ -1,7 +1,7 @@
 import { useReducer, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Tooltip } from '@/components/shared/Tooltip'
-import { IconRefresh } from '@/components/shared/icons'
+import { IconRefresh, IconSparkle } from '@/components/shared/icons'
 import { useProjectsStore } from '@/store/projects'
 import { usePrCacheStore } from '@/store/prCache'
 import { PullStrategyDialog } from './PullStrategyDialog'
@@ -133,6 +133,7 @@ export function ChangesView({ worktreePath, isActive = true }: Props) {
           {showPullBtn && (
             <Tooltip content={t('pullNoUpstream')} position="bottom" disabled={!noUpstream}>
               <button
+                type="button"
                 className={pullBtnClass}
                 onClick={actions.handlePull}
                 disabled={state.pullState === 'pulling' || state.pullState === 'success' || noUpstream}
@@ -142,6 +143,7 @@ export function ChangesView({ worktreePath, isActive = true }: Props) {
             </Tooltip>
           )}
           <button
+            type="button"
             className={`panel-refresh-btn${state.refreshing ? ' refreshing' : ''}`}
             onClick={() => requestWorktreeRefresh(worktreePath, ['gitStatus', 'syncStatus'], { reason: 'manual', force: true })}
             disabled={state.refreshing}
@@ -174,19 +176,32 @@ export function ChangesView({ worktreePath, isActive = true }: Props) {
           ''
         } disabled={stagedChanges.length > 0 && state.generateState !== 'error'}>
           <button
+            type="button"
             className={`changes-generate-link${state.generateState === 'generating' ? ' generating' : ''}${state.generateState === 'error' ? ' error' : ''}`}
             onClick={actions.handleGenerateCommitMessage}
             disabled={stagedChanges.length === 0 || state.generateState === 'generating'}
           >
-            {state.generateState === 'generating'
-              ? `⟳ ${t('generatingCommitMessage')}`
-              : state.generatedViaAI && state.commitMessage
-                ? `↻ ${t('regenerateCommitMessage')}`
-                : `✦ ${t('generateCommitMessage')}`}
+            {state.generateState === 'generating' ? (
+              <>
+                <IconRefresh size={12} />
+                {t('generatingCommitMessage')}
+              </>
+            ) : state.generatedViaAI && state.commitMessage ? (
+              <>
+                <IconRefresh size={12} />
+                {t('regenerateCommitMessage')}
+              </>
+            ) : (
+              <>
+                <IconSparkle size={12} />
+                {t('generateCommitMessage')}
+              </>
+            )}
           </button>
         </Tooltip>
         <Tooltip content={stagedChanges.length === 0 ? t('noStagedFiles') : ''} disabled={stagedChanges.length > 0}>
           <button
+            type="button"
             className={commitBtnClass}
             onClick={actions.handleCommit}
             disabled={!canCommit}
