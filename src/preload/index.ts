@@ -267,6 +267,7 @@ const api = {
 
   // Shell
   shell: {
+    platform: process.platform,
     openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url),
     showItemInFolder: (path: string) => ipcRenderer.invoke('shell:showItemInFolder', path),
     getInstalledApps: () => ipcRenderer.invoke('shell:getInstalledApps') as Promise<Array<{ id: string; name: string; icon: string | null }>>,

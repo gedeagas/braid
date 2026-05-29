@@ -28,16 +28,20 @@ function GitHubCard({
   authStatus,
   onInstall,
   onRecheck,
+  hostPlatform,
 }: {
   ghStatus: CheckStatus
   authStatus: CheckStatus
   onInstall: (key: CheckKey) => void
   onRecheck: () => void
+  hostPlatform: string
 }) {
   const { t } = useTranslation('common')
   const connected = ghStatus === 'ok' && authStatus === 'ok'
   const busy = ghStatus === 'checking' || ghStatus === 'installing' || authStatus === 'checking' || authStatus === 'installing'
   const effectiveStatus: CheckStatus = connected ? 'ok' : busy ? 'checking' : ghStatus === 'pending' ? 'pending' : 'fail'
+  const isLinux = hostPlatform === 'linux'
+  const canAutoInstallGh = hostPlatform === 'darwin'
 
   return (
     <div className="ob-int-card">
@@ -50,10 +54,13 @@ function GitHubCard({
           <StatusBadge status={effectiveStatus} />
         </div>
         <span className="ob-int-card-desc">{t('onboarding.integrations.ghDesc')}</span>
+        {ghStatus === 'fail' && isLinux && (
+          <span className="ob-int-card-desc">{t('onboarding.doctor.ghInstallHintLinux')}</span>
+        )}
       </div>
       {!connected && !busy && (
         <div className="ob-int-card-actions">
-          {ghStatus === 'fail' && (
+          {ghStatus === 'fail' && canAutoInstallGh && (
             <Button size="sm" onClick={() => onInstall('gh')}>
               {t('onboarding.doctor.install')}
             </Button>
@@ -120,10 +127,13 @@ interface Props {
   checks: Record<CheckKey, CheckStatus>
   onRunChecks: () => void
   onInstall: (key: CheckKey) => void
+  hostPlatform: string
 }
 
-export function EnvironmentStep({ checks, onRunChecks, onInstall }: Props) {
+export function EnvironmentStep({ checks, onRunChecks, onInstall, hostPlatform }: Props) {
   const { t } = useTranslation('common')
+  const isLinux = hostPlatform === 'linux'
+  const canAutoInstallGit = hostPlatform === 'darwin'
 
   useEffect(() => { onRunChecks() }, [onRunChecks])
 
@@ -148,9 +158,12 @@ export function EnvironmentStep({ checks, onRunChecks, onInstall }: Props) {
           <div className="ob-int-card-body">
             <span className="ob-int-card-name">Git</span>
             <span className="ob-int-card-desc">{t('onboarding.integrations.gitDesc')}</span>
+            {checks.git === 'fail' && isLinux && (
+              <span className="ob-int-card-desc">{t('onboarding.doctor.gitInstallHintLinux')}</span>
+            )}
           </div>
           <StatusBadge status={checks.git} />
-          {checks.git === 'fail' && (
+          {checks.git === 'fail' && canAutoInstallGit && (
             <Button size="sm" onClick={() => onInstall('git')}>
               {t('onboarding.doctor.install')}
             </Button>
@@ -162,6 +175,7 @@ export function EnvironmentStep({ checks, onRunChecks, onInstall }: Props) {
           authStatus={checks.ghAuth}
           onInstall={onInstall}
           onRecheck={onRunChecks}
+          hostPlatform={hostPlatform}
         />
         <JiraCard
           status={checks.acli}

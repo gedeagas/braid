@@ -70,6 +70,10 @@ function toAuthDot(status: AuthStatus): 'success' | 'failure' | 'pending' {
 export function SettingsGitHub() {
   const { t } = useTranslation('settings')
   const mountedRef = useRef(true)
+  const hostPlatform = shell.platform
+  const isLinux = hostPlatform === 'linux'
+  const canAutoInstall = hostPlatform === 'darwin'
+
   useEffect(() => () => { mountedRef.current = false }, [])
 
   const [state, dispatch] = useReducer(reducer, {
@@ -155,9 +159,11 @@ export function SettingsGitHub() {
         </div>
         {state.ghStatus === 'not_installed' && (
           <div style={{ display: 'flex', gap: 'var(--space-8)' }}>
-            <Button size="sm" variant="primary" onClick={handleInstall}>
-              {t('github.install')}
-            </Button>
+            {canAutoInstall && (
+              <Button size="sm" variant="primary" onClick={handleInstall}>
+                {t('github.install')}
+              </Button>
+            )}
             <Button size="sm" onClick={openDocs}>
               {t('github.docs')} <IconExternalLink size={10} />
             </Button>
@@ -170,7 +176,11 @@ export function SettingsGitHub() {
         )}
       </div>
       {state.ghStatus === 'not_installed' && (
-        <span className="settings-hint">{t('github.installHint')}</span>
+        <span className="settings-hint">
+          {isLinux
+            ? t('github.installHintLinux')
+            : t('github.installHint')}
+        </span>
       )}
 
       <div className="settings-divider" />

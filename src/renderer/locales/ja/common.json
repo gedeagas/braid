@@ -106,6 +106,8 @@
       "installing": "インストール中…",
       "openDocs": "ドキュメントを開く",
       "logIn": "ログイン",
+      "gitInstallHintLinux": "ディストリビューションのパッケージマネージャーでGitをインストールしてから、再確認してください。",
+      "ghInstallHintLinux": "ディストリビューションのパッケージマネージャーでghをインストールし、gh auth loginを実行してください。",
       "progressGit": "Xcodeツールをインストール中…",
       "progressGh": "GitHub CLIをインストール中…",
       "progressGhAuth": "ブラウザ認証を待っています…",
@@ -212,7 +214,7 @@
     "simulator": {
       "intro": {
         "title": "シミュレータープレビュー",
-        "description": "iOS・Androidシミュレーターを直接Braidで操作できます。タップ、スワイプ、テキスト入力をライブで実行。"
+        "description": "対応しているモバイルシミュレータ/エミュレータを直接Braidで操作できます。タップ、スワイプ、テキスト入力をライブで実行。"
       },
       "devices": {
         "title": "デバイス一覧",

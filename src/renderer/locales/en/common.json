@@ -106,6 +106,8 @@
       "installing": "Installing...",
       "openDocs": "Open docs",
       "logIn": "Log in",
+      "gitInstallHintLinux": "Install Git with your distro package manager, then re-check.",
+      "ghInstallHintLinux": "Install gh with your distro package manager, then run gh auth login.",
       "progressGit": "Installing Xcode tools...",
       "progressGh": "Installing GitHub CLI...",
       "progressGhAuth": "Waiting for browser authentication...",
@@ -212,7 +214,7 @@
     "simulator": {
       "intro": {
         "title": "Simulator Preview",
-        "description": "Preview and control iOS & Android simulators directly in Braid. Tap, swipe, and type on the live device screen."
+        "description": "Preview and control supported mobile simulators and emulators directly in Braid. Tap, swipe, and type on the live device screen."
       },
       "devices": {
         "title": "Your Devices",

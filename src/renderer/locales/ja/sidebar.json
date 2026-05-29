@@ -53,6 +53,7 @@
   "contextMenuAddWorktree": "ワークツリーを追加",
   "contextMenuRefreshWorktrees": "ワークツリーを更新",
   "contextMenuOpenInFinder": "Finderで開く",
+  "contextMenuRevealInFileManager": "ファイルマネージャーで表示",
   "contextMenuRemoveProject": "プロジェクトを削除",
   "deleteWorktreeTitle": "ワークツリーを削除",
   "deleteWorktreeBody": "'{{branch}}' ワークツリーとディスク上のすべてのファイルを完全に削除します。未コミットの変更は失われます。",

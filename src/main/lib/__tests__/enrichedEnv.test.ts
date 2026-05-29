@@ -41,7 +41,7 @@ describe('enrichedEnv', () => {
     expect(pathVal).toContain('/usr/local/bin')
   })
 
-  it('falls back to Homebrew PATH when probe errors', async () => {
+  it('falls back to platform-specific PATH when probe errors', async () => {
     mockExecFile.mockImplementation(
       (_bin: string, _args: string[], _opts: object, cb: (err: Error, stdout: string) => void) => {
         cb(new Error('spawn ENOENT'), '')
@@ -52,7 +52,9 @@ describe('enrichedEnv', () => {
     await mod.waitForEnrichedEnv()
 
     const pathVal = mod.enrichedEnv().PATH!
-    expect(pathVal).toContain('/opt/homebrew/bin')
+    if (process.platform === 'darwin') {
+      expect(pathVal).toContain('/opt/homebrew/bin')
+    }
     expect(pathVal).toContain('/usr/local/bin')
   })
 
@@ -67,7 +69,7 @@ describe('enrichedEnv', () => {
     await mod.waitForEnrichedEnv()
 
     const pathVal = mod.enrichedEnv().PATH!
-    expect(pathVal).toContain('/opt/homebrew/bin')
+    expect(pathVal).toContain(process.platform === 'darwin' ? '/opt/homebrew/bin' : '/usr/local/bin')
   })
 
   it('falls back to last-line heuristic when delimiters are missing', async () => {

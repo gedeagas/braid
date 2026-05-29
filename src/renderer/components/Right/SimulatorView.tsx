@@ -69,7 +69,7 @@ const initialState: State = {
   cliInstallAttempted: false, needsBrew: false, platformTools: null,
 }
 
-const MOBILECLI_REPO = 'https://github.com/nicklama/mobilecli'
+const MOBILECLI_REPO = 'https://github.com/mobile-next/mobilecli'
 const HOMEBREW_URL = 'https://brew.sh'
 
 function reducer(state: State, action: Action): State {
@@ -105,6 +105,8 @@ interface Props {
 export const SimulatorView = memo(function SimulatorView({ isActive, mobileFramework }: Props) {
   const { t } = useTranslation('right')
   const [state, dispatch] = useReducer(reducer, initialState)
+  const hostPlatform = ipc.shell.platform
+  const isLinuxHost = hostPlatform === 'linux'
 
   const viewRef = useRef<HTMLDivElement>(null)
   const streamHeightRef = useRef(0)
@@ -166,8 +168,13 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
     }
   }, [t])
 
-  /** Attempt brew install, then recheck. Detects missing Homebrew to show tailored guidance. */
+  /** Attempt macOS Homebrew install, then recheck. Linux uses manual setup. */
   const installCli = useCallback(async () => {
+    if (hostPlatform === 'linux') {
+      dispatch({ type: 'CLI_INSTALL_FAILED', needsBrew: false })
+      return
+    }
+
     // Pre-check: is Homebrew even available?
     const hasBrew = await ipc.shell.checkTool('brew')
     if (!hasBrew) {
@@ -182,7 +189,7 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
     } else {
       dispatch({ type: 'CLI_INSTALL_FAILED', needsBrew: false })
     }
-  }, [loadDevices])
+  }, [hostPlatform, loadDevices])
 
   /** Silent refresh — updates device list without flashing a spinner. */
   const refreshDevices = useCallback(async () => {
@@ -347,6 +354,25 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
       return <div className="simulator-centered"><span className="simulator-loading-text">{t('simulatorLoading')}</span></div>
     }
     if (state.phase === 'no-cli') {
+      if (isLinuxHost) {
+        return (
+          <EmptyState
+            title={t('simulatorCliMissing')}
+            hint={t('simulatorCliManualLinux')}
+            action={
+              <div className="simulator-cli-actions">
+                <Button variant="primary" size="sm" onClick={loadDevices}>
+                  {t('simulatorRefresh')}
+                </Button>
+                <button className="simulator-cli-docs-link" onClick={() => ipc.shell.openExternal(MOBILECLI_REPO)}>
+                  {t('simulatorCliManual')} <IconExternalLink size={10} />
+                </button>
+              </div>
+            }
+          />
+        )
+      }
+
       // Homebrew missing → explain what to do, don't offer the auto-install button
       if (state.needsBrew) {
         return (
@@ -408,7 +434,8 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
     if (state.phase === 'streaming' || state.phase === 'stream-lost') {
       const isLost = state.phase === 'stream-lost'
       const device = state.devices.find((d) => d.id === state.selectedId)
-      const isIos = (device?.platform ?? 'ios') === 'ios'
+      const devicePlatform = device?.platform ?? (hostPlatform === 'darwin' ? 'ios' : 'android')
+      const isIos = devicePlatform === 'ios'
       const screenType = isIos ? iphoneScreenType(device?.name ?? '') : undefined
       const canvasEl = (
         <canvas
@@ -446,7 +473,7 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
             )}
           </div>
           {!isLost && mobileFramework && (
-            <FrameworkToolbar deviceId={state.selectedId!} platform={device?.platform ?? 'ios'} framework={mobileFramework} />
+            <FrameworkToolbar deviceId={state.selectedId!} platform={devicePlatform} framework={mobileFramework} />
           )}
           <div className="simulator-stream-container" style={{ position: 'relative' }}>
             {isIos ? (
@@ -472,7 +499,7 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
               </div>
             )}
           </div>
-          {!isLost && <DeviceToolbar deviceId={state.selectedId!} platform={device?.platform ?? 'ios'} />}
+          {!isLost && <DeviceToolbar deviceId={state.selectedId!} platform={devicePlatform} />}
         </>
       )
     }
@@ -485,7 +512,7 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
           <button className="simulator-action-btn" onClick={loadDevices}>{t('simulatorRefresh')}</button>
         </div>
         {state.devices.length === 0 ? (
-          <NoDevicesState platformTools={state.platformTools} />
+          <NoDevicesState platformTools={state.platformTools} hostPlatform={hostPlatform} />
         ) : (
           <div className="simulator-device-list" data-tour="simulator-devices">
             {grouped.map(([group, devices]) => (
@@ -513,17 +540,32 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
 const XCODE_URL = 'https://apps.apple.com/app/xcode/id497799835'
 const ANDROID_STUDIO_URL = 'https://developer.android.com/studio'
 
-function NoDevicesState({ platformTools }: { platformTools: PlatformTools | null }) {
+function NoDevicesState({
+  platformTools,
+  hostPlatform,
+}: {
+  platformTools: PlatformTools | null
+  hostPlatform: string
+}) {
   const { t } = useTranslation('right')
   const pt = platformTools
+  const supportsIosSimulator = hostPlatform === 'darwin'
 
   // Pick the most specific hint based on what's missing
   let hint = t('simulatorNoDevicesHint') // generic fallback
-  if (pt && !pt.xcode && !pt.androidSdk) hint = t('simulatorNoDevicesHintNone')
-  else if (pt && !pt.xcode) hint = t('simulatorNoDevicesHintNoXcode')
-  else if (pt && !pt.androidSdk) hint = t('simulatorNoDevicesHintNoAndroid')
+  if (!supportsIosSimulator) {
+    hint = pt?.androidSdk
+      ? t('simulatorNoDevicesHintAndroidOnly')
+      : t('simulatorNoDevicesHintNoAndroid')
+  } else if (pt && !pt.xcode && !pt.androidSdk) {
+    hint = t('simulatorNoDevicesHintNone')
+  } else if (pt && !pt.xcode) {
+    hint = t('simulatorNoDevicesHintNoXcode')
+  } else if (pt && !pt.androidSdk) {
+    hint = t('simulatorNoDevicesHintNoAndroid')
+  }
 
-  const missingXcode = pt && !pt.xcode
+  const missingXcode = supportsIosSimulator && pt && !pt.xcode
   const missingAndroid = pt && !pt.androidSdk
 
   return (

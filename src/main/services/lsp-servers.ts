@@ -39,6 +39,8 @@ export const BUILTIN_SERVERS: LspServerConfig[] = [
         urls: {
           'darwin-arm64': 'https://github.com/rust-lang/rust-analyzer/releases/latest/download/rust-analyzer-aarch64-apple-darwin.gz',
           'darwin-x64':   'https://github.com/rust-lang/rust-analyzer/releases/latest/download/rust-analyzer-x86_64-apple-darwin.gz',
+          'linux-arm64':  'https://github.com/rust-lang/rust-analyzer/releases/latest/download/rust-analyzer-aarch64-unknown-linux-gnu.gz',
+          'linux-x64':    'https://github.com/rust-lang/rust-analyzer/releases/latest/download/rust-analyzer-x86_64-unknown-linux-gnu.gz',
         },
         decompress: 'gz',
         label: 'GitHub Releases',
@@ -90,6 +92,6 @@ export const BUILTIN_SERVERS: LspServerConfig[] = [
       { type: 'command', prereq: 'xcode-select', command: ['xcode-select', '--install'], label: 'Xcode CLT' },
       { type: 'command', prereq: 'brew',         command: ['brew', 'install', 'swift'],   label: 'Homebrew'  },
     ],
-    installHint: 'Requires Xcode or Xcode Command Line Tools: xcode-select --install',
+    installHint: 'Requires the Swift toolchain. On macOS, install Xcode or Xcode Command Line Tools.',
   },
 ]

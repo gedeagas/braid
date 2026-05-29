@@ -115,6 +115,7 @@ function OnboardingContent() {
   const setFeatureTourComplete = useUIStore((s) => s.setFeatureTourComplete)
   const hasProjects = useProjectsStore((s) => s.projects.length > 0)
   const containerRef = useRef<HTMLDivElement>(null)
+  const hostPlatform = shell.platform
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => containerRef.current?.focus())
@@ -264,6 +265,7 @@ function OnboardingContent() {
             checks={state.checks}
             onRunChecks={runChecks}
             onInstall={installAndRecheck}
+            hostPlatform={hostPlatform}
           />
         )}
         {step === 'project' && <ProjectStep />}

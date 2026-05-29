@@ -53,6 +53,7 @@
   "contextMenuAddWorktree": "Add Worktree",
   "contextMenuRefreshWorktrees": "Refresh Worktrees",
   "contextMenuOpenInFinder": "Open in Finder",
+  "contextMenuRevealInFileManager": "Reveal in File Manager",
   "contextMenuRemoveProject": "Remove Project",
   "deleteWorktreeTitle": "Delete Worktree",
   "deleteWorktreeBody": "This will permanently delete the '{{branch}}' worktree and all its files on disk. Uncommitted changes will be lost.",
