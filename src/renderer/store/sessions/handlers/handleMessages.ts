@@ -5,7 +5,8 @@
 import type { ContentBlock, ToolCall } from '@/types'
 import type { HandlerContext } from './types'
 import { extractToolResultPatches } from './toolResultParser'
-import { triggerWorktreeRefreshIfNeeded, createWorktreeSyncDeps } from './worktreeSync'
+import { triggerWorktreeRefreshIfNeeded } from './worktreeSync'
+import { createWorktreeSyncDeps } from './worktreeSyncDeps'
 import { updateSession, msgId, resolvePendingState } from '../stateUtils'
 import { persistSession } from '../persistence'
 import { stopPeriodicFlush, flushStreamingBuffer } from '../streaming'
@@ -24,7 +25,7 @@ export function handleUser(ctx: HandlerContext, ev: Record<string, unknown>): vo
   const patches = extractToolResultPatches(msg.content as Array<Record<string, unknown>>)
   if (patches.length === 0) return
 
-  // Side effect: refresh worktree after git push / gh pr create.
+  // Side effect: refresh worktree resources after mutating git/gh/acli commands.
   // Uses stable tool call IDs from a snapshot — safe to read before setState.
   const snapshot = store.getState().sessions[sessionId]
   if (snapshot) {

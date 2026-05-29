@@ -10,7 +10,7 @@ import { ContextMenu, type ContextMenuItem } from '@/components/shared/ContextMe
 import { loadStr } from '@/store/ui/helpers'
 import { SK } from '@/lib/storageKeys'
 import { useUIStore } from '@/store/ui'
-import { DOM_EVENT_FILES_CHANGED } from '@/lib/appBrand'
+import { requestWorktreeRefresh, subscribeWorktreeRefresh } from '@/lib/worktreeRefresh'
 
 type InstalledApp = { id: string; name: string; icon: string | null }
 
@@ -140,11 +140,11 @@ export function FileTree({ worktreePath, onFileSelect }: Props) {
   const { entries, selectedPath, refreshing, generation, menu, apps } = ftState
   const inflightRef = useRef(false)
 
-  const loadRoot = useCallback(() => {
+  const loadRoot = useCallback((forceRefresh = false) => {
     if (inflightRef.current) return
     inflightRef.current = true
     ftDispatch({ type: 'LOAD_START' })
-    ipc.git.getFileTree(worktreePath)
+    ipc.git.getFileTree(worktreePath, forceRefresh)
       .then((items: FileEntry[]) => ftDispatch({ type: 'LOAD_DONE', entries: items }))
       .catch((err: unknown) => { console.warn('[FileTree] refresh failed:', err); ftDispatch({ type: 'LOAD_ERROR' }) })
       .finally(() => { inflightRef.current = false })
@@ -153,22 +153,16 @@ export function FileTree({ worktreePath, onFileSelect }: Props) {
   // Load on mount + worktree change
   useEffect(() => { loadRoot() }, [loadRoot])
 
-  // Auto-refresh when the agent finishes a turn
+  // Auto-refresh when a per-worktree refresh is requested.
   useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent<{ worktreePath: string }>).detail
-      if (detail?.worktreePath === worktreePath) {
-        loadRoot()
-        ftDispatch({ type: 'BUMP_GENERATION' })
-      }
-    }
-    window.addEventListener(DOM_EVENT_FILES_CHANGED, handler)
-    return () => window.removeEventListener(DOM_EVENT_FILES_CHANGED, handler)
+    return subscribeWorktreeRefresh(worktreePath, 'files', (event) => {
+      loadRoot(event.force)
+      ftDispatch({ type: 'BUMP_GENERATION' })
+    })
   }, [worktreePath, loadRoot])
 
   const handleRefresh = () => {
-    loadRoot()
-    ftDispatch({ type: 'BUMP_GENERATION' })
+    requestWorktreeRefresh(worktreePath, 'files', { reason: 'manual', force: true })
   }
 
   const handleFileSelect = (path: string) => {

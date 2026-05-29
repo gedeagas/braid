@@ -12,6 +12,7 @@ import { isKnownAgentType, type AgentStatusPayload, type AgentStatusState, type 
 import { createCompletionCoordinator, type CompletionCoordinator } from '@/lib/agentCompletionCoordinator'
 import { notifyTerminalStateChange, clearTerminalNotificationState } from '@/lib/terminalNotifications'
 import { isCodexUserInputPromptText, readTerminalBufferTail } from '@/lib/codexTerminalDetection'
+import { createTerminalCommandObserver, type TerminalCommandObserver } from '@/lib/terminalCommandRefresh'
 import { useUIStore } from '@/store/ui'
 import { useToastsStore } from '@/store/toasts'
 
@@ -37,6 +38,8 @@ export interface BigTermEntry {
   codexPromptScanTimer: ReturnType<typeof setTimeout> | null
   /** xterm write listener used only for Codex prompt fallback scanning. */
   codexPromptWriteDisposable: IDisposable | null
+  /** Watches typed/launched CLI commands and routes resource refreshes after mutations. */
+  commandObserver: TerminalCommandObserver | null
   spawnPromise: Promise<void>
   /** Set by disposeBigTerminal so the in-flight spawn can bail out. */
   disposed: boolean
@@ -202,6 +205,7 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
     agentId,
     codexPromptScanTimer: null,
     codexPromptWriteDisposable: null,
+    commandObserver: null,
     spawnPromise: Promise.resolve(),
     disposed: false
   }
@@ -263,12 +267,15 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
         reattached = true
         hasScrollback = true
         entry.ptyId = result.sessionId
+        const commandObserver = createTerminalCommandObserver(worktreePath, { refreshWorktrees: true })
+        entry.commandObserver = commandObserver
         replayIntoTerminal(terminalId, term, result.snapshot)
         replayIntoTerminal(terminalId, term, '\r\n\x1b[2m[session reconnected]\x1b[0m\r\n')
         replayIntoTerminal(terminalId, term, POST_REPLAY_MODE_RESET)
         ipc.pty.registerBigTerminal(result.sessionId, terminalId)
         term.onData((d) => {
           if (isReplaying(terminalId)) return
+          commandObserver.accept(d)
           if (entry.ptyId && !entry.disposed) ipc.pty.write(entry.ptyId, d)
         })
       }
@@ -306,14 +313,18 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
         return
       }
       entry.ptyId = ptyId
+      const commandObserver = createTerminalCommandObserver(worktreePath, { refreshWorktrees: true })
+      entry.commandObserver = commandObserver
       ipc.pty.registerBigTerminal(ptyId, terminalId)
       term.onData((d) => {
         // Suppress xterm auto-replies during scrollback replay
         if (isReplaying(terminalId)) return
+        commandObserver.accept(d)
         if (entry.ptyId && !entry.disposed) ipc.pty.write(entry.ptyId, d)
       })
       // Auto-run initialCommand only on fresh terminals (no restored scrollback)
       if (initialCommand && !hasScrollback) {
+        commandObserver.accept(initialCommand + '\n')
         ipc.pty.write(ptyId, initialCommand + '\n')
       }
     } catch (err) {
@@ -362,6 +373,8 @@ export function disposeBigTerminal(terminalId: string): void {
   }
   try { entry.codexPromptWriteDisposable?.dispose() } catch {}
   entry.codexPromptWriteDisposable = null
+  try { entry.commandObserver?.dispose() } catch {}
+  entry.commandObserver = null
   try { entry.webglAddon?.dispose() } catch {}
   entry.webglAddon = null
   entry.completionCoordinator.reset()

@@ -78,6 +78,7 @@ export interface WorktreeSyncDeps {
   getWorktreePath: (sessionId: string) => string | undefined
   findProjectByWorktreePath: (wtPath: string) => { id: string } | undefined
   refreshWorktrees: (projectId: string) => Promise<void>
+  invalidateJiraCache?: () => Promise<void> | void
 }
 
 // ---------------------------------------------------------------------------

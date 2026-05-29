@@ -1,11 +1,9 @@
 import { create } from 'zustand'
 import type { Project, Worktree, ProjectSettings } from '@/types'
 import * as ipc from '@/lib/ipc'
+import { cleanupWorktreeRefresh } from '@/lib/worktreeRefresh'
 import { useUIStore } from './ui'
 import { useSessionsStore } from './sessions'
-import { cleanupSetupPanel } from '@/components/Right/SetupPanel'
-import { cleanupTerminals } from '@/components/Right/TabbedTerminal'
-import { disposeBigTerminals } from '@/components/Center/bigTerminalCache'
 import { SK } from '@/lib/storageKeys'
 
 export function createDefaultProjectSettings(): ProjectSettings {
@@ -95,6 +93,27 @@ function unregisterWorktreeId(worktreePath: string): void {
   delete worktreeIdRegistry[worktreePath]
   saveWorktreeIdRegistry(worktreeIdRegistry)
 }
+
+function sameWorktrees(a: Worktree[], b: Worktree[]): boolean {
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) {
+    const left = a[i]
+    const right = b[i]
+    if (
+      left.id !== right.id ||
+      left.projectId !== right.projectId ||
+      left.branch !== right.branch ||
+      left.path !== right.path ||
+      left.isMain !== right.isMain ||
+      left.upstream !== right.upstream
+    ) {
+      return false
+    }
+  }
+  return true
+}
+
+const refreshWorktreesInFlight = new Map<string, Promise<void>>()
 
 interface ProjectsState {
   projects: Project[]
@@ -252,30 +271,45 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
   },
 
   refreshWorktrees: async (projectId: string) => {
-    const project = get().projects.find((p) => p.id === projectId)
-    if (!project) return
+    const inFlight = refreshWorktreesInFlight.get(projectId)
+    if (inFlight) return inFlight
 
-    const worktreeInfos = await ipc.git.getWorktrees(project.path).catch(() => [])
-    const worktrees: Worktree[] = await Promise.all(
-      worktreeInfos.map(
-        async (w: { path: string; branch: string; isMain: boolean }) => {
-          const upstream = await ipc.git.getTrackingBranch(w.path, w.branch).catch(() => null)
-          return {
-            id: resolveWorktreeId(projectId, w.path, project.worktrees),
-            projectId,
-            branch: w.branch,
-            path: w.path,
-            isMain: w.isMain,
-            upstream: upstream ?? undefined,
-            sessions: []
+    const refreshPromise = (async () => {
+      const project = get().projects.find((p) => p.id === projectId)
+      if (!project) return
+
+      const worktreeInfos = await ipc.git.getWorktrees(project.path).catch(() => [])
+      const worktrees: Worktree[] = await Promise.all(
+        worktreeInfos.map(
+          async (w: { path: string; branch: string; isMain: boolean }) => {
+            const upstream = await ipc.git.getTrackingBranch(w.path, w.branch).catch(() => null)
+            return {
+              id: resolveWorktreeId(projectId, w.path, project.worktrees),
+              projectId,
+              branch: w.branch,
+              path: w.path,
+              isMain: w.isMain,
+              upstream: upstream ?? undefined,
+              sessions: []
+            }
           }
-        }
+        )
       )
-    )
 
-    set({
-      projects: get().projects.map((p) => (p.id === projectId ? { ...p, worktrees } : p))
+      const currentProject = get().projects.find((p) => p.id === projectId)
+      if (!currentProject || sameWorktrees(currentProject.worktrees, worktrees)) return
+
+      set({
+        projects: get().projects.map((p) => (p.id === projectId ? { ...p, worktrees } : p))
+      })
+    })().finally(() => {
+      if (refreshWorktreesInFlight.get(projectId) === refreshPromise) {
+        refreshWorktreesInFlight.delete(projectId)
+      }
     })
+
+    refreshWorktreesInFlight.set(projectId, refreshPromise)
+    return refreshPromise
   },
 
   addWorktree: async (projectId: string, branch: string, baseBranch?: string, filesToCopy?: string[]) => {
@@ -338,9 +372,16 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
       }
     }
 
+    const [{ cleanupSetupPanel }, { cleanupTerminals }, { disposeBigTerminals }] = await Promise.all([
+      import('@/components/Right/SetupPanel'),
+      import('@/components/Right/TabbedTerminal'),
+      import('@/components/Center/bigTerminalCache'),
+    ])
+
     // Clean up terminal instances for this worktree (PTYs + xterm instances)
     cleanupTerminals(worktree.path)
     cleanupSetupPanel(worktree.path)
+    cleanupWorktreeRefresh(worktree.path)
 
     // Clean up big terminals: dispose xterm + PTY, delete scrollback files, drop localStorage entry.
     const uiSnapshot = useUIStore.getState()

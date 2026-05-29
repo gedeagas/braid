@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import * as ipc from '@/lib/ipc'
 import { isOnline } from '@/lib/online'
+import { subscribeWorktreeRefresh } from '@/lib/worktreeRefresh'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,7 +30,7 @@ interface PrCacheState {
   cache: Record<string, PrEntry>
 
   /** Fetch (or re-fetch) the PR status for a path. Deduplicates in-flight requests. */
-  fetchPr: (worktreePath: string) => Promise<void>
+  fetchPr: (worktreePath: string, options?: { force?: boolean }) => Promise<void>
 
   /** Register a path so the periodic refresh knows about it. */
   trackPath: (worktreePath: string) => void
@@ -45,13 +46,26 @@ const trackedPaths = new Set<string>()
 
 /** In-flight fetch promises — prevents duplicate concurrent requests. */
 const inFlight = new Set<string>()
+const inFlightForce = new Set<string>()
+const queuedForceRefreshes = new Set<string>()
 
 export const usePrCacheStore = create<PrCacheState>((set, get) => ({
   cache: {},
 
-  fetchPr: async (worktreePath) => {
-    if (inFlight.has(worktreePath)) return
+  fetchPr: async (worktreePath, options) => {
+    if (!worktreePath) return
+    if (inFlight.has(worktreePath)) {
+      if (options?.force && !inFlightForce.has(worktreePath)) {
+        queuedForceRefreshes.add(worktreePath)
+      }
+      return
+    }
     inFlight.add(worktreePath)
+    if (options?.force) {
+      inFlightForce.add(worktreePath)
+    } else {
+      inFlightForce.delete(worktreePath)
+    }
 
     // Mark as loading (only if we don't already have data)
     const existing = get().cache[worktreePath]
@@ -65,7 +79,7 @@ export const usePrCacheStore = create<PrCacheState>((set, get) => ({
     }
 
     try {
-      const data = await ipc.github.getPrStatus(worktreePath)
+      const data = await ipc.github.getPrStatus(worktreePath, options?.force)
       set((s) => ({
         cache: {
           ...s.cache,
@@ -88,11 +102,17 @@ export const usePrCacheStore = create<PrCacheState>((set, get) => ({
         }
       }))
     } finally {
+      const runQueuedForceRefresh = queuedForceRefreshes.delete(worktreePath)
       inFlight.delete(worktreePath)
+      inFlightForce.delete(worktreePath)
+      if (runQueuedForceRefresh) {
+        void get().fetchPr(worktreePath, { force: true })
+      }
     }
   },
 
   trackPath: (worktreePath) => {
+    if (!worktreePath) return
     trackedPaths.add(worktreePath)
     // Trigger an immediate fetch if we don't have data yet
     const entry = get().cache[worktreePath]
@@ -129,15 +149,30 @@ import { useEffect } from 'react'
  * Subscribe to the cached PR status for a given worktree path.
  * Registers the path for periodic polling on mount and cleans up on unmount.
  */
-export function usePrStatus(worktreePath: string): PrStatus | null | undefined {
+export function usePrStatus(
+  worktreePath: string,
+  options?: { forceRefreshOnMount?: boolean }
+): PrStatus | null | undefined {
   const trackPath = usePrCacheStore((s) => s.trackPath)
   const untrackPath = usePrCacheStore((s) => s.untrackPath)
+  const fetchPr = usePrCacheStore((s) => s.fetchPr)
   const entry = usePrCacheStore((s) => s.cache[worktreePath])
 
   useEffect(() => {
+    if (!worktreePath) return
     trackPath(worktreePath)
-    return () => untrackPath(worktreePath)
-  }, [worktreePath, trackPath, untrackPath])
+    const current = usePrCacheStore.getState().cache[worktreePath]
+    if (options?.forceRefreshOnMount && current && current.fetchedAt > 0) {
+      void fetchPr(worktreePath, { force: true })
+    }
+    const unsubscribeRefresh = subscribeWorktreeRefresh(worktreePath, 'pr', (event) => {
+      void fetchPr(worktreePath, { force: event.force })
+    })
+    return () => {
+      unsubscribeRefresh()
+      untrackPath(worktreePath)
+    }
+  }, [worktreePath, options?.forceRefreshOnMount, trackPath, untrackPath, fetchPr])
 
   // undefined = not yet loaded, null = loaded but no PR, PrStatus = has PR
   if (!entry || entry.fetchedAt === 0) return undefined

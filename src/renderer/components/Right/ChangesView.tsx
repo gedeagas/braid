@@ -12,12 +12,14 @@ import { ChangeFileList } from './ChangeFileList'
 import { useChangesActions } from './useChangesActions'
 import { useUIStore } from '@/store/ui'
 import { isOnline, onOnline } from '@/lib/online'
+import { requestWorktreeRefresh, subscribeWorktreeRefresh } from '@/lib/worktreeRefresh'
 
 interface Props {
   worktreePath: string
+  isActive?: boolean
 }
 
-export function ChangesView({ worktreePath }: Props) {
+export function ChangesView({ worktreePath, isActive = true }: Props) {
   const { t } = useTranslation('right')
   const [state, dispatch] = useReducer(changesReducer, initialState, (base) => ({
     ...base,
@@ -51,23 +53,42 @@ export function ChangesView({ worktreePath }: Props) {
   // ─── Actions hook ──────────────────────────────────────────
   const actions = useChangesActions(worktreePath, state, dispatch)
 
-  // ─── Auto-load status ──────────────────────────────────────
+  // ─── Central refresh subscriptions ─────────────────────────
   useEffect(() => {
     if (isMergedOrClosed) return
-    actions.loadStatus()
-    const interval = setInterval(() => { if (isOnline()) actions.loadStatus() }, 10_000)
-    const unsubOnline = onOnline(() => actions.loadStatus())
-    return () => { clearInterval(interval); unsubOnline() }
-  }, [actions.loadStatus, isMergedOrClosed])
+    return subscribeWorktreeRefresh(worktreePath, 'gitStatus', (event) => actions.loadStatus(event.reason === 'manual'))
+  }, [actions.loadStatus, isMergedOrClosed, worktreePath])
 
-  // ─── Auto-load sync status ─────────────────────────────────
   useEffect(() => {
     if (state.upstream === undefined) return
-    actions.loadSyncStatus()
-    const interval = setInterval(() => { if (isOnline()) actions.loadSyncStatus() }, 30_000)
-    const unsubOnline = onOnline(() => actions.loadSyncStatus())
+    return subscribeWorktreeRefresh(worktreePath, 'syncStatus', () => actions.loadSyncStatus())
+  }, [actions.loadSyncStatus, state.upstream, worktreePath])
+
+  // Initial status load happens even when the tab is hidden so the badge is ready.
+  useEffect(() => {
+    if (isMergedOrClosed) return
+    requestWorktreeRefresh(worktreePath, 'gitStatus', { reason: 'external' })
+  }, [worktreePath, isMergedOrClosed])
+
+  // ─── Polling fallback ──────────────────────────────────────
+  useEffect(() => {
+    if (!isActive || isMergedOrClosed) return
+    const interval = setInterval(() => {
+      if (isOnline()) requestWorktreeRefresh(worktreePath, 'gitStatus', { reason: 'poll' })
+    }, 10_000)
+    const unsubOnline = onOnline(() => requestWorktreeRefresh(worktreePath, 'gitStatus', { reason: 'online' }))
     return () => { clearInterval(interval); unsubOnline() }
-  }, [actions.loadSyncStatus, state.upstream])
+  }, [isActive, isMergedOrClosed, worktreePath])
+
+  useEffect(() => {
+    if (!isActive || state.upstream === undefined) return
+    requestWorktreeRefresh(worktreePath, 'syncStatus', { reason: 'external' })
+    const interval = setInterval(() => {
+      if (isOnline()) requestWorktreeRefresh(worktreePath, 'syncStatus', { reason: 'poll' })
+    }, 30_000)
+    const unsubOnline = onOnline(() => requestWorktreeRefresh(worktreePath, 'syncStatus', { reason: 'online' }))
+    return () => { clearInterval(interval); unsubOnline() }
+  }, [isActive, state.upstream, worktreePath])
 
   // ─── Derived ──────────────────────────────────────────────
   const stagedChanges = state.changes.filter((c) => c.staged)
@@ -122,7 +143,7 @@ export function ChangesView({ worktreePath }: Props) {
           )}
           <button
             className={`panel-refresh-btn${state.refreshing ? ' refreshing' : ''}`}
-            onClick={() => actions.loadStatus(true)}
+            onClick={() => requestWorktreeRefresh(worktreePath, ['gitStatus', 'syncStatus'], { reason: 'manual', force: true })}
             disabled={state.refreshing}
           >
             <IconRefresh />

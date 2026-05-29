@@ -9,6 +9,7 @@ import * as ipc from '@/lib/ipc'
 import { cleanIpcError } from '@/lib/ipc'
 import type { ChangesAction } from './changesState'
 import { flashError, commitDraftCache } from './changesState'
+import { requestWorktreeRefresh } from '@/lib/worktreeRefresh'
 
 interface ChangesState {
   changes: GitChange[]
@@ -22,6 +23,19 @@ interface ChangesState {
   discardConfirmFiles: Array<{ file: string; status: string; staged?: boolean }> | null
 }
 
+function gitChangeSignature(changes: GitChange[]): string {
+  return changes
+    .map((change) => [
+      change.file,
+      change.status,
+      change.staged ? '1' : '0',
+      change.additions ?? '',
+      change.deletions ?? '',
+    ].join('\t'))
+    .sort()
+    .join('\n')
+}
+
 export function useChangesActions(
   worktreePath: string,
   state: ChangesState,
@@ -32,6 +46,9 @@ export function useChangesActions(
   const commitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const generateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const statusInFlightRef = useRef(false)
+  const statusQueuedRef = useRef<boolean | null>(null)
+  const lastStatusSignatureRef = useRef<string | null>(null)
   const mountedRef = useRef(true)
   useEffect(() => () => { mountedRef.current = false }, [])
 
@@ -46,19 +63,41 @@ export function useChangesActions(
 
   // ─── Load status ──────────────────────────────────────────
   const loadStatus = useCallback(async (showSpinner = false) => {
+    if (!mountedRef.current) return
+    if (statusInFlightRef.current) {
+      statusQueuedRef.current = (statusQueuedRef.current ?? false) || showSpinner
+      return
+    }
+
+    statusInFlightRef.current = true
     if (showSpinner) dispatch({ type: 'SET_REFRESHING', value: true })
     try {
       const status = await ipc.git.getStatus(worktreePath) as GitChange[]
-      dispatch({ type: 'SET_CHANGES', changes: status })
-      useUIStore.getState().setChangesCount(worktreePath, status.length)
-      useUIStore.getState().bumpDiffRevision(worktreePath)
+      if (!mountedRef.current) return
+      const signature = gitChangeSignature(status)
+      if (signature !== lastStatusSignatureRef.current) {
+        lastStatusSignatureRef.current = signature
+        dispatch({ type: 'SET_CHANGES', changes: status })
+        useUIStore.getState().setChangesCount(worktreePath, status.length)
+        useUIStore.getState().bumpDiffRevision(worktreePath)
+      }
     } catch (err) {
+      if (!mountedRef.current) return
       const { cache } = usePrCacheStore.getState()
       const st = cache[worktreePath]?.data?.state
       if (st === 'MERGED' || st === 'CLOSED') return
       flashError(err, 'refreshError')
     } finally {
+      statusInFlightRef.current = false
+
+      const queuedShowSpinner = statusQueuedRef.current
+      statusQueuedRef.current = null
+      if (!mountedRef.current) return
+
       if (showSpinner) dispatch({ type: 'SET_REFRESHING', value: false })
+      if (queuedShowSpinner !== null) {
+        void loadStatus(queuedShowSpinner)
+      }
     }
   }, [worktreePath, dispatch])
 
@@ -90,7 +129,7 @@ export function useChangesActions(
         pullTimerRef.current = setTimeout(() => dispatch({ type: 'SET_PULL_STATE', pullState: 'idle' }), 2500)
       } else {
         flash('success', t('pullSuccessFlash'), undefined, 'bottom-right')
-        loadStatus()
+        requestWorktreeRefresh(worktreePath, ['files', 'gitStatus', 'syncStatus'], { reason: 'git-mutation', force: true })
       }
     } catch (err) {
       const msg = cleanIpcError(err, 'Pull failed')
@@ -132,7 +171,7 @@ export function useChangesActions(
       await ipc.git.push(worktreePath)
       dispatch({ type: 'SET_PUSH_STATE', pushState: 'success' })
       flash('success', t('pushSuccessFlash'), undefined, 'bottom-right')
-      loadSyncStatus()
+      requestWorktreeRefresh(worktreePath, ['syncStatus', 'pr', 'checks'], { reason: 'git-mutation', force: true })
       pushTimerRef.current = setTimeout(() => dispatch({ type: 'SET_PUSH_STATE', pushState: 'idle' }), 2500)
     } catch (err) {
       dispatch({ type: 'SET_PUSH_STATE', pushState: 'error' })
@@ -147,7 +186,7 @@ export function useChangesActions(
     dispatch({ type: 'SET_STAGING_IN_PROGRESS', value: true })
     try {
       await ipc.git.stageFiles(worktreePath, [file])
-      loadStatus()
+      requestWorktreeRefresh(worktreePath, 'gitStatus', { reason: 'git-mutation', force: true })
     } catch (err) {
       flashError(err, 'stageFailed')
     } finally {
@@ -160,7 +199,7 @@ export function useChangesActions(
     dispatch({ type: 'SET_STAGING_IN_PROGRESS', value: true })
     try {
       await ipc.git.unstageFiles(worktreePath, [file])
-      loadStatus()
+      requestWorktreeRefresh(worktreePath, 'gitStatus', { reason: 'git-mutation', force: true })
     } catch (err) {
       flashError(err, 'unstageFailed')
     } finally {
@@ -175,7 +214,7 @@ export function useChangesActions(
       dispatch({ type: 'SET_STAGING_IN_PROGRESS', value: true })
       try {
         await ipc.git.stageFiles(worktreePath, unstaged)
-        loadStatus()
+        requestWorktreeRefresh(worktreePath, 'gitStatus', { reason: 'git-mutation', force: true })
       } catch (err) {
         flashError(err, 'stageFailed')
       } finally {
@@ -191,7 +230,7 @@ export function useChangesActions(
       dispatch({ type: 'SET_STAGING_IN_PROGRESS', value: true })
       try {
         await ipc.git.unstageFiles(worktreePath, staged)
-        loadStatus()
+        requestWorktreeRefresh(worktreePath, 'gitStatus', { reason: 'git-mutation', force: true })
       } catch (err) {
         flashError(err, 'unstageFailed')
       } finally {
@@ -229,7 +268,7 @@ export function useChangesActions(
     )
     const firstErr = results.find((r) => r.status === 'rejected') as PromiseRejectedResult | undefined
     if (firstErr) flashError(firstErr.reason, 'discardFailed')
-    loadStatus()
+    requestWorktreeRefresh(worktreePath, ['files', 'gitStatus'], { reason: 'git-mutation', force: true })
   }, [state.discardConfirmFiles, worktreePath, loadStatus, dispatch])
 
   // ─── Commit ───────────────────────────────────────────────
@@ -241,8 +280,7 @@ export function useChangesActions(
       dispatch({ type: 'SET_COMMIT_STATE', commitState: 'success' })
       dispatch({ type: 'SET_COMMIT_MESSAGE', message: '' })
       flash('success', i18n.t('commitSuccessFlash', { ns: 'right' }), undefined, 'bottom-right')
-      loadStatus()
-      loadSyncStatus()
+      requestWorktreeRefresh(worktreePath, ['gitStatus', 'syncStatus', 'pr', 'checks'], { reason: 'git-mutation', force: true })
       commitTimerRef.current = setTimeout(() => dispatch({ type: 'SET_COMMIT_STATE', commitState: 'idle' }), 2500)
     } catch (err) {
       const msg = cleanIpcError(err, 'Commit failed')
