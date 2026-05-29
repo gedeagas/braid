@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto'
 import { homedir } from 'node:os'
 import path from 'node:path'
 import { net, session } from 'electron'
-import { resolveCliPath } from '../claudePath'
+import { AUTO_CLI_PATH } from '../claudePath'
 import type { ProviderRateLimits, RateLimitWindow } from '../../../shared/rate-limit-types'
 
 const OAUTH_USAGE_URL = 'https://api.anthropic.com/api/oauth/usage'
@@ -266,7 +266,7 @@ const SETTLE_AFTER_STOP_MS = 2_000
 const SETTLE_AFTER_CLAUDE_21_USAGE_MS = 8_000
 
 function resolveClaudeCommand(): string {
-  return resolveCliPath() ?? 'claude'
+  return AUTO_CLI_PATH ?? 'claude'
 }
 
 function describeFailure(output: string): string {
