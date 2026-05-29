@@ -18,6 +18,7 @@ import { SOCKET_PATH } from './protocol'
 import { RingBuffer } from './sessionHost'
 import type { IPtyService, TerminalOutput } from '../pty'
 import type { ReattachResult, SessionInfo } from './types'
+import { getTerminalScrollbackBufferMaxLength } from '../../../shared/terminal'
 
 // ── Scrollback helpers (same as PtyService) ──────────────────────────────────
 
@@ -213,13 +214,21 @@ export class PtyDaemonAdapter implements IPtyService {
     }
 
     try {
-      await this.client.spawn(sessionId, safeCwd, 80, 24, shell, env)
+      await this.client.spawn(
+        sessionId,
+        safeCwd,
+        80,
+        24,
+        shell,
+        env,
+        getTerminalScrollbackBufferMaxLength(mainSettings.terminalScrollback),
+      )
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       throw new Error(`Terminal spawn failed (shell: ${shell}, cwd: ${safeCwd}): ${msg}`, { cause: err })
     }
     this.cwdBySession.set(sessionId, safeCwd)
-    this.buffers.set(sessionId, new RingBuffer())
+    this.buffers.set(sessionId, new RingBuffer(getTerminalScrollbackBufferMaxLength(mainSettings.terminalScrollback)))
     return sessionId
   }
 
@@ -269,6 +278,19 @@ export class PtyDaemonAdapter implements IPtyService {
       }
     }
     return results
+  }
+
+  setScrollbackBufferMaxLength(maxLength: number): void {
+    for (const buffer of this.buffers.values()) {
+      buffer.setMaxLength(maxLength)
+    }
+
+    if (!this.client.connected && !isDaemonRunning()) return
+    this.ensureDaemon()
+      .then(() => this.client.setBufferMaxLength(maxLength))
+      .catch(() => {
+        // Best effort. New sessions still receive the current limit on spawn.
+      })
   }
 
   // ── Big Terminal scrollback persistence ────────────────────────────────
@@ -389,7 +411,7 @@ export class PtyDaemonAdapter implements IPtyService {
       await this.ensureDaemon()
       const result = await this.client.attach(sessionId)
       // Initialize local buffer with snapshot so readTerminalOutput works
-      const buffer = new RingBuffer()
+      const buffer = new RingBuffer(getTerminalScrollbackBufferMaxLength(mainSettings.terminalScrollback))
       buffer.push(result.snapshot)
       this.buffers.set(sessionId, buffer)
       // Populate cwdBySession from the daemon's session list if we don't have it

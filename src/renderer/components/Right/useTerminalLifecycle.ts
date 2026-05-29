@@ -4,6 +4,7 @@ import { useUIStore } from '@/store/ui'
 import {
   SETUP_TAB_ID,
   terminalCache, nextTabId, createTerminal, initGlobalPtyRouting, reThemeAllTerminals,
+  updateScrollbackAllTerminals,
   saveRightTerminalTabs, loadRightTerminalTabs,
   type TermTab,
 } from './terminalCache'
@@ -70,6 +71,19 @@ export function useTerminalLifecycle({
             } catch { /* ignore */ }
           }
         }
+      }
+    })
+    return unsub
+  }, [])
+
+  // ── Update terminal scrollback when setting changes ────────────────────
+  useEffect(() => {
+    let prevScrollback = useUIStore.getState().terminalScrollback
+    updateScrollbackAllTerminals(prevScrollback)
+    const unsub = useUIStore.subscribe((state) => {
+      if (state.terminalScrollback !== prevScrollback) {
+        prevScrollback = state.terminalScrollback
+        updateScrollbackAllTerminals(prevScrollback)
       }
     })
     return unsub

@@ -98,8 +98,8 @@ export class DaemonClient extends EventEmitter<DaemonClientEvents> {
 
   // ── High-level operations ──────────────────────────────────────────────
 
-  async spawn(sessionId: string, cwd: string, cols: number, rows: number, shell: string, env?: Record<string, string>): Promise<void> {
-    await this.request({ type: 'spawn', sessionId, cwd, cols, rows, shell, env } as Omit<DaemonRequest, 'id'> & { type: 'spawn' })
+  async spawn(sessionId: string, cwd: string, cols: number, rows: number, shell: string, env?: Record<string, string>, bufferMaxLength?: number): Promise<void> {
+    await this.request({ type: 'spawn', sessionId, cwd, cols, rows, shell, env, bufferMaxLength } as Omit<DaemonRequest, 'id'> & { type: 'spawn' })
     this.attachedSessions.add(sessionId)
   }
 
@@ -132,6 +132,10 @@ export class DaemonClient extends EventEmitter<DaemonClientEvents> {
   async list(): Promise<Array<{ sessionId: string; cwd: string; cols: number; rows: number; createdAt: number }>> {
     const result = await this.request({ type: 'list' } as Omit<DaemonRequest, 'id'> & { type: 'list' })
     return (result as { sessions: Array<{ sessionId: string; cwd: string; cols: number; rows: number; createdAt: number }> }).sessions
+  }
+
+  async setBufferMaxLength(maxLength: number): Promise<void> {
+    await this.request({ type: 'setBufferMaxLength', maxLength } as Omit<DaemonRequest, 'id'> & { type: 'setBufferMaxLength' })
   }
 
   async ping(): Promise<void> {

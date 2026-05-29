@@ -13,16 +13,30 @@ import type { DaemonSession, CheckpointData, SessionInfo } from './types'
 export class RingBuffer {
   private chunks: string[] = []
   private totalLength = 0
+  private maxLength: number
+
+  constructor(maxLength = BUFFER_MAX_LENGTH) {
+    this.maxLength = Math.max(1, Math.round(maxLength))
+  }
 
   push(data: string): void {
     this.chunks.push(data)
     this.totalLength += data.length
-    while (this.totalLength > BUFFER_MAX_LENGTH && this.chunks.length > 1) {
+    this.trimToMaxLength()
+  }
+
+  setMaxLength(maxLength: number): void {
+    this.maxLength = Math.max(1, Math.round(maxLength))
+    this.trimToMaxLength()
+  }
+
+  private trimToMaxLength(): void {
+    while (this.totalLength > this.maxLength && this.chunks.length > 1) {
       const evicted = this.chunks.shift()!
       this.totalLength -= evicted.length
     }
-    if (this.totalLength > BUFFER_MAX_LENGTH && this.chunks.length === 1) {
-      this.chunks[0] = this.chunks[0].slice(this.chunks[0].length - BUFFER_MAX_LENGTH)
+    if (this.totalLength > this.maxLength && this.chunks.length === 1) {
+      this.chunks[0] = this.chunks[0].slice(this.chunks[0].length - this.maxLength)
       this.totalLength = this.chunks[0].length
     }
   }
@@ -146,6 +160,7 @@ export class SessionHost {
     rows: number,
     shell: string,
     env?: Record<string, string>,
+    bufferMaxLength = BUFFER_MAX_LENGTH,
   ): Promise<void> {
     if (this.sessions.has(sessionId)) {
       throw new Error(`Session already exists: ${sessionId}`)
@@ -162,7 +177,7 @@ export class SessionHost {
       },
     })
 
-    const buffer = new RingBuffer()
+    const buffer = new RingBuffer(bufferMaxLength)
     const entry: SessionEntry = {
       sessionId,
       cwd,
@@ -284,6 +299,12 @@ export class SessionHost {
   /** Get the current snapshot (RingBuffer contents) for a session. */
   snapshot(sessionId: string): string | null {
     return this.sessions.get(sessionId)?.buffer.read() ?? null
+  }
+
+  setBufferMaxLength(maxLength: number): void {
+    for (const entry of this.sessions.values()) {
+      entry.buffer.setMaxLength(maxLength)
+    }
   }
 
   /** Check if a session exists. */

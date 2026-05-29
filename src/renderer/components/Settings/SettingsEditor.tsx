@@ -1,6 +1,7 @@
 import { useReducer } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/store/ui'
+import { TERMINAL_SCROLLBACK_MAX_LINES, TERMINAL_SCROLLBACK_MIN_LINES, clampTerminalScrollbackLines } from '@shared/terminal'
 
 interface State {
   shellDraft: string
@@ -63,7 +64,7 @@ export function SettingsEditor() {
           <button
             className="btn"
             onClick={() => {
-              const n = Math.max(100, terminalScrollback - 1000)
+              const n = Math.max(TERMINAL_SCROLLBACK_MIN_LINES, terminalScrollback - 1000)
               setTerminalScrollback(n)
               dispatch({ type: 'setScrollback', value: String(n) })
             }}
@@ -78,8 +79,10 @@ export function SettingsEditor() {
             onChange={(e) => dispatch({ type: 'setScrollback', value: e.target.value })}
             onBlur={() => {
               const n = parseInt(state.scrollbackDraft, 10)
-              if (!isNaN(n) && n >= 100 && n <= 100000) {
-                setTerminalScrollback(n)
+              if (!isNaN(n)) {
+                const clamped = clampTerminalScrollbackLines(n)
+                setTerminalScrollback(clamped)
+                dispatch({ type: 'setScrollback', value: String(clamped) })
               } else {
                 dispatch({ type: 'setScrollback', value: String(terminalScrollback) })
               }
@@ -88,7 +91,7 @@ export function SettingsEditor() {
           <button
             className="btn"
             onClick={() => {
-              const n = Math.min(100000, terminalScrollback + 1000)
+              const n = Math.min(TERMINAL_SCROLLBACK_MAX_LINES, terminalScrollback + 1000)
               setTerminalScrollback(n)
               dispatch({ type: 'setScrollback', value: String(n) })
             }}

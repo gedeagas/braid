@@ -150,6 +150,7 @@ export class SocketServer {
             req.sessionId, req.cwd, req.cols, req.rows,
             req.shell || process.env.SHELL || '/bin/zsh',
             req.env,
+            req.bufferMaxLength,
           )
           client.attachedSessions.add(req.sessionId)
           this.sendResponse(client, { id: req.id, type: 'ok' })
@@ -197,6 +198,11 @@ export class SocketServer {
           this.sendResponse(client, { id: req.id, type: 'ok', data: { sessions } })
           break
         }
+
+        case 'setBufferMaxLength':
+          this.host.setBufferMaxLength(req.maxLength)
+          this.sendResponse(client, { id: req.id, type: 'ok' })
+          break
 
         case 'ping':
           this.sendResponse(client, { id: req.id, type: 'ok' })

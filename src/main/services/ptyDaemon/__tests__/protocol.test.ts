@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { encode, decode, PROTOCOL_VERSION, SOCKET_PATH, PID_FILE_PATH, CHECKPOINT_DIR, IDLE_SHUTDOWN_MS, CHECKPOINT_INTERVAL_MS, BUFFER_MAX_LENGTH } from '../protocol'
+import { DEFAULT_TERMINAL_SCROLLBACK_LINES, getTerminalScrollbackBufferMaxLength } from '../../../../shared/terminal'
 
 describe('protocol constants', () => {
   it('has expected version', () => {
@@ -19,7 +20,7 @@ describe('protocol constants', () => {
   it('has reasonable timeout and buffer values', () => {
     expect(IDLE_SHUTDOWN_MS).toBe(600_000) // 10 minutes
     expect(CHECKPOINT_INTERVAL_MS).toBe(5_000)
-    expect(BUFFER_MAX_LENGTH).toBe(50_000)
+    expect(BUFFER_MAX_LENGTH).toBe(getTerminalScrollbackBufferMaxLength(DEFAULT_TERMINAL_SCROLLBACK_LINES))
   })
 })
 
