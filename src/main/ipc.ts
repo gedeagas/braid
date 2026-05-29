@@ -572,8 +572,17 @@ export function registerIpcHandlers(): void {
   // Settings — renderer pushes current values so main process can read them
   ipcMain.handle('settings:sync', (_e, values: Partial<typeof mainSettings>) => {
     const prevScrollback = mainSettings.terminalScrollback
-    if (typeof values.terminalScrollback === 'number') {
-      values.terminalScrollback = clampTerminalScrollbackLines(values.terminalScrollback)
+    if ('terminalScrollback' in values) {
+      const rawScrollback = values.terminalScrollback as unknown
+      const parsedScrollback =
+        rawScrollback === null || (typeof rawScrollback === 'string' && rawScrollback.trim() === '')
+          ? NaN
+          : Number(rawScrollback)
+      if (Number.isFinite(parsedScrollback)) {
+        values.terminalScrollback = clampTerminalScrollbackLines(parsedScrollback)
+      } else {
+        delete values.terminalScrollback
+      }
     }
     Object.assign(mainSettings, values)
     if (mainSettings.terminalScrollback !== prevScrollback) {
