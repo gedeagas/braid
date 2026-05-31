@@ -236,7 +236,7 @@
   "simulatorCliMissingHint": "A small helper tool is needed to stream simulator screens into Braid.",
   "simulatorCliInstall": "Set up now",
   "simulatorCliInstalling": "Setting up…",
-  "simulatorCliNeedsBrew": "Automatic setup requires Homebrew. Install Homebrew first, then try again.",
+  "simulatorCliNeedsNode": "Automatic setup requires Node.js (npm). Install Node.js first, then try again.",
   "simulatorCliManualLinux": "Automatic setup is unavailable on Linux. Install mobilecli manually, then refresh.",
   "simulatorCliManual": "Manual setup guide",
   "simulatorStreamError": "Failed to capture device screen",

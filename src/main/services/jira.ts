@@ -4,7 +4,7 @@ import { readFile } from 'fs/promises'
 import { homedir } from 'os'
 import { join } from 'path'
 import { ServiceCache } from '../lib/serviceCache'
-import { enrichedEnv } from '../lib/enrichedEnv'
+import { enrichedEnv, waitForEnrichedEnv } from '../lib/enrichedEnv'
 
 const exec = promisify(execFile)
 
@@ -39,6 +39,7 @@ class JiraService {
   async isAvailable(): Promise<boolean> {
     if (this._available !== null) return this._available
     try {
+      await waitForEnrichedEnv()
       await exec('which', ['acli'], { timeout: 3_000, env: enrichedEnv() })
       this._available = true
     } catch {

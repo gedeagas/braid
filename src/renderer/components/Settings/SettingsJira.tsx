@@ -5,6 +5,7 @@ import { jira, shell } from '@/lib/ipc'
 import { Button } from '@/components/ui/Button'
 import { StatusDot } from '@/components/ui/StatusDot'
 import { IconExternalLink } from '@/components/shared/icons'
+import { installToolAndVerify } from '@/lib/toolInstall'
 
 type AcliStatus = 'checking' | 'installed' | 'not_installed' | 'installing'
 type SaveState = 'idle' | 'saved'
@@ -52,14 +53,8 @@ export function SettingsJira() {
 
   const handleInstall = useCallback(async () => {
     dispatch({ type: 'setAcli', status: 'installing' })
-    try { await shell.installTool('acli') } catch { /* still recheck below */ }
-    dispatch({ type: 'setAcli', status: 'checking' })
-    try {
-      const ok = await jira.recheckAvailability()
-      dispatch({ type: 'setAcli', status: ok ? 'installed' : 'not_installed' })
-    } catch {
-      dispatch({ type: 'setAcli', status: 'not_installed' })
-    }
+    const { installed } = await installToolAndVerify('acli', () => jira.recheckAvailability())
+    dispatch({ type: 'setAcli', status: installed ? 'installed' : 'not_installed' })
   }, [])
 
   // ── Base URL save with brief "Saved" flash ──────────────────────────

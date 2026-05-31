@@ -178,6 +178,13 @@
     "checking": "Memeriksa...",
     "upToDate": "Braid sudah terbaru"
   },
+  "adminInstall": {
+    "title": "Pasang {{tool}}",
+    "body": "Braid akan memasang {{tool}} ke <code>{{path}}</code> agar setiap shell dan aplikasi eksternal dapat menemukannya.",
+    "note": "macOS akan meminta kata sandi administrator sebelum menulis ke lokasi sistem ini.",
+    "cancel": "Batal",
+    "continue": "Lanjutkan"
+  },
   "tour": {
     "next": "Berikutnya",
     "back": "Kembali",

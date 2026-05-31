@@ -178,6 +178,13 @@
     "checking": "確認中...",
     "upToDate": "最新バージョンです"
   },
+  "adminInstall": {
+    "title": "{{tool}} をインストール",
+    "body": "Braid は {{tool}} を <code>{{path}}</code> にインストールし、すべてのシェルと外部アプリから利用できるようにします。",
+    "note": "このシステム領域への書き込みには、macOS が管理者パスワードの入力を求めます。",
+    "cancel": "キャンセル",
+    "continue": "続行"
+  },
   "tour": {
     "next": "次へ",
     "back": "戻る",

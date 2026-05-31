@@ -65,6 +65,28 @@
   margin-top: var(--space-16);
 }
 
+.admin-install-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+  color: var(--text-secondary);
+  font-size: var(--text-md);
+  line-height: 1.5;
+}
+
+.admin-install-dialog p {
+  margin: 0;
+}
+
+.admin-install-dialog code {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-5);
+  font-size: var(--text-sm);
+}
+
 /* Dialog tab switcher */
 .dialog-tabs {
   display: flex;

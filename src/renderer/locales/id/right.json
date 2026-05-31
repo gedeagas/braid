@@ -236,7 +236,7 @@
   "simulatorCliMissingHint": "Alat bantu kecil diperlukan untuk streaming layar simulator ke Braid.",
   "simulatorCliInstall": "Siapkan sekarang",
   "simulatorCliInstalling": "Menyiapkan…",
-  "simulatorCliNeedsBrew": "Penyiapan otomatis memerlukan Homebrew. Instal Homebrew terlebih dahulu, lalu coba lagi.",
+  "simulatorCliNeedsNode": "Penyiapan otomatis memerlukan Node.js (npm). Instal Node.js terlebih dahulu, lalu coba lagi.",
   "simulatorCliManualLinux": "Penyiapan otomatis tidak tersedia di Linux. Instal mobilecli secara manual, lalu muat ulang.",
   "simulatorCliManual": "Panduan setup manual",
   "simulatorStreamError": "Gagal menangkap layar perangkat",

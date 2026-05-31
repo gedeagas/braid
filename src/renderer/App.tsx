@@ -24,6 +24,7 @@ import { OnboardingOverlay } from '@/components/Onboarding/OnboardingOverlay'
 import { FeatureTour } from '@/components/Onboarding/FeatureTour'
 import { SimulatorTour } from '@/components/Onboarding/SimulatorTour'
 import { UpdateDialog } from '@/components/shared/UpdateDialog'
+import { AdminInstallDialog } from '@/components/shared/AdminInstallDialog'
 import { useAutoUpdate } from '@/hooks/useAutoUpdate'
 import { initUpdateListeners } from '@/store/updater'
 import * as actions from '@/lib/appActions'
@@ -251,6 +252,7 @@ export default function App() {
         onDismiss={autoUpdate.dismiss}
         onRetry={autoUpdate.retry}
       />
+      <AdminInstallDialog />
       <OnboardingOverlay />
       <FeatureTour />
       <SimulatorTour />

@@ -236,7 +236,7 @@
   "simulatorCliMissingHint": "シミュレータ画面をBraidに表示するには、小さなヘルパーツールが必要です。",
   "simulatorCliInstall": "セットアップ",
   "simulatorCliInstalling": "セットアップ中…",
-  "simulatorCliNeedsBrew": "自動セットアップにはHomebrewが必要です。先にHomebrewをインストールしてください。",
+  "simulatorCliNeedsNode": "自動セットアップには Node.js（npm）が必要です。先に Node.js をインストールしてください。",
   "simulatorCliManualLinux": "Linuxでは自動セットアップを利用できません。mobilecliを手動でインストールしてから更新してください。",
   "simulatorCliManual": "手動セットアップガイド",
   "simulatorStreamError": "デバイス画面のキャプチャに失敗しました",

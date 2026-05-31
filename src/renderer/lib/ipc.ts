@@ -210,7 +210,8 @@ export const shell = {
   openInApp: (appId: string, targetPath: string) => api().shell.openInApp(appId, targetPath),
   checkTool: (tool: string) => api().shell.checkTool(tool),
   checkGhAuth: () => api().shell.checkGhAuth(),
-  installTool: (key: string) => api().shell.installTool(key),
+  installTool: (key: import('@shared/tool-install').ToolInstallKey, options?: import('@shared/tool-install').ToolInstallOptions) =>
+    api().shell.installTool(key, options) as Promise<import('@shared/tool-install').ToolInstallResult>,
 }
 
 export const scripts = {
