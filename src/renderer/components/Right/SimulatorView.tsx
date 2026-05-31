@@ -40,8 +40,8 @@ interface State {
   shuttingDownId: string | null
   /** True after at least one auto-setup attempt failed */
   cliInstallAttempted: boolean
-  /** True when Homebrew is missing — blocks auto-install, shows brew guidance */
-  needsBrew: boolean
+  /** True when Node.js/npm is missing — blocks auto-install, shows Node guidance */
+  needsNode: boolean
   /** Detected platform toolchains (populated on first device load) */
   platformTools: PlatformTools | null
 }
@@ -50,7 +50,7 @@ type Action =
   | { type: 'LOADING' }
   | { type: 'NO_CLI' }
   | { type: 'INSTALLING_CLI' }
-  | { type: 'CLI_INSTALL_FAILED'; needsBrew: boolean }
+  | { type: 'CLI_INSTALL_FAILED'; needsNode: boolean }
   | { type: 'DEVICES_LOADED'; devices: SimulatorDevice[]; platformTools: PlatformTools }
   | { type: 'BOOTING'; id: string }
   | { type: 'BOOT_DONE' }
@@ -67,18 +67,18 @@ type Action =
 const initialState: State = {
   phase: 'loading', devices: [], selectedId: null,
   screenSize: null, error: null, bootingId: null, shuttingDownId: null,
-  cliInstallAttempted: false, needsBrew: false, platformTools: null,
+  cliInstallAttempted: false, needsNode: false, platformTools: null,
 }
 
 const MOBILECLI_REPO = 'https://github.com/mobile-next/mobilecli'
-const HOMEBREW_URL = 'https://brew.sh'
+const NODEJS_URL = 'https://nodejs.org'
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case 'LOADING': return { ...state, phase: 'loading', error: null }
     case 'NO_CLI': return { ...state, phase: 'no-cli' }
     case 'INSTALLING_CLI': return { ...state, phase: 'installing-cli' }
-    case 'CLI_INSTALL_FAILED': return { ...state, phase: 'no-cli', cliInstallAttempted: true, needsBrew: action.needsBrew }
+    case 'CLI_INSTALL_FAILED': return { ...state, phase: 'no-cli', cliInstallAttempted: true, needsNode: action.needsNode }
     case 'DEVICES_LOADED': return { ...state, phase: 'device-list', devices: action.devices, platformTools: action.platformTools, error: null }
     case 'BOOTING': return { ...state, bootingId: action.id }
     case 'BOOT_DONE': return { ...state, bootingId: null }
@@ -172,12 +172,12 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
   /** Attempt registered CLI install, then recheck. Linux uses manual setup. */
   const installCli = useCallback(async () => {
     if (hostPlatform === 'linux') {
-      dispatch({ type: 'CLI_INSTALL_FAILED', needsBrew: false })
+      dispatch({ type: 'CLI_INSTALL_FAILED', needsNode: false })
       return
     }
 
     dispatch({ type: 'INSTALLING_CLI' })
-    // notify: false — this view renders its own inline brew/install guidance,
+    // notify: false — this view renders its own inline Node/install guidance,
     // so the shared failure toast would be a redundant, contradictory message.
     const { installed, result } = await installToolAndVerify(
       'mobilecli',
@@ -189,7 +189,7 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
     } else {
       dispatch({
         type: 'CLI_INSTALL_FAILED',
-        needsBrew: result?.reason === 'missing_prerequisite' && result.prerequisite === 'brew',
+        needsNode: result?.reason === 'missing_prerequisite' && result.prerequisite === 'npm',
       })
     }
   }, [hostPlatform, loadDevices])
@@ -376,16 +376,16 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
         )
       }
 
-      // Homebrew missing → explain what to do, don't offer the auto-install button
-      if (state.needsBrew) {
+      // Node.js/npm missing → explain what to do, don't offer the auto-install button
+      if (state.needsNode) {
         return (
           <EmptyState
             title={t('simulatorCliMissing')}
-            hint={t('simulatorCliNeedsBrew')}
+            hint={t('simulatorCliNeedsNode')}
             action={
               <div className="simulator-cli-actions">
-                <Button size="sm" onClick={() => ipc.shell.openExternal(HOMEBREW_URL)}>
-                  Homebrew <IconExternalLink size={10} />
+                <Button size="sm" onClick={() => ipc.shell.openExternal(NODEJS_URL)}>
+                  Node.js <IconExternalLink size={10} />
                 </Button>
                 <button className="simulator-cli-docs-link" onClick={() => ipc.shell.openExternal(MOBILECLI_REPO)}>
                   {t('simulatorCliManual')} <IconExternalLink size={10} />

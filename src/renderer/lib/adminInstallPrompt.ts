@@ -25,8 +25,12 @@ export function getAdminInstallRequest(): AdminInstallRequest | null {
 }
 
 export function requestAdminInstallApproval(request: AdminInstallRequest): Promise<boolean> {
+  // Cancel any in-flight request first. Capture and clear the resolver before
+  // settling it so the rejected request can't observe the new resolver.
   if (resolver) {
-    resolver(false)
+    const prevResolver = resolver
+    resolver = null
+    prevResolver(false)
   }
 
   currentRequest = request

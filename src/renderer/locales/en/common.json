@@ -178,6 +178,13 @@
     "checking": "Checking...",
     "upToDate": "Braid is up to date"
   },
+  "adminInstall": {
+    "title": "Install {{tool}}",
+    "body": "Braid will install {{tool}} to <code>{{path}}</code> so every shell and external app can find it.",
+    "note": "macOS will ask for an administrator password before writing to this system location.",
+    "cancel": "Cancel",
+    "continue": "Continue"
+  },
   "tour": {
     "next": "Next",
     "back": "Back",

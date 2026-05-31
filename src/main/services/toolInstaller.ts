@@ -1,5 +1,6 @@
 import { execFile, type ExecFileOptionsWithStringEncoding } from 'child_process'
 import { accessSync, chmodSync, constants, existsSync, mkdirSync } from 'fs'
+import { homedir } from 'os'
 import { dirname, join } from 'path'
 import { enrichedEnv, refreshEnrichedEnv, waitForEnrichedEnv } from '../lib/enrichedEnv'
 import {
@@ -67,6 +68,9 @@ class CommandError extends Error {
 const DEFAULT_TIMEOUT_MS = 180_000
 const CHECK_TIMEOUT_MS = 3_000
 const SYSTEM_BIN_DIR = '/usr/local/bin'
+// Per-user fallback for non-system-wide downloads. process.cwd() is read-only
+// in a packaged Electron app (e.g. /Applications), so never write there.
+const USER_BIN_DIR = join(homedir(), '.local', 'bin')
 
 const TOOL_DEFINITIONS: Record<ToolInstallKey, ToolDefinition> = {
   git: {
@@ -138,13 +142,13 @@ const TOOL_DEFINITIONS: Record<ToolInstallKey, ToolDefinition> = {
   mobilecli: {
     label: 'mobilecli',
     detectCommand: 'mobilecli',
+    // Official distribution is npm (mobile-next/mobilecli). Works cross-platform.
     strategies: [
       {
         type: 'exec',
-        command: 'brew',
-        args: ['install', 'nicklama/tap/mobilecli'],
-        prerequisite: 'brew',
-        platforms: ['darwin'],
+        command: 'npm',
+        args: ['install', '-g', 'mobilecli@latest'],
+        prerequisite: 'npm',
       },
     ],
   },
@@ -349,9 +353,8 @@ class ToolInstallerService {
         throw new Error(`No download URL for ${process.platform}-${process.arch}`)
       }
 
-      const outputPath = strategy.systemWide
-        ? join(SYSTEM_BIN_DIR, strategy.outputName)
-        : join(process.cwd(), strategy.outputName)
+      const outputDir = strategy.systemWide ? SYSTEM_BIN_DIR : USER_BIN_DIR
+      const outputPath = join(outputDir, strategy.outputName)
 
       if (strategy.systemWide && !canInstallToDirectory(SYSTEM_BIN_DIR)) {
         if (process.platform === 'darwin' && options.allowAdmin) {
@@ -375,9 +378,7 @@ class ToolInstallerService {
         throw new Error(`${SYSTEM_BIN_DIR} is not writable. Install ${strategy.outputName} manually or approve administrator privileges.`)
       }
 
-      if (strategy.systemWide) {
-        mkdirSync(SYSTEM_BIN_DIR, { recursive: true })
-      }
+      mkdirSync(outputDir, { recursive: true })
       const download = await this.execFileText('curl', ['-fL', url, '-o', outputPath], {
         timeout: strategy.timeoutMs ?? DEFAULT_TIMEOUT_MS,
         env: enrichedEnv(),

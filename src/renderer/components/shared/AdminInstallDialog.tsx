@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import {
@@ -16,6 +17,7 @@ function displayToolName(key: string): string {
 }
 
 export function AdminInstallDialog() {
+  const { t } = useTranslation('common')
   const request = useSyncExternalStore(
     subscribeAdminInstallPrompt,
     getAdminInstallRequest,
@@ -31,26 +33,29 @@ export function AdminInstallDialog() {
     <Dialog
       isOpen
       onClose={() => resolveAdminInstallApproval(false)}
-      title={`Install ${toolName}`}
+      title={t('adminInstall.title', { tool: toolName })}
       width="460px"
       actions={(
         <>
           <Button onClick={() => resolveAdminInstallApproval(false)}>
-            Cancel
+            {t('adminInstall.cancel')}
           </Button>
           <Button variant="primary" onClick={() => resolveAdminInstallApproval(true)}>
-            Continue
+            {t('adminInstall.continue')}
           </Button>
         </>
       )}
     >
       <div className="admin-install-dialog">
         <p>
-          Braid will install {toolName} to <code>{targetPath}</code> so every shell and external app can find it.
+          <Trans
+            i18nKey="adminInstall.body"
+            ns="common"
+            values={{ tool: toolName, path: targetPath }}
+            components={{ code: <code /> }}
+          />
         </p>
-        <p>
-          macOS will ask for an administrator password before writing to this system location.
-        </p>
+        <p>{t('adminInstall.note')}</p>
       </div>
     </Dialog>
   )
