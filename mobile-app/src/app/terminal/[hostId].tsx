@@ -1,16 +1,21 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, Command, GitBranch, Plus, RefreshCw, Send, TerminalSquare } from 'lucide-react-native';
+import { Check, ChevronLeft, Command, GitBranch, Plus, RefreshCw, Send, TerminalSquare, X } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { TerminalWebView, type TerminalWebViewHandle } from '@/terminal/TerminalWebView';
+import { AGENT_CATALOG, getAgentEntry } from '@/terminal/agentCatalog';
+import { AgentIcon } from '@/terminal/AgentIcon';
+import { useDetectedAgents } from '@/terminal/useDetectedAgents';
 import type { BraidProject, BraidTerminal, BraidWorktree } from '@/transport/types';
 import { colors, shared } from '@/ui/theme';
 import { useHostClient } from '@/ui/use-host-client';
 
 const DEFAULT_COLS = 80;
 const DEFAULT_ROWS = 24;
+const DEFAULT_AGENT_STORAGE_KEY = 'braid.mobile.terminal.defaultAgentId';
 
 function terminalLabel(terminal: BraidTerminal) {
   return terminal.label || terminal.title || terminal.name || terminal.terminalId || terminal.cwd?.split('/').pop() || terminal.id.slice(0, 6);
@@ -20,6 +25,7 @@ export default function TerminalScreen() {
   const { hostId, worktreePath, worktreeName } = useLocalSearchParams<{ hostId: string; worktreePath?: string; worktreeName?: string }>();
   const { client } = useHostClient(hostId);
   const terminalRef = useRef<TerminalWebViewHandle>(null);
+  const detectedAgents = useDetectedAgents(client);
   const [projects, setProjects] = useState<BraidProject[]>([]);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [worktree, setWorktree] = useState<BraidWorktree | null>(null);
@@ -30,6 +36,8 @@ export default function TerminalScreen() {
   const [ready, setReady] = useState(false);
   const [selectorsExpanded, setSelectorsExpanded] = useState(true);
   const [creatingTerminal, setCreatingTerminal] = useState(false);
+  const [agentPickerOpen, setAgentPickerOpen] = useState(false);
+  const [selectedAgentId, setSelectedAgentId] = useState<string>(AGENT_CATALOG[0]?.id ?? 'claude');
   const activeIdRef = useRef<string | null>(null);
   const initializedKeyRef = useRef<string | null>(null);
   const terminalFrameHeightRef = useRef<number | undefined>(undefined);
@@ -38,6 +46,25 @@ export default function TerminalScreen() {
 
   const selectedProject = projects.find((project) => project.id === projectId) ?? projects[0] ?? null;
   const isSessionScoped = typeof worktreePath === 'string' && worktreePath.length > 0;
+  const selectedAgent = getAgentEntry(selectedAgentId) ?? AGENT_CATALOG[0];
+  const detectedAgentIds = new Set(detectedAgents.map((agent) => agent.id));
+  const detectedSorted = AGENT_CATALOG.filter((agent) => detectedAgentIds.has(agent.id));
+  const undetectedSorted = AGENT_CATALOG.filter((agent) => !detectedAgentIds.has(agent.id));
+
+  useEffect(() => {
+    let active = true;
+    SecureStore.getItemAsync(DEFAULT_AGENT_STORAGE_KEY)
+      .then((stored) => {
+        if (!active || !stored) return;
+        if (getAgentEntry(stored)) {
+          setSelectedAgentId(stored);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const fitActiveTerminal = useCallback(async (terminal: BraidTerminal) => {
     if (!client || !terminalRef.current) return;
@@ -146,7 +173,7 @@ export default function TerminalScreen() {
         ...terminal,
         id: terminal.id ?? terminal.ptyId ?? '',
         worktreePath: targetWorktree.path,
-      })).filter((terminal) => terminal.id);
+      })).filter((terminal) => terminal.id && terminal.agentId);
       console.log('[BraidMobile] terminal.list', { worktree: targetWorktree, list });
       setTerminals(list);
       const next = list.find((terminal) => terminal.id === preferredId) ?? list[0] ?? null;
@@ -160,18 +187,21 @@ export default function TerminalScreen() {
     }
   }, [client, openTerminal]);
 
-  const createTerminal = useCallback(async () => {
+  const createTerminal = useCallback(async (agentId?: string) => {
     if (!client || !worktree || creatingTerminal) return;
+    const agent = getAgentEntry(agentId ?? selectedAgentId) ?? selectedAgent ?? AGENT_CATALOG[0];
     setCreatingTerminal(true);
     setError(null);
     try {
       const created = await client.request<BraidTerminal & { ptyId?: string }>('terminal.create', {
         worktreePath: worktree.path,
         worktreeId: worktree.id,
-        label: 'Claude Code',
-        command: 'claude',
-        agentId: 'claude',
+        label: agent?.label ?? 'Terminal',
+        command: agent?.launchCmd ?? agent?.detectCmd ?? 'claude',
+        agentId: agent?.id ?? 'claude',
       });
+      setSelectedAgentId(agent?.id ?? 'claude');
+      void SecureStore.setItemAsync(DEFAULT_AGENT_STORAGE_KEY, agent?.id ?? 'claude').catch(() => undefined);
       const terminal = {
         ...created,
         id: created.id ?? created.ptyId ?? '',
@@ -186,7 +216,7 @@ export default function TerminalScreen() {
     } finally {
       setCreatingTerminal(false);
     }
-  }, [client, creatingTerminal, openTerminal, worktree]);
+  }, [client, creatingTerminal, openTerminal, selectedAgent, selectedAgentId, worktree]);
 
   useEffect(() => { void loadProjects(); }, [loadProjects]);
   useEffect(() => { void loadTerminals(worktree, active?.id); }, [worktree]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -299,8 +329,8 @@ export default function TerminalScreen() {
             <Pressable
               style={{ width: 40, height: 36, alignItems: 'center', justifyContent: 'center', opacity: worktree && !creatingTerminal ? 1 : 0.35 }}
               disabled={!worktree || creatingTerminal}
-              onPress={createTerminal}
-              accessibilityLabel="New terminal"
+              onPress={() => setAgentPickerOpen(true)}
+              accessibilityLabel="Choose terminal agent"
             >
               <Plus color={worktree && !creatingTerminal ? colors.text : colors.subtle} size={17} />
             </Pressable>
@@ -308,6 +338,99 @@ export default function TerminalScreen() {
         </View>
 
         {error && <Text style={{ color: colors.danger, paddingHorizontal: 12, paddingVertical: 8, fontSize: 12 }}>{error}</Text>}
+
+        <Modal visible={agentPickerOpen} transparent animationType="fade" onRequestClose={() => setAgentPickerOpen(false)}>
+          <Pressable style={pickerBackdrop} onPress={() => setAgentPickerOpen(false)}>
+            <View style={pickerPanel}>
+              <View style={pickerHeader}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={pickerTitle}>New terminal</Text>
+                  <Text style={pickerSubtitle} numberOfLines={1}>
+                    {selectedAgent?.label ?? 'Terminal'} {selectedAgent?.detectCmd ? `· ${selectedAgent.detectCmd}` : ''}
+                  </Text>
+                </View>
+                <Pressable
+                  style={pickerCloseButton}
+                  onPress={() => setAgentPickerOpen(false)}
+                  accessibilityLabel="Close agent picker"
+                >
+                  <X color={colors.text} size={18} />
+                </Pressable>
+              </View>
+              <ScrollView style={pickerList} contentContainerStyle={pickerListContent}>
+                {detectedSorted.length > 0 && (
+                  <View style={{ gap: 8 }}>
+                    <Text style={pickerSectionLabel}>Detected on this host</Text>
+                    {detectedSorted.map((agent) => {
+                      const selected = agent.id === selectedAgentId;
+                      return (
+                        <Pressable
+                          key={agent.id}
+                          style={({ pressed }) => [
+                            pickerRow,
+                            pressed && pickerRowPressed,
+                            selected && pickerRowSelected,
+                          ]}
+                          onPress={() => {
+                            setAgentPickerOpen(false);
+                            void createTerminal(agent.id);
+                          }}
+                        >
+                          <View style={pickerRowIcon}>
+                            <AgentIcon agentId={agent.id} size={20} />
+                          </View>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={pickerRowTitle} numberOfLines={1}>
+                              {agent.label}
+                            </Text>
+                            <Text style={pickerRowSubtitle} numberOfLines={1}>
+                              {agent.detectCmd}
+                            </Text>
+                          </View>
+                          {selected ? <Check color={colors.accent} size={16} /> : null}
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
+
+                <View style={{ gap: 8 }}>
+                  <Text style={pickerSectionLabel}>{detectedSorted.length > 0 ? 'Other agents' : 'All agents'}</Text>
+                  {undetectedSorted.map((agent) => {
+                    const selected = agent.id === selectedAgentId;
+                    return (
+                      <Pressable
+                        key={agent.id}
+                        style={({ pressed }) => [
+                          pickerRow,
+                          pressed && pickerRowPressed,
+                          selected && pickerRowSelected,
+                        ]}
+                        onPress={() => {
+                          setAgentPickerOpen(false);
+                          void createTerminal(agent.id);
+                        }}
+                      >
+                        <View style={pickerRowIcon}>
+                          <AgentIcon agentId={agent.id} size={20} />
+                        </View>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={pickerRowTitle} numberOfLines={1}>
+                            {agent.label}
+                          </Text>
+                          <Text style={pickerRowSubtitle} numberOfLines={1}>
+                            {agent.detectCmd}
+                          </Text>
+                        </View>
+                        {selected ? <Check color={colors.accent} size={16} /> : null}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+            </View>
+          </Pressable>
+        </Modal>
 
         <View
           style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' }}
@@ -423,6 +546,114 @@ const selectorChipText = {
 
 const selectorChipTextActive = {
   color: colors.text,
+};
+
+const pickerBackdrop = {
+  flex: 1,
+  backgroundColor: 'rgba(5, 8, 12, 0.72)',
+  justifyContent: 'flex-end' as const,
+  padding: 12,
+};
+
+const pickerPanel = {
+  maxHeight: 520,
+  borderRadius: 16,
+  borderWidth: 1,
+  borderColor: colors.border,
+  backgroundColor: colors.panel,
+  overflow: 'hidden' as const,
+};
+
+const pickerHeader = {
+  minHeight: 56,
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: 12,
+  paddingHorizontal: 14,
+  paddingVertical: 12,
+  borderBottomWidth: 1,
+  borderBottomColor: colors.border,
+};
+
+const pickerTitle = {
+  color: colors.text,
+  fontSize: 15,
+  fontWeight: '700' as const,
+};
+
+const pickerSubtitle = {
+  color: colors.muted,
+  fontSize: 12,
+  marginTop: 2,
+};
+
+const pickerCloseButton = {
+  width: 34,
+  height: 34,
+  borderRadius: 17,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+  backgroundColor: colors.panelStrong,
+};
+
+const pickerList = {
+  maxHeight: 520,
+};
+
+const pickerListContent = {
+  padding: 10,
+  gap: 8,
+};
+
+const pickerSectionLabel = {
+  color: colors.subtle,
+  fontSize: 11,
+  fontWeight: '800' as const,
+  textTransform: 'uppercase' as const,
+  letterSpacing: 0,
+  paddingHorizontal: 2,
+  paddingTop: 2,
+};
+
+const pickerRow = {
+  minHeight: 52,
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: 12,
+  borderRadius: 12,
+  borderWidth: 1,
+  borderColor: colors.border,
+  backgroundColor: colors.panelStrong,
+  paddingHorizontal: 12,
+  paddingVertical: 10,
+};
+
+const pickerRowIcon = {
+  width: 24,
+  height: 24,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+};
+
+const pickerRowPressed = {
+  backgroundColor: '#20262D',
+};
+
+const pickerRowSelected = {
+  borderColor: colors.accent,
+};
+
+const pickerRowTitle = {
+  color: colors.text,
+  fontSize: 14,
+  fontWeight: '700' as const,
+};
+
+const pickerRowSubtitle = {
+  color: colors.muted,
+  fontSize: 12,
+  marginTop: 2,
+  fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
 };
 
 const terminalTabStyle = {

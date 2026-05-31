@@ -1,6 +1,6 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
-import { Activity, GitBranch, Monitor, Plus, QrCode, RefreshCw, Trash2, Wifi, WifiOff, X } from 'lucide-react-native';
+import { Activity, GitBranch, Monitor, Plus, QrCode, RefreshCw, Settings, Trash2, Wifi, WifiOff, X } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -18,6 +18,7 @@ import { loadHosts, removeHost, saveHosts, upsertHost } from '@/transport/host-s
 import { type BonjourHost, matchesDiscoveredHost, mergeDiscoveredEndpoint, startBonjourBrowser } from '@/transport/bonjour';
 import { BraidRpcClient, createHostFromOffer, parsePairingPayload } from '@/transport/rpc-client';
 import type { BraidSession, BraidStatus, PairedHost } from '@/transport/types';
+import { useListRefresh } from '@/hooks/use-list-refresh';
 
 type ConnectionState = 'idle' | 'connecting' | 'online' | 'offline';
 
@@ -91,17 +92,13 @@ export default function HomeScreen() {
     for (const host of items) void refreshHost(host);
   }, [refreshHost]);
 
-  useEffect(() => {
-    let active = true;
-    loadHosts().then((items) => {
-      if (!active) return;
-      setHosts(items);
-      refreshAll(items);
-    });
-    return () => {
-      active = false;
-    };
+  const loadHome = useCallback(async () => {
+    const items = await loadHosts();
+    setHosts(items);
+    refreshAll(items);
   }, [refreshAll]);
+
+  const { scrollRef, onScroll, refreshNow } = useListRefresh<ScrollView>('home', loadHome, true);
 
   useEffect(() => {
     let cleanup: (() => void) | undefined;
@@ -168,6 +165,56 @@ export default function HomeScreen() {
 
   const activeCount = sortedSnapshots.filter((item) => item.state === 'online').length;
   const sessionCount = sortedSnapshots.reduce((sum, item) => sum + item.sessions.length, 0);
+  const hasHosts = sortedSnapshots.length > 0;
+
+  if (!hasHosts) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.pairShell}>
+          <View style={styles.pairHeader}>
+            <View style={styles.brandRow}>
+              <View style={styles.brandMark}>
+                <Text style={styles.brandMarkText}>B</Text>
+              </View>
+              <Text style={styles.brandText}>Braid</Text>
+            </View>
+            <Pressable style={styles.settingsButton} onPress={() => setManualOpen(true)} accessibilityLabel="Manual pairing">
+              <Settings color={COLORS.muted} size={23} />
+            </Pressable>
+          </View>
+
+          <View style={styles.pairHero}>
+            <Text style={styles.pairTitle}>Connect your desktop</Text>
+            <Text style={styles.pairCopy}>
+              Pair with Braid on your computer to check on your agents, jump into terminals, and drive work from your phone.
+            </Text>
+            <Pressable style={styles.pairButton} onPress={openScanner}>
+              <QrCode color={COLORS.bg} size={24} />
+              <Text style={styles.pairButtonText}>Pair Desktop</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.howItWorks}>
+            <Text style={styles.howLabel}>How it works</Text>
+            <Step number="1" title="Open Braid desktop" text="Go to Settings > Mobile and generate a pairing QR code." />
+            <Step number="2" title="Scan the code" text="Tap the button above to open the scanner. Point at the QR code on your screen." />
+            <Step number="3" title="You're connected" text="Your desktop will appear here. Everything is encrypted end-to-end." last />
+          </View>
+        </View>
+
+        <PairingModals
+          scannerOpen={scannerOpen}
+          setScannerOpen={setScannerOpen}
+          manualOpen={manualOpen}
+          setManualOpen={setManualOpen}
+          manualPayload={manualPayload}
+          setManualPayload={setManualPayload}
+          pairFromPayload={pairFromPayload}
+          scannedRef={scannedRef}
+        />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -177,7 +224,7 @@ export default function HomeScreen() {
             <Text style={styles.eyebrow}>Braid Mobile</Text>
             <Text style={styles.title}>Agent control from your phone</Text>
           </View>
-          <Pressable style={styles.iconButton} onPress={() => refreshAll(hosts)} accessibilityLabel="Refresh hosts">
+          <Pressable style={styles.iconButton} onPress={() => void refreshNow()} accessibilityLabel="Refresh hosts">
             <RefreshCw color={COLORS.text} size={20} />
           </Pressable>
         </View>
@@ -199,7 +246,7 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        <ScrollView style={styles.content} contentContainerStyle={styles.contentInner}>
+        <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={16} style={styles.content} contentContainerStyle={styles.contentInner}>
           {(discoveredHosts.length > 0 || bonjourError) && (
             <View style={styles.discoveryPanel}>
               <Text style={styles.sectionLabel}>Local desktops</Text>
@@ -222,34 +269,61 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {sortedSnapshots.length === 0 ? (
-            <View style={styles.empty}>
-              <QrCode color={COLORS.subtle} size={36} />
-              <Text style={styles.emptyTitle}>Pair a Braid desktop</Text>
-              <Text style={styles.emptyText}>Open Settings &gt; Mobile in Braid desktop, start the server, then scan the QR code.</Text>
-            </View>
-          ) : (
-            sortedSnapshots.map((snapshot) => (
-              <HostCard
-                key={snapshot.host.id}
-                snapshot={snapshot}
-                onOpen={() => router.push(`/host/${encodeURIComponent(snapshot.host.id)}`)}
-                onRefresh={() => refreshHost(snapshot.host)}
-                onRemove={async () => {
-                  const next = await removeHost(snapshot.host.id);
-                  setHosts(next);
-                  setSnapshots((current) => {
-                    const copy = { ...current };
-                    delete copy[snapshot.host.id];
-                    return copy;
-                  });
-                }}
-              />
-            ))
-          )}
+          {sortedSnapshots.map((snapshot) => (
+            <HostCard
+              key={snapshot.host.id}
+              snapshot={snapshot}
+              onOpen={() => router.push(`/host/${encodeURIComponent(snapshot.host.id)}`)}
+              onRefresh={() => refreshHost(snapshot.host)}
+              onRemove={async () => {
+                const next = await removeHost(snapshot.host.id);
+                setHosts(next);
+                setSnapshots((current) => {
+                  const copy = { ...current };
+                  delete copy[snapshot.host.id];
+                  return copy;
+                });
+              }}
+            />
+          ))}
         </ScrollView>
       </View>
 
+      <PairingModals
+        scannerOpen={scannerOpen}
+        setScannerOpen={setScannerOpen}
+        manualOpen={manualOpen}
+        setManualOpen={setManualOpen}
+        manualPayload={manualPayload}
+        setManualPayload={setManualPayload}
+        pairFromPayload={pairFromPayload}
+        scannedRef={scannedRef}
+      />
+    </SafeAreaView>
+  );
+}
+
+function PairingModals({
+  scannerOpen,
+  setScannerOpen,
+  manualOpen,
+  setManualOpen,
+  manualPayload,
+  setManualPayload,
+  pairFromPayload,
+  scannedRef,
+}: {
+  scannerOpen: boolean;
+  setScannerOpen: (open: boolean) => void;
+  manualOpen: boolean;
+  setManualOpen: (open: boolean) => void;
+  manualPayload: string;
+  setManualPayload: (value: string) => void;
+  pairFromPayload: (payload: string) => Promise<void>;
+  scannedRef: React.MutableRefObject<boolean>;
+}) {
+  return (
+    <>
       <Modal visible={scannerOpen} animationType="slide" onRequestClose={() => setScannerOpen(false)}>
         <View style={styles.scanner}>
           <CameraView
@@ -309,7 +383,24 @@ export default function HomeScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </>
+  );
+}
+
+function Step({ number, title, text, last }: { number: string; title: string; text: string; last?: boolean }) {
+  return (
+    <View>
+      <View style={styles.stepRow}>
+        <View style={styles.stepNumber}>
+          <Text style={styles.stepNumberText}>{number}</Text>
+        </View>
+        <View style={styles.stepTextBlock}>
+          <Text style={styles.stepTitle}>{title}</Text>
+          <Text style={styles.stepText}>{text}</Text>
+        </View>
+      </View>
+      {!last && <View style={styles.stepDivider} />}
+    </View>
   );
 }
 
@@ -404,6 +495,90 @@ function statusLabel(snapshot: HostSnapshot): string {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.bg },
+  pairShell: { flex: 1, paddingHorizontal: 26, paddingTop: 8 },
+  pairHeader: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  brandMark: {
+    width: 42,
+    height: 26,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.text,
+  },
+  brandMarkText: { color: COLORS.bg, fontSize: 16, fontWeight: '900' },
+  brandText: { color: COLORS.text, fontSize: 24, fontWeight: '800' },
+  settingsButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pairHero: {
+    flex: 1,
+    minHeight: 390,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 36,
+  },
+  pairTitle: {
+    color: COLORS.text,
+    fontSize: 30,
+    lineHeight: 36,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  pairCopy: {
+    color: COLORS.muted,
+    fontSize: 18,
+    lineHeight: 28,
+    textAlign: 'center',
+    marginTop: 16,
+    maxWidth: 340,
+  },
+  pairButton: {
+    minHeight: 68,
+    borderRadius: 8,
+    backgroundColor: COLORS.text,
+    paddingHorizontal: 38,
+    marginTop: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+  },
+  pairButtonText: { color: COLORS.bg, fontSize: 20, fontWeight: '900' },
+  howItWorks: { paddingBottom: 28 },
+  howLabel: {
+    color: COLORS.subtle,
+    fontSize: 13,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0,
+    marginBottom: 18,
+  },
+  stepRow: { flexDirection: 'row', gap: 20, alignItems: 'center' },
+  stepNumber: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.panel,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepNumberText: { color: COLORS.muted, fontSize: 16, fontWeight: '900' },
+  stepTextBlock: { flex: 1, minWidth: 0 },
+  stepTitle: { color: COLORS.text, fontSize: 17, lineHeight: 22, fontWeight: '800' },
+  stepText: { color: COLORS.subtle, fontSize: 14, lineHeight: 20, marginTop: 4 },
+  stepDivider: { height: 1, backgroundColor: COLORS.border, marginLeft: 64, marginVertical: 20 },
   shell: { flex: 1, paddingHorizontal: 18, paddingTop: 8 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
   eyebrow: { color: COLORS.accent, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0 },
@@ -458,18 +633,6 @@ const styles = StyleSheet.create({
   secondaryButtonText: { color: COLORS.text, fontSize: 15, fontWeight: '700' },
   content: { flex: 1, marginTop: 16 },
   contentInner: { gap: 12, paddingBottom: 28 },
-  empty: {
-    minHeight: 260,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.panel,
-    padding: 24,
-  },
-  emptyTitle: { color: COLORS.text, fontSize: 20, fontWeight: '800', marginTop: 14 },
-  emptyText: { color: COLORS.muted, fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 8 },
   card: {
     borderRadius: 8,
     borderWidth: 1,

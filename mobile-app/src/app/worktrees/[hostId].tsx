@@ -1,10 +1,11 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, GitBranch, Plus, RefreshCw, Trash2 } from 'lucide-react-native';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { BraidProject, BraidWorktree } from '@/transport/types';
+import { useListRefresh } from '@/hooks/use-list-refresh';
 import { colors, shared } from '@/ui/theme';
 import { useHostClient } from '@/ui/use-host-client';
 
@@ -20,7 +21,7 @@ export default function WorktreesScreen() {
     setProjects(await client.request<BraidProject[]>('projects.list'));
   }, [client]);
 
-  useEffect(() => { void load(); }, [load]);
+  const { scrollRef, onScroll, refreshNow } = useListRefresh<ScrollView>(`worktrees:${hostId ?? 'unknown'}`, load, !!client);
 
   const create = async (project: BraidProject) => {
     if (!client || !branch.trim()) return;
@@ -48,10 +49,10 @@ export default function WorktreesScreen() {
       <View style={shared.shell}>
         <View style={shared.header}>
           <Pressable style={[shared.button, shared.secondary]} onPress={() => router.back()}><ChevronLeft color={colors.text} size={18} /></Pressable>
-          <Pressable style={[shared.button, shared.secondary]} onPress={load}><RefreshCw color={colors.text} size={18} /></Pressable>
+          <Pressable style={[shared.button, shared.secondary]} onPress={() => void refreshNow()}><RefreshCw color={colors.text} size={18} /></Pressable>
         </View>
         <Text style={shared.title}>Worktrees</Text>
-        <ScrollView contentContainerStyle={{ gap: 14, paddingVertical: 18 }}>
+        <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={16} contentContainerStyle={{ gap: 14, paddingVertical: 18 }}>
           <View style={[shared.card, { gap: 10 }]}>
             <Text style={shared.section}>Create worktree</Text>
             <TextInput value={branch} onChangeText={setBranch} placeholder="new-branch" placeholderTextColor={colors.subtle} autoCapitalize="none" autoCorrect={false} style={shared.input} />

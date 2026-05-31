@@ -20,6 +20,8 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, agen
   const containerRef = useRef<HTMLDivElement>(null)
   const entryRef = useRef<BigTermEntry | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [mobileActive, setMobileActive] = useState(false)
+  const [desktopOverride, setDesktopOverride] = useState(false)
 
   // File-drop onto big terminal
   const getFileDropTarget = useCallback(() => {
@@ -38,6 +40,26 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, agen
       setSearchOpen(true)
     }
   }, [])
+
+  useEffect(() => {
+    setDesktopOverride(false)
+    let cancelled = false
+    ipc.pty.isMobileTerminalActive(terminalId)
+      .then((active) => { if (!cancelled) setMobileActive(active) })
+      .catch(() => undefined)
+    const unsubscribe = ipc.pty.onMobileTerminalActive((status) => {
+      if (status.terminalId === terminalId) {
+        setMobileActive(status.active)
+        if (!status.active) setDesktopOverride(false)
+      }
+    })
+    return () => {
+      cancelled = true
+      unsubscribe()
+    }
+  }, [terminalId])
+
+  const heldForMobile = mobileActive && !desktopOverride
 
   useEffect(() => {
     const el = containerRef.current
@@ -75,8 +97,13 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, agen
     // frame (e.g. split resize drag). Coalesce into one rAF to avoid loops
     // and keep fit() off the pointermove hot path.
     const scheduleFit = () => {
+      if (heldForMobile) return
       if (entry.pendingFitRafId !== null) return
       entry.pendingFitRafId = requestAnimationFrame(() => {
+        if (heldForMobile) {
+          entry.pendingFitRafId = null
+          return
+        }
         entry.pendingFitRafId = null
         try {
           entry.fitAddon.fit()
@@ -113,7 +140,19 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, agen
         el.removeChild(entry.term.element)
       }
     }
-  }, [terminalId, worktreePath])
+  }, [terminalId, worktreePath, heldForMobile])
+
+  const restoreDesktopSize = useCallback(() => {
+    setDesktopOverride(true)
+    requestAnimationFrame(() => {
+      const entry = entryRef.current
+      if (!entry?.ptyId) return
+      try {
+        entry.fitAddon.fit()
+        ipc.pty.resize(entry.ptyId, entry.term.cols, entry.term.rows)
+      } catch { /* ignore */ }
+    })
+  }, [])
 
   useEffect(() => {
     updateBigTerminalAgentId(terminalId, agentId)
@@ -180,7 +219,45 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, agen
             onClose={() => setSearchOpen(false)}
           />
         )}
-        <div ref={containerRef} style={{ width: '100%', height: '100%', overflow: 'hidden' }} />
+        {heldForMobile && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 2,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'var(--bg-primary)',
+              padding: 24,
+            }}
+          >
+            <div
+              style={{
+                width: 'min(480px, 100%)',
+                borderRadius: 8,
+                background: 'var(--bg-secondary)',
+                padding: 24,
+                color: 'var(--text-primary)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-secondary)', fontSize: 13, marginBottom: 14 }}>
+                <span style={{ width: 9, height: 9, borderRadius: 999, background: 'var(--text-secondary)' }} />
+                <span>Open on mobile</span>
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>
+                This terminal is being used by your mobile app
+              </div>
+              <div style={{ color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: 18 }}>
+                The session is held at the dimensions your phone reported. Restore to use it on your desktop.
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button className="btn btn-primary" onClick={restoreDesktopSize}>Restore desktop size</button>
+              </div>
+            </div>
+          </div>
+        )}
+        <div ref={containerRef} style={{ width: '100%', height: '100%', overflow: 'hidden', visibility: heldForMobile ? 'hidden' : 'visible' }} />
       </div>
       {agentId && (
         <div className="chat-input-footer">
