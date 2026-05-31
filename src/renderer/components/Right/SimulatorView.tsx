@@ -12,6 +12,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Button } from '@/components/ui/Button'
 import { Spinner } from '@/components/ui/Spinner'
 import { IconExternalLink } from '@/components/shared/icons'
+import { installToolAndVerify } from '@/lib/toolInstall'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -168,26 +169,28 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
     }
   }, [t])
 
-  /** Attempt macOS Homebrew install, then recheck. Linux uses manual setup. */
+  /** Attempt registered CLI install, then recheck. Linux uses manual setup. */
   const installCli = useCallback(async () => {
     if (hostPlatform === 'linux') {
       dispatch({ type: 'CLI_INSTALL_FAILED', needsBrew: false })
       return
     }
 
-    // Pre-check: is Homebrew even available?
-    const hasBrew = await ipc.shell.checkTool('brew')
-    if (!hasBrew) {
-      dispatch({ type: 'CLI_INSTALL_FAILED', needsBrew: true })
-      return
-    }
     dispatch({ type: 'INSTALLING_CLI' })
-    try { await ipc.shell.installTool('mobilecli') } catch { /* recheck below */ }
-    const hasCli = await ipc.simulator.checkCli()
-    if (hasCli) {
+    // notify: false — this view renders its own inline brew/install guidance,
+    // so the shared failure toast would be a redundant, contradictory message.
+    const { installed, result } = await installToolAndVerify(
+      'mobilecli',
+      () => ipc.simulator.checkCli(),
+      { notify: false },
+    )
+    if (installed) {
       loadDevices()
     } else {
-      dispatch({ type: 'CLI_INSTALL_FAILED', needsBrew: false })
+      dispatch({
+        type: 'CLI_INSTALL_FAILED',
+        needsBrew: result?.reason === 'missing_prerequisite' && result.prerequisite === 'brew',
+      })
     }
   }, [hostPlatform, loadDevices])
 

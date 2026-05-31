@@ -9,6 +9,7 @@ vi.mock('fs/promises', () => ({
 }))
 vi.mock('../../lib/enrichedEnv', () => ({
   enrichedEnv: () => ({}),
+  waitForEnrichedEnv: () => Promise.resolve(),
 }))
 
 import { jiraService } from '../jira'

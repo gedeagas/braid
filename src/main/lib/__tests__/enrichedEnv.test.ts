@@ -117,6 +117,29 @@ describe('enrichedEnv', () => {
     expect(mockExecFile).toHaveBeenCalledOnce()
   })
 
+  it('refreshEnrichedEnv reruns the shell PATH probe', async () => {
+    mockExecFile
+      .mockImplementationOnce(
+        (_bin: string, _args: string[], _opts: object, cb: (err: null, stdout: string) => void) => {
+          cb(null, `${DELIM_START}/first/bin${DELIM_END}\n`)
+        },
+      )
+      .mockImplementationOnce(
+        (_bin: string, _args: string[], _opts: object, cb: (err: null, stdout: string) => void) => {
+          cb(null, `${DELIM_START}/second/bin${DELIM_END}\n`)
+        },
+      )
+
+    const mod = await import('../enrichedEnv')
+    await mod.waitForEnrichedEnv()
+    expect(mod.enrichedEnv().PATH).toContain('/first/bin')
+
+    await mod.refreshEnrichedEnv()
+
+    expect(mod.enrichedEnv().PATH).toContain('/second/bin')
+    expect(mockExecFile).toHaveBeenCalledTimes(2)
+  })
+
   it('enrichedEnv returns process.env with the hydrated PATH', async () => {
     mockExecFile.mockImplementation(
       (_bin: string, _args: string[], _opts: object, cb: (err: null, stdout: string) => void) => {

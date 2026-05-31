@@ -1,11 +1,11 @@
 import { useReducer, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { shell } from '@/lib/ipc'
-import { flash } from '@/store/flash'
 import { Button } from '@/components/ui/Button'
 import { StatusDot } from '@/components/ui/StatusDot'
 import { GhAuthDialog } from '@/components/shared/GhAuthDialog'
 import { IconExternalLink } from '@/components/shared/icons'
+import { installToolAndVerify } from '@/lib/toolInstall'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -110,20 +110,8 @@ export function SettingsGitHub() {
 
   const handleInstall = useCallback(async () => {
     dispatch({ type: 'setGh', status: 'installing' })
-    try {
-      await shell.installTool('gh')
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown error'
-      flash('error', `Failed to install gh: ${msg}`, 5000)
-    }
-    if (!mountedRef.current) return
-    dispatch({ type: 'setGh', status: 'checking' })
-    try {
-      const ok = await shell.checkTool('gh')
-      if (mountedRef.current) dispatch({ type: 'setGh', status: ok ? 'installed' : 'not_installed' })
-    } catch {
-      if (mountedRef.current) dispatch({ type: 'setGh', status: 'not_installed' })
-    }
+    const { installed } = await installToolAndVerify('gh', () => shell.checkTool('gh'))
+    if (mountedRef.current) dispatch({ type: 'setGh', status: installed ? 'installed' : 'not_installed' })
   }, [])
 
   const handleAuthSuccess = useCallback(() => {

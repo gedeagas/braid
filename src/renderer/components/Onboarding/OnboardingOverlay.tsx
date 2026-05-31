@@ -6,6 +6,7 @@ import { useProjectsStore } from '@/store/projects'
 import { shell, jira } from '@/lib/ipc'
 import { Button } from '@/components/ui/Button'
 import { GhAuthDialog } from '@/components/shared/GhAuthDialog'
+import { installToolAndVerify } from '@/lib/toolInstall'
 import { OnboardingLayout } from './OnboardingLayout'
 import {
   WelcomeStep,
@@ -178,14 +179,8 @@ function OnboardingContent() {
       return
     }
     dispatch({ type: 'set_check', key, status: 'installing' })
-    try { await shell.installTool(key) } catch { /* recheck below */ }
-    dispatch({ type: 'set_check', key, status: 'checking' })
-    try {
-      const ok = await CHECK_FNS[key]()
-      dispatch({ type: 'set_check', key, status: ok ? 'ok' : 'fail' })
-    } catch {
-      dispatch({ type: 'set_check', key, status: 'fail' })
-    }
+    const { installed } = await installToolAndVerify(key, CHECK_FNS[key])
+    dispatch({ type: 'set_check', key, status: installed ? 'ok' : 'fail' })
   }, [])
 
   const handleGhAuthSuccess = useCallback(async () => {

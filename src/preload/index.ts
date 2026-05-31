@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, webFrame, webUtils } from 'electron'
 import type { TemplateKind, CreateTemplateArgs, CreateTemplateResult, TemplateLogEntry } from '../shared/templates'
+import type { ToolInstallOptions, ToolInstallResult } from '../shared/tool-install'
 
 const api = {
   // Storage
@@ -274,7 +275,8 @@ const api = {
     openInApp: (appId: string, targetPath: string) => ipcRenderer.invoke('shell:openInApp', appId, targetPath),
     checkTool: (tool: string) => ipcRenderer.invoke('shell:checkTool', tool) as Promise<boolean>,
     checkGhAuth: () => ipcRenderer.invoke('shell:checkGhAuth') as Promise<boolean>,
-    installTool: (key: string) => ipcRenderer.invoke('shell:installTool', key) as Promise<{ success: boolean }>,
+    installTool: (key: string, options?: ToolInstallOptions) =>
+      ipcRenderer.invoke('shell:installTool', key, options) as Promise<ToolInstallResult>,
   },
 
   // Files
