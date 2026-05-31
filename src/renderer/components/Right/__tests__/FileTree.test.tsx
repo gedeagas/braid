@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FileTree } from '../FileTree'
 import type { WorktreeRefreshEvent } from '@/lib/worktreeRefresh'
 
@@ -56,6 +56,10 @@ vi.mock('react-i18next', () => ({
 }))
 
 describe('FileTree', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
   beforeEach(() => {
     vi.clearAllMocks()
     refreshHandler = null
@@ -107,5 +111,65 @@ describe('FileTree', () => {
     await waitFor(() => {
       expect(screen.queryByText('stale.ts')).toBeNull()
     })
+  })
+
+  it('ignores stale directory loads after switching away and back to the same worktree', async () => {
+    const slowDirectory = deferred<Array<{ name: string; path: string; isDirectory: boolean }>>()
+    let srcLoadCount = 0
+    getFileTree.mockImplementation((path: string) => {
+      if (path === '/repo-a') return Promise.resolve([{ name: 'src', path: 'src', isDirectory: true }])
+      if (path === '/repo-b') return Promise.resolve([{ name: 'other.ts', path: 'other.ts', isDirectory: false }])
+      if (path === '/repo-a/src') {
+        srcLoadCount += 1
+        if (srcLoadCount === 1) return slowDirectory.promise
+        return Promise.resolve([{ name: 'current.ts', path: 'current.ts', isDirectory: false }])
+      }
+      return Promise.resolve([])
+    })
+
+    const { rerender } = render(<FileTree worktreePath="/repo-a" onFileSelect={vi.fn()} />)
+    fireEvent.click(await screen.findByText('src'))
+
+    rerender(<FileTree worktreePath="/repo-b" onFileSelect={vi.fn()} />)
+    await screen.findByText('other.ts')
+
+    rerender(<FileTree worktreePath="/repo-a" onFileSelect={vi.fn()} />)
+    await screen.findByText('src')
+
+    slowDirectory.resolve([{ name: 'stale.ts', path: 'stale.ts', isDirectory: false }])
+    await waitFor(() => {
+      expect(screen.queryByText('stale.ts')).toBeNull()
+    })
+
+    fireEvent.click(screen.getByText('src'))
+    await screen.findByText('current.ts')
+    expect(screen.queryByText('stale.ts')).toBeNull()
+  })
+
+  it('handles nullish root file tree responses defensively', async () => {
+    getFileTree.mockResolvedValue(undefined)
+
+    render(<FileTree worktreePath="/repo" onFileSelect={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(getFileTree).toHaveBeenCalledWith('/repo', false)
+    })
+    expect(screen.queryByText('fileCount')).toBeNull()
+  })
+
+  it('handles nullish directory file tree responses defensively', async () => {
+    getFileTree.mockImplementation((path: string) => {
+      if (path === '/repo') return Promise.resolve([{ name: 'src', path: 'src', isDirectory: true }])
+      if (path === '/repo/src') return Promise.resolve(null)
+      return Promise.resolve(undefined)
+    })
+
+    render(<FileTree worktreePath="/repo" onFileSelect={vi.fn()} />)
+    fireEvent.click(await screen.findByText('src'))
+
+    await waitFor(() => {
+      expect(getFileTree).toHaveBeenCalledWith('/repo/src', false)
+    })
+    expect(screen.queryByText('index.ts')).toBeNull()
   })
 })
