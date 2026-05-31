@@ -282,8 +282,8 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('jira:getIssuesForBranch', (_e, worktreePath: string, overrideBaseUrl?: string, forceRefresh?: boolean) =>
     jiraService.getIssuesForBranch(worktreePath, overrideBaseUrl, forceRefresh)
   )
-  ipcMain.handle('jira:getIssueByKey', (_e, key: string, overrideBaseUrl?: string, forceRefresh?: boolean) =>
-    jiraService.getIssueByKey(key, overrideBaseUrl, forceRefresh)
+  ipcMain.handle('jira:getIssueByKey', (_e, key: string, overrideBaseUrl?: string, forceRefresh?: boolean, includeContext?: boolean) =>
+    jiraService.getIssueByKey(key, overrideBaseUrl, forceRefresh, includeContext)
   )
   ipcMain.handle('jira:invalidateCache', (_e, key?: string) => jiraService.invalidateCache(key))
 

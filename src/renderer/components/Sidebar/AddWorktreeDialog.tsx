@@ -1,13 +1,16 @@
-import { useEffect, useCallback, useReducer } from 'react'
+import { useEffect, useCallback, useMemo, useReducer, useState } from 'react'
 import { useProjectsStore } from '@/store/projects'
 import { useUIStore } from '@/store/ui'
 import * as ipc from '@/lib/ipc'
 import { cleanIpcError } from '@/lib/ipc'
 import { validateBranchName } from '@/lib/branchValidation'
+import { buildJiraIssueLink, buildJiraIssuePrompt } from '@/lib/jiraPrompt'
 import { randomBranchName } from '@/lib/randomBranch'
+import { useDetectedAgents } from '@/lib/agentDetection'
 import { useTranslation } from 'react-i18next'
-import { IconGitBranch, IconChevronDownFill, IconCheckFill, IconSettings, IconRefresh } from '@/components/shared/icons'
-import { Button, Combobox, Dialog, Spinner } from '@/components/ui'
+import { IconGitBranch, IconChevronDownFill, IconCheckFill, IconSettings, IconRefresh, AgentIcon } from '@/components/shared/icons'
+import { Button, Checkbox, Combobox, Dialog, Spinner } from '@/components/ui'
+import { SegmentedControl } from '@/components/shared/SegmentedControl'
 import { copyFilesReducer } from './copyFilesReducer'
 import { JiraLookupField, useJiraAvailable } from './JiraLookupField'
 import { CopyFilesSection } from './CopyFilesSection'
@@ -47,6 +50,30 @@ function dialogReducer(s: DialogState, a: DialogAction): DialogState {
   }
 }
 
+// ── Jira agent-launch preferences ───────────────────────────────────────────
+
+type JiraContextMode = 'full' | 'link'
+
+interface JiraAgentPrefs {
+  /** Whether to launch an agent after the worktree is created. */
+  start: boolean
+  /** How much ticket context to paste: the full fenced dump or a compact link. */
+  contextMode: JiraContextMode
+}
+
+type JiraAgentAction =
+  | { type: 'enable' }
+  | { type: 'setStart'; value: boolean }
+  | { type: 'setMode'; value: JiraContextMode }
+
+function jiraAgentReducer(s: JiraAgentPrefs, a: JiraAgentAction): JiraAgentPrefs {
+  switch (a.type) {
+    case 'enable': return { ...s, start: true }
+    case 'setStart': return { ...s, start: a.value }
+    case 'setMode': return { ...s, contextMode: a.value }
+  }
+}
+
 interface Props {
   projectId: string
   repoPath: string
@@ -69,16 +96,30 @@ export function AddWorktreeDialog({ projectId, repoPath, onClose }: Props) {
   const [copyState, copyDispatch] = useReducer(copyFilesReducer, {
     savedFiles: [], discoveredFiles: [], loading: false, sourceBranch: '',
   })
+  const [jiraIssue, setJiraIssue] = useState<JiraIssue | null>(null)
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
+  const [jiraPrefs, jiraPrefsDispatch] = useReducer(jiraAgentReducer, { start: true, contextMode: 'full' })
 
   const jiraAvailable = useJiraAvailable()
+  const detectedAgents = useDetectedAgents()
 
   const addWorktree = useProjectsStore((s) => s.addWorktree)
   const project = useProjectsStore((s) => s.projects.find((p) => p.id === projectId))
   const globalBranchPrefix = useUIStore((s) => s.defaultBranchPrefix)
   const discoveryPatterns = useUIStore((s) => s.discoveryPatterns)
   const jiraBaseUrl = useUIStore((s) => s.jiraBaseUrl)
+  const setActiveCenterView = useUIStore((s) => s.setActiveCenterView)
+  const createBigTerminal = useUIStore((s) => s.createBigTerminal)
+  const lastNewTabAction = useUIStore((s) => s.lastNewTabAction)
+  const setLastNewTabAction = useUIStore((s) => s.setLastNewTabAction)
   const defaultBranchPrefix = project?.settings?.branchPrefix || globalBranchPrefix
   const { t } = useTranslation('sidebar')
+
+  const selectedAgent = useMemo(() => {
+    return detectedAgents.find((agent) => agent.id === selectedAgentId) ?? detectedAgents[0] ?? null
+  }, [detectedAgents, selectedAgentId])
+
+  const agentLabels = useMemo(() => detectedAgents.map((agent) => agent.label), [detectedAgents])
 
   // Fetch remote branches via gh CLI on mount
   useEffect(() => {
@@ -124,6 +165,23 @@ export function AddWorktreeDialog({ projectId, repoPath, onClose }: Props) {
     loadFiles().catch(() => copyDispatch({ type: 'setFiles', saved: [], discovered: [], sourceBranch: '' }))
   }, [project?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (detectedAgents.length === 0) {
+      setSelectedAgentId(null)
+      return
+    }
+    if (selectedAgentId && detectedAgents.some((agent) => agent.id === selectedAgentId)) return
+    const lastAgentId = lastNewTabAction === 'claudeCode'
+      ? 'claude'
+      : lastNewTabAction.startsWith('agent:')
+        ? lastNewTabAction.slice(6)
+        : null
+    const preferred = lastAgentId
+      ? detectedAgents.find((agent) => agent.id === lastAgentId)
+      : undefined
+    setSelectedAgentId((preferred ?? detectedAgents[0]).id)
+  }, [detectedAgents, lastNewTabAction, selectedAgentId])
+
   const selectOriginBranch = useCallback((b: string) => {
     const stripped = stripRemote(b)
     const localBranch = !d.userEdited
@@ -134,8 +192,14 @@ export function AddWorktreeDialog({ projectId, repoPath, onClose }: Props) {
 
   const handleReroll = () => dd({ type: 'reroll', name: randomBranchName() })
 
-  const handleJiraResolved = useCallback((_issue: JiraIssue, branch: string, validationError: string | null) => {
+  const handleJiraResolved = useCallback((issue: JiraIssue, branch: string, validationError: string | null) => {
+    setJiraIssue(issue)
+    jiraPrefsDispatch({ type: 'enable' })
     dd({ type: 'setBranch', value: branch, error: validationError ?? '' })
+  }, [])
+
+  const handleJiraCleared = useCallback(() => {
+    setJiraIssue(null)
   }, [])
 
   const handleAdd = async () => {
@@ -148,8 +212,22 @@ export function AddWorktreeDialog({ projectId, repoPath, onClose }: Props) {
     ].map((f) => f.path)
     dd({ type: 'setCreating', value: true })
     try {
-      await addWorktree(projectId, trimmed, d.origin || undefined, filesToCopy.length > 0 ? filesToCopy : undefined)
+      const newWorktree = await addWorktree(projectId, trimmed, d.origin || undefined, filesToCopy.length > 0 ? filesToCopy : undefined)
       onClose()
+      if (newWorktree && jiraIssue && jiraPrefs.start && selectedAgent) {
+        setLastNewTabAction(`agent:${selectedAgent.id}`)
+        const initialInput = jiraPrefs.contextMode === 'link'
+          ? buildJiraIssueLink(jiraIssue)
+          : buildJiraIssuePrompt(jiraIssue)
+        const terminalId = createBigTerminal(
+          newWorktree.id,
+          selectedAgent.label,
+          selectedAgent.launchCmd,
+          selectedAgent.id,
+          initialInput
+        )
+        setActiveCenterView({ type: 'terminal', terminalId })
+      }
     } catch (e) {
       dd({ type: 'setCreating', value: false })
       dd({ type: 'setError', error: cleanIpcError(e, t('failedCreateWorktree')) })
@@ -218,10 +296,72 @@ export function AddWorktreeDialog({ projectId, repoPath, onClose }: Props) {
               branchPrefix={defaultBranchPrefix}
               jiraBaseUrl={jiraBaseUrl}
               onResolved={handleJiraResolved}
-              onError={() => {}}
+              onError={handleJiraCleared}
+              onCleared={handleJiraCleared}
             />
           )}
         </div>
+
+        {jiraIssue && (
+          <div className="jira-start-agent-option">
+            <Checkbox
+              checked={jiraPrefs.start && detectedAgents.length > 0}
+              onChange={(value) => jiraPrefsDispatch({ type: 'setStart', value })}
+              disabled={d.creating || detectedAgents.length === 0}
+              label={t('jiraStartAgentLabel')}
+            />
+            {jiraPrefs.start && detectedAgents.length > 0 && selectedAgent && (
+              <div className="jira-agent-picker">
+                <span className="jira-agent-picker__label">{t('jiraAgentLabel')}</span>
+                <Combobox
+                  items={agentLabels}
+                  value={selectedAgent.label}
+                  onSelect={(label) => {
+                    const agent = detectedAgents.find((entry) => entry.label === label)
+                    if (!agent) return
+                    setSelectedAgentId(agent.id)
+                    setLastNewTabAction(`agent:${agent.id}`)
+                  }}
+                  disabled={d.creating}
+                  filterPlaceholder={t('jiraAgentSearchPlaceholder')}
+                  emptyText={t('jiraAgentNoResults')}
+                  className="jira-agent-combobox"
+                  triggerClassName="jira-agent-combobox__trigger"
+                  renderItem={(label) => {
+                    const agent = detectedAgents.find((entry) => entry.label === label)
+                    return (
+                      <>
+                        {agent && <AgentIcon agentId={agent.id} size={14} />}
+                        <span>{label}</span>
+                      </>
+                    )
+                  }}
+                >
+                  <AgentIcon agentId={selectedAgent.id} size={14} />
+                  <span className="jira-agent-combobox__value">{selectedAgent.label}</span>
+                  <IconChevronDownFill className="branch-combobox__chevron" />
+                </Combobox>
+              </div>
+            )}
+            {jiraPrefs.start && detectedAgents.length > 0 && selectedAgent && (
+              <div className="jira-agent-picker">
+                <span className="jira-agent-picker__label">{t('jiraContextLabel')}</span>
+                <SegmentedControl
+                  options={[
+                    { value: 'full', label: t('jiraContextFull') },
+                    { value: 'link', label: t('jiraContextLink') },
+                  ]}
+                  value={jiraPrefs.contextMode}
+                  onChange={(value) => jiraPrefsDispatch({ type: 'setMode', value })}
+                  disabled={d.creating}
+                />
+              </div>
+            )}
+            {detectedAgents.length === 0 && (
+              <div className="jira-agent-picker__empty">{t('jiraNoAgentsDetected')}</div>
+            )}
+          </div>
+        )}
 
         <div className="dialog-field add-worktree-branch-field">
           <label>{t('localBranchLabel')}</label>

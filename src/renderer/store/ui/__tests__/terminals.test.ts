@@ -83,6 +83,20 @@ describe('terminalsSlice', () => {
       expect(parsed).toEqual([{ id, label: 'Terminal 1' }])
     })
 
+    it('does not persist launch command or initial input', () => {
+      const { actions, read } = makeSlice()
+      const id = actions.createBigTerminal(WT, 'Claude Code', 'claude', 'claude', 'Jira context')
+      expect(read()[WT]![0]).toEqual({
+        id,
+        label: 'Claude Code',
+        initialCommand: 'claude',
+        initialInput: 'Jira context',
+        agentId: 'claude',
+      })
+      const raw = localStorage.getItem(SK.bigTerminalTabsPrefix + WT)
+      expect(JSON.parse(raw!)).toEqual([{ id, label: 'Claude Code', agentId: 'claude' }])
+    })
+
     it('keeps worktrees isolated', () => {
       const { actions, read } = makeSlice()
       const a = actions.createBigTerminal(WT)

@@ -252,8 +252,8 @@ const api = {
     recheckAvailability: () => ipcRenderer.invoke('jira:recheckAvailability') as Promise<boolean>,
     getIssuesForBranch: (worktreePath: string, overrideBaseUrl?: string, forceRefresh?: boolean) =>
       ipcRenderer.invoke('jira:getIssuesForBranch', worktreePath, overrideBaseUrl, forceRefresh),
-    getIssueByKey: (key: string, overrideBaseUrl?: string, forceRefresh?: boolean) =>
-      ipcRenderer.invoke('jira:getIssueByKey', key, overrideBaseUrl, forceRefresh),
+    getIssueByKey: (key: string, overrideBaseUrl?: string, forceRefresh?: boolean, includeContext?: boolean) =>
+      ipcRenderer.invoke('jira:getIssueByKey', key, overrideBaseUrl, forceRefresh, includeContext),
     invalidateCache: (key?: string) => ipcRenderer.invoke('jira:invalidateCache', key),
   },
 
