@@ -50,7 +50,7 @@ describe('jiraService', () => {
     })
     expect(mockExecFile).toHaveBeenCalledWith(
       'acli',
-      ['jira', 'workitem', 'view', 'USRN-123', '--json', '--fields', 'key,issuetype,summary,status,assignee,description'],
+      ['jira', 'workitem', 'view', 'USRN-123', '--json', '--fields', 'key,issuetype,summary,status,assignee'],
       expect.any(Object)
     )
 

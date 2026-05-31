@@ -176,7 +176,7 @@ function sanitizeInitialInput(input: string): string {
   return input
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
-    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '')
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/g, '')
 }
 
 /**
@@ -195,13 +195,17 @@ function waitForAgentInputReady(entry: BigTermEntry, ptyId: string): Promise<boo
     let quietTimer: ReturnType<typeof setTimeout> | null = null
     let hardTimer: ReturnType<typeof setTimeout> | null = null
     let unsubscribe: (() => void) | null = null
+    // Guards the case where ipc.pty.onData invokes the callback synchronously
+    // (and finish() runs) before the unsubscribe handle is assigned below.
+    let pendingUnsubscribe = false
 
     const finish = (value: boolean): void => {
       if (settled) return
       settled = true
       if (quietTimer) clearTimeout(quietTimer)
       if (hardTimer) clearTimeout(hardTimer)
-      try { unsubscribe?.() } catch {}
+      if (unsubscribe) { try { unsubscribe() } catch {} }
+      else pendingUnsubscribe = true
       resolve(value)
     }
 
@@ -223,8 +227,10 @@ function waitForAgentInputReady(entry: BigTermEntry, ptyId: string): Promise<boo
       }
       armQuietTimer()
     })
+    // If the callback already settled synchronously, tear down the listener now.
+    if (pendingUnsubscribe) { try { unsubscribe?.() } catch {} unsubscribe = null }
 
-    hardTimer = setTimeout(() => finish(saw2004), AGENT_READY_TIMEOUT_MS)
+    if (!settled) hardTimer = setTimeout(() => finish(saw2004), AGENT_READY_TIMEOUT_MS)
   })
 }
 

@@ -10,7 +10,7 @@ const exec = promisify(execFile)
 
 type JiraFieldMode = 'summary' | 'context'
 
-const JIRA_SUMMARY_FIELDS = 'key,issuetype,summary,status,assignee,description'
+const JIRA_SUMMARY_FIELDS = 'key,issuetype,summary,status,assignee'
 const JIRA_CONTEXT_FIELDS = '*all'
 
 export interface JiraIssue {
