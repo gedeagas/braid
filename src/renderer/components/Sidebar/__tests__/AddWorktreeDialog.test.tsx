@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AddWorktreeDialog } from '../AddWorktreeDialog'
 
 const mocks = vi.hoisted(() => {
@@ -32,6 +32,9 @@ const mocks = vi.hoisted(() => {
     getFileInfo: vi.fn(),
     getIgnored: vi.fn(),
     openSettings: vi.fn(),
+    setActiveCenterView: vi.fn(),
+    createBigTerminal: vi.fn(),
+    setLastNewTabAction: vi.fn(),
     project,
   }
 })
@@ -75,12 +78,23 @@ vi.mock('@/store/ui', () => {
     discoveryPatterns: [],
     jiraBaseUrl: '',
     openSettings: mocks.openSettings,
+    setActiveCenterView: mocks.setActiveCenterView,
+    createBigTerminal: mocks.createBigTerminal,
+    lastNewTabAction: 'agent:claude',
+    setLastNewTabAction: mocks.setLastNewTabAction,
   }
   const useUIStore = vi.fn((selector: (s: typeof state) => unknown) => selector(state))
   Object.assign(useUIStore, { getState: () => state })
 
   return { useUIStore }
 })
+
+vi.mock('@/lib/agentDetection', () => ({
+  useDetectedAgents: () => [
+    { id: 'claude', label: 'Claude Code', detectCmd: 'claude', launchCmd: 'claude' },
+    { id: 'codex', label: 'Codex', detectCmd: 'codex', launchCmd: 'codex' },
+  ],
+}))
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -91,7 +105,12 @@ vi.mock('@/components/ui', () => ({
   Button: ({ children, loading: _loading, variant: _variant, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { loading?: boolean; variant?: string }) => (
     <button {...props}>{children}</button>
   ),
-  Checkbox: (props: React.InputHTMLAttributes<HTMLInputElement>) => <input type="checkbox" {...props} />,
+  Checkbox: ({ checked, onChange, label, disabled }: { checked: boolean; onChange: (checked: boolean) => void; label?: string; disabled?: boolean }) => (
+    <label>
+      <input type="checkbox" checked={checked} disabled={disabled} onChange={(event) => onChange(event.target.checked)} />
+      {label}
+    </label>
+  ),
   Combobox: ({ children, disabled }: { children: React.ReactNode; disabled?: boolean }) => (
     <button disabled={disabled}>{children}</button>
   ),
@@ -108,19 +127,34 @@ vi.mock('@/components/ui', () => ({
 }))
 
 describe('AddWorktreeDialog', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.addWorktree.mockResolvedValue(undefined)
     mocks.getFileInfo.mockResolvedValue([])
     mocks.getIgnored.mockResolvedValue([])
     mocks.isJiraAvailable.mockResolvedValue(true)
+    mocks.createBigTerminal.mockReturnValue('terminal-1')
     mocks.getIssueByKey.mockResolvedValue({
       key: 'USRN-10110',
       summary: 'Fix cart total',
+      description: 'Cart total is wrong',
+      acceptanceCriteria: null,
       status: 'In Progress',
       statusCategory: 'indeterminate',
       type: 'Bug',
       assignee: null,
+      priority: 'High',
+      labels: [],
+      components: [],
+      parent: null,
+      epic: null,
+      comments: [],
+      linkedIssues: [],
+      attachments: [],
       url: 'https://jira.example/browse/USRN-10110',
     })
   })
@@ -150,5 +184,87 @@ describe('AddWorktreeDialog', () => {
 
     await waitFor(() => expect(branchInput.disabled).toBe(false))
     expect(branchInput.value).toBe(jiraBranch)
+  })
+
+  it('starts the selected terminal agent with Jira context after creating a Jira worktree', async () => {
+    mocks.getRemoteBranches.mockResolvedValue({ branches: ['origin/master'], defaultBranch: 'origin/master' })
+    mocks.addWorktree.mockResolvedValue({
+      id: 'wt-jira',
+      projectId: 'project-1',
+      branch: 'USRN-10110-fix-cart-total',
+      path: '/repo/project-USRN-10110',
+      isMain: false,
+      sessions: [],
+    })
+    const onClose = vi.fn()
+
+    render(
+      <AddWorktreeDialog
+        projectId="project-1"
+        repoPath="/repo/project"
+        onClose={onClose}
+      />
+    )
+
+    const jiraInput = await screen.findByPlaceholderText('jiraPlaceholder')
+    fireEvent.paste(jiraInput, {
+      clipboardData: { getData: () => 'USRN-10110' },
+    })
+
+    const branchInput = document.querySelector('.add-worktree-branch-row input') as HTMLInputElement
+    await waitFor(() => expect(branchInput.value).toBe('USRN-10110-fix-cart-total'))
+    expect(mocks.getIssueByKey).toHaveBeenCalledWith('USRN-10110', undefined, undefined, true)
+    const createButtons = screen.getAllByText('create')
+    fireEvent.click(createButtons[createButtons.length - 1])
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled())
+    expect(mocks.setLastNewTabAction).toHaveBeenCalledWith('agent:claude')
+    expect(mocks.createBigTerminal).toHaveBeenCalledWith(
+      'wt-jira',
+      'Claude Code',
+      'claude',
+      'claude',
+      expect.stringContaining('USRN-10110: Fix cart total'),
+    )
+    expect(mocks.setActiveCenterView).toHaveBeenCalledWith({ type: 'terminal', terminalId: 'terminal-1' })
+  })
+
+  it('pastes a compact link instead of full context when "Link only" is selected', async () => {
+    mocks.getRemoteBranches.mockResolvedValue({ branches: ['origin/master'], defaultBranch: 'origin/master' })
+    mocks.addWorktree.mockResolvedValue({
+      id: 'wt-jira',
+      projectId: 'project-1',
+      branch: 'USRN-10110-fix-cart-total',
+      path: '/repo/project-USRN-10110',
+      isMain: false,
+      sessions: [],
+    })
+    const onClose = vi.fn()
+
+    render(
+      <AddWorktreeDialog
+        projectId="project-1"
+        repoPath="/repo/project"
+        onClose={onClose}
+      />
+    )
+
+    const jiraInput = await screen.findByPlaceholderText('jiraPlaceholder')
+    fireEvent.paste(jiraInput, {
+      clipboardData: { getData: () => 'USRN-10110' },
+    })
+
+    const branchInput = document.querySelector('.add-worktree-branch-row input') as HTMLInputElement
+    await waitFor(() => expect(branchInput.value).toBe('USRN-10110-fix-cart-total'))
+
+    fireEvent.click(await screen.findByText('jiraContextLink'))
+
+    const createButtons = screen.getAllByText('create')
+    fireEvent.click(createButtons[createButtons.length - 1])
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled())
+    const initialInput = mocks.createBigTerminal.mock.calls.at(-1)?.[4] as string
+    expect(initialInput).toContain('Start work on Jira ticket USRN-10110: Fix cart total')
+    expect(initialInput).not.toContain('BEGIN JIRA TICKET')
   })
 })

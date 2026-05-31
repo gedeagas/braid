@@ -47,6 +47,18 @@ export interface BigTermEntry {
 
 const cache = new Map<string, BigTermEntry>()
 
+const BRACKETED_PASTE_BEGIN = '\x1b[200~'
+const BRACKETED_PASTE_END = '\x1b[201~'
+// DECSET 2004 (bracketed-paste-enable): every TUI agent we launch emits this on
+// its output stream once its input layer is wired up. Treat it as the protocol
+// "I accept bracketed paste" handshake.
+const DECSET_BRACKETED_PASTE = '\x1b[?2004h'
+// After the handshake, wait for the agent's render burst to go quiet before
+// pasting - some TUIs (e.g. OpenCode) emit DECSET during alt-screen setup, then
+// keep painting for ~1s; pasting into that gap drops bytes.
+const AGENT_READY_QUIET_MS = 1500
+const AGENT_READY_TIMEOUT_MS = 8000
+
 let finderRegistered = false
 function ensureFinderRegistered(): void {
   if (finderRegistered) return
@@ -160,6 +172,74 @@ function updateEntryAgentId(entry: BigTermEntry, agentId?: string): void {
   }
 }
 
+function sanitizeInitialInput(input: string): string {
+  return input
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '')
+}
+
+/**
+ * Resolve once the agent on `ptyId` has rendered an input box that accepts
+ * bracketed paste, or on timeout. Taps the global PTY data stream as a sidecar
+ * observer (it does not take over the primary handler that feeds xterm): waits
+ * for DECSET 2004, then for `AGENT_READY_QUIET_MS` of stream silence so the
+ * paste lands in the mounted input buffer instead of being dropped mid-render.
+ * On hard timeout it resolves true only if the handshake was seen at all.
+ */
+function waitForAgentInputReady(entry: BigTermEntry, ptyId: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    let settled = false
+    let saw2004 = false
+    let recent = ''
+    let quietTimer: ReturnType<typeof setTimeout> | null = null
+    let hardTimer: ReturnType<typeof setTimeout> | null = null
+    let unsubscribe: (() => void) | null = null
+
+    const finish = (value: boolean): void => {
+      if (settled) return
+      settled = true
+      if (quietTimer) clearTimeout(quietTimer)
+      if (hardTimer) clearTimeout(hardTimer)
+      try { unsubscribe?.() } catch {}
+      resolve(value)
+    }
+
+    const armQuietTimer = (): void => {
+      if (quietTimer) clearTimeout(quietTimer)
+      quietTimer = setTimeout(() => finish(true), AGENT_READY_QUIET_MS)
+    }
+
+    unsubscribe = ipc.pty.onData((id, data) => {
+      if (settled || id !== ptyId) return
+      if (entry.disposed || entry.ptyId !== ptyId) { finish(false); return }
+      if (!saw2004) {
+        // Keep a small tail so the escape sequence is still found if it splits
+        // across two IPC frames.
+        const combined = recent + data
+        recent = combined.slice(-512)
+        if (combined.indexOf(DECSET_BRACKETED_PASTE) === -1) return
+        saw2004 = true
+      }
+      armQuietTimer()
+    })
+
+    hardTimer = setTimeout(() => finish(saw2004), AGENT_READY_TIMEOUT_MS)
+  })
+}
+
+async function writeInitialAgentInput(entry: BigTermEntry, ptyId: string, input: string): Promise<void> {
+  const sanitized = sanitizeInitialInput(input).trim()
+  if (!sanitized) return
+
+  const ready = await waitForAgentInputReady(entry, ptyId)
+  if (!ready || entry.disposed || entry.ptyId !== ptyId) return
+
+  // Bracketed-paste the ticket context as an editable DRAFT. No trailing
+  // newline → the agent does not auto-submit; the user reviews and sends.
+  ipc.pty.write(ptyId, `${BRACKETED_PASTE_BEGIN}${sanitized}${BRACKETED_PASTE_END}`)
+}
+
 /**
  * Return existing entry or build a new one: create xterm, replay scrollback, spawn PTY.
  * Pass `initialCommand` to auto-run a command after the first PTY spawn (not on restore).
@@ -170,7 +250,7 @@ function updateEntryAgentId(entry: BigTermEntry, agentId?: string): void {
  *   2. OSC 9999 / OSC 9: custom terminal sequences parsed by xterm.js.
  *   3. Title detection (fallback): watches braille spinners, Gemini markers, etc.
  */
-export function getOrCreate(terminalId: string, worktreePath: string, initialCommand?: string, agentId?: string): BigTermEntry {
+export function getOrCreate(terminalId: string, worktreePath: string, initialCommand?: string, agentId?: string, initialInput?: string): BigTermEntry {
   ensureFinderRegistered()
   ensureHookListener()
   const existing = cache.get(terminalId)
@@ -327,6 +407,7 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
       if (initialCommand && !hasScrollback) {
         commandObserver.accept(initialCommand + '\n')
         ipc.pty.write(ptyId, initialCommand + '\n')
+        if (initialInput) void writeInitialAgentInput(entry, ptyId, initialInput)
       }
     } catch (err) {
       if (!entry.disposed) {
