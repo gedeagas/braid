@@ -1,12 +1,13 @@
 import { WebSocketServer, WebSocket } from 'ws'
 import crypto from 'crypto'
-import { hostname, networkInterfaces } from 'os'
+import { networkInterfaces } from 'os'
 import { logger } from '../../lib/logger'
 import { DEFAULT_MOBILE_PORT } from '../../../shared/mobile-protocol'
 import { deviceStore } from './deviceStore'
 import { dispatch } from './rpc'
 import * as discovery from './discovery'
 import * as e2ee from './e2ee'
+import { getMobileInstanceName } from './instanceName'
 import type {
   MobileConnection,
   E2EESession,
@@ -37,10 +38,18 @@ class MobileServer {
 
   async start(): Promise<{ port: number }> {
     if (this.wss) {
-      throw new Error('Mobile server is already running')
+      if (this.port) return { port: this.port }
+      this.stop()
     }
 
     return new Promise((resolve, reject) => {
+      const rejectStart = (err: unknown) => {
+        this.stopPingInterval()
+        this.wss = null
+        this.port = null
+        reject(err)
+      }
+
       this.wss = new WebSocketServer({
         port: DEFAULT_MOBILE_PORT,
         host: '0.0.0.0',
@@ -75,9 +84,9 @@ class MobileServer {
             resolve({ port: this.port })
           })
           this.wss.on('connection', (ws) => this.handleConnection(ws))
-          this.wss.on('error', reject)
+          this.wss.on('error', rejectStart)
         } else {
-          reject(err)
+          rejectStart(err)
         }
       })
 
@@ -204,7 +213,7 @@ class MobileServer {
 
           // Send authenticated response (encrypted)
           const { encrypted, nextCounter } = e2ee.encryptJson(
-            { type: 'e2ee_authenticated', deviceId: device.id, instanceName: hostname() },
+            { type: 'e2ee_authenticated', deviceId: device.id, instanceName: getMobileInstanceName(), deviceToken: device.token },
             session.sharedKey,
             session.nonceCounter,
             true

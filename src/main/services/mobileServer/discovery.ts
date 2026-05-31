@@ -1,7 +1,7 @@
-import { hostname } from 'os'
 import { app } from 'electron'
 import { logger } from '../../lib/logger'
 import { MOBILE_PROTOCOL_VERSION } from './protocol'
+import { getMobileMachineName } from './instanceName'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 let bonjour: any = null
@@ -22,7 +22,7 @@ export function advertise(port: number, instanceId: string): void {
     const Bonjour = BonjourMod.Bonjour ?? BonjourMod.default ?? BonjourMod
     bonjour = new Bonjour()
 
-    const machineName = hostname()
+    const machineName = getMobileMachineName()
     publishedService = bonjour.publish({
       name: `Braid - ${machineName}`,
       type: 'braid',

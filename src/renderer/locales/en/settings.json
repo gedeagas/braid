@@ -456,6 +456,8 @@
     "pairingHeader": "Pair Device",
     "generateQr": "Generate QR Code",
     "regenerateQr": "Regenerate",
+    "copyCode": "Copy Code",
+    "copiedCode": "Copied",
     "pairingHint": "Scan this QR code with the Braid mobile app. Each code is single-use.",
     "devicesHeader": "Paired Devices",
     "noDevices": "No devices paired yet",

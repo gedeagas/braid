@@ -127,6 +127,10 @@ const api = {
     },
     registerBigTerminal: (ptyId: string, terminalId: string) =>
       ipcRenderer.send('pty:registerBigTerminal', ptyId, terminalId),
+    setBigTerminalMetadata: (metadata: { terminalId: string; worktreeId?: string; label?: string; agentId?: string }) =>
+      ipcRenderer.send('pty:setBigTerminalMetadata', metadata),
+    removeBigTerminalMetadata: (terminalId: string) =>
+      ipcRenderer.send('pty:removeBigTerminalMetadata', terminalId),
     readScrollback: (terminalId: string) =>
       ipcRenderer.invoke('pty:readScrollback', terminalId) as Promise<string>,
     deleteScrollback: (terminalId: string) =>

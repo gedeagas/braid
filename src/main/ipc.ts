@@ -214,6 +214,10 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('pty:readTerminalOutput', (_e, worktreePath: string) => ptyService.readTerminalOutput(worktreePath))
   ipcMain.on('pty:registerBigTerminal', (_e, ptyId: string, terminalId: string) =>
     ptyService.registerBigTerminal(ptyId, terminalId))
+  ipcMain.on('pty:setBigTerminalMetadata', (_e, metadata: { terminalId: string; worktreeId?: string; label?: string; agentId?: string }) =>
+    ptyService.setBigTerminalMetadata?.(metadata))
+  ipcMain.on('pty:removeBigTerminalMetadata', (_e, terminalId: string) =>
+    ptyService.removeBigTerminalMetadata?.(terminalId))
   ipcMain.handle('pty:readScrollback', (_e, terminalId: string) => ptyService.readScrollback(terminalId))
   ipcMain.on('pty:deleteScrollback', (_e, terminalId: string) => ptyService.deleteScrollback(terminalId))
   ipcMain.handle('pty:reattach', (_e, sessionId: string) => {

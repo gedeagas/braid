@@ -456,6 +456,8 @@
     "pairingHeader": "Pasangkan Perangkat",
     "generateQr": "Buat Kode QR",
     "regenerateQr": "Buat Ulang",
+    "copyCode": "Salin Kode",
+    "copiedCode": "Disalin",
     "pairingHint": "Pindai kode QR ini dengan aplikasi Braid mobile. Setiap kode hanya dapat digunakan sekali.",
     "devicesHeader": "Perangkat Terpasang",
     "noDevices": "Belum ada perangkat yang dipasangkan",

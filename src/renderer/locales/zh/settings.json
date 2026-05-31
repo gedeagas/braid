@@ -456,6 +456,8 @@
     "pairingHeader": "配对设备",
     "generateQr": "生成二维码",
     "regenerateQr": "重新生成",
+    "copyCode": "复制代码",
+    "copiedCode": "已复制",
     "pairingHint": "使用 Braid 移动应用扫描此二维码。每个代码仅限一次使用。",
     "devicesHeader": "已配对设备",
     "noDevices": "尚未配对任何设备",

@@ -71,6 +71,23 @@ interface PtyInstance {
   buffer: RingBuffer
 }
 
+export interface BigTerminalMetadata {
+  terminalId: string
+  worktreeId?: string
+  label?: string
+  agentId?: string
+}
+
+export interface PtyInstanceInfo {
+  ptyId: string
+  cwd: string
+  terminalId?: string
+  title?: string
+  label?: string
+  agentId?: string
+  worktreeId?: string
+}
+
 export interface TerminalOutput {
   ptyId: string
   output: string
@@ -107,7 +124,9 @@ export interface IPtyService {
   /** Subscribe to exit events from a PTY. Returns an unsubscribe function. */
   onExit(ptyId: string, callback: (ptyId: string, exitCode: number) => void): () => void
   /** List active PTY instances, optionally filtered by worktree path. */
-  listInstances(worktreePath?: string): Array<{ ptyId: string; cwd: string }>
+  listInstances(worktreePath?: string): PtyInstanceInfo[]
+  setBigTerminalMetadata?(metadata: BigTerminalMetadata): void
+  removeBigTerminalMetadata?(terminalId: string): void
   /** List active PTY instances with their OS process IDs. */
   listInstancesWithPid(): Array<{ ptyId: string; cwd: string; pid: number | null }>
 }
@@ -119,6 +138,7 @@ class PtyService implements IPtyService {
   private counter = 0
   /** Mapping ptyId -> terminalId for big terminal PTYs (for scrollback persistence). */
   private bigTerminalByPty = new Map<string, string>()
+  private bigTerminalMetadataById = new Map<string, BigTerminalMetadata>()
   /** External data listeners (e.g. mobile companion server). */
   private dataListeners = new Map<string, Set<(ptyId: string, data: string) => void>>()
   /** External exit listeners (e.g. mobile companion server). */
@@ -281,11 +301,21 @@ class PtyService implements IPtyService {
   }
 
   /** List all active PTY instances, optionally filtered by worktree path. */
-  listInstances(worktreePath?: string): Array<{ ptyId: string; cwd: string }> {
-    const results: Array<{ ptyId: string; cwd: string }> = []
+  listInstances(worktreePath?: string): PtyInstanceInfo[] {
+    const results: PtyInstanceInfo[] = []
     for (const [id, instance] of this.instances) {
       if (!worktreePath || instance.cwd === worktreePath) {
-        results.push({ ptyId: id, cwd: instance.cwd })
+        const terminalId = this.bigTerminalByPty.get(id)
+        const metadata = terminalId ? this.bigTerminalMetadataById.get(terminalId) : undefined
+        results.push({
+          ptyId: id,
+          cwd: instance.cwd,
+          terminalId,
+          title: metadata?.label,
+          label: metadata?.label,
+          agentId: metadata?.agentId,
+          worktreeId: metadata?.worktreeId,
+        })
       }
     }
     return results
@@ -314,6 +344,14 @@ class PtyService implements IPtyService {
   registerBigTerminal(ptyId: string, terminalId: string): void {
     if (!this.instances.has(ptyId)) return
     this.bigTerminalByPty.set(ptyId, terminalId)
+  }
+
+  setBigTerminalMetadata(metadata: BigTerminalMetadata): void {
+    this.bigTerminalMetadataById.set(metadata.terminalId, metadata)
+  }
+
+  removeBigTerminalMetadata(terminalId: string): void {
+    this.bigTerminalMetadataById.delete(terminalId)
   }
 
   readScrollback(terminalId: string): string {

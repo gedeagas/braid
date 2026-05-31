@@ -114,6 +114,9 @@ export const pty = {
   onData: (callback: (id: string, data: string) => void) => api().pty.onData(callback),
   onExit: (callback: (id: string, exitCode: number) => void) => api().pty.onExit(callback),
   registerBigTerminal: (ptyId: string, terminalId: string) => api().pty.registerBigTerminal(ptyId, terminalId),
+  setBigTerminalMetadata: (metadata: { terminalId: string; worktreeId?: string; label?: string; agentId?: string }) =>
+    api().pty.setBigTerminalMetadata(metadata),
+  removeBigTerminalMetadata: (terminalId: string) => api().pty.removeBigTerminalMetadata(terminalId),
   readScrollback: (terminalId: string) => api().pty.readScrollback(terminalId) as Promise<string>,
   deleteScrollback: (terminalId: string) => api().pty.deleteScrollback(terminalId),
   reattach: (sessionId: string) => api().pty.reattach(sessionId) as Promise<{ sessionId: string; snapshot: string } | null>,

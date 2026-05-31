@@ -16,7 +16,7 @@ import { DaemonClient } from './client'
 import { isDaemonRunning, removeSocketFile } from './lifecycle'
 import { SOCKET_PATH } from './protocol'
 import { RingBuffer } from './sessionHost'
-import type { IPtyService, TerminalOutput } from '../pty'
+import type { BigTerminalMetadata, IPtyService, PtyInstanceInfo, TerminalOutput } from '../pty'
 import type { ReattachResult, SessionInfo } from './types'
 import { getTerminalScrollbackBufferMaxLength } from '../../../shared/terminal'
 
@@ -68,6 +68,7 @@ export class PtyDaemonAdapter implements IPtyService {
   private cwdBySession = new Map<string, string>()
   /** Mapping daemon sessionId to big-terminal id (for scrollback). */
   private bigTerminalBySession = new Map<string, string>()
+  private bigTerminalMetadataById = new Map<string, BigTerminalMetadata>()
   /** Local RingBuffer mirror per session - keeps readTerminalOutput() working synchronously. */
   private buffers = new Map<string, RingBuffer>()
   /** External data listeners (e.g. mobile companion server). */
@@ -299,6 +300,14 @@ export class PtyDaemonAdapter implements IPtyService {
     this.bigTerminalBySession.set(ptyId, terminalId)
   }
 
+  setBigTerminalMetadata(metadata: BigTerminalMetadata): void {
+    this.bigTerminalMetadataById.set(metadata.terminalId, metadata)
+  }
+
+  removeBigTerminalMetadata(terminalId: string): void {
+    this.bigTerminalMetadataById.delete(terminalId)
+  }
+
   readScrollback(terminalId: string): string {
     try {
       return readFileSync(scrollbackPath(terminalId), { encoding: 'utf8' })
@@ -334,11 +343,21 @@ export class PtyDaemonAdapter implements IPtyService {
     return () => { this.exitListeners.get(ptyId)?.delete(callback) }
   }
 
-  listInstances(worktreePath?: string): Array<{ ptyId: string; cwd: string }> {
-    const results: Array<{ ptyId: string; cwd: string }> = []
+  listInstances(worktreePath?: string): PtyInstanceInfo[] {
+    const results: PtyInstanceInfo[] = []
     for (const [id, cwd] of this.cwdBySession) {
       if (!worktreePath || cwd === worktreePath) {
-        results.push({ ptyId: id, cwd })
+        const terminalId = this.bigTerminalBySession.get(id)
+        const metadata = terminalId ? this.bigTerminalMetadataById.get(terminalId) : undefined
+        results.push({
+          ptyId: id,
+          cwd,
+          terminalId,
+          title: metadata?.label,
+          label: metadata?.label,
+          agentId: metadata?.agentId,
+          worktreeId: metadata?.worktreeId,
+        })
       }
     }
     return results

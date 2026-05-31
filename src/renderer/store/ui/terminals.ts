@@ -2,6 +2,7 @@ import { type StateCreator } from 'zustand'
 import type { UIState } from './types'
 import type { AgentStatusEntry, AgentStatusPayload } from '@/lib/agentStatus'
 import { createAgentStatusEntry, updateAgentStatusEntry } from '@/lib/agentStatus'
+import * as ipc from '@/lib/ipc'
 import { SK } from '@/lib/storageKeys'
 
 export interface BigTerminalTab {
@@ -48,6 +49,23 @@ function saveBigTerminalsFor(worktreeId: string, tabs: BigTerminalTab[]): void {
   } catch {}
 }
 
+function syncBigTerminalMetadata(worktreeId: string, tab: BigTerminalTab): void {
+  try {
+    ipc.pty.setBigTerminalMetadata({
+      terminalId: tab.id,
+      worktreeId,
+      label: tab.label,
+      agentId: tab.agentId,
+    })
+  } catch {}
+}
+
+function removeBigTerminalMetadata(terminalId: string): void {
+  try {
+    ipc.pty.removeBigTerminalMetadata(terminalId)
+  } catch {}
+}
+
 /** Initial hydration for the last-selected worktree (mirrors layout.ts openFilePaths pattern). */
 function loadInitial(): Record<string, BigTerminalTab[]> {
   try {
@@ -80,6 +98,7 @@ export const createTerminalsSlice: StateCreator<UIState, [], [], TerminalsSlice>
 
   createBigTerminal: (worktreeId, label, initialCommand, agentId) => {
     const id = nextBigTerminalId()
+    let createdTab: BigTerminalTab | null = null
     set((s) => {
       const existing = s.bigTerminalsByWorktree[worktreeId] ?? []
       const maxNum = existing.reduce((max, t) => {
@@ -90,24 +109,29 @@ export const createTerminalsSlice: StateCreator<UIState, [], [], TerminalsSlice>
       const tab: BigTerminalTab = { id, label: nextLabel }
       if (initialCommand) tab.initialCommand = initialCommand
       if (agentId) tab.agentId = agentId
+      createdTab = tab
       const next = [...existing, tab]
       saveBigTerminalsFor(worktreeId, next)
       return { bigTerminalsByWorktree: { ...s.bigTerminalsByWorktree, [worktreeId]: next } }
     })
+    if (createdTab) syncBigTerminalMetadata(worktreeId, createdTab)
     return id
   },
 
   renameBigTerminal: (worktreeId, id, label) => {
     const trimmed = label.trim() || 'Terminal'
+    const current = get().bigTerminalsByWorktree[worktreeId]?.find((tab) => tab.id === id)
     set((s) => {
       const existing = s.bigTerminalsByWorktree[worktreeId] ?? []
       const next = existing.map((t) => (t.id === id ? { ...t, label: trimmed } : t))
       saveBigTerminalsFor(worktreeId, next)
       return { bigTerminalsByWorktree: { ...s.bigTerminalsByWorktree, [worktreeId]: next } }
     })
+    syncBigTerminalMetadata(worktreeId, { ...(current ?? { id, label: trimmed }), label: trimmed })
   },
 
   closeBigTerminal: (worktreeId, id) => {
+    removeBigTerminalMetadata(id)
     set((s) => {
       const existing = s.bigTerminalsByWorktree[worktreeId] ?? []
       const next = existing.filter((t) => t.id !== id)
@@ -158,14 +182,18 @@ export const createTerminalsSlice: StateCreator<UIState, [], [], TerminalsSlice>
   },
 
   restoreBigTerminalsForWorktree: (worktreeId) => {
+    let loadedTabs: BigTerminalTab[] = []
     set((s) => {
       if (s.bigTerminalsByWorktree[worktreeId] !== undefined) return s // already hydrated
       const loaded = loadBigTerminalsFor(worktreeId)
+      loadedTabs = loaded
       return { bigTerminalsByWorktree: { ...s.bigTerminalsByWorktree, [worktreeId]: loaded } }
     })
+    loadedTabs.forEach((tab) => syncBigTerminalMetadata(worktreeId, tab))
   },
 
   clearBigTerminalsForWorktree: (worktreeId) => {
+    get().bigTerminalsByWorktree[worktreeId]?.forEach((tab) => removeBigTerminalMetadata(tab.id))
     try { localStorage.removeItem(SK.bigTerminalTabsPrefix + worktreeId) } catch {}
     set((s) => {
       const next = { ...s.bigTerminalsByWorktree }

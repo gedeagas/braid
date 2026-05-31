@@ -6,6 +6,7 @@ import { Toggle } from '@/components/shared/Toggle'
 import { FormField } from '@/components/ui'
 import { Button } from '@/components/ui'
 import { StatusDot } from '@/components/ui/StatusDot'
+import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import * as ipc from '@/lib/ipc'
 
 interface MobileDevice {
@@ -25,6 +26,7 @@ interface PairingOffer {
 interface MobileState {
   devices: MobileDevice[]
   pairingOffer: PairingOffer | null
+  pairingPayload: string | null
   qrDataUrl: string | null
   serverRunning: boolean
   serverPort: number | null
@@ -36,7 +38,7 @@ interface MobileState {
 type MobileAction =
   | { type: 'SET_STATUS'; running: boolean; port: number | null; connectedDevices: Array<{ id: string; name: string; connectedAt: number }> }
   | { type: 'SET_DEVICES'; devices: MobileDevice[] }
-  | { type: 'SET_PAIRING'; offer: PairingOffer | null; qrDataUrl: string | null }
+  | { type: 'SET_PAIRING'; offer: PairingOffer | null; pairingPayload: string | null; qrDataUrl: string | null }
   | { type: 'SET_LOADING'; loading: boolean }
   | { type: 'SET_ERROR'; error: string | null }
 
@@ -47,7 +49,7 @@ function reducer(state: MobileState, action: MobileAction): MobileState {
     case 'SET_DEVICES':
       return { ...state, devices: action.devices }
     case 'SET_PAIRING':
-      return { ...state, pairingOffer: action.offer, qrDataUrl: action.qrDataUrl }
+      return { ...state, pairingOffer: action.offer, pairingPayload: action.pairingPayload, qrDataUrl: action.qrDataUrl }
     case 'SET_LOADING':
       return { ...state, loading: action.loading }
     case 'SET_ERROR':
@@ -65,6 +67,7 @@ export function SettingsMobile() {
   const [state, dispatch] = useReducer(reducer, {
     devices: [],
     pairingOffer: null,
+    pairingPayload: null,
     qrDataUrl: null,
     serverRunning: false,
     serverPort: null,
@@ -72,6 +75,8 @@ export function SettingsMobile() {
     loading: false,
     error: null,
   })
+
+  const { copied, handleCopy } = useCopyToClipboard(state.pairingPayload ?? '')
 
   const loadData = useCallback(async () => {
     try {
@@ -98,7 +103,7 @@ export function SettingsMobile() {
         await ipc.mobile.start()
       } else {
         await ipc.mobile.stop()
-        dispatch({ type: 'SET_PAIRING', offer: null, qrDataUrl: null })
+        dispatch({ type: 'SET_PAIRING', offer: null, pairingPayload: null, qrDataUrl: null })
       }
       setMobileServerEnabled(enabled)
       await loadData()
@@ -120,7 +125,7 @@ export function SettingsMobile() {
         margin: 2,
         color: { dark: '#000000', light: '#ffffff' },
       })
-      dispatch({ type: 'SET_PAIRING', offer: offer as PairingOffer, qrDataUrl })
+      dispatch({ type: 'SET_PAIRING', offer: offer as PairingOffer, pairingPayload: payload, qrDataUrl })
     } catch (err) {
       dispatch({ type: 'SET_ERROR', error: err instanceof Error ? err.message : String(err) })
     }
@@ -162,7 +167,7 @@ export function SettingsMobile() {
           </span>
         </div>
         <Toggle
-          checked={mobileServerEnabled}
+          checked={state.serverRunning}
           onChange={handleToggle}
           disabled={state.loading}
         />
@@ -196,9 +201,14 @@ export function SettingsMobile() {
               <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', textAlign: 'center' }}>
                 {t('mobile.pairingHint')}
               </span>
-              <Button size="sm" onClick={handleGeneratePairing}>
-                {t('mobile.regenerateQr')}
-              </Button>
+              <div style={{ display: 'flex', gap: 'var(--space-8)', flexWrap: 'wrap', justifyContent: 'center' }}>
+                <Button size="sm" onClick={handleCopy} disabled={!state.pairingPayload}>
+                  {copied ? t('mobile.copiedCode') : t('mobile.copyCode')}
+                </Button>
+                <Button size="sm" onClick={handleGeneratePairing}>
+                  {t('mobile.regenerateQr')}
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="settings-field">

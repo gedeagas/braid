@@ -67,6 +67,7 @@ export interface E2EEAuthenticated {
   type: 'e2ee_authenticated'
   deviceId: string
   instanceName: string
+  deviceToken?: string
 }
 
 export type HandshakeMessage = E2EEHello | E2EEReady | E2EEAuth | E2EEAuthenticated

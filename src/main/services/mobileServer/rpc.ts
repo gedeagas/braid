@@ -7,6 +7,7 @@ import { ptyService } from '../pty'
 import { githubService } from '../github'
 import { sessionStorageService } from '../sessionStorage'
 import { MOBILE_PROTOCOL_VERSION } from './protocol'
+import { getMobileInstanceName } from './instanceName'
 import type {
   JsonRpcRequest,
   JsonRpcResponse,
@@ -38,7 +39,7 @@ function register(name: string, handler: RpcHandler): void {
 register('status.get', async () => {
   const data = storageService.load()
   return {
-    instanceName: require('os').hostname(),
+    instanceName: getMobileInstanceName(),
     version: app.getVersion(),
     protocolVersion: MOBILE_PROTOCOL_VERSION,
     projects: data.projects.map((p) => ({ id: p.id, name: p.name, path: p.path })),
@@ -50,7 +51,24 @@ register('status.get', async () => {
 
 register('projects.list', async () => {
   const data = storageService.load()
-  return data.projects
+  const projects = await Promise.all(data.projects.map(async (project) => ({
+    ...project,
+    worktrees: await gitService.getWorktrees(project.path).catch((err) => {
+      console.warn('[MobileRPC] projects.list worktrees failed', { project: project.name, path: project.path, err })
+      return []
+    }),
+  })))
+  console.log('[MobileRPC] projects.list', projects.map((project) => ({
+    id: project.id,
+    name: project.name,
+    path: project.path,
+    worktrees: project.worktrees?.map((worktree) => ({
+      path: worktree.path,
+      branch: worktree.branch,
+      isMain: worktree.isMain,
+    })),
+  })))
+  return projects
 })
 
 register('worktrees.list', async (params) => {
@@ -226,7 +244,50 @@ register('github.syncStatus', async (params) => {
 // ── Terminal ──────────────────────────────────────────────────────────────────
 
 register('terminal.list', async (params) => {
-  return ptyService.listInstances(params.worktreePath as string | undefined)
+  const worktreePath = params.worktreePath as string | undefined
+  const terminals = ptyService.listInstances(worktreePath)
+  console.log('[MobileRPC] terminal.list', {
+    worktreePath,
+    terminals: terminals.map((terminal) => ({
+      ptyId: terminal.ptyId,
+      cwd: terminal.cwd,
+      terminalId: terminal.terminalId,
+      title: terminal.title,
+      label: terminal.label,
+      agentId: terminal.agentId,
+    })),
+  })
+  return terminals
+})
+
+register('terminal.create', async (params) => {
+  const worktreePath = params.worktreePath as string
+  if (!worktreePath) throw new Error('worktreePath is required')
+  const label = (params.label as string | undefined)?.trim() || 'Claude Code'
+  const command = (params.command as string | undefined)?.trim() || 'claude'
+  const agentId = (params.agentId as string | undefined)?.trim() || 'claude'
+  const terminalId = `bt-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`
+  const ptyId = await ptyService.spawn(worktreePath, { BRAID_TERMINAL_ID: terminalId })
+  ptyService.registerBigTerminal(ptyId, terminalId)
+  ptyService.setBigTerminalMetadata?.({
+    terminalId,
+    label,
+    agentId,
+    worktreeId: params.worktreeId as string | undefined,
+  })
+  if (command) ptyService.write(ptyId, `${command}\n`)
+  console.log('[MobileRPC] terminal.create', { worktreePath, ptyId, terminalId, label, agentId, command })
+  return {
+    id: ptyId,
+    ptyId,
+    cwd: worktreePath,
+    terminalId,
+    title: label,
+    label,
+    agentId,
+    worktreeId: params.worktreeId,
+    worktreePath,
+  }
 })
 
 register('terminal.write', async (params) => {
@@ -238,8 +299,25 @@ register('terminal.resize', async (params) => {
 })
 
 register('terminal.readScrollback', async (params) => {
-  const results = ptyService.readTerminalOutput(params.ptyId as string)
-  return results.length > 0 ? results[0].output : ''
+  const ptyId = params.ptyId as string | undefined
+  const worktreePath = params.worktreePath as string | undefined
+  console.log('[MobileRPC] terminal.readScrollback request', { ptyId, worktreePath })
+  if (ptyId) {
+    const instance = ptyService.listInstances().find((item) => item.ptyId === ptyId)
+    console.log('[MobileRPC] terminal.readScrollback instance', { ptyId, instance })
+    if (!instance) return ''
+    const results = ptyService.readTerminalOutput(instance.cwd)
+    const output = results.find((item) => item.ptyId === ptyId)?.output ?? ''
+    console.log('[MobileRPC] terminal.readScrollback result', { ptyId, length: output.length })
+    return output
+  }
+  if (worktreePath) {
+    const results = ptyService.readTerminalOutput(worktreePath)
+    const output = results.length > 0 ? results[0].output : ''
+    console.log('[MobileRPC] terminal.readScrollback result', { worktreePath, length: output.length })
+    return output
+  }
+  return ''
 })
 
 // ── Subscriptions ─────────────────────────────────────────────────────────────
@@ -274,8 +352,10 @@ register('agent.unsubscribe', async (params, connection) => {
 register('terminal.subscribe', async (params, connection) => {
   const subscriptionId = `sub-${crypto.randomUUID().slice(0, 8)}`
   const ptyId = params.ptyId as string
+  console.log('[MobileRPC] terminal.subscribe', { subscriptionId, ptyId })
 
   const unsubData = ptyService.onData(ptyId, (_id: string, data: string) => {
+    console.log('[MobileRPC] terminal.data', { subscriptionId, ptyId, length: data.length })
     connection.ws.emit('rpc:notification', {
       jsonrpc: '2.0' as const,
       method: 'terminal.data',

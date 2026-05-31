@@ -456,6 +456,8 @@
     "pairingHeader": "デバイスのペアリング",
     "generateQr": "QRコードを生成",
     "regenerateQr": "再生成",
+    "copyCode": "コードをコピー",
+    "copiedCode": "コピーしました",
     "pairingHint": "BraidモバイルアプリでこのQRコードをスキャンしてください。各コードは1回限り有効です。",
     "devicesHeader": "ペアリング済みデバイス",
     "noDevices": "ペアリング済みのデバイスはありません",
