@@ -195,6 +195,58 @@ export default function App() {
       useUIStore.getState().removeRemoteBigTerminal(worktreeId, tab.terminalId)
     })
 
+    // A paired mobile device requested a worktree removal. Run the SAME teardown
+    // the desktop "Remove" button does (archive script, terminal/PTY disposal,
+    // session cascade-delete, UI/localStorage cleanup, git remove) so a mobile
+    // removal isn't a bare git op that leaves orphaned state behind. Resolve the
+    // project + worktree from the paths and ack the result so main can fall back
+    // to a direct git remove if we don't know the worktree.
+    const unsubMobileRemoveWorktree = mobile.onRemoveWorktreeRequest(async ({ requestId, repoPath, worktreePath }) => {
+      try {
+        const projects = useProjectsStore.getState().projects
+        const project =
+          projects.find((p) => p.path === repoPath) ??
+          projects.find((p) => p.worktrees.some((w) => w.path === worktreePath))
+        const worktree = project?.worktrees.find((w) => w.path === worktreePath)
+        if (!project || !worktree) {
+          mobile.sendRemoveWorktreeResult({ requestId, ok: false, reason: 'not_found' })
+          return
+        }
+        await useProjectsStore.getState().removeWorktree(project.id, worktree.id)
+        mobile.sendRemoveWorktreeResult({ requestId, ok: true })
+      } catch (err) {
+        console.error('[Braid] mobile removeWorktree failed:', err)
+        mobile.sendRemoveWorktreeResult({
+          requestId,
+          ok: false,
+          reason: err instanceof Error ? err.message : 'renderer_removal_failed',
+        })
+      }
+    })
+
+    const unsubMobileCreateWorktree = mobile.onCreateWorktreeRequest(async ({ requestId, repoPath, branch, baseBranch }) => {
+      try {
+        const project = useProjectsStore.getState().projects.find((p) => p.path === repoPath)
+        if (!project) {
+          mobile.sendCreateWorktreeResult({ requestId, ok: false, reason: 'not_found' })
+          return
+        }
+        // Run the desktop's full add flow (mints the stable worktree id, honors
+        // the configured storage path via the git IPC handler, refreshes the
+        // sidebar). select:false so a remote create never steals the desktop's
+        // current worktree selection.
+        await useProjectsStore.getState().addWorktree(project.id, branch, baseBranch, undefined, { select: false })
+        mobile.sendCreateWorktreeResult({ requestId, ok: true })
+      } catch (err) {
+        console.error('[Braid] mobile addWorktree failed:', err)
+        mobile.sendCreateWorktreeResult({
+          requestId,
+          ok: false,
+          reason: err instanceof Error ? err.message : 'renderer_creation_failed',
+        })
+      }
+    })
+
     // Keep dock badge in sync with sessions + big terminal agents needing attention
     const computeBadge = () => {
       const sessionCount = Object.values(useSessionsStore.getState().sessions)
@@ -221,6 +273,8 @@ export default function App() {
       unsubRemoteBigTerminal()
       unsubBigTerminalRenamed()
       unsubBigTerminalClosed()
+      unsubMobileRemoveWorktree()
+      unsubMobileCreateWorktree()
       unsubBadge()
       unsubTerminalBadge()
     }

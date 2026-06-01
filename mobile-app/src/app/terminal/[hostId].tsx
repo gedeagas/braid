@@ -3,6 +3,7 @@ import { Check, ChevronLeft, ChevronsRight, Command, GitBranch, Keyboard as Keyb
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { TerminalWebView, TERMINAL_THEMES, type TerminalWebViewHandle } from '@/terminal/TerminalWebView';
@@ -559,6 +560,14 @@ export default function TerminalScreen() {
     if (!client || !active || !data || !canSend) return;
     await client.request('terminal.write', { ptyId: active.id, data });
   };
+
+  // The terminal WebView emits the selected text when the user taps "Copy" in
+  // the selection menu; push it to the system clipboard so it can be pasted
+  // into other apps. Without this handler the extracted text goes nowhere.
+  const handleSelectionCopy = useCallback((text: string) => {
+    if (!text) return;
+    Clipboard.setStringAsync(text).catch(() => undefined);
+  }, []);
 
   const submit = async () => {
     // Behave like pressing Enter: send the typed text (if any), then the
@@ -1202,6 +1211,7 @@ export default function TerminalScreen() {
               if (active && initializedKeyRef.current !== active.id) void openTerminal(active);
             }}
             onTerminalInput={writeBytes}
+            onSelectionCopy={handleSelectionCopy}
           />
         </View>
 

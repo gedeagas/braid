@@ -16,6 +16,8 @@ import { getMobileDisplayMode, resetMobileDisplayMode, setMobileDisplayMode, typ
 import { getTerminalActivity } from './terminalActivity'
 import { getKnownBigTerminals, hasKnownBigTerminals } from './knownBigTerminals'
 import { broadcastMobileNotification } from './broadcast'
+import { createWorktreeViaDesktop } from './worktreeCreation'
+import { removeWorktreeViaDesktop } from './worktreeRemoval'
 import type {
   JsonRpcRequest,
   JsonRpcResponse,
@@ -122,16 +124,22 @@ register('worktrees.list', async (params) => {
 })
 
 register('worktrees.create', async (params) => {
-  await gitService.addWorktree(
+  // Route through the desktop renderer's full add flow (stable worktree-id
+  // minting, configured storage path, sidebar refresh) rather than calling git
+  // directly — see worktreeCreation.ts.
+  await createWorktreeViaDesktop(
     params.repoPath as string,
     params.branch as string,
     params.projectName as string,
-    params.baseBranch as string | undefined
+    params.baseBranch as string | undefined,
   )
 })
 
 register('worktrees.remove', async (params) => {
-  await gitService.removeWorktree(params.repoPath as string, params.worktreePath as string)
+  // Route through the desktop renderer's full teardown flow (archive script,
+  // terminal/PTY disposal, session cascade-delete, UI cleanup, then git remove)
+  // rather than calling git directly — see worktreeRemoval.ts.
+  await removeWorktreeViaDesktop(params.repoPath as string, params.worktreePath as string)
 })
 
 // ── Sessions ──────────────────────────────────────────────────────────────────

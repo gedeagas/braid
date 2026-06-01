@@ -1745,9 +1745,10 @@ const XTERM_HTML = `<!DOCTYPE html>
     var text = term.getSelection ? term.getSelection() : '';
     if (text && text.length > 0) {
       notify({ type: 'selection', text: text });
-    } else {
-      cancelSelect();
     }
+    // Dismiss the selection menu/handles after copying (or when there is
+    // nothing selected), matching native copy behavior.
+    cancelSelect();
   });
 
   btnSelAll.addEventListener('click', function(e) {

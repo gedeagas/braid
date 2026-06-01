@@ -137,7 +137,7 @@ interface ProjectsState {
   addProject: (path: string) => Promise<void>
   removeProject: (id: string) => void
   refreshWorktrees: (projectId: string) => Promise<void>
-  addWorktree: (projectId: string, branch: string, baseBranch?: string, filesToCopy?: string[]) => Promise<Worktree | null>
+  addWorktree: (projectId: string, branch: string, baseBranch?: string, filesToCopy?: string[], options?: { select?: boolean }) => Promise<Worktree | null>
   removeWorktree: (projectId: string, worktreeId: string) => Promise<void>
   updateProjectSettings: (projectId: string, settings: Partial<ProjectSettings>) => Promise<void>
 }
@@ -327,9 +327,13 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     return refreshPromise
   },
 
-  addWorktree: async (projectId: string, branch: string, baseBranch?: string, filesToCopy?: string[]) => {
+  addWorktree: async (projectId: string, branch: string, baseBranch?: string, filesToCopy?: string[], options?: { select?: boolean }) => {
     const project = get().projects.find((p) => p.id === projectId)
     if (!project) return null
+    // Desktop "Add worktree" selects the new worktree (and auto-runs its setup
+    // script once its SetupPanel mounts). A mobile-initiated create must not
+    // steal the desktop user's current selection, so it opts out via select:false.
+    const select = options?.select ?? true
 
     const oldIds = new Set(project.worktrees.map((w) => w.id))
     await ipc.git.addWorktree(project.path, branch, project.name, baseBranch)
@@ -354,17 +358,21 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
         }
       }
 
-      // Select the new worktree so SetupPanel mounts for it
-      ui.selectWorktree(projectId, newWt.id)
+      // Select the new worktree so SetupPanel mounts for it, then auto-run its
+      // setup script. Both are skipped for remote (mobile) creates so they never
+      // hijack the desktop user's view or spawn setup terminals unprompted.
+      if (select) {
+        ui.selectWorktree(projectId, newWt.id)
 
-      // Auto-run setup script in the Setup panel
-      const setupScript = updated?.settings?.setupScript?.trim()
-      if (setupScript) {
-        const commands = setupScript.split('\n').filter((line) => line.trim())
-        // Defer so SetupPanel has time to mount and subscribe
-        setTimeout(() => {
-          useUIStore.getState().setPendingSetupRun({ worktreePath: newWt.path, commands })
-        }, 100)
+        // Auto-run setup script in the Setup panel
+        const setupScript = updated?.settings?.setupScript?.trim()
+        if (setupScript) {
+          const commands = setupScript.split('\n').filter((line) => line.trim())
+          // Defer so SetupPanel has time to mount and subscribe
+          setTimeout(() => {
+            useUIStore.getState().setPendingSetupRun({ worktreePath: newWt.path, commands })
+          }, 100)
+        }
       }
     }
 

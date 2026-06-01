@@ -159,10 +159,25 @@ export default function HostScreen() {
         text: 'Remove',
         style: 'destructive',
         onPress: () => {
+          // Optimistically drop the row so it disappears instantly (mirrors the
+          // desktop). The RPC now resolves only after the desktop's full teardown
+          // (which may run an archive script first), so without this the row would
+          // sit there with no feedback for the whole teardown. refreshNow()
+          // reconciles on success; on failure we restore via refreshNow() too.
+          setProjects((prev) =>
+            prev.map((p) =>
+              p.id === project.id
+                ? { ...p, worktrees: (p.worktrees ?? []).filter((w) => w.path !== worktree.path) }
+                : p
+            )
+          );
           void client
             .request('worktrees.remove', { repoPath: project.path, worktreePath: worktree.path })
             .then(() => refreshNow())
-            .catch((err) => setError(err instanceof Error ? err.message : String(err)));
+            .catch((err) => {
+              setError(err instanceof Error ? err.message : String(err));
+              void refreshNow();
+            });
         },
       },
     ]);

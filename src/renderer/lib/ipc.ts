@@ -357,6 +357,16 @@ export const mobile = {
   generatePairingOffer: () => api().mobile.generatePairingOffer(),
   getDevices: () => api().mobile.getDevices(),
   removeDevice: (deviceId: string) => api().mobile.removeDevice(deviceId),
+  onRemoveWorktreeRequest: (
+    callback: (req: { requestId: string; repoPath: string; worktreePath: string }) => void
+  ) => api().mobile.onRemoveWorktreeRequest(callback),
+  sendRemoveWorktreeResult: (result: { requestId: string; ok: boolean; reason?: string }) =>
+    api().mobile.sendRemoveWorktreeResult(result),
+  onCreateWorktreeRequest: (
+    callback: (req: { requestId: string; repoPath: string; branch: string; baseBranch?: string }) => void
+  ) => api().mobile.onCreateWorktreeRequest(callback),
+  sendCreateWorktreeResult: (result: { requestId: string; ok: boolean; reason?: string }) =>
+    api().mobile.sendCreateWorktreeResult(result),
 }
 
 export const notes = {
