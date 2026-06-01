@@ -8,6 +8,7 @@ import { join } from 'path'
 import { homedir } from 'os'
 import { findBinary, buildEnrichedPath } from './helpers'
 import { resolveConfigs, findInstallCandidate } from './detect'
+import { refreshEnrichedEnv } from '../../lib/enrichedEnv'
 import type { LspServerConfig } from './types'
 
 export async function installServer(
@@ -59,6 +60,7 @@ export async function installServer(
     })
   })
 
+  await refreshEnrichedEnv()
   return { newEnrichedPath: buildEnrichedPath() }
 }
 

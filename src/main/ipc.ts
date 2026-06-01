@@ -28,6 +28,7 @@ import { jiraService } from './services/jira'
 import { githubAuthService } from './services/githubAuth'
 import { resolveCliPath } from './services/claudePath'
 import { enrichedEnv } from './lib/enrichedEnv'
+import { toolInstaller } from './services/toolInstaller'
 import { downloadUpdate, installUpdate, checkForUpdates } from './services/autoUpdate'
 import { ClaudeUsageStore } from './services/claudeUsage'
 import type { ClaudeUsageScope, ClaudeUsageRange, ClaudeUsageBreakdownKind } from '../shared/claude-usage-types'
@@ -285,8 +286,8 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('jira:getIssuesForBranch', (_e, worktreePath: string, overrideBaseUrl?: string, forceRefresh?: boolean) =>
     jiraService.getIssuesForBranch(worktreePath, overrideBaseUrl, forceRefresh)
   )
-  ipcMain.handle('jira:getIssueByKey', (_e, key: string, overrideBaseUrl?: string, forceRefresh?: boolean) =>
-    jiraService.getIssueByKey(key, overrideBaseUrl, forceRefresh)
+  ipcMain.handle('jira:getIssueByKey', (_e, key: string, overrideBaseUrl?: string, forceRefresh?: boolean, includeContext?: boolean) =>
+    jiraService.getIssueByKey(key, overrideBaseUrl, forceRefresh, includeContext)
   )
   ipcMain.handle('jira:invalidateCache', (_e, key?: string) => jiraService.invalidateCache(key))
 
@@ -301,63 +302,18 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('shell:openExternal', (_e, url: string) => shell.openExternal(url))
   ipcMain.handle('shell:showItemInFolder', (_e, fullPath: string) => shell.showItemInFolder(fullPath))
 
-  // Uses the enriched PATH (hydrated once at startup from the user's login shell)
-  // so we can run bare `which` without spawning a login shell per check.
-  ipcMain.handle('shell:checkTool', (_e, tool: string) => {
-    if (!/^[a-zA-Z0-9-]+$/.test(tool)) return false
-    return new Promise<boolean>((resolve) => {
-      execFile('which', [tool], { timeout: 3000, env: enrichedEnv() }, (err, stdout) => {
-        // Verify output is an absolute path - filters out shell builtins
-        // like "continue: shell built-in command" which exit 0 but aren't real CLIs
-        const found = !err && stdout.split(/\r?\n/).some((line) => line.trim().startsWith('/'))
-        if (found) console.log('[checkTool] %s -> %s', tool, stdout.trim())
-        resolve(found)
-      })
-    })
-  })
+  // Uses the shared installer service so every CLI probe waits for PATH hydration.
+  ipcMain.handle('shell:checkTool', (_e, tool: string) => toolInstaller.checkCommand(tool))
 
-  ipcMain.handle('shell:checkGhAuth', () => {
+  ipcMain.handle('shell:checkGhAuth', async () => {
+    if (!(await toolInstaller.checkCommand('gh'))) return false
     return new Promise<boolean>((resolve) => {
       execFile('gh', ['auth', 'status'], { timeout: 8000, env: enrichedEnv() }, (err) => resolve(!err))
     })
   })
 
-  // Runs a known install command for a given check key via the user's login shell.
-  // Returns { success: boolean } — success means the command exited 0.
-  // The renderer re-checks the tool immediately after regardless of the result.
-  ipcMain.handle('shell:installTool', (_e, key: string) => {
-    const userShell = process.env.SHELL || defaultUserShell()
-
-    // For brew-based tools: bail early if brew isn't present so the UI
-    // surfaces the docs link instead of leaving the user stuck in a retry loop.
-    const brewInstalls: Record<string, string> = { gh: 'gh', mobilecli: 'nicklama/tap/mobilecli' }
-    if (key in brewInstalls) {
-      if (process.platform !== 'darwin') return { success: false }
-      const formula = brewInstalls[key]
-      return new Promise<{ success: boolean }>((resolve) => {
-        execFile(userShell, shellArgs(userShell, `which brew > /dev/null 2>&1 && brew install ${formula}`), { timeout: 180_000 }, (err) => resolve({ success: !err }))
-      })
-    }
-
-    const cmds: Record<string, string> = {
-      // Official Claude Code installer — handles PATH setup, shell completions, etc.
-      claude: 'curl -fsSL https://claude.ai/install.sh | bash',
-      acli: 'npm install -g @atlassian/acli',
-    }
-    if (process.platform === 'darwin') {
-      cmds.git = 'xcode-select --install'
-    }
-
-    // gh auth is now handled via Device Flow (github:startDeviceFlow IPC)
-    if (key === 'ghAuth') return { success: false }
-
-    const cmd = cmds[key]
-    if (!cmd) return { success: false }
-    const timeout = 180_000
-    return new Promise<{ success: boolean }>((resolve) => {
-      execFile(userShell, shellArgs(userShell, cmd), { timeout }, (err) => resolve({ success: !err }))
-    })
-  })
+  // Runs a known installer and returns a typed result with failure reason.
+  ipcMain.handle('shell:installTool', (_e, key: string, options?: import('../shared/tool-install').ToolInstallOptions) => toolInstaller.install(key, options))
 
   // Re-authenticate with Claude Code CLI (OAuth flow — opens browser)
   ipcMain.handle('agent:reAuth', () => {

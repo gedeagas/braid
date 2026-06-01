@@ -178,6 +178,13 @@
     "checking": "检查中...",
     "upToDate": "Braid 已是最新版本"
   },
+  "adminInstall": {
+    "title": "安装 {{tool}}",
+    "body": "Braid 会将 {{tool}} 安装到 <code>{{path}}</code>，以便所有 shell 和外部应用都能找到它。",
+    "note": "写入此系统位置前，macOS 会要求输入管理员密码。",
+    "cancel": "取消",
+    "continue": "继续"
+  },
   "tour": {
     "next": "下一步",
     "back": "上一步",

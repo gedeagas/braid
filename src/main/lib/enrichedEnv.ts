@@ -91,11 +91,21 @@ function probe(): Promise<void> {
 }
 
 // Kick off immediately so it's settled before first real CLI use.
-const _ready = probe()
+let ready = probe()
 
 /** Await this before the first CLI invocation to guarantee the probe has settled. */
 export function waitForEnrichedEnv(): Promise<void> {
-  return _ready
+  return ready
+}
+
+/**
+ * Re-run the shell PATH probe after an installer mutates shell config or adds
+ * a new global bin directory. Existing segments are kept and new segments are
+ * prepended by probe().
+ */
+export function refreshEnrichedEnv(): Promise<void> {
+  ready = probe()
+  return ready
 }
 
 /** Returns process.env (PATH is already mutated in-place by hydration). */

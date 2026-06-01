@@ -57,6 +57,7 @@ export const CenterPanel = memo(function CenterPanel() {
     return s.bigTerminalsByWorktree[selectedWorktreeId]?.find((t) => t.id === activeTerminalId)
   })
   const initialCommand = activeTerminalTab?.initialCommand
+  const initialInput = activeTerminalTab?.initialInput
   const terminalAgentId = activeTerminalTab?.agentId
   const hasNoTabs = sessionsLoaded && sessions.length === 0 && openFilePaths.length === 0 && !changesOpen && !hasBigTerminals && !showCodeReview
 
@@ -144,6 +145,7 @@ export const CenterPanel = memo(function CenterPanel() {
                 terminalId={activeCenterView.terminalId}
                 worktreePath={worktree?.path ?? ''}
                 initialCommand={initialCommand}
+                initialInput={initialInput}
                 agentId={terminalAgentId}
               />
             ) : showCodeReview ? (

@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, webFrame, webUtils } from 'electron'
 import type { TemplateKind, CreateTemplateArgs, CreateTemplateResult, TemplateLogEntry } from '../shared/templates'
+import type { ToolInstallKey, ToolInstallOptions, ToolInstallResult } from '../shared/tool-install'
 
 const api = {
   // Storage
@@ -255,8 +256,8 @@ const api = {
     recheckAvailability: () => ipcRenderer.invoke('jira:recheckAvailability') as Promise<boolean>,
     getIssuesForBranch: (worktreePath: string, overrideBaseUrl?: string, forceRefresh?: boolean) =>
       ipcRenderer.invoke('jira:getIssuesForBranch', worktreePath, overrideBaseUrl, forceRefresh),
-    getIssueByKey: (key: string, overrideBaseUrl?: string, forceRefresh?: boolean) =>
-      ipcRenderer.invoke('jira:getIssueByKey', key, overrideBaseUrl, forceRefresh),
+    getIssueByKey: (key: string, overrideBaseUrl?: string, forceRefresh?: boolean, includeContext?: boolean) =>
+      ipcRenderer.invoke('jira:getIssueByKey', key, overrideBaseUrl, forceRefresh, includeContext),
     invalidateCache: (key?: string) => ipcRenderer.invoke('jira:invalidateCache', key),
   },
 
@@ -278,7 +279,8 @@ const api = {
     openInApp: (appId: string, targetPath: string) => ipcRenderer.invoke('shell:openInApp', appId, targetPath),
     checkTool: (tool: string) => ipcRenderer.invoke('shell:checkTool', tool) as Promise<boolean>,
     checkGhAuth: () => ipcRenderer.invoke('shell:checkGhAuth') as Promise<boolean>,
-    installTool: (key: string) => ipcRenderer.invoke('shell:installTool', key) as Promise<{ success: boolean }>,
+    installTool: (key: ToolInstallKey, options?: ToolInstallOptions) =>
+      ipcRenderer.invoke('shell:installTool', key, options) as Promise<ToolInstallResult>,
   },
 
   // Files

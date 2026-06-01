@@ -204,13 +204,51 @@ export interface DiffComment {
 export interface JiraIssue {
   key: string
   summary: string
+  description: string | null
+  acceptanceCriteria: string | null
   /** Human-readable status name, e.g. "In Progress" */
   status: string
   /** Jira status category key: new = to-do, indeterminate = in-progress, done = done */
   statusCategory: 'new' | 'indeterminate' | 'done'
   type: string
   assignee: string | null
+  priority: string | null
+  labels: string[]
+  components: string[]
+  parent: JiraIssueReference | null
+  epic: JiraIssueReference | null
+  comments: JiraComment[]
+  linkedIssues: JiraLinkedIssue[]
+  attachments: JiraAttachment[]
   url: string
+}
+
+export interface JiraIssueReference {
+  key: string
+  summary: string
+  url: string
+}
+
+export interface JiraComment {
+  author: string | null
+  body: string
+  created: string | null
+}
+
+export interface JiraLinkedIssue {
+  key: string
+  summary: string
+  status: string | null
+  relationship: string
+  url: string
+}
+
+export interface JiraAttachment {
+  filename: string
+  url: string
+  author: string | null
+  mimeType: string | null
+  size: number | null
 }
 
 export interface JiraResult {

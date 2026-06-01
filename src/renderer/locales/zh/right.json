@@ -236,7 +236,7 @@
   "simulatorCliMissingHint": "需要一个小工具来将模拟器屏幕串流到 Braid。",
   "simulatorCliInstall": "立即设置",
   "simulatorCliInstalling": "设置中…",
-  "simulatorCliNeedsBrew": "自动设置需要 Homebrew。请先安装 Homebrew，然后重试。",
+  "simulatorCliNeedsNode": "自动设置需要 Node.js（npm）。请先安装 Node.js，然后重试。",
   "simulatorCliManualLinux": "Linux 不支持自动设置。请手动安装 mobilecli，然后刷新。",
   "simulatorCliManual": "手动设置指南",
   "simulatorStreamError": "设备屏幕捕获失败",

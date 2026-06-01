@@ -213,7 +213,8 @@ export const shell = {
   openInApp: (appId: string, targetPath: string) => api().shell.openInApp(appId, targetPath),
   checkTool: (tool: string) => api().shell.checkTool(tool),
   checkGhAuth: () => api().shell.checkGhAuth(),
-  installTool: (key: string) => api().shell.installTool(key),
+  installTool: (key: import('@shared/tool-install').ToolInstallKey, options?: import('@shared/tool-install').ToolInstallOptions) =>
+    api().shell.installTool(key, options) as Promise<import('@shared/tool-install').ToolInstallResult>,
 }
 
 export const scripts = {
@@ -346,8 +347,8 @@ export const jira = {
   recheckAvailability: () => api().jira.recheckAvailability() as Promise<boolean>,
   getIssuesForBranch: (worktreePath: string, overrideBaseUrl?: string, forceRefresh?: boolean) =>
     api().jira.getIssuesForBranch(worktreePath, overrideBaseUrl, forceRefresh) as Promise<import('@/types').JiraResult>,
-  getIssueByKey: (key: string, overrideBaseUrl?: string, forceRefresh?: boolean) =>
-    api().jira.getIssueByKey(key, overrideBaseUrl, forceRefresh) as Promise<import('@/types').JiraIssue | null>,
+  getIssueByKey: (key: string, overrideBaseUrl?: string, forceRefresh?: boolean, includeContext?: boolean) =>
+    api().jira.getIssueByKey(key, overrideBaseUrl, forceRefresh, includeContext) as Promise<import('@/types').JiraIssue | null>,
   invalidateCache: (key?: string) => api().jira.invalidateCache(key) as Promise<void>,
 }
 

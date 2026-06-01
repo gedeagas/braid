@@ -10,6 +10,8 @@ export interface BigTerminalTab {
   label: string
   /** Command to auto-run when the PTY first spawns (e.g. "claude"). Not re-run on restore. */
   initialCommand?: string
+  /** Initial text to paste into the freshly launched agent. Not persisted or restored. */
+  initialInput?: string
   /** Agent catalog id (e.g. 'claude', 'codex', 'gemini'). Used for icon rendering and tab persistence. */
   agentId?: string
 }
@@ -45,7 +47,12 @@ function loadBigTerminalsFor(worktreeId: string): BigTerminalTab[] {
 
 function saveBigTerminalsFor(worktreeId: string, tabs: BigTerminalTab[]): void {
   try {
-    localStorage.setItem(SK.bigTerminalTabsPrefix + worktreeId, JSON.stringify(tabs))
+    const persisted = tabs.map((tab) => ({
+      id: tab.id,
+      label: tab.label,
+      ...(tab.agentId ? { agentId: tab.agentId } : {}),
+    }))
+    localStorage.setItem(SK.bigTerminalTabsPrefix + worktreeId, JSON.stringify(persisted))
   } catch {}
 }
 
@@ -79,7 +86,7 @@ export interface TerminalsSlice {
   bigTerminalsByWorktree: Record<string, BigTerminalTab[]>
   /** In-memory agent status map with full entry (not persisted). Keyed by terminalId. */
   bigTerminalStatusById: Record<string, AgentStatusEntry>
-  createBigTerminal: (worktreeId: string, label?: string, initialCommand?: string, agentId?: string) => string
+  createBigTerminal: (worktreeId: string, label?: string, initialCommand?: string, agentId?: string, initialInput?: string) => string
   renameBigTerminal: (worktreeId: string, id: string, label: string) => void
   closeBigTerminal: (worktreeId: string, id: string) => void
   reorderBigTerminals: (worktreeId: string, fromIndex: number, toIndex: number) => void
@@ -96,7 +103,7 @@ export const createTerminalsSlice: StateCreator<UIState, [], [], TerminalsSlice>
   bigTerminalsByWorktree: loadInitial(),
   bigTerminalStatusById: {},
 
-  createBigTerminal: (worktreeId, label, initialCommand, agentId) => {
+  createBigTerminal: (worktreeId, label, initialCommand, agentId, initialInput) => {
     const id = nextBigTerminalId()
     let createdTab: BigTerminalTab | null = null
     set((s) => {
@@ -108,6 +115,7 @@ export const createTerminalsSlice: StateCreator<UIState, [], [], TerminalsSlice>
       const nextLabel = label ?? `Terminal ${maxNum + 1}`
       const tab: BigTerminalTab = { id, label: nextLabel }
       if (initialCommand) tab.initialCommand = initialCommand
+      if (initialInput) tab.initialInput = initialInput
       if (agentId) tab.agentId = agentId
       createdTab = tab
       const next = [...existing, tab]

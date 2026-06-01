@@ -13,9 +13,11 @@ interface Props {
   onResolved: (issue: JiraIssue, branch: string, validationError: string | null) => void
   /** Called when lookup fails */
   onError: (error: string) => void
+  /** Called when the input is cleared so parent state can discard stale ticket context */
+  onCleared?: () => void
 }
 
-export function JiraLookupField({ disabled, branchPrefix, jiraBaseUrl, onResolved, onError }: Props) {
+export function JiraLookupField({ disabled, branchPrefix, jiraBaseUrl, onResolved, onError, onCleared }: Props) {
   const { t } = useTranslation('sidebar')
 
   const [input, setInput] = useState('')
@@ -33,7 +35,12 @@ export function JiraLookupField({ disabled, branchPrefix, jiraBaseUrl, onResolve
   const handleLookup = useCallback(async (raw: string) => {
     const key = extractJiraKey(raw)
     if (!key) {
-      if (raw.trim()) { setError(t('jiraInvalidInput')); onError(t('jiraInvalidInput')) }
+      if (raw.trim()) {
+        setIssue(null)
+        resolvedKeyRef.current = null
+        setError(t('jiraInvalidInput'))
+        onError(t('jiraInvalidInput'))
+      }
       return
     }
     if (resolvedKeyRef.current === key) return
@@ -45,7 +52,7 @@ export function JiraLookupField({ disabled, branchPrefix, jiraBaseUrl, onResolve
     setIssue(null)
 
     try {
-      const result = await ipc.jira.getIssueByKey(key, jiraBaseUrl || undefined)
+      const result = await ipc.jira.getIssueByKey(key, jiraBaseUrl || undefined, undefined, true)
       if (id !== lookupIdRef.current) return
       inflightRef.current = false
       setLoading(false)
@@ -77,6 +84,7 @@ export function JiraLookupField({ disabled, branchPrefix, jiraBaseUrl, onResolve
       setIssue(null)
       setError('')
       resolvedKeyRef.current = null
+      onCleared?.()
     }
   }
 

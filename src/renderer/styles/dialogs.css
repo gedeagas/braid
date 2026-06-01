@@ -65,6 +65,28 @@
   margin-top: var(--space-16);
 }
 
+.admin-install-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+  color: var(--text-secondary);
+  font-size: var(--text-md);
+  line-height: 1.5;
+}
+
+.admin-install-dialog p {
+  margin: 0;
+}
+
+.admin-install-dialog code {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-5);
+  font-size: var(--text-sm);
+}
+
 /* Dialog tab switcher */
 .dialog-tabs {
   display: flex;
@@ -650,6 +672,59 @@
   margin-top: var(--space-4);
   color: var(--text-tertiary);
   font-size: var(--text-2xs);
+}
+
+.jira-start-agent-option {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin-top: calc(-1 * var(--space-2));
+  padding: var(--space-2) 0 var(--space-4);
+}
+
+.jira-agent-picker {
+  display: grid;
+  grid-template-columns: auto minmax(180px, 1fr);
+  align-items: center;
+  gap: var(--space-8);
+  padding-left: 22px;
+}
+
+.jira-agent-picker__label,
+.jira-agent-picker__empty {
+  font-size: var(--text-base);
+  color: var(--text-tertiary);
+}
+
+.jira-agent-picker__empty {
+  padding-left: 22px;
+}
+
+.jira-agent-combobox {
+  min-width: 0;
+}
+
+.jira-agent-combobox__trigger {
+  width: 100%;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: 0 var(--space-8);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.jira-agent-combobox__value {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Empty state */

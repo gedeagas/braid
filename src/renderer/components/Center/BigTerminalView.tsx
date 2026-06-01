@@ -13,10 +13,11 @@ interface Props {
   terminalId: string
   worktreePath: string
   initialCommand?: string
+  initialInput?: string
   agentId?: string
 }
 
-export function BigTerminalView({ terminalId, worktreePath, initialCommand, agentId }: Props) {
+export function BigTerminalView({ terminalId, worktreePath, initialCommand, initialInput, agentId }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const entryRef = useRef<BigTermEntry | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -46,7 +47,7 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, agen
     // Clear container of any stale children (safety net for tab switch).
     while (el.firstChild) el.removeChild(el.firstChild)
 
-    const entry = getOrCreate(terminalId, worktreePath, initialCommand, agentId)
+    const entry = getOrCreate(terminalId, worktreePath, initialCommand, agentId, initialInput)
     entryRef.current = entry
 
     // Attach xterm to DOM (open on first mount, re-append on remount).

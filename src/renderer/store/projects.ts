@@ -122,7 +122,7 @@ interface ProjectsState {
   addProject: (path: string) => Promise<void>
   removeProject: (id: string) => void
   refreshWorktrees: (projectId: string) => Promise<void>
-  addWorktree: (projectId: string, branch: string, baseBranch?: string, filesToCopy?: string[]) => Promise<void>
+  addWorktree: (projectId: string, branch: string, baseBranch?: string, filesToCopy?: string[]) => Promise<Worktree | null>
   removeWorktree: (projectId: string, worktreeId: string) => Promise<void>
   updateProjectSettings: (projectId: string, settings: Partial<ProjectSettings>) => Promise<void>
 }
@@ -314,7 +314,7 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
 
   addWorktree: async (projectId: string, branch: string, baseBranch?: string, filesToCopy?: string[]) => {
     const project = get().projects.find((p) => p.id === projectId)
-    if (!project) return
+    if (!project) return null
 
     const oldIds = new Set(project.worktrees.map((w) => w.id))
     await ipc.git.addWorktree(project.path, branch, project.name, baseBranch)
@@ -352,6 +352,8 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
         }, 100)
       }
     }
+
+    return newWt ?? null
   },
 
   removeWorktree: async (projectId: string, worktreeId: string) => {
