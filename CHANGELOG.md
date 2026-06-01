@@ -5,6 +5,28 @@ All notable changes to Braid are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [26.2.6] - 2026-06-01
+
+### Added
+
+- enrich issue context for agent-assisted task tracking (#118)
+- centralize worktree refresh with resource-level pub/sub (#111)
+
+### Other
+
+- Centralize tool installation with typed results and prerequisite checks (#117)
+- Harden terminal scrollback settings sync (#115)
+- Polish right panel UI and terminal scrollback (#114)
+- Add Linux runtime guards (#113)
+- Fix Claude rate-limit CLI path bundling (#112)
+- Add sandboxed HTML file preview (#110)
+
+### Contributors
+
+Thanks to [@gedeagas](https://github.com/gedeagas) for their contributions to this release!
+
+---
+
 ## [26.2.5] - 2026-05-28
 
 ### Added
