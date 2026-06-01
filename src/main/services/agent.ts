@@ -11,6 +11,20 @@ import { enrichedEnv } from '../lib/enrichedEnv'
 /** Metadata cached in the coordinator (no cross-process call needed). */
 interface SessionMeta { sessionName: string; cwd: string; branch: string; projectName: string }
 
+/** Notification payload pushed to paired mobile devices. */
+export interface MobileNotification {
+  sessionId: string
+  type: 'done' | 'error' | 'waiting_input'
+  title: string
+  body: string
+  /** Worktree path the agent is running in — used for mobile deep-linking. */
+  worktreePath?: string
+  /** Big-terminal id when the notification originates from a terminal agent. */
+  terminalId?: string
+  branch?: string
+  projectName?: string
+}
+
 /** Resolve the current git branch for a worktree path. */
 function resolveGitBranch(cwd: string): Promise<string> {
   return new Promise((resolve) => {
@@ -37,6 +51,8 @@ class AgentCoordinator {
   private shuttingDown = false
   /** External event listeners (e.g. mobile companion server). */
   private eventListeners = new Set<(sessionId: string, event: unknown) => void>()
+  /** Mobile-bound notification listeners (mobile companion server). */
+  private notifyListeners = new Set<(notification: MobileNotification) => void>()
 
   constructor() {
     app.on('before-quit', () => {
@@ -260,23 +276,26 @@ class AgentCoordinator {
     errorMessage?: string,
     reason?: 'question' | 'plan_approval',
     branch?: string,
-    projectName?: string
+    projectName?: string,
+    worktreePath?: string,
+    terminalId?: string
   ): void {
     if (sessionName) {
       const meta = this.sessionMeta.get(sessionId)
       if (meta) {
         meta.sessionName = sessionName
+        if (worktreePath && !meta.cwd) meta.cwd = worktreePath
       } else {
         // Create ephemeral meta for terminal-originated notifications
         this.sessionMeta.set(sessionId, {
           sessionName,
-          cwd: '',
+          cwd: worktreePath ?? '',
           branch: branch ?? '',
           projectName: projectName ?? ''
         })
       }
     }
-    this.maybeNotify(sessionId, type, errorMessage, reason)
+    this.maybeNotify(sessionId, type, errorMessage, reason, terminalId)
 
     // Clean up ephemeral meta to avoid polluting uniqueProjects count
     if (!this.sessionProcesses.has(sessionId)) {
@@ -428,6 +447,12 @@ class AgentCoordinator {
     return () => { this.eventListeners.delete(callback) }
   }
 
+  /** Register a listener for mobile-bound notifications. Returns unsubscribe fn. */
+  onNotify(callback: (notification: MobileNotification) => void): () => void {
+    this.notifyListeners.add(callback)
+    return () => { this.notifyListeners.delete(callback) }
+  }
+
   private sendEvent(sessionId: string, event: unknown): void {
     const win = this.getWindow()
     if (win && !win.isDestroyed()) {
@@ -441,24 +466,12 @@ class AgentCoordinator {
     sessionId: string,
     type: 'done' | 'error' | 'waiting_input',
     errorMessage?: string,
-    reason?: 'question' | 'plan_approval'
+    reason?: 'question' | 'plan_approval',
+    terminalId?: string
   ): void {
     if (type === 'done' && !mainSettings.notifyOnDone) return
     if (type === 'error' && !mainSettings.notifyOnError) return
     if (type === 'waiting_input' && !mainSettings.notifyOnWaitingInput) return
-
-    const win = this.getWindow()
-    // For waiting_input (AI asking a question), always notify regardless of focus —
-    // the user may be looking at a different session or worktree.
-    const skipWhenFocused = type !== 'waiting_input'
-    if (skipWhenFocused && win && !win.isDestroyed() && win.isFocused()) return
-
-    if (process.platform === 'darwin' && app.dock) {
-      app.dock.bounce(type === 'waiting_input' ? 'critical' : 'informational')
-    }
-    if (win && !win.isDestroyed()) {
-      win.flashFrame(true)
-    }
 
     const meta = this.sessionMeta.get(sessionId)
     const rawName = meta?.sessionName ?? ''
@@ -491,6 +504,39 @@ class AgentCoordinator {
       error: errorMessage ? `${label}\n${errorMessage}` : label,
       waiting_input: waitingBody
     }
+
+    // Push to paired mobile devices first — unlike the desktop notification,
+    // this fires regardless of desktop window focus, since the user may be
+    // away from the desktop with only their phone.
+    if (this.notifyListeners.size > 0) {
+      const mobileEvent: MobileNotification = {
+        sessionId,
+        type,
+        title: titles[type],
+        body: bodies[type],
+        worktreePath: meta?.cwd || undefined,
+        terminalId,
+        branch: branch || undefined,
+        projectName: meta?.projectName || undefined,
+      }
+      for (const cb of this.notifyListeners) {
+        try { cb(mobileEvent) } catch { /* a listener failure must not block notify */ }
+      }
+    }
+
+    const win = this.getWindow()
+    // For waiting_input (AI asking a question), always notify regardless of focus —
+    // the user may be looking at a different session or worktree.
+    const skipWhenFocused = type !== 'waiting_input'
+    if (skipWhenFocused && win && !win.isDestroyed() && win.isFocused()) return
+
+    if (process.platform === 'darwin' && app.dock) {
+      app.dock.bounce(type === 'waiting_input' ? 'critical' : 'informational')
+    }
+    if (win && !win.isDestroyed()) {
+      win.flashFrame(true)
+    }
+
     const notification = new Notification({
       title: titles[type],
       body: bodies[type],

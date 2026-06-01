@@ -1,6 +1,6 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
-import { Activity, GitBranch, Monitor, Plus, QrCode, RefreshCw, Trash2, Wifi, WifiOff, X } from 'lucide-react-native';
+import { ChevronRight, Monitor, Plus, QrCode, RefreshCw, TerminalSquare, Wifi, X } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -12,11 +12,13 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
+import { SESSION_SCREENS_ENABLED } from '@/constants/features';
+import { useClientManager } from '@/transport/client-manager';
 import { loadHosts, removeHost, saveHosts, upsertHost } from '@/transport/host-store';
 import { type BonjourHost, matchesDiscoveredHost, mergeDiscoveredEndpoint, startBonjourBrowser } from '@/transport/bonjour';
-import { BraidRpcClient, createHostFromOffer, parsePairingPayload } from '@/transport/rpc-client';
+import { createHostFromOffer, parsePairingPayload } from '@/transport/rpc-client';
 import type { BraidSession, BraidStatus, PairedHost } from '@/transport/types';
 
 type ConnectionState = 'idle' | 'connecting' | 'online' | 'offline';
@@ -27,6 +29,8 @@ interface HostSnapshot {
   error?: string;
   status?: BraidStatus;
   sessions: BraidSession[];
+  sessionTotal: number;
+  agentTimeMs: number;
 }
 
 const COLORS = {
@@ -54,23 +58,32 @@ export default function HomeScreen() {
   const [bonjourError, setBonjourError] = useState<string | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const scannedRef = useRef(false);
+  const manager = useClientManager();
 
   const refreshHost = useCallback(async (host: PairedHost) => {
     setSnapshots((current) => ({
       ...current,
-      [host.id]: { host, state: 'connecting', sessions: current[host.id]?.sessions ?? [] },
+      [host.id]: {
+        host,
+        state: 'connecting',
+        sessions: current[host.id]?.sessions ?? [],
+        sessionTotal: current[host.id]?.sessionTotal ?? 0,
+        agentTimeMs: current[host.id]?.agentTimeMs ?? 0,
+      },
     }));
 
-    const client = new BraidRpcClient(host);
+    // Shared, app-level client - the manager owns its lifecycle and keeps the
+    // notification subscription alive, so never connect or close it here.
+    const client = manager.acquireHost(host);
     try {
-      await client.connect();
       const status = await client.request<BraidStatus>('status.get');
       const sessions = await client.request<BraidSession[]>('sessions.list');
+      const agentTimeMs = sessions.reduce((sum, session) => sum + (session.totalRunDurationMs ?? 0), 0);
       const saved = await upsertHost(host);
       setHosts(saved);
       setSnapshots((current) => ({
         ...current,
-        [host.id]: { host, state: 'online', status, sessions: sessions.slice(0, 6) },
+        [host.id]: { host, state: 'online', status, sessions: sessions.slice(0, 6), sessionTotal: sessions.length, agentTimeMs },
       }));
     } catch (error) {
       setSnapshots((current) => ({
@@ -80,12 +93,12 @@ export default function HomeScreen() {
           state: 'offline',
           error: error instanceof Error ? error.message : String(error),
           sessions: current[host.id]?.sessions ?? [],
+          sessionTotal: current[host.id]?.sessionTotal ?? 0,
+          agentTimeMs: current[host.id]?.agentTimeMs ?? 0,
         },
       }));
-    } finally {
-      client.close();
     }
-  }, []);
+  }, [manager]);
 
   const refreshAll = useCallback((items: PairedHost[]) => {
     for (const host of items) void refreshHost(host);
@@ -162,120 +175,168 @@ export default function HomeScreen() {
     setScannerOpen(true);
   };
 
-  const sortedSnapshots = useMemo(() => {
-    return hosts.map((host) => snapshots[host.id] ?? { host, state: 'idle' as const, sessions: [] });
-  }, [hosts, snapshots]);
+  const removeDesktop = useCallback((host: PairedHost) => {
+    Alert.alert('Remove desktop', `Unpair "${host.instanceName ?? host.endpoint}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          const next = await removeHost(host.id);
+          setHosts(next);
+          setSnapshots((current) => {
+            const copy = { ...current };
+            delete copy[host.id];
+            return copy;
+          });
+        },
+      },
+    ]);
+  }, []);
 
-  const activeCount = sortedSnapshots.filter((item) => item.state === 'online').length;
-  const sessionCount = sortedSnapshots.reduce((sum, item) => sum + item.sessions.length, 0);
+  const sortedSnapshots = useMemo(
+    () => hosts.map((host) => snapshots[host.id] ?? { host, state: 'idle' as const, sessions: [], sessionTotal: 0, agentTimeMs: 0 }),
+    [hosts, snapshots],
+  );
+
+  const agentsSpawned = sortedSnapshots.reduce((sum, item) => sum + item.sessionTotal, 0);
+  const agentTimeMs = sortedSnapshots.reduce((sum, item) => sum + item.agentTimeMs, 0);
+  const projectCount = sortedSnapshots.reduce((sum, item) => sum + (item.status?.projects.length ?? 0), 0);
+
+  const resume = useMemo(() => {
+    const flat = sortedSnapshots.flatMap((snapshot) =>
+      snapshot.sessions.map((session) => ({ hostId: snapshot.host.id, session })),
+    );
+    return flat.sort((a, b) => (b.session.createdAt ?? 0) - (a.session.createdAt ?? 0))[0];
+  }, [sortedSnapshots]);
+
+  const unpairedNearby = useMemo(
+    () => discoveredHosts.filter((found) => !hosts.some((host) => matchesDiscoveredHost(host, found))),
+    [discoveredHosts, hosts],
+  );
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.shell}>
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+      <ScrollView style={styles.shell} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <View>
-            <Text style={styles.eyebrow}>Braid Mobile</Text>
-            <Text style={styles.title}>Agent control from your phone</Text>
+          <View style={styles.brand}>
+            <View style={styles.brandMark} />
+            <Text style={styles.brandName}>Braid</Text>
           </View>
-          <Pressable style={styles.iconButton} onPress={() => refreshAll(hosts)} accessibilityLabel="Refresh hosts">
-            <RefreshCw color={COLORS.text} size={20} />
+          <Pressable style={styles.iconButton} onPress={() => refreshAll(hosts)} accessibilityLabel="Refresh">
+            <RefreshCw color={COLORS.muted} size={18} />
           </Pressable>
         </View>
+
+        <Text style={styles.welcome}>Welcome back</Text>
 
         <View style={styles.statsRow}>
-          <Stat icon={<Monitor color={COLORS.accent} size={18} />} label="Desktops" value={String(hosts.length)} />
-          <Stat icon={<Wifi color={COLORS.success} size={18} />} label="Online" value={String(activeCount)} />
-          <Stat icon={<Activity color={COLORS.warning} size={18} />} label="Sessions" value={String(sessionCount)} />
+          <StatCard value={String(agentsSpawned)} label="Agents spawned" />
+          <StatCard value={formatDuration(agentTimeMs)} label="Agent time" />
+          <StatCard value={String(projectCount)} label="Projects" />
         </View>
 
-        <View style={styles.actions}>
-          <Pressable style={styles.primaryButton} onPress={openScanner}>
-            <QrCode color={COLORS.text} size={18} />
-            <Text style={styles.primaryButtonText}>Scan pairing code</Text>
-          </Pressable>
-          <Pressable style={styles.secondaryButton} onPress={() => setManualOpen(true)}>
-            <Plus color={COLORS.text} size={18} />
-            <Text style={styles.secondaryButtonText}>Enter code</Text>
-          </Pressable>
-        </View>
-
-        <ScrollView style={styles.content} contentContainerStyle={styles.contentInner}>
-          {(discoveredHosts.length > 0 || bonjourError) && (
-            <View style={styles.discoveryPanel}>
-              <Text style={styles.sectionLabel}>Local desktops</Text>
-              {discoveredHosts.length === 0 ? (
-                <Text style={styles.mutedText}>{bonjourError ? 'Bonjour unavailable in this build.' : 'Searching...'}</Text>
-              ) : (
-                discoveredHosts.map((host) => {
-                  const paired = hosts.some((item) => matchesDiscoveredHost(item, host));
-                  return (
-                    <View key={host.id} style={styles.discoveryRow}>
-                      <Wifi color={paired ? COLORS.success : COLORS.muted} size={15} />
-                      <View style={styles.discoveryText}>
-                        <Text style={styles.discoveryName} numberOfLines={1}>{host.name}</Text>
-                        <Text style={styles.discoveryEndpoint} numberOfLines={1}>{paired ? host.endpoint : 'Scan pairing code to trust this desktop'}</Text>
-                      </View>
-                    </View>
-                  );
-                })
-              )}
+        <Text style={styles.sectionLabel}>Desktops</Text>
+        {sortedSnapshots.length === 0 ? (
+          <Pressable style={styles.emptyCard} onPress={openScanner}>
+            <View style={styles.iconTile}>
+              <QrCode color={COLORS.muted} size={22} />
             </View>
-          )}
-
-          {sortedSnapshots.length === 0 ? (
-            <View style={styles.empty}>
-              <QrCode color={COLORS.subtle} size={36} />
-              <Text style={styles.emptyTitle}>Pair a Braid desktop</Text>
-              <Text style={styles.emptyText}>Open Settings &gt; Mobile in Braid desktop, start the server, then scan the QR code.</Text>
+            <View style={styles.rowBody}>
+              <Text style={styles.rowTitle}>Pair a Braid desktop</Text>
+              <Text style={styles.rowSubtitle} numberOfLines={2}>
+                Open Settings &gt; Mobile on desktop, start the server, then scan the QR code.
+              </Text>
             </View>
-          ) : (
-            sortedSnapshots.map((snapshot) => (
-              <HostCard
-                key={snapshot.host.id}
-                snapshot={snapshot}
-                onOpen={() => router.push(`/host/${encodeURIComponent(snapshot.host.id)}`)}
-                onRefresh={() => refreshHost(snapshot.host)}
-                onRemove={async () => {
-                  const next = await removeHost(snapshot.host.id);
-                  setHosts(next);
-                  setSnapshots((current) => {
-                    const copy = { ...current };
-                    delete copy[snapshot.host.id];
-                    return copy;
-                  });
-                }}
+          </Pressable>
+        ) : (
+          sortedSnapshots.map((snapshot) => (
+            <RowCard
+              key={snapshot.host.id}
+              icon={<Monitor color={COLORS.muted} size={22} />}
+              title={snapshot.status?.instanceName ?? snapshot.host.instanceName ?? 'Braid desktop'}
+              dotColor={stateDotColor(snapshot.state)}
+              subtitle={desktopSubtitle(snapshot)}
+              onPress={() => router.push(`/host/${encodeURIComponent(snapshot.host.id)}`)}
+              onLongPress={() => removeDesktop(snapshot.host)}
+            />
+          ))
+        )}
+
+        {unpairedNearby.length > 0 && (
+          <>
+            <Text style={styles.sectionLabel}>Nearby</Text>
+            {unpairedNearby.map((found) => (
+              <RowCard
+                key={found.id}
+                icon={<Wifi color={COLORS.muted} size={22} />}
+                title={found.name}
+                subtitle="Tap to scan pairing code"
+                onPress={openScanner}
               />
-            ))
-          )}
-        </ScrollView>
-      </View>
+            ))}
+          </>
+        )}
+
+        {/* @deprecated SDK chat sessions are deprecated in favor of the terminal screen. */}
+        {SESSION_SCREENS_ENABLED && resume && (
+          <>
+            <Text style={styles.sectionLabel}>Resume</Text>
+            <RowCard
+              icon={<TerminalSquare color={COLORS.muted} size={22} />}
+              title={resume.session.customName || resume.session.name || 'Untitled session'}
+              dotColor={sessionDotColor(resume.session.status)}
+              subtitle={sessionSubtitle(resume.session)}
+              onPress={() => router.push({ pathname: '/session/[hostId]/[sessionId]', params: { hostId: resume.hostId, sessionId: resume.session.id } })}
+            />
+          </>
+        )}
+
+        <Text style={styles.sectionLabel}>Quick actions</Text>
+        <View style={styles.quickRow}>
+          <Pressable style={styles.quickTile} onPress={openScanner}>
+            <QrCode color={COLORS.muted} size={20} />
+            <Text style={styles.quickText}>Pair Desktop</Text>
+          </Pressable>
+          <Pressable style={styles.quickTile} onPress={() => setManualOpen(true)}>
+            <Plus color={COLORS.muted} size={20} />
+            <Text style={styles.quickText}>Enter Code</Text>
+          </Pressable>
+        </View>
+
+        {bonjourError && discoveredHosts.length === 0 && (
+          <Text style={styles.footnote}>Local discovery unavailable in this build.</Text>
+        )}
+      </ScrollView>
 
       <Modal visible={scannerOpen} animationType="slide" onRequestClose={() => setScannerOpen(false)}>
-        <View style={styles.scanner}>
-          <CameraView
-            style={StyleSheet.absoluteFill}
-            facing="back"
-            barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-            onBarcodeScanned={({ data }) => {
-              if (scannedRef.current) return;
-              scannedRef.current = true;
-              pairFromPayload(data).catch((error) => {
-                scannedRef.current = false;
-                Alert.alert('Pairing failed', error instanceof Error ? error.message : String(error));
-              });
-            }}
-          />
-          <SafeAreaView style={styles.scannerOverlay}>
-            <View style={styles.scannerHeader}>
-              <Text style={styles.scannerTitle}>Scan Braid pairing code</Text>
-              <Pressable style={styles.iconButton} onPress={() => setScannerOpen(false)} accessibilityLabel="Close scanner">
-                <X color={COLORS.text} size={20} />
-              </Pressable>
-            </View>
-            <View style={styles.scanFrame} />
-            <Text style={styles.scannerHint}>Point the camera at the QR code in desktop Settings &gt; Mobile.</Text>
-          </SafeAreaView>
-        </View>
+        <SafeAreaProvider>
+          <View style={styles.scanner}>
+            <CameraView
+              style={StyleSheet.absoluteFill}
+              facing="back"
+              barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+              onBarcodeScanned={({ data }) => {
+                if (scannedRef.current) return;
+                scannedRef.current = true;
+                pairFromPayload(data).catch((error) => {
+                  scannedRef.current = false;
+                  Alert.alert('Pairing failed', error instanceof Error ? error.message : String(error));
+                });
+              }}
+            />
+            <SafeAreaView style={styles.scannerOverlay}>
+              <View style={styles.scannerHeader}>
+                <Text style={styles.scannerTitle}>Scan Braid pairing code</Text>
+                <Pressable style={styles.iconButton} onPress={() => setScannerOpen(false)} accessibilityLabel="Close scanner">
+                  <X color={COLORS.text} size={20} />
+                </Pressable>
+              </View>
+              <View style={styles.scanFrame} />
+              <Text style={styles.scannerHint}>Point the camera at the QR code in desktop Settings &gt; Mobile.</Text>
+            </SafeAreaView>
+          </View>
+        </SafeAreaProvider>
       </Modal>
 
       <Modal visible={manualOpen} transparent animationType="fade" onRequestClose={() => setManualOpen(false)}>
@@ -313,213 +374,175 @@ export default function HomeScreen() {
   );
 }
 
-function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function StatCard({ value, label }: { value: string; label: string }) {
   return (
-    <View style={styles.stat}>
-      {icon}
-      <View>
-        <Text style={styles.statValue}>{value}</Text>
-        <Text style={styles.statLabel}>{label}</Text>
-      </View>
+    <View style={styles.statCard}>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
 }
 
-function HostCard({
-  snapshot,
-  onOpen,
-  onRefresh,
-  onRemove,
+function RowCard({
+  icon,
+  title,
+  subtitle,
+  dotColor,
+  onPress,
+  onLongPress,
 }: {
-  snapshot: HostSnapshot;
-  onOpen: () => void;
-  onRefresh: () => void;
-  onRemove: () => void;
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  dotColor?: string;
+  onPress: () => void;
+  onLongPress?: () => void;
 }) {
-  const online = snapshot.state === 'online';
   return (
-    <Pressable style={styles.card} onPress={onOpen}>
-      <View style={styles.cardHeader}>
-        <View style={styles.hostTitleRow}>
-          {online ? <Wifi color={COLORS.success} size={18} /> : <WifiOff color={COLORS.subtle} size={18} />}
-          <View style={styles.hostText}>
-            <Text style={styles.hostName}>{snapshot.status?.instanceName ?? snapshot.host.instanceName ?? 'Braid desktop'}</Text>
-            <Text style={styles.hostEndpoint}>{snapshot.host.endpoint}</Text>
-          </View>
-        </View>
-        <View style={styles.cardButtons}>
-          <Pressable style={styles.smallIconButton} onPress={onRefresh} accessibilityLabel="Refresh desktop">
-            <RefreshCw color={COLORS.text} size={16} />
-          </Pressable>
-          <Pressable style={styles.smallIconButton} onPress={onRemove} accessibilityLabel="Remove desktop">
-            <Trash2 color={COLORS.danger} size={16} />
-          </Pressable>
+    <Pressable style={styles.rowCard} onPress={onPress} onLongPress={onLongPress}>
+      <View style={styles.iconTile}>{icon}</View>
+      <View style={styles.rowBody}>
+        <Text style={styles.rowTitle} numberOfLines={1}>{title}</Text>
+        <View style={styles.rowSubtitleWrap}>
+          {dotColor && <View style={[styles.statusDot, { backgroundColor: dotColor }]} />}
+          <Text style={styles.rowSubtitle} numberOfLines={1}>{subtitle}</Text>
         </View>
       </View>
-
-      <View style={[styles.statusPill, online ? styles.statusOnline : styles.statusOffline]}>
-        <Text style={styles.statusText}>{statusLabel(snapshot)}</Text>
-      </View>
-
-      {snapshot.status && (
-        <View style={styles.projectStrip}>
-          <Text style={styles.sectionLabel}>Projects</Text>
-          {snapshot.status.projects.slice(0, 4).map((project) => (
-            <View key={project.id} style={styles.projectRow}>
-              <GitBranch color={COLORS.muted} size={14} />
-              <Text style={styles.projectName} numberOfLines={1}>{project.name}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-
-      <View style={styles.sessionStrip}>
-        <Text style={styles.sectionLabel}>Recent sessions</Text>
-        {snapshot.sessions.length === 0 ? (
-          <Text style={styles.mutedText}>No sessions loaded.</Text>
-        ) : (
-          snapshot.sessions.map((session) => (
-            <View key={session.id} style={styles.sessionRow}>
-              <View style={styles.sessionDot} />
-              <View style={styles.sessionText}>
-                <Text style={styles.sessionName} numberOfLines={1}>{session.customName || session.name || 'Untitled session'}</Text>
-                <Text style={styles.sessionMeta} numberOfLines={1}>
-                  {[session.status, session.model, session.messageCount ? `${session.messageCount} messages` : null].filter(Boolean).join(' · ')}
-                </Text>
-              </View>
-            </View>
-          ))
-        )}
-      </View>
+      <ChevronRight color={COLORS.subtle} size={20} />
     </Pressable>
   );
 }
 
-function statusLabel(snapshot: HostSnapshot): string {
-  if (snapshot.state === 'connecting') return 'Connecting';
-  if (snapshot.state === 'online') return `Connected · Braid ${snapshot.status?.version ?? ''}`.trim();
+function formatDuration(ms: number): string {
+  const minutes = Math.round(ms / 60000);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ${minutes % 60}m`;
+}
+
+function stateDotColor(state: ConnectionState): string {
+  if (state === 'online') return COLORS.success;
+  if (state === 'connecting') return COLORS.warning;
+  if (state === 'offline') return COLORS.danger;
+  return COLORS.subtle;
+}
+
+function sessionDotColor(status?: string): string {
+  const value = (status ?? '').toLowerCase();
+  if (value.includes('run') || value.includes('work') || value.includes('active')) return COLORS.accent;
+  if (value.includes('done') || value.includes('complete') || value.includes('idle')) return COLORS.success;
+  if (value.includes('error') || value.includes('fail')) return COLORS.danger;
+  return COLORS.subtle;
+}
+
+function desktopSubtitle(snapshot: HostSnapshot): string {
+  if (snapshot.state === 'connecting') return 'Connecting...';
   if (snapshot.state === 'offline') return snapshot.error ?? 'Offline';
-  return 'Ready';
+  if (snapshot.state === 'idle') return 'Tap to connect';
+  const projects = snapshot.status?.projects.length ?? 0;
+  return ['Connected', plural(projects, 'project'), plural(snapshot.sessionTotal, 'session')].join(' · ');
+}
+
+function sessionSubtitle(session: BraidSession): string {
+  const branch = session.worktreePath ? session.worktreePath.split('/').pop() : undefined;
+  return [branch, session.model, session.status].filter(Boolean).join(' · ') || 'Session';
+}
+
+function plural(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? '' : 's'}`;
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.bg },
-  shell: { flex: 1, paddingHorizontal: 18, paddingTop: 8 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
-  eyebrow: { color: COLORS.accent, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0 },
-  title: { color: COLORS.text, fontSize: 28, fontWeight: '800', lineHeight: 34, marginTop: 4, maxWidth: 280 },
+  shell: { flex: 1 },
+  content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 48 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  brandMark: { width: 22, height: 22, borderRadius: 7, backgroundColor: COLORS.accent },
+  brandName: { color: COLORS.text, fontSize: 19, fontWeight: '800', letterSpacing: 0.2 },
   iconButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 8,
+    width: 38,
+    height: 38,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.panelStrong,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
+  welcome: { color: COLORS.text, fontSize: 30, fontWeight: '800', marginTop: 22 },
   statsRow: { flexDirection: 'row', gap: 10, marginTop: 18 },
-  stat: {
+  statCard: {
     flex: 1,
-    minHeight: 74,
-    padding: 12,
-    borderRadius: 8,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
     backgroundColor: COLORS.panel,
-    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 13,
   },
   statValue: { color: COLORS.text, fontSize: 22, fontWeight: '800' },
-  statLabel: { color: COLORS.muted, fontSize: 12, marginTop: 2 },
-  actions: { flexDirection: 'row', gap: 10, marginTop: 14 },
-  primaryButton: {
-    minHeight: 48,
+  statLabel: { color: COLORS.muted, fontSize: 12, marginTop: 5 },
+  sectionLabel: {
+    color: COLORS.subtle,
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginTop: 28,
+    marginBottom: 11,
+  },
+  rowCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    backgroundColor: COLORS.accent,
-  },
-  primaryButtonText: { color: COLORS.text, fontSize: 15, fontWeight: '800' },
-  secondaryButton: {
-    minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    backgroundColor: COLORS.panelStrong,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  secondaryButtonText: { color: COLORS.text, fontSize: 15, fontWeight: '700' },
-  content: { flex: 1, marginTop: 16 },
-  contentInner: { gap: 12, paddingBottom: 28 },
-  empty: {
-    minHeight: 260,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
+    gap: 14,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
     backgroundColor: COLORS.panel,
-    padding: 24,
+    padding: 14,
+    marginBottom: 10,
   },
-  emptyTitle: { color: COLORS.text, fontSize: 20, fontWeight: '800', marginTop: 14 },
-  emptyText: { color: COLORS.muted, fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 8 },
-  card: {
-    borderRadius: 8,
+  emptyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
     backgroundColor: COLORS.panel,
     padding: 14,
   },
-  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
-  hostTitleRow: { flex: 1, flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
-  hostText: { flex: 1, minWidth: 0 },
-  hostName: { color: COLORS.text, fontSize: 17, fontWeight: '800' },
-  hostEndpoint: { color: COLORS.muted, fontSize: 12, marginTop: 3 },
-  cardButtons: { flexDirection: 'row', gap: 8 },
-  smallIconButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
+  iconTile: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
     backgroundColor: COLORS.panelStrong,
-  },
-  statusPill: { alignSelf: 'flex-start', marginTop: 14, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
-  statusOnline: { backgroundColor: 'rgba(53, 201, 139, 0.16)' },
-  statusOffline: { backgroundColor: 'rgba(147, 155, 167, 0.14)' },
-  statusText: { color: COLORS.text, fontSize: 12, fontWeight: '700' },
-  projectStrip: { marginTop: 16, gap: 8 },
-  sectionLabel: { color: COLORS.subtle, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0 },
-  projectRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  projectName: { color: COLORS.text, fontSize: 14, flex: 1 },
-  sessionStrip: { marginTop: 16, gap: 10 },
-  mutedText: { color: COLORS.muted, fontSize: 13 },
-  sessionRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  sessionDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.accent },
-  sessionText: { flex: 1, minWidth: 0 },
-  sessionName: { color: COLORS.text, fontSize: 14, fontWeight: '700' },
-  sessionMeta: { color: COLORS.muted, fontSize: 12, marginTop: 2 },
-  discoveryPanel: {
-    borderRadius: 8,
     borderWidth: 1,
     borderColor: COLORS.border,
-    backgroundColor: COLORS.panel,
-    padding: 14,
+  },
+  rowBody: { flex: 1, minWidth: 0 },
+  rowTitle: { color: COLORS.text, fontSize: 16, fontWeight: '700' },
+  rowSubtitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 4 },
+  rowSubtitle: { color: COLORS.muted, fontSize: 13, flexShrink: 1 },
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
+  quickRow: { flexDirection: 'row', gap: 12 },
+  quickTile: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.panel,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
   },
-  discoveryRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  discoveryText: { flex: 1, minWidth: 0 },
-  discoveryName: { color: COLORS.text, fontSize: 14, fontWeight: '700' },
-  discoveryEndpoint: { color: COLORS.muted, fontSize: 12, marginTop: 2 },
+  quickText: { color: COLORS.text, fontSize: 14, fontWeight: '700' },
+  footnote: { color: COLORS.subtle, fontSize: 12, marginTop: 18, textAlign: 'center' },
   scanner: { flex: 1, backgroundColor: COLORS.bg },
   scannerOverlay: { flex: 1, justifyContent: 'space-between', padding: 18 },
   scannerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -528,19 +551,19 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     width: 260,
     height: 260,
-    borderRadius: 8,
+    borderRadius: 16,
     borderWidth: 2,
     borderColor: COLORS.accent,
     backgroundColor: 'transparent',
   },
   scannerHint: { color: COLORS.text, fontSize: 15, textAlign: 'center', marginBottom: 18 },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.68)', justifyContent: 'center', padding: 18 },
-  manualPanel: { borderRadius: 8, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.panel, padding: 16, gap: 14 },
+  manualPanel: { borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.panel, padding: 16, gap: 14 },
   manualHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   modalTitle: { color: COLORS.text, fontSize: 18, fontWeight: '800' },
   input: {
     minHeight: 128,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
     backgroundColor: COLORS.bg,
@@ -548,4 +571,15 @@ const styles = StyleSheet.create({
     padding: 12,
     textAlignVertical: 'top',
   },
+  primaryButton: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    backgroundColor: COLORS.accent,
+  },
+  primaryButtonText: { color: COLORS.text, fontSize: 15, fontWeight: '800' },
 });

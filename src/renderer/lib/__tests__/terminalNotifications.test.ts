@@ -93,7 +93,8 @@ describe('notifyTerminalStateChange', () => {
     expect(mockNotify).toHaveBeenCalledWith(
       'bt-1', 'done', 'Terminal 1',
       undefined, undefined,
-      'feature/test', 'my-app'
+      'feature/test', 'my-app',
+      '/path/wt-1', 'bt-1'
     )
   })
 

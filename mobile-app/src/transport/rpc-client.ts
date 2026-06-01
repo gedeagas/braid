@@ -22,6 +22,8 @@ export class BraidRpcClient {
   private queue: Promise<unknown> = Promise.resolve();
   private pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void }>();
   private notificationListeners = new Set<(notification: RpcNotification) => void>();
+  private closeListeners = new Set<() => void>();
+  private connecting: Promise<{ deviceId: string; instanceName: string }> | null = null;
 
   constructor(private host: PairedHost) {}
 
@@ -29,7 +31,19 @@ export class BraidRpcClient {
     if (this.ws?.readyState === WebSocket.OPEN) {
       return { deviceId: this.host.id, instanceName: this.host.instanceName ?? 'Braid' };
     }
+    // Coalesce concurrent connect() calls onto one handshake. With the shared
+    // client, the connection manager and a screen's first request() can both
+    // trigger connect at once; without this they would open duplicate sockets.
+    if (this.connecting) return this.connecting;
+    this.connecting = this.openConnection();
+    try {
+      return await this.connecting;
+    } finally {
+      this.connecting = null;
+    }
+  }
 
+  private openConnection(): Promise<{ deviceId: string; instanceName: string }> {
     const ws = new WebSocket(this.host.endpoint);
     this.ws = ws;
 
@@ -113,6 +127,17 @@ export class BraidRpcClient {
     };
   }
 
+  /**
+   * Fires when an established connection drops unexpectedly (not on manual
+   * close()). Lets the connection manager schedule a reconnect.
+   */
+  onClose(listener: () => void): () => void {
+    this.closeListeners.add(listener);
+    return () => {
+      this.closeListeners.delete(listener);
+    };
+  }
+
   async subscribe(method: string, params: Record<string, unknown> = {}): Promise<string> {
     const result = await this.request<{ subscriptionId: string }>(method, params);
     return result.subscriptionId;
@@ -192,6 +217,7 @@ export class BraidRpcClient {
   private rejectPending = () => {
     for (const pending of this.pending.values()) pending.reject(new Error('Connection closed'));
     this.pending.clear();
+    for (const listener of this.closeListeners) listener();
   };
 }
 

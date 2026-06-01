@@ -385,6 +385,36 @@ register('terminal.unsubscribe', async (params, connection) => {
   }
 })
 
+// ── Notifications ───────────────────────────────────────────────────────────
+//
+// Streams agent done/error/waiting notifications to the device so it can raise
+// a local OS notification. The payload carries deep-link hints (worktreePath +
+// terminalId) so a tap can open the exact terminal tab on mobile.
+
+register('notifications.subscribe', async (_params, connection) => {
+  const subscriptionId = `sub-${crypto.randomUUID().slice(0, 8)}`
+
+  const unsubscribe = agentService.onNotify((notification) => {
+    connection.ws.emit('rpc:notification', {
+      jsonrpc: '2.0' as const,
+      method: 'notification',
+      params: { subscriptionId, ...notification },
+    })
+  })
+
+  connection.subscriptions.set(subscriptionId, unsubscribe)
+  return { subscriptionId }
+})
+
+register('notifications.unsubscribe', async (params, connection) => {
+  const subId = params.subscriptionId as string
+  const unsub = connection.subscriptions.get(subId)
+  if (unsub) {
+    unsub()
+    connection.subscriptions.delete(subId)
+  }
+})
+
 // ── Dispatch ──────────────────────────────────────────────────────────────────
 
 /**

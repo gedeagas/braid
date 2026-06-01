@@ -17,7 +17,7 @@ function terminalLabel(terminal: BraidTerminal) {
 }
 
 export default function TerminalScreen() {
-  const { hostId, worktreePath, worktreeName } = useLocalSearchParams<{ hostId: string; worktreePath?: string; worktreeName?: string }>();
+  const { hostId, worktreePath, worktreeName, terminalId } = useLocalSearchParams<{ hostId: string; worktreePath?: string; worktreeName?: string; terminalId?: string }>();
   const { client } = useHostClient(hostId);
   const terminalRef = useRef<TerminalWebViewHandle>(null);
   const [projects, setProjects] = useState<BraidProject[]>([]);
@@ -149,7 +149,7 @@ export default function TerminalScreen() {
       })).filter((terminal) => terminal.id);
       console.log('[BraidMobile] terminal.list', { worktree: targetWorktree, list });
       setTerminals(list);
-      const next = list.find((terminal) => terminal.id === preferredId) ?? list[0] ?? null;
+      const next = list.find((terminal) => terminal.id === preferredId || terminal.terminalId === preferredId) ?? list[0] ?? null;
       setActive(next);
       if (next) {
         setSelectorsExpanded(false);
@@ -189,7 +189,9 @@ export default function TerminalScreen() {
   }, [client, creatingTerminal, openTerminal, worktree]);
 
   useEffect(() => { void loadProjects(); }, [loadProjects]);
-  useEffect(() => { void loadTerminals(worktree, active?.id); }, [worktree]); // eslint-disable-line react-hooks/exhaustive-deps
+  // On first load for a worktree, prefer the tab the notification deep-linked to
+  // (terminalId matches either the pty id or the Braid big-terminal id).
+  useEffect(() => { void loadTerminals(worktree, active?.id ?? terminalId); }, [worktree]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!client) return;

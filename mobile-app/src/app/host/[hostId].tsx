@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { SESSION_SCREENS_ENABLED } from '@/constants/features';
 import type { BraidProject, BraidSession, BraidStatus } from '@/transport/types';
 import { compatibilityVerdict } from '@/transport/protocol-version';
 import { colors, shared } from '@/ui/theme';
@@ -164,7 +165,10 @@ export default function HostScreen() {
           </View>
 
           <View style={{ flexDirection: 'row', gap: 10 }}>
-            <NavTile icon={<MessageSquare color={colors.text} size={20} />} label="Sessions" onPress={() => router.push(`/sessions/${host.id}`)} />
+            {/* @deprecated SDK chat sessions are deprecated in favor of the terminal screen. */}
+            {SESSION_SCREENS_ENABLED && (
+              <NavTile icon={<MessageSquare color={colors.text} size={20} />} label="Sessions" onPress={() => router.push(`/sessions/${host.id}`)} />
+            )}
             <NavTile icon={<Code2 color={colors.text} size={20} />} label="Git review" onPress={() => router.push(`/git/${host.id}`)} />
           </View>
           <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -173,15 +177,18 @@ export default function HostScreen() {
           </View>
           <NavTile icon={<Bell color={colors.text} size={20} />} label="Notify" onPress={enableNotifications} />
 
-          <View style={[shared.card, { gap: 10 }]}>
-            <Text style={shared.section}>Recent sessions</Text>
-            {sessions.length === 0 ? <Text style={shared.muted}>No sessions found.</Text> : sessions.map((session) => (
-              <Pressable key={session.id} onPress={() => router.push(`/session/${host.id}/${session.id}`)} style={{ paddingVertical: 8 }}>
-                <Text style={{ color: colors.text, fontWeight: '800' }}>{session.customName || session.name || 'Untitled session'}</Text>
-                <Text style={shared.muted}>{[session.status, session.model].filter(Boolean).join(' · ')}</Text>
-              </Pressable>
-            ))}
-          </View>
+          {/* @deprecated SDK chat sessions are deprecated in favor of the terminal screen. */}
+          {SESSION_SCREENS_ENABLED && (
+            <View style={[shared.card, { gap: 10 }]}>
+              <Text style={shared.section}>Recent sessions</Text>
+              {sessions.length === 0 ? <Text style={shared.muted}>No sessions found.</Text> : sessions.map((session) => (
+                <Pressable key={session.id} onPress={() => router.push(`/session/${host.id}/${session.id}`)} style={{ paddingVertical: 8 }}>
+                  <Text style={{ color: colors.text, fontWeight: '800' }}>{session.customName || session.name || 'Untitled session'}</Text>
+                  <Text style={shared.muted}>{[session.status, session.model].filter(Boolean).join(' · ')}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
         </ScrollView>
       </View>
     </SafeAreaView>

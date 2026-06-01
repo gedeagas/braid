@@ -8,6 +8,13 @@ import type { BraidSession } from '@/transport/types';
 import { colors, shared } from '@/ui/theme';
 import { useHostClient } from '@/ui/use-host-client';
 
+/**
+ * @deprecated SDK-chat session list. Braid Mobile is moving to terminal-only
+ * support; all UI entrypoints to this route are gated behind
+ * `SESSION_SCREENS_ENABLED` in `@/constants/features`. Kept for deep-link
+ * compatibility only - do not add new navigation here. Use the terminal screen
+ * (`/terminal/[hostId]`) instead.
+ */
 export default function SessionsScreen() {
   const { hostId } = useLocalSearchParams<{ hostId: string }>();
   const { client, host } = useHostClient(hostId);

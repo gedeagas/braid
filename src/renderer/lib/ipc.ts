@@ -87,8 +87,8 @@ export const agent = {
   sendMessage: (sessionId: string, message: string, sdkSessionId: string, cwd: string, model: string, extendedContext: boolean, effortLevel: string, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string, resumeSessionAt?: string) =>
     api().agent.sendMessage(sessionId, message, sdkSessionId, cwd, model, extendedContext, effortLevel, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework, resumeSessionAt),
   updateSessionName: (sessionId: string, name: string) => api().agent.updateSessionName(sessionId, name),
-  notify: (sessionId: string, type: 'done' | 'error' | 'waiting_input', sessionName?: string, errorMessage?: string, reason?: 'question' | 'plan_approval', branch?: string, projectName?: string) =>
-    api().agent.notify(sessionId, type, sessionName, errorMessage, reason, branch, projectName),
+  notify: (sessionId: string, type: 'done' | 'error' | 'waiting_input', sessionName?: string, errorMessage?: string, reason?: 'question' | 'plan_approval', branch?: string, projectName?: string, worktreePath?: string, terminalId?: string) =>
+    api().agent.notify(sessionId, type, sessionName, errorMessage, reason, branch, projectName, worktreePath, terminalId),
   getSlashCommands: (cwd: string) => api().agent.getSlashCommands(cwd),
   answerToolInput: (sessionId: string, result: Record<string, unknown>) =>
     api().agent.answerToolInput(sessionId, result),

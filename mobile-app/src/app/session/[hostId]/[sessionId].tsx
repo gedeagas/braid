@@ -9,6 +9,13 @@ import type { BraidMessage, BraidSession, RpcNotification } from '@/transport/ty
 import { colors, shared } from '@/ui/theme';
 import { useHostClient } from '@/ui/use-host-client';
 
+/**
+ * @deprecated SDK-chat session detail (remote chat/control of a desktop agent).
+ * Braid Mobile is moving to terminal-only support; all UI entrypoints to this
+ * route are gated behind `SESSION_SCREENS_ENABLED` in `@/constants/features`.
+ * Kept for deep-link compatibility only - do not add new navigation here. Use the
+ * terminal screen (`/terminal/[hostId]`) instead.
+ */
 export default function SessionDetailScreen() {
   const { hostId, sessionId } = useLocalSearchParams<{ hostId: string; sessionId: string }>();
   const { client } = useHostClient(hostId);
@@ -58,7 +65,7 @@ export default function SessionDetailScreen() {
     return () => {
       active = false;
       unsubscribeLocal?.();
-      client?.close();
+      // Do not close(): the client is shared and app-owned by the ClientManager.
     };
   }, [client, load, sessionId]);
 

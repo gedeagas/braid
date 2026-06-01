@@ -117,7 +117,7 @@ describe('RPC Dispatch', () => {
     expect(res.result).toBeDefined()
     const result = res.result as Record<string, unknown>
     expect(result.version).toBe('1.0.0')
-    expect(result.protocolVersion).toBe(1)
+    expect(result.protocolVersion).toBe(2)
     expect(result.projects).toHaveLength(1)
   })
 
