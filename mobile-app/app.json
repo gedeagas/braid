@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Braid App",
+    "name": "Braid IDE",
     "slug": "mobile-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "dev.getbraid.mobile",
+      "bundleIdentifier": "com.agas.braid.mobile",
       "infoPlist": {
         "NSCameraUsageDescription": "Braid uses the camera to scan desktop pairing QR codes.",
         "NSLocalNetworkUsageDescription": "Braid connects to your desktop app on your local network.",
@@ -32,12 +32,13 @@
       },
       "predictiveBackGestureEnabled": false,
       "usesCleartextTraffic": true,
-      "package": "dev.getbraid.mobile",
+      "package": "com.agas.braid.mobile",
       "permissions": [
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.ACCESS_WIFI_STATE",
         "android.permission.CHANGE_WIFI_MULTICAST_STATE",
-        "android.permission.INTERNET"
+        "android.permission.INTERNET",
+        "android.permission.CAMERA"
       ]
     },
     "web": {
@@ -69,6 +70,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "30316c58-3d94-442c-8728-909ceba9e8c4"
+      }
     }
   }
 }
