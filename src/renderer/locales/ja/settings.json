@@ -464,7 +464,27 @@
     "unnamed": "名前なしデバイス",
     "lastSeen": "最終接続",
     "never": "なし",
-    "remove": "削除"
+    "remove": "削除",
+    "pairTitle": "この Mac をペアリング",
+    "enableHint": "コンパニオンサーバーを有効にしてペアリングコードを生成します。",
+    "step1": "スマートフォンで Braid アプリを開きます。",
+    "step2": "「ペアリング」をタップしてこのコードをスキャンします。",
+    "previewTitle": "スマートフォンで",
+    "cancel": "キャンセル",
+    "feat": {
+      "liveTerminals": {
+        "title": "ライブターミナル",
+        "desc": "実行中のエージェントをリアルタイムで確認・操作できます。"
+      },
+      "pushNotifs": {
+        "title": "プッシュ通知",
+        "desc": "エージェントが入力を必要とするか完了したときに通知します。"
+      },
+      "gitWorktrees": {
+        "title": "Git とワークツリー",
+        "desc": "ワークツリー、ブランチ、差分を外出先で確認できます。"
+      }
+    }
   },
   "claudeSkills": {
     "title": "スキル",

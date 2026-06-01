@@ -1,13 +1,15 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, ChevronDown, GitBranch, List, Plus, RefreshCw, Search, SlidersHorizontal, UserCircle2, X } from 'lucide-react-native';
+import { ChevronLeft, ChevronDown, GitBranch, Plus, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, SectionList, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, SectionList, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useListRefresh } from '@/hooks/use-list-refresh';
+import { usePersistedState } from '@/hooks/use-persisted-state';
+import { CreateWorktreeModal } from '@/worktrees/CreateWorktreeModal';
 import { compatibilityVerdict } from '@/transport/protocol-version';
 import type { BraidProject, BraidStatus, BraidWorktree } from '@/transport/types';
-import { colors, shared } from '@/ui/theme';
+import { useShared, useTheme } from '@/ui/theme';
 import { useHostClient } from '@/ui/use-host-client';
 
 type HostSection = {
@@ -20,14 +22,25 @@ type HostSection = {
 export default function HostScreen() {
   const { hostId } = useLocalSearchParams<{ hostId: string }>();
   const { host, client } = useHostClient(hostId);
+  const colors = useTheme().palette;
+  const shared = useShared();
   const [status, setStatus] = useState<BraidStatus | null>(null);
   const [projects, setProjects] = useState<BraidProject[]>([]);
   const [terminalCounts, setTerminalCounts] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'all' | 'active' | 'main'>('all');
-  const [groupMode, setGroupMode] = useState<'repo' | 'flat'>('repo');
+  const [viewMode, setViewMode] = usePersistedState<'all' | 'active' | 'main'>(
+    'braid.mobile.host.viewMode',
+    'all',
+    (v) => v === 'all' || v === 'active' || v === 'main',
+  );
+  const [groupMode, setGroupMode] = usePersistedState<'repo' | 'flat'>(
+    'braid.mobile.host.groupMode',
+    'repo',
+    (v) => v === 'repo' || v === 'flat',
+  );
+  const [createOpen, setCreateOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!client) return;
@@ -131,6 +144,25 @@ export default function HostScreen() {
     });
   };
 
+  // Long-press a worktree to remove it (mirrors the desktop's per-worktree
+  // delete). The main worktree is never removable.
+  const confirmRemoveWorktree = (project: BraidProject, worktree: BraidWorktree) => {
+    if (!client || worktree.isMain) return;
+    Alert.alert('Remove worktree?', worktree.branch, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => {
+          void client
+            .request('worktrees.remove', { repoPath: project.path, worktreePath: worktree.path })
+            .then(() => refreshNow())
+            .catch((err) => setError(err instanceof Error ? err.message : String(err)));
+        },
+      },
+    ]);
+  };
+
   if (!host) {
     return (
       <SafeAreaView style={shared.safe}>
@@ -140,6 +172,359 @@ export default function HostScreen() {
       </SafeAreaView>
     );
   }
+
+  // Themed style objects, scoped to the component so they track the active
+  // palette (light/dark) instead of capturing a static color at module load.
+  const hostHeader = {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.panel,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 8,
+  };
+
+  const titleRow = {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+  };
+
+  const backButton = {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  };
+
+  const titleBlock = {
+    flex: 1,
+    minWidth: 0,
+  };
+
+  const statusTitleRow = {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+  };
+
+  const statusPill = {
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(53, 201, 139, 0.12)',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 5,
+    paddingHorizontal: 7,
+  };
+
+  const statusDot = {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: colors.success,
+  };
+
+  const statusText = {
+    color: colors.success,
+    fontSize: 10,
+    fontWeight: '800' as const,
+  };
+
+  const titleText = {
+    color: colors.text,
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '800' as const,
+    flexShrink: 1,
+  };
+
+  const subtitleText = {
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 16,
+  };
+
+  const refreshButton = {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    backgroundColor: colors.panelStrong,
+  };
+
+  const controls = {
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.panel,
+  };
+
+  const searchBox = {
+    minHeight: 38,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bg,
+    paddingHorizontal: 10,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+  };
+
+  const actionRow = {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+  };
+
+  const segmented = {
+    flex: 1,
+    minHeight: 34,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bg,
+    padding: 3,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+  };
+
+  const segment = {
+    flex: 1,
+    minHeight: 26,
+    borderRadius: 6,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  };
+
+  const segmentActive = {
+    backgroundColor: colors.panelStrong,
+  };
+
+  const segmentText = {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '800' as const,
+  };
+
+  const segmentTextActive = {
+    color: colors.text,
+  };
+
+  const shortcutRow = {
+    minHeight: 38,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.bg,
+  };
+
+  const resultText = {
+    color: colors.subtle,
+    fontSize: 12,
+    fontWeight: '700' as const,
+  };
+
+  const iconButton = {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  };
+
+  const iconButtonActive = {
+    backgroundColor: colors.panelStrong,
+  };
+
+  const searchInput = {
+    flex: 1,
+    minHeight: 36,
+    color: colors.text,
+    paddingVertical: 7,
+    fontSize: 14,
+  };
+
+  const clearButton = {
+    width: 26,
+    height: 26,
+    borderRadius: 6,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  };
+
+  const compatBanner = {
+    marginHorizontal: 12,
+    marginTop: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.warning,
+    backgroundColor: colors.panelStrong,
+    padding: 12,
+  };
+
+  const listContent = {
+    paddingTop: 8,
+    paddingBottom: 24,
+  };
+
+  const emptyText = {
+    color: colors.muted,
+    fontSize: 13,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+  };
+
+  const projectBlock = {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 4,
+  };
+
+  const projectHeader = {
+    minHeight: 24,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+  };
+
+  const projectHeaderLeft = {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+  };
+
+  const projectHeaderBullet = {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.subtle,
+  };
+
+  const projectHeaderText = {
+    color: colors.subtle,
+    fontSize: 11,
+    fontWeight: '800' as const,
+    letterSpacing: 0,
+  };
+
+  const projectHeaderCountPill = {
+    minWidth: 24,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.panelStrong,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    paddingHorizontal: 7,
+  };
+
+  const projectHeaderCount = {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: '800' as const,
+  };
+
+  const worktreeRow = {
+    minHeight: 54,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  };
+
+  const worktreeRowPressed = {
+    backgroundColor: colors.panel,
+  };
+
+  const worktreeStatusCol = {
+    width: 20,
+    alignItems: 'center' as const,
+  };
+
+  const worktreeStatusDot = {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  };
+
+  const worktreeStatusDotActive = {
+    backgroundColor: colors.success,
+  };
+
+  const worktreeStatusDotIdle = {
+    backgroundColor: colors.subtle,
+  };
+
+  const worktreeTitleRow = {
+    minHeight: 21,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 8,
+  };
+
+  const worktreeTitle = {
+    color: colors.text,
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: '800' as const,
+    flexShrink: 1,
+  };
+
+  const worktreeSubtitle = {
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 16,
+  };
+
+  const mainBadge = {
+    height: 19,
+    borderRadius: 6,
+    backgroundColor: 'rgba(53, 201, 139, 0.12)',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+    paddingHorizontal: 6,
+  };
+
+  const mainBadgeText = {
+    color: colors.success,
+    fontSize: 10,
+    fontWeight: '800' as const,
+  };
+
+  const countBadge = {
+    minWidth: 28,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    backgroundColor: colors.panelStrong,
+    paddingHorizontal: 8,
+  };
+
+  const countBadgeActive = {
+    backgroundColor: 'rgba(61, 139, 255, 0.16)',
+  };
+
+  const worktreeCount = {
+    color: colors.subtle,
+    fontSize: 12,
+    fontWeight: '800' as const,
+  };
+
+  const worktreeCountActive = {
+    color: colors.accent,
+  };
 
   return (
     <SafeAreaView style={shared.safe}>
@@ -204,7 +589,7 @@ export default function HostScreen() {
             </View>
             <Pressable
               style={[iconButton, groupMode === 'flat' && iconButtonActive]}
-              onPress={() => setGroupMode((mode) => mode === 'repo' ? 'flat' : 'repo')}
+              onPress={() => setGroupMode(groupMode === 'repo' ? 'flat' : 'repo')}
               accessibilityLabel="Toggle grouping"
             >
               <SlidersHorizontal color={groupMode === 'flat' ? colors.text : colors.muted} size={17} />
@@ -217,13 +602,7 @@ export default function HostScreen() {
             {visibleWorktrees} of {totalWorktrees} worktrees
           </Text>
           <View style={{ flex: 1 }} />
-          <Pressable style={iconButton} onPress={() => router.push(`/sessions/${host.id}`)} accessibilityLabel="Sessions">
-            <UserCircle2 color={colors.muted} size={18} />
-          </Pressable>
-          <Pressable style={iconButton} onPress={() => router.push(`/worktrees/${host.id}`)} accessibilityLabel="Worktrees">
-            <List color={colors.muted} size={18} />
-          </Pressable>
-          <Pressable style={iconButton} onPress={() => router.push(`/worktrees/${host.id}`)} accessibilityLabel="Add worktree">
+          <Pressable style={iconButton} onPress={() => setCreateOpen(true)} accessibilityLabel="Add worktree">
             <Plus color={colors.muted} size={18} />
           </Pressable>
         </View>
@@ -272,6 +651,7 @@ export default function HostScreen() {
               key={item.path}
               style={({ pressed }) => [worktreeRow, pressed && worktreeRowPressed]}
               onPress={() => openWorktree(item.path, item.branch)}
+              onLongPress={() => confirmRemoveWorktree(section.project, item)}
             >
               <View style={worktreeStatusCol}>
                 <View style={[worktreeStatusDot, item.isMain ? worktreeStatusDotActive : worktreeStatusDotIdle]} />
@@ -299,357 +679,15 @@ export default function HostScreen() {
           )}
         />
       </View>
+
+      <CreateWorktreeModal
+        visible={createOpen}
+        onClose={() => setCreateOpen(false)}
+        client={client}
+        projects={projects}
+        onCreated={() => void refreshNow()}
+      />
     </SafeAreaView>
   );
 }
 
-const hostHeader = {
-  borderBottomWidth: 1,
-  borderBottomColor: colors.border,
-  backgroundColor: colors.panel,
-  paddingHorizontal: 12,
-  paddingTop: 8,
-  paddingBottom: 8,
-};
-
-const titleRow = {
-  flexDirection: 'row' as const,
-  alignItems: 'center' as const,
-  gap: 8,
-};
-
-const backButton = {
-  width: 36,
-  height: 36,
-  borderRadius: 8,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
-};
-
-const titleBlock = {
-  flex: 1,
-  minWidth: 0,
-};
-
-const statusTitleRow = {
-  flexDirection: 'row' as const,
-  alignItems: 'center' as const,
-  gap: 8,
-};
-
-const statusPill = {
-  height: 20,
-  borderRadius: 10,
-  backgroundColor: 'rgba(53, 201, 139, 0.12)',
-  flexDirection: 'row' as const,
-  alignItems: 'center' as const,
-  gap: 5,
-  paddingHorizontal: 7,
-};
-
-const statusDot = {
-  width: 7,
-  height: 7,
-  borderRadius: 4,
-  backgroundColor: colors.success,
-};
-
-const statusText = {
-  color: colors.success,
-  fontSize: 10,
-  fontWeight: '800' as const,
-};
-
-const titleText = {
-  color: colors.text,
-  fontSize: 15,
-  lineHeight: 20,
-  fontWeight: '800' as const,
-  flexShrink: 1,
-};
-
-const subtitleText = {
-  color: colors.muted,
-  fontSize: 12,
-  lineHeight: 16,
-};
-
-const refreshButton = {
-  width: 36,
-  height: 36,
-  borderRadius: 8,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
-  backgroundColor: colors.panelStrong,
-};
-
-const controls = {
-  gap: 10,
-  paddingHorizontal: 12,
-  paddingTop: 10,
-  paddingBottom: 8,
-  borderBottomWidth: 1,
-  borderBottomColor: colors.border,
-  backgroundColor: colors.panel,
-};
-
-const searchBox = {
-  minHeight: 38,
-  borderRadius: 8,
-  borderWidth: 1,
-  borderColor: colors.border,
-  backgroundColor: colors.bg,
-  paddingHorizontal: 10,
-  flexDirection: 'row' as const,
-  alignItems: 'center' as const,
-  gap: 8,
-};
-
-const actionRow = {
-  flexDirection: 'row' as const,
-  alignItems: 'center' as const,
-  gap: 8,
-};
-
-const segmented = {
-  flex: 1,
-  minHeight: 34,
-  borderRadius: 8,
-  borderWidth: 1,
-  borderColor: colors.border,
-  backgroundColor: colors.bg,
-  padding: 3,
-  flexDirection: 'row' as const,
-  alignItems: 'center' as const,
-};
-
-const segment = {
-  flex: 1,
-  minHeight: 26,
-  borderRadius: 6,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
-};
-
-const segmentActive = {
-  backgroundColor: colors.panelStrong,
-};
-
-const segmentText = {
-  color: colors.muted,
-  fontSize: 12,
-  fontWeight: '800' as const,
-};
-
-const segmentTextActive = {
-  color: colors.text,
-};
-
-const shortcutRow = {
-  minHeight: 38,
-  flexDirection: 'row' as const,
-  alignItems: 'center' as const,
-  gap: 6,
-  paddingHorizontal: 12,
-  borderBottomWidth: 1,
-  borderBottomColor: colors.border,
-  backgroundColor: colors.bg,
-};
-
-const resultText = {
-  color: colors.subtle,
-  fontSize: 12,
-  fontWeight: '700' as const,
-};
-
-const iconButton = {
-  width: 34,
-  height: 34,
-  borderRadius: 8,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
-};
-
-const iconButtonActive = {
-  backgroundColor: colors.panelStrong,
-};
-
-const searchInput = {
-  flex: 1,
-  minHeight: 36,
-  color: colors.text,
-  paddingVertical: 7,
-  fontSize: 14,
-};
-
-const clearButton = {
-  width: 26,
-  height: 26,
-  borderRadius: 6,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
-};
-
-const compatBanner = {
-  marginHorizontal: 12,
-  marginTop: 12,
-  borderRadius: 8,
-  borderWidth: 1,
-  borderColor: colors.warning,
-  backgroundColor: colors.panelStrong,
-  padding: 12,
-};
-
-const listContent = {
-  paddingTop: 8,
-  paddingBottom: 24,
-};
-
-const emptyText = {
-  color: colors.muted,
-  fontSize: 13,
-  paddingHorizontal: 12,
-  paddingTop: 12,
-};
-
-const projectBlock = {
-  paddingHorizontal: 12,
-  paddingTop: 8,
-  paddingBottom: 4,
-};
-
-const projectHeader = {
-  minHeight: 24,
-  flexDirection: 'row' as const,
-  alignItems: 'center' as const,
-  justifyContent: 'space-between' as const,
-};
-
-const projectHeaderLeft = {
-  flexDirection: 'row' as const,
-  alignItems: 'center' as const,
-  gap: 8,
-};
-
-const projectHeaderBullet = {
-  width: 8,
-  height: 8,
-  borderRadius: 4,
-  backgroundColor: colors.subtle,
-};
-
-const projectHeaderText = {
-  color: colors.subtle,
-  fontSize: 11,
-  fontWeight: '800' as const,
-  letterSpacing: 0,
-};
-
-const projectHeaderCountPill = {
-  minWidth: 24,
-  height: 20,
-  borderRadius: 10,
-  backgroundColor: colors.panelStrong,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
-  paddingHorizontal: 7,
-};
-
-const projectHeaderCount = {
-  color: colors.muted,
-  fontSize: 11,
-  fontWeight: '800' as const,
-};
-
-const worktreeRow = {
-  minHeight: 54,
-  flexDirection: 'row' as const,
-  alignItems: 'center' as const,
-  gap: 8,
-  paddingVertical: 8,
-  paddingHorizontal: 12,
-};
-
-const worktreeRowPressed = {
-  backgroundColor: colors.panel,
-};
-
-const worktreeStatusCol = {
-  width: 20,
-  alignItems: 'center' as const,
-};
-
-const worktreeStatusDot = {
-  width: 12,
-  height: 12,
-  borderRadius: 6,
-};
-
-const worktreeStatusDotActive = {
-  backgroundColor: colors.success,
-};
-
-const worktreeStatusDotIdle = {
-  backgroundColor: colors.subtle,
-};
-
-const worktreeTitleRow = {
-  minHeight: 21,
-  flexDirection: 'row' as const,
-  alignItems: 'center' as const,
-  gap: 8,
-};
-
-const worktreeTitle = {
-  color: colors.text,
-  fontSize: 16,
-  lineHeight: 20,
-  fontWeight: '800' as const,
-  flexShrink: 1,
-};
-
-const worktreeSubtitle = {
-  color: colors.muted,
-  fontSize: 12,
-  lineHeight: 16,
-};
-
-const mainBadge = {
-  height: 19,
-  borderRadius: 6,
-  backgroundColor: 'rgba(53, 201, 139, 0.12)',
-  flexDirection: 'row' as const,
-  alignItems: 'center' as const,
-  gap: 4,
-  paddingHorizontal: 6,
-};
-
-const mainBadgeText = {
-  color: colors.success,
-  fontSize: 10,
-  fontWeight: '800' as const,
-};
-
-const countBadge = {
-  minWidth: 28,
-  height: 24,
-  borderRadius: 12,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
-  backgroundColor: colors.panelStrong,
-  paddingHorizontal: 8,
-};
-
-const countBadgeActive = {
-  backgroundColor: 'rgba(61, 139, 255, 0.16)',
-};
-
-const worktreeCount = {
-  color: colors.subtle,
-  fontSize: 12,
-  fontWeight: '800' as const,
-};
-
-const worktreeCountActive = {
-  color: colors.accent,
-};

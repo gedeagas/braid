@@ -2,7 +2,6 @@ import { router, useFocusEffect } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { useCallback, useEffect, useReducer } from 'react';
 import { AppState, Linking, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   ensureNotificationPermissions,
@@ -11,7 +10,8 @@ import {
   savePushNotificationsEnabled,
   type NotificationPermissionState,
 } from '@/notifications/mobile-notifications';
-import { colors, shared } from '@/ui/theme';
+import { useShared, useTheme, useThemedStyles, type Palette } from '@/ui/theme';
+import { Button, Card, Screen } from '@/ui/kit';
 
 interface State {
   pushEnabled: boolean;
@@ -24,6 +24,9 @@ const INITIAL: State = {
 };
 
 export default function NotificationsScreen() {
+  const { palette: c } = useTheme();
+  const shared = useShared();
+  const styles = useThemedStyles(makeStyles);
   const [state, patch] = useReducer((prev: State, next: Partial<State>) => ({ ...prev, ...next }), INITIAL);
 
   const refresh = useCallback(async () => {
@@ -67,43 +70,42 @@ export default function NotificationsScreen() {
     : 'Get a notification when an agent task finishes, needs input, or errors on your desktop.';
 
   return (
-    <SafeAreaView style={shared.safe} edges={['top', 'left', 'right']}>
+    <Screen edges={['top', 'left', 'right']}>
       <View style={shared.shell}>
         <View style={styles.topRow}>
           <Pressable style={styles.back} onPress={() => router.back()} accessibilityLabel="Back">
-            <ChevronLeft color={colors.text} size={22} />
+            <ChevronLeft color={c.text} size={22} />
           </Pressable>
           <Text style={shared.title}>Notifications</Text>
         </View>
 
-        <View style={[shared.card, styles.card]}>
+        <Card style={styles.card}>
           <View style={styles.row}>
             <Text style={styles.rowLabel}>Push notifications</Text>
             <Switch
               value={switchOn}
               disabled={blocked}
               onValueChange={(v) => void togglePush(v)}
-              trackColor={{ false: colors.panelStrong, true: colors.accent }}
-              thumbColor={colors.text}
+              trackColor={{ false: c.panelStrong, true: c.accent }}
+              thumbColor={c.text}
             />
           </View>
           <Text style={shared.muted}>{hint}</Text>
           {blocked && (
-            <Pressable style={[shared.button, shared.secondary, styles.settingsButton]} onPress={() => void Linking.openSettings()}>
-              <Text style={shared.buttonText}>Open Settings</Text>
-            </Pressable>
+            <Button label="Open Settings" variant="secondary" onPress={() => void Linking.openSettings()} />
           )}
-        </View>
+        </Card>
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  topRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 20 },
-  back: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  card: { gap: 12 },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  rowLabel: { color: colors.text, fontSize: 16, fontWeight: '700' },
-  settingsButton: { alignSelf: 'flex-start', marginTop: 4 },
-});
+function makeStyles(c: Palette) {
+  return StyleSheet.create({
+    topRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 20 },
+    back: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+    card: { gap: 12 },
+    row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    rowLabel: { color: c.text, fontSize: 16, fontWeight: '700' },
+  });
+}

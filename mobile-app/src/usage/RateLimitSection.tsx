@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { AgentIcon } from '@/terminal/AgentIcon';
 import type { ProviderRateLimits, RateLimitState, RateLimitWindow } from '@/transport/types';
-import { colors } from '@/ui/theme';
+import { useTheme, useThemedStyles, type Palette } from '@/ui/theme';
 
 import {
   barColor,
@@ -25,6 +25,7 @@ interface Props {
  * CLI is installed without a plan or its usage can't be read.
  */
 export function RateLimitSection({ state, now }: Props) {
+  const styles = useThemedStyles(makeStyles);
   const providers = [state.claude, state.codex].filter(
     (provider): provider is ProviderRateLimits => provider != null,
   );
@@ -43,6 +44,7 @@ export function RateLimitSection({ state, now }: Props) {
 }
 
 function ProviderRow({ provider, now }: { provider: ProviderRateLimits; now: number }) {
+  const styles = useThemedStyles(makeStyles);
   const display = describeProvider(provider);
   return (
     <View style={styles.provider}>
@@ -72,6 +74,8 @@ function ProviderRow({ provider, now }: { provider: ProviderRateLimits; now: num
 }
 
 function WindowBar({ window, now }: { window: RateLimitWindow; now: number }) {
+  const { palette: c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const left = percentLeft(window);
   const resetIn = formatResetIn(window.resetsAt, now);
   return (
@@ -81,55 +85,57 @@ function WindowBar({ window, now }: { window: RateLimitWindow; now: number }) {
         <Text style={styles.windowPercent}>{left}% left</Text>
       </View>
       <View style={styles.track}>
-        <View style={[styles.fill, { width: `${left}%`, backgroundColor: barColor(left) }]} />
+        <View style={[styles.fill, { width: `${left}%`, backgroundColor: barColor(left, c) }]} />
       </View>
       {resetIn && <Text style={styles.reset}>{resetIn}</Text>}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.panel,
-    padding: 14,
-  },
-  divider: { height: 1, backgroundColor: colors.border, marginVertical: 14 },
-  provider: { gap: 12 },
-  providerHead: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  providerIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.panelStrong,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  providerName: { color: colors.text, fontSize: 15, fontWeight: '700', flex: 1 },
-  staleTag: {
-    color: colors.subtle,
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  message: { color: colors.muted, fontSize: 13, lineHeight: 18 },
-  messageError: { color: colors.danger },
-  windows: { gap: 12 },
-  window: { gap: 6 },
-  windowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  windowLabel: { color: colors.muted, fontSize: 12, fontWeight: '600' },
-  windowPercent: { color: colors.text, fontSize: 12, fontWeight: '700' },
-  track: {
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: colors.panelStrong,
-    overflow: 'hidden',
-  },
-  fill: { height: '100%', borderRadius: 4 },
-  reset: { color: colors.subtle, fontSize: 11 },
-});
+function makeStyles(c: Palette) {
+  return StyleSheet.create({
+    card: {
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.panel,
+      padding: 14,
+    },
+    divider: { height: 1, backgroundColor: c.border, marginVertical: 14 },
+    provider: { gap: 12 },
+    providerHead: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+    providerIcon: {
+      width: 30,
+      height: 30,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.panelStrong,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    providerName: { color: c.text, fontSize: 15, fontWeight: '700', flex: 1 },
+    staleTag: {
+      color: c.subtle,
+      fontSize: 11,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+    },
+    message: { color: c.muted, fontSize: 13, lineHeight: 18 },
+    messageError: { color: c.danger },
+    windows: { gap: 12 },
+    window: { gap: 6 },
+    windowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    windowLabel: { color: c.muted, fontSize: 12, fontWeight: '600' },
+    windowPercent: { color: c.text, fontSize: 12, fontWeight: '700' },
+    track: {
+      height: 7,
+      borderRadius: 4,
+      backgroundColor: c.panelStrong,
+      overflow: 'hidden',
+    },
+    fill: { height: '100%', borderRadius: 4 },
+    reset: { color: c.subtle, fontSize: 11 },
+  });
+}

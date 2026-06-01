@@ -1,11 +1,17 @@
-import { useReducer, useCallback, useEffect, useRef } from 'react'
+import { useReducer, useCallback, useEffect, useRef, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import QRCode from 'qrcode'
 import { useUIStore } from '@/store/ui'
 import { Toggle } from '@/components/shared/Toggle'
-import { FormField } from '@/components/ui'
 import { Button } from '@/components/ui'
 import { StatusDot } from '@/components/ui/StatusDot'
+import {
+  IconTerminal,
+  IconInbox,
+  IconGitBranch,
+  IconSmartphone,
+  type IconProps,
+} from '@/components/shared/icons'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
 import * as ipc from '@/lib/ipc'
 
@@ -57,9 +63,15 @@ function reducer(state: MobileState, action: MobileAction): MobileState {
   }
 }
 
+/** Capabilities surfaced once a phone is paired - drives the preview panel. */
+const FEATURES: Array<{ key: string; Icon: (props: IconProps) => ReactElement }> = [
+  { key: 'liveTerminals', Icon: IconTerminal },
+  { key: 'pushNotifs', Icon: IconInbox },
+  { key: 'gitWorktrees', Icon: IconGitBranch },
+]
+
 export function SettingsMobile() {
   const { t } = useTranslation('settings')
-  const mobileServerEnabled = useUIStore((s) => s.mobileServerEnabled)
   const setMobileServerEnabled = useUIStore((s) => s.setMobileServerEnabled)
   const confirmingRef = useRef<string | null>(null)
   const [, forceRender] = useReducer((x: number) => x + 1, 0)
@@ -121,9 +133,9 @@ export function SettingsMobile() {
       if (!offer) return
       const payload = btoa(JSON.stringify(offer))
       const qrDataUrl = await QRCode.toDataURL(payload, {
-        width: 200,
-        margin: 2,
-        color: { dark: '#000000', light: '#ffffff' },
+        width: 220,
+        margin: 1,
+        color: { dark: '#0b0b0c', light: '#ffffff' },
       })
       dispatch({ type: 'SET_PAIRING', offer: offer as PairingOffer, pairingPayload: payload, qrDataUrl })
     } catch (err) {
@@ -147,119 +159,136 @@ export function SettingsMobile() {
 
   const connectedIds = new Set(state.connectedDevices.map((d) => d.id))
   const pairedDevices = state.devices.filter((d) => d.publicKey)
+  const running = state.serverRunning
 
   return (
-    <div className="settings-section">
-      <span className="settings-hint">{t('mobile.enableServerDesc')}</span>
-
-      <div className="settings-divider" />
-
-      {/* ── Server status ────────────────────────────────────────────── */}
-      <h4 className="settings-section-subtitle">{t('mobile.serverHeader')}</h4>
-
-      <div className="settings-field settings-field--row">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)' }}>
-          <StatusDot state={state.serverRunning ? 'success' : 'failure'} />
-          <span className="settings-label">
-            {state.serverRunning
-              ? t('mobile.running', { port: state.serverPort })
-              : t('mobile.enableServer')}
-          </span>
-        </div>
-        <Toggle
-          checked={state.serverRunning}
-          onChange={handleToggle}
-          disabled={state.loading}
-        />
-      </div>
-
-      {state.error && (
-        <div className="settings-field" style={{ color: 'var(--text-danger)' }}>
-          {state.error}
-        </div>
-      )}
-
-      {/* ── Pairing ──────────────────────────────────────────────────── */}
-      {state.serverRunning && (
-        <>
-          <div className="settings-divider" />
-          <h4 className="settings-section-subtitle">{t('mobile.pairingHeader')}</h4>
-
-          {state.qrDataUrl ? (
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 'var(--space-12)',
-              padding: 'var(--space-16)',
-            }}>
-              <img
-                src={state.qrDataUrl}
-                alt="Pairing QR code"
-                style={{ width: 200, height: 200, borderRadius: 'var(--radius)' }}
-              />
-              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', textAlign: 'center' }}>
-                {t('mobile.pairingHint')}
-              </span>
-              <div style={{ display: 'flex', gap: 'var(--space-8)', flexWrap: 'wrap', justifyContent: 'center' }}>
-                <Button size="sm" onClick={handleCopy} disabled={!state.pairingPayload}>
-                  {copied ? t('mobile.copiedCode') : t('mobile.copyCode')}
-                </Button>
-                <Button size="sm" onClick={handleGeneratePairing}>
-                  {t('mobile.regenerateQr')}
-                </Button>
-              </div>
+    <div className="mobile-settings">
+      {/* ── Hero: pairing card + app preview ─────────────────────────── */}
+      <div className="mobile-hero">
+        {/* Pairing card */}
+        <section className="mobile-pair-card">
+          <header className="mobile-pair-head">
+            <span className="mobile-pair-badge">
+              <IconSmartphone size={18} />
+            </span>
+            <div className="mobile-pair-heading">
+              <h3 className="mobile-pair-title">{t('mobile.pairTitle')}</h3>
+              <p className="mobile-pair-sub">{t('mobile.enableServerDesc')}</p>
             </div>
-          ) : (
-            <div className="settings-field">
-              <Button size="sm" variant="primary" onClick={handleGeneratePairing}>
-                {t('mobile.generateQr')}
-              </Button>
-            </div>
-          )}
-        </>
-      )}
+          </header>
 
-      {/* ── Paired devices ───────────────────────────────────────────── */}
-      <div className="settings-divider" />
-      <h4 className="settings-section-subtitle">{t('mobile.devicesHeader')}</h4>
+          <div className="mobile-server-row">
+            <span className="mobile-server-status">
+              <StatusDot state={running ? 'success' : 'failure'} />
+              {running ? t('mobile.running', { port: state.serverPort }) : t('mobile.enableServer')}
+            </span>
+            <Toggle checked={running} onChange={handleToggle} disabled={state.loading} />
+          </div>
 
-      {pairedDevices.length === 0 ? (
-        <span className="settings-hint">{t('mobile.noDevices')}</span>
-      ) : (
-        <div className="settings-skill-list">
-          {pairedDevices.map((device) => (
-            <div key={device.id} className="settings-skill-row">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)', flex: 1, minWidth: 0 }}>
-                <StatusDot state={connectedIds.has(device.id) ? 'success' : 'skipped'} />
-                <div className="settings-skill-info">
-                  <span className="settings-skill-name">{device.name || t('mobile.unnamed')}</span>
-                  <span className="settings-skill-desc">
-                    {t('mobile.lastSeen')}: {formatDate(device.lastSeenAt)}
-                  </span>
-                </div>
-              </div>
-              {confirmingRef.current === device.id ? (
-                <div className="settings-skill-confirm">
-                  <Button variant="danger" size="sm" onClick={() => handleRemoveDevice(device.id)}>
-                    {t('mobile.remove')}
-                  </Button>
-                  <Button size="sm" onClick={() => { confirmingRef.current = null; forceRender() }}>
-                    Cancel
-                  </Button>
-                </div>
+          {state.error && <div className="mobile-error">{state.error}</div>}
+
+          {running ? (
+            <div className="mobile-pair-body">
+              {state.qrDataUrl ? (
+                <>
+                  <div className="mobile-qr-frame">
+                    <img src={state.qrDataUrl} alt={t('mobile.pairTitle')} />
+                  </div>
+                  <ol className="mobile-steps">
+                    <li><span className="mobile-step-num">1</span>{t('mobile.step1')}</li>
+                    <li><span className="mobile-step-num">2</span>{t('mobile.step2')}</li>
+                  </ol>
+                  <div className="mobile-qr-actions">
+                    <Button size="sm" onClick={handleCopy} disabled={!state.pairingPayload}>
+                      {copied ? t('mobile.copiedCode') : t('mobile.copyCode')}
+                    </Button>
+                    <Button size="sm" onClick={handleGeneratePairing}>
+                      {t('mobile.regenerateQr')}
+                    </Button>
+                  </div>
+                </>
               ) : (
-                <button
-                  className="settings-skill-delete-btn"
-                  onClick={() => { confirmingRef.current = device.id; forceRender() }}
-                >
-                  &times;
-                </button>
+                <div className="mobile-pair-cta">
+                  <p className="mobile-pair-cta-text">{t('mobile.pairingHint')}</p>
+                  <Button variant="primary" onClick={handleGeneratePairing}>
+                    {t('mobile.generateQr')}
+                  </Button>
+                </div>
               )}
             </div>
-          ))}
-        </div>
-      )}
+          ) : (
+            <div className="mobile-pair-disabled">{t('mobile.enableHint')}</div>
+          )}
+        </section>
+
+        {/* App preview */}
+        <aside className="mobile-preview" aria-hidden="true">
+          <div className="mobile-phone">
+            <span className="mobile-phone-notch" />
+            <div className="mobile-phone-screen">
+              <span className="mobile-phone-title">{t('mobile.previewTitle')}</span>
+              {FEATURES.map(({ key, Icon }) => (
+                <div key={key} className="mobile-phone-row">
+                  <span className="mobile-phone-row-icon"><Icon size={14} /></span>
+                  <span className="mobile-phone-row-label">{t(`mobile.feat.${key}.title`)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <ul className="mobile-feature-list">
+            {FEATURES.map(({ key, Icon }) => (
+              <li key={key} className="mobile-feature">
+                <span className="mobile-feature-icon"><Icon size={16} /></span>
+                <div className="mobile-feature-info">
+                  <span className="mobile-feature-name">{t(`mobile.feat.${key}.title`)}</span>
+                  <span className="mobile-feature-desc">{t(`mobile.feat.${key}.desc`)}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </aside>
+      </div>
+
+      {/* ── Paired devices ───────────────────────────────────────────── */}
+      <section className="mobile-devices">
+        <h4 className="settings-section-subtitle">{t('mobile.devicesHeader')}</h4>
+        {pairedDevices.length === 0 ? (
+          <span className="settings-hint">{t('mobile.noDevices')}</span>
+        ) : (
+          <div className="settings-skill-list">
+            {pairedDevices.map((device) => (
+              <div key={device.id} className="settings-skill-row">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)', flex: 1, minWidth: 0 }}>
+                  <StatusDot state={connectedIds.has(device.id) ? 'success' : 'skipped'} />
+                  <div className="settings-skill-info">
+                    <span className="settings-skill-name">{device.name || t('mobile.unnamed')}</span>
+                    <span className="settings-skill-desc">
+                      {t('mobile.lastSeen')}: {formatDate(device.lastSeenAt)}
+                    </span>
+                  </div>
+                </div>
+                {confirmingRef.current === device.id ? (
+                  <div className="settings-skill-confirm">
+                    <Button variant="danger" size="sm" onClick={() => handleRemoveDevice(device.id)}>
+                      {t('mobile.remove')}
+                    </Button>
+                    <Button size="sm" onClick={() => { confirmingRef.current = null; forceRender() }}>
+                      {t('mobile.cancel')}
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    className="settings-skill-delete-btn"
+                    onClick={() => { confirmingRef.current = device.id; forceRender() }}
+                  >
+                    &times;
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   )
 }

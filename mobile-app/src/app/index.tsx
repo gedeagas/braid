@@ -1,9 +1,10 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
-import { Bell, ChevronRight, Monitor, Plus, QrCode, RefreshCw, TerminalSquare, Wifi, X } from 'lucide-react-native';
+import { ChevronRight, Monitor, Plus, QrCode, RefreshCw, Settings, TerminalSquare, Wifi, X } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Image,
   Modal,
   Pressable,
   RefreshControl,
@@ -15,13 +16,14 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
-import { SESSION_SCREENS_ENABLED } from '@/constants/features';
+import { getNotificationNavigationPath } from '@/notifications/notification-routing';
 import { useClientManager } from '@/transport/client-manager';
 import { loadHosts, removeHost, saveHosts, upsertHost } from '@/transport/host-store';
 import { type BonjourHost, matchesDiscoveredHost, mergeDiscoveredEndpoint, startBonjourBrowser } from '@/transport/bonjour';
 import { createHostFromOffer, parsePairingPayload } from '@/transport/rpc-client';
-import type { BraidSession, BraidStatus, BraidTerminal, PairedHost, RateLimitState } from '@/transport/types';
+import type { BraidStatus, BraidTerminal, PairedHost, RateLimitState } from '@/transport/types';
 import { RateLimitSection } from '@/usage/RateLimitSection';
+import { useTheme, useThemedStyles, type Palette } from '@/ui/theme';
 
 type ConnectionState = 'idle' | 'connecting' | 'online' | 'offline';
 
@@ -30,28 +32,21 @@ interface HostSnapshot {
   state: ConnectionState;
   error?: string;
   status?: BraidStatus;
-  sessions: BraidSession[];
-  sessionTotal: number;
+  /** Live big-terminal list with per-terminal agent status (working/waiting/done). */
+  terminals: BraidTerminal[];
   agentTimeMs: number;
   rateLimits?: RateLimitState | null;
 }
 
-const COLORS = {
-  bg: '#090A0B',
-  panel: '#121417',
-  panelStrong: '#191D22',
-  border: '#2B3138',
-  text: '#F7F8FA',
-  muted: '#939BA7',
-  subtle: '#626B78',
-  accent: '#3D8BFF',
-  accentSoft: '#17345F',
-  success: '#35C98B',
-  danger: '#FF5A66',
-  warning: '#E5B84B',
-};
+/** An agent that needs the user: waiting for input, or just finished. */
+interface AttentionItem {
+  hostId: string;
+  terminal: BraidTerminal;
+}
 
 export default function HomeScreen() {
+  const { palette: COLORS } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [hosts, setHosts] = useState<PairedHost[]>([]);
   const [snapshots, setSnapshots] = useState<Record<string, HostSnapshot>>({});
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -70,8 +65,7 @@ export default function HomeScreen() {
       [host.id]: {
         host,
         state: 'connecting',
-        sessions: current[host.id]?.sessions ?? [],
-        sessionTotal: current[host.id]?.sessionTotal ?? 0,
+        terminals: current[host.id]?.terminals ?? [],
         agentTimeMs: current[host.id]?.agentTimeMs ?? 0,
         rateLimits: current[host.id]?.rateLimits ?? null,
       },
@@ -82,9 +76,7 @@ export default function HomeScreen() {
     const client = manager.acquireHost(host);
     try {
       const status = await client.request<BraidStatus>('status.get');
-      const sessions = await client.request<BraidSession[]>('sessions.list');
-      // Agent time reflects terminal-driven agents (the supported path); SDK
-      // chat sessions are deprecated and no longer accrue run time.
+      // Agent time reflects terminal-driven agents (the only supported path).
       const terminals = await client.request<BraidTerminal[]>('terminal.list');
       const agentTimeMs = terminals.reduce((sum, terminal) => sum + (terminal.totalRunDurationMs ?? 0), 0);
       // Best-effort: older desktops won't expose rateLimits.get, so a failure
@@ -98,8 +90,7 @@ export default function HomeScreen() {
           host,
           state: 'online',
           status,
-          sessions: sessions.slice(0, 6),
-          sessionTotal: sessions.length,
+          terminals,
           agentTimeMs,
           rateLimits: rateLimits ?? current[host.id]?.rateLimits ?? null,
         },
@@ -111,8 +102,7 @@ export default function HomeScreen() {
           host,
           state: 'offline',
           error: error instanceof Error ? error.message : String(error),
-          sessions: current[host.id]?.sessions ?? [],
-          sessionTotal: current[host.id]?.sessionTotal ?? 0,
+          terminals: current[host.id]?.terminals ?? [],
           agentTimeMs: current[host.id]?.agentTimeMs ?? 0,
           rateLimits: current[host.id]?.rateLimits ?? null,
         },
@@ -182,6 +172,16 @@ export default function HomeScreen() {
     };
   }, [refreshHost]);
 
+  // Live-refresh a host's terminal states (and thus "Needs attention") the
+  // moment a desktop notification event arrives, instead of waiting for a manual
+  // pull-to-refresh.
+  useEffect(() => {
+    return manager.subscribeActivity((hostId) => {
+      const host = hosts.find((item) => item.id === hostId);
+      if (host) void refreshHost(host);
+    });
+  }, [manager, hosts, refreshHost]);
+
   const pairFromPayload = useCallback(async (payload: string) => {
     const offer = parsePairingPayload(payload);
     if (!offer.endpoint || !offer.token) throw new Error('Pairing QR is missing endpoint or token');
@@ -226,20 +226,53 @@ export default function HomeScreen() {
   }, []);
 
   const sortedSnapshots = useMemo(
-    () => hosts.map((host) => snapshots[host.id] ?? { host, state: 'idle' as const, sessions: [], sessionTotal: 0, agentTimeMs: 0 }),
+    () => hosts.map((host) => snapshots[host.id] ?? { host, state: 'idle' as const, terminals: [], agentTimeMs: 0 }),
     [hosts, snapshots],
   );
 
-  const agentsSpawned = sortedSnapshots.reduce((sum, item) => sum + item.sessionTotal, 0);
-  const agentTimeMs = sortedSnapshots.reduce((sum, item) => sum + item.agentTimeMs, 0);
-  const projectCount = sortedSnapshots.reduce((sum, item) => sum + (item.status?.projects.length ?? 0), 0);
-
-  const resume = useMemo(() => {
-    const flat = sortedSnapshots.flatMap((snapshot) =>
-      snapshot.sessions.map((session) => ({ hostId: snapshot.host.id, session })),
+  // Agents that need the user, across every host: waiting for input first, then
+  // freshly finished. This is the home screen's primary triage queue.
+  const attention = useMemo<AttentionItem[]>(() => {
+    const items = sortedSnapshots.flatMap((snapshot) =>
+      snapshot.terminals
+        .filter((terminal) => terminal.status === 'waiting' || terminal.status === 'done')
+        .map((terminal) => ({ hostId: snapshot.host.id, terminal })),
     );
-    return flat.sort((a, b) => (b.session.createdAt ?? 0) - (a.session.createdAt ?? 0))[0];
+    return items.sort((a, b) => attentionRank(a.terminal.status) - attentionRank(b.terminal.status));
   }, [sortedSnapshots]);
+
+  // Live, actionable counts that replace the old vanity totals.
+  const counts = useMemo(() => {
+    let needInput = 0;
+    let working = 0;
+    let total = 0;
+    for (const snapshot of sortedSnapshots) {
+      for (const terminal of snapshot.terminals) {
+        total += 1;
+        if (terminal.status === 'waiting') needInput += 1;
+        else if (terminal.status === 'working') working += 1;
+      }
+    }
+    return { needInput, working, total };
+  }, [sortedSnapshots]);
+
+  const knownHostIds = useMemo(() => new Set(hosts.map((host) => host.id)), [hosts]);
+
+  // Deep-link to the exact terminal, reusing the same path builder the
+  // notification tap uses so both entry points behave identically.
+  const openAttention = useCallback((hostId: string, terminal: BraidTerminal) => {
+    const branch = terminal.cwd ? terminal.cwd.split('/').pop() : undefined;
+    const path = getNotificationNavigationPath(
+      {
+        hostId,
+        worktreePath: terminal.cwd,
+        terminalId: terminal.terminalId ?? terminal.id,
+        worktreeName: branch,
+      },
+      { knownHostIds },
+    );
+    if (path) router.navigate(path as Parameters<typeof router.navigate>[0]);
+  }, [knownHostIds]);
 
   const unpairedNearby = useMemo(
     () => discoveredHosts.filter((found) => !hosts.some((host) => matchesDiscoveredHost(host, found))),
@@ -271,12 +304,12 @@ export default function HomeScreen() {
       >
         <View style={styles.header}>
           <View style={styles.brand}>
-            <View style={styles.brandMark} />
+            <Image source={require('@/assets/images/icon.png')} style={styles.brandMark} />
             <Text style={styles.brandName}>Braid</Text>
           </View>
           <View style={styles.headerActions}>
-            <Pressable style={styles.iconButton} onPress={() => router.push('/notifications' as Parameters<typeof router.push>[0])} accessibilityLabel="Notification settings">
-              <Bell color={COLORS.muted} size={18} />
+            <Pressable style={styles.iconButton} onPress={() => router.push('/settings' as Parameters<typeof router.push>[0])} accessibilityLabel="Settings">
+              <Settings color={COLORS.muted} size={18} />
             </Pressable>
             <Pressable style={styles.iconButton} onPress={() => refreshAll(hosts)} accessibilityLabel="Refresh">
               <RefreshCw color={COLORS.muted} size={18} />
@@ -284,13 +317,40 @@ export default function HomeScreen() {
           </View>
         </View>
 
+        <View style={styles.quickRow}>
+          <Pressable style={styles.quickTile} onPress={openScanner}>
+            <QrCode color={COLORS.muted} size={20} />
+            <Text style={styles.quickText}>Pair Desktop</Text>
+          </Pressable>
+          <Pressable style={styles.quickTile} onPress={() => setManualOpen(true)}>
+            <Plus color={COLORS.muted} size={20} />
+            <Text style={styles.quickText}>Enter Code</Text>
+          </Pressable>
+        </View>
+
         <Text style={styles.welcome}>Welcome back</Text>
 
         <View style={styles.statsRow}>
-          <StatCard value={String(agentsSpawned)} label="Agents spawned" />
-          <StatCard value={formatDuration(agentTimeMs)} label="Agent time" />
-          <StatCard value={String(projectCount)} label="Projects" />
+          <StatCard value={String(counts.needInput)} label="Need input" emphasis={counts.needInput > 0 ? 'alert' : undefined} />
+          <StatCard value={String(counts.working)} label="Working" />
+          <StatCard value={String(counts.total)} label="Agents" />
         </View>
+
+        {attention.length > 0 && (
+          <>
+            <Text style={styles.sectionLabel}>Needs attention</Text>
+            {attention.map(({ hostId, terminal }) => (
+              <RowCard
+                key={`${hostId}:${terminal.terminalId ?? terminal.id}`}
+                icon={<TerminalSquare color={COLORS.muted} size={22} />}
+                title={terminalLabel(terminal)}
+                dotColor={terminal.status === 'waiting' ? COLORS.warning : COLORS.success}
+                subtitle={attentionSubtitle(terminal)}
+                onPress={() => openAttention(hostId, terminal)}
+              />
+            ))}
+          </>
+        )}
 
         <Text style={styles.sectionLabel}>Desktops</Text>
         {sortedSnapshots.length === 0 ? (
@@ -311,7 +371,7 @@ export default function HomeScreen() {
               key={snapshot.host.id}
               icon={<Monitor color={COLORS.muted} size={22} />}
               title={snapshot.status?.instanceName ?? snapshot.host.instanceName ?? 'Braid desktop'}
-              dotColor={stateDotColor(snapshot.state)}
+              dotColor={stateDotColor(snapshot.state, COLORS)}
               subtitle={desktopSubtitle(snapshot)}
               onPress={() => router.push(`/host/${encodeURIComponent(snapshot.host.id)}`)}
               onLongPress={() => removeDesktop(snapshot.host)}
@@ -349,32 +409,6 @@ export default function HomeScreen() {
             ))}
           </>
         )}
-
-        {/* @deprecated SDK chat sessions are deprecated in favor of the terminal screen. */}
-        {SESSION_SCREENS_ENABLED && resume && (
-          <>
-            <Text style={styles.sectionLabel}>Resume</Text>
-            <RowCard
-              icon={<TerminalSquare color={COLORS.muted} size={22} />}
-              title={resume.session.customName || resume.session.name || 'Untitled session'}
-              dotColor={sessionDotColor(resume.session.status)}
-              subtitle={sessionSubtitle(resume.session)}
-              onPress={() => router.push({ pathname: '/session/[hostId]/[sessionId]', params: { hostId: resume.hostId, sessionId: resume.session.id } })}
-            />
-          </>
-        )}
-
-        <Text style={styles.sectionLabel}>Quick actions</Text>
-        <View style={styles.quickRow}>
-          <Pressable style={styles.quickTile} onPress={openScanner}>
-            <QrCode color={COLORS.muted} size={20} />
-            <Text style={styles.quickText}>Pair Desktop</Text>
-          </Pressable>
-          <Pressable style={styles.quickTile} onPress={() => setManualOpen(true)}>
-            <Plus color={COLORS.muted} size={20} />
-            <Text style={styles.quickText}>Enter Code</Text>
-          </Pressable>
-        </View>
 
         {bonjourError && discoveredHosts.length === 0 && (
           <Text style={styles.footnote}>Local discovery unavailable in this build.</Text>
@@ -446,10 +480,11 @@ export default function HomeScreen() {
   );
 }
 
-function StatCard({ value, label }: { value: string; label: string }) {
+function StatCard({ value, label, emphasis }: { value: string; label: string; emphasis?: 'alert' }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.statCard}>
-      <Text style={styles.statValue}>{value}</Text>
+      <Text style={[styles.statValue, emphasis === 'alert' && styles.statValueAlert]}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
@@ -470,6 +505,8 @@ function RowCard({
   onPress: () => void;
   onLongPress?: () => void;
 }) {
+  const { palette: COLORS } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable style={styles.rowCard} onPress={onPress} onLongPress={onLongPress}>
       <View style={styles.iconTile}>{icon}</View>
@@ -485,26 +522,35 @@ function RowCard({
   );
 }
 
-function formatDuration(ms: number): string {
-  const minutes = Math.round(ms / 60000);
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  return `${hours}h ${minutes % 60}m`;
+function terminalLabel(terminal: BraidTerminal): string {
+  return (
+    terminal.label ||
+    terminal.title ||
+    terminal.name ||
+    terminal.agentId ||
+    terminal.cwd?.split('/').pop() ||
+    terminal.terminalId ||
+    terminal.id ||
+    'Agent'
+  );
 }
 
-function stateDotColor(state: ConnectionState): string {
-  if (state === 'online') return COLORS.success;
-  if (state === 'connecting') return COLORS.warning;
-  if (state === 'offline') return COLORS.danger;
-  return COLORS.subtle;
+/** Sort key: waiting (needs input) ranks above done (finished). */
+function attentionRank(status?: string): number {
+  return status === 'waiting' ? 0 : 1;
 }
 
-function sessionDotColor(status?: string): string {
-  const value = (status ?? '').toLowerCase();
-  if (value.includes('run') || value.includes('work') || value.includes('active')) return COLORS.accent;
-  if (value.includes('done') || value.includes('complete') || value.includes('idle')) return COLORS.success;
-  if (value.includes('error') || value.includes('fail')) return COLORS.danger;
-  return COLORS.subtle;
+function attentionSubtitle(terminal: BraidTerminal): string {
+  const branch = terminal.cwd ? terminal.cwd.split('/').pop() : undefined;
+  const state = terminal.status === 'waiting' ? 'Needs input' : 'Finished';
+  return [branch, state].filter(Boolean).join(' · ');
+}
+
+function stateDotColor(state: ConnectionState, c: Palette): string {
+  if (state === 'online') return c.success;
+  if (state === 'connecting') return c.warning;
+  if (state === 'offline') return c.danger;
+  return c.subtle;
 }
 
 function desktopSubtitle(snapshot: HostSnapshot): string {
@@ -512,149 +558,147 @@ function desktopSubtitle(snapshot: HostSnapshot): string {
   if (snapshot.state === 'offline') return snapshot.error ?? 'Offline';
   if (snapshot.state === 'idle') return 'Tap to connect';
   const projects = snapshot.status?.projects.length ?? 0;
-  return ['Connected', plural(projects, 'project'), plural(snapshot.sessionTotal, 'session')].join(' · ');
-}
-
-function sessionSubtitle(session: BraidSession): string {
-  const branch = session.worktreePath ? session.worktreePath.split('/').pop() : undefined;
-  return [branch, session.model, session.status].filter(Boolean).join(' · ') || 'Session';
+  return ['Connected', plural(projects, 'project'), plural(snapshot.terminals.length, 'agent')].join(' · ');
 }
 
 function plural(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? '' : 's'}`;
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.bg },
-  shell: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 48 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  brand: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  brandMark: { width: 22, height: 22, borderRadius: 7, backgroundColor: COLORS.accent },
-  brandName: { color: COLORS.text, fontSize: 19, fontWeight: '800', letterSpacing: 0.2 },
-  iconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.panelStrong,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  welcome: { color: COLORS.text, fontSize: 30, fontWeight: '800', marginTop: 22 },
-  statsRow: { flexDirection: 'row', gap: 10, marginTop: 18 },
-  statCard: {
-    flex: 1,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.panel,
-    paddingVertical: 14,
-    paddingHorizontal: 13,
-  },
-  statValue: { color: COLORS.text, fontSize: 22, fontWeight: '800' },
-  statLabel: { color: COLORS.muted, fontSize: 12, marginTop: 5 },
-  sectionLabel: {
-    color: COLORS.subtle,
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginTop: 28,
-    marginBottom: 11,
-  },
-  rowCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.panel,
-    padding: 14,
-    marginBottom: 10,
-  },
-  emptyCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.panel,
-    padding: 14,
-  },
-  iconTile: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.panelStrong,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  rowBody: { flex: 1, minWidth: 0 },
-  rowTitle: { color: COLORS.text, fontSize: 16, fontWeight: '700' },
-  rowSubtitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 4 },
-  rowSubtitle: { color: COLORS.muted, fontSize: 13, flexShrink: 1 },
-  statusDot: { width: 8, height: 8, borderRadius: 4 },
-  usageBlock: { marginBottom: 10 },
-  usageHostLabel: { color: COLORS.muted, fontSize: 12, fontWeight: '700', marginBottom: 6 },
-  quickRow: { flexDirection: 'row', gap: 12 },
-  quickTile: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.panel,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-  },
-  quickText: { color: COLORS.text, fontSize: 14, fontWeight: '700' },
-  footnote: { color: COLORS.subtle, fontSize: 12, marginTop: 18, textAlign: 'center' },
-  scanner: { flex: 1, backgroundColor: COLORS.bg },
-  scannerOverlay: { flex: 1, justifyContent: 'space-between', padding: 18 },
-  scannerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  scannerTitle: { color: COLORS.text, fontSize: 20, fontWeight: '800' },
-  scanFrame: {
-    alignSelf: 'center',
-    width: 260,
-    height: 260,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: COLORS.accent,
-    backgroundColor: 'transparent',
-  },
-  scannerHint: { color: COLORS.text, fontSize: 15, textAlign: 'center', marginBottom: 18 },
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.68)', justifyContent: 'center', padding: 18 },
-  manualPanel: { borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.panel, padding: 16, gap: 14 },
-  manualHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  modalTitle: { color: COLORS.text, fontSize: 18, fontWeight: '800' },
-  input: {
-    minHeight: 128,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.bg,
-    color: COLORS.text,
-    padding: 12,
-    textAlignVertical: 'top',
-  },
-  primaryButton: {
-    minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    backgroundColor: COLORS.accent,
-  },
-  primaryButtonText: { color: COLORS.text, fontSize: 15, fontWeight: '800' },
-});
+function makeStyles(COLORS: Palette) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: COLORS.bg },
+    shell: { flex: 1 },
+    content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 48 },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    brand: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+    brandMark: { width: 24, height: 24, borderRadius: 7, overflow: 'hidden' },
+    brandName: { color: COLORS.text, fontSize: 19, fontWeight: '800', letterSpacing: 0.2 },
+    iconButton: {
+      width: 38,
+      height: 38,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: COLORS.panelStrong,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
+    welcome: { color: COLORS.text, fontSize: 30, fontWeight: '800', marginTop: 22 },
+    statsRow: { flexDirection: 'row', gap: 10, marginTop: 18 },
+    statCard: {
+      flex: 1,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      backgroundColor: COLORS.panel,
+      paddingVertical: 14,
+      paddingHorizontal: 13,
+    },
+    statValue: { color: COLORS.text, fontSize: 22, fontWeight: '800' },
+    statValueAlert: { color: COLORS.warning },
+    statLabel: { color: COLORS.muted, fontSize: 12, marginTop: 5 },
+    sectionLabel: {
+      color: COLORS.subtle,
+      fontSize: 12,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
+      marginTop: 28,
+      marginBottom: 11,
+    },
+    rowCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      backgroundColor: COLORS.panel,
+      padding: 14,
+      marginBottom: 10,
+    },
+    emptyCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      backgroundColor: COLORS.panel,
+      padding: 14,
+    },
+    iconTile: {
+      width: 48,
+      height: 48,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: COLORS.panelStrong,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
+    rowBody: { flex: 1, minWidth: 0 },
+    rowTitle: { color: COLORS.text, fontSize: 16, fontWeight: '700' },
+    rowSubtitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 4 },
+    rowSubtitle: { color: COLORS.muted, fontSize: 13, flexShrink: 1 },
+    statusDot: { width: 8, height: 8, borderRadius: 4 },
+    usageBlock: { marginBottom: 10 },
+    usageHostLabel: { color: COLORS.muted, fontSize: 12, fontWeight: '700', marginBottom: 6 },
+    quickRow: { flexDirection: 'row', gap: 12, marginTop: 18 },
+    quickTile: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      backgroundColor: COLORS.panel,
+      paddingVertical: 16,
+      paddingHorizontal: 16,
+    },
+    quickText: { color: COLORS.text, fontSize: 14, fontWeight: '700' },
+    footnote: { color: COLORS.subtle, fontSize: 12, marginTop: 18, textAlign: 'center' },
+    scanner: { flex: 1, backgroundColor: COLORS.bg },
+    scannerOverlay: { flex: 1, justifyContent: 'space-between', padding: 18 },
+    scannerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    scannerTitle: { color: COLORS.text, fontSize: 20, fontWeight: '800' },
+    scanFrame: {
+      alignSelf: 'center',
+      width: 260,
+      height: 260,
+      borderRadius: 16,
+      borderWidth: 2,
+      borderColor: COLORS.accent,
+      backgroundColor: 'transparent',
+    },
+    scannerHint: { color: COLORS.text, fontSize: 15, textAlign: 'center', marginBottom: 18 },
+    modalBackdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.68)', justifyContent: 'center', padding: 18 },
+    manualPanel: { borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.panel, padding: 16, gap: 14 },
+    manualHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    modalTitle: { color: COLORS.text, fontSize: 18, fontWeight: '800' },
+    input: {
+      minHeight: 128,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      backgroundColor: COLORS.bg,
+      color: COLORS.text,
+      padding: 12,
+      textAlignVertical: 'top',
+    },
+    primaryButton: {
+      minHeight: 48,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      backgroundColor: COLORS.accent,
+    },
+    primaryButtonText: { color: COLORS.text, fontSize: 15, fontWeight: '800' },
+  });
+}

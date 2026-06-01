@@ -464,7 +464,27 @@
     "unnamed": "Perangkat Tanpa Nama",
     "lastSeen": "Terakhir terlihat",
     "never": "Tidak pernah",
-    "remove": "Hapus"
+    "remove": "Hapus",
+    "pairTitle": "Pasangkan Mac Ini",
+    "enableHint": "Aktifkan server pendamping untuk membuat kode pemasangan.",
+    "step1": "Buka aplikasi Braid di ponsel Anda.",
+    "step2": "Ketuk Pasangkan dan pindai kode ini.",
+    "previewTitle": "Di ponsel Anda",
+    "cancel": "Batal",
+    "feat": {
+      "liveTerminals": {
+        "title": "Terminal langsung",
+        "desc": "Pantau dan kendalikan agen yang berjalan secara real-time."
+      },
+      "pushNotifs": {
+        "title": "Notifikasi push",
+        "desc": "Dapatkan peringatan saat agen butuh masukan atau selesai."
+      },
+      "gitWorktrees": {
+        "title": "Git & worktree",
+        "desc": "Jelajahi worktree, cabang, dan diff di mana saja."
+      }
+    }
   },
   "claudeSkills": {
     "title": "Keahlian",

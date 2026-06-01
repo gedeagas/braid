@@ -464,7 +464,27 @@
     "unnamed": "未命名设备",
     "lastSeen": "最后在线",
     "never": "从未",
-    "remove": "移除"
+    "remove": "移除",
+    "pairTitle": "配对此 Mac",
+    "enableHint": "启用配套服务器以生成配对码。",
+    "step1": "在手机上打开 Braid 应用。",
+    "step2": "点按“配对”并扫描此码。",
+    "previewTitle": "在你的手机上",
+    "cancel": "取消",
+    "feat": {
+      "liveTerminals": {
+        "title": "实时终端",
+        "desc": "实时查看和控制运行中的智能体。"
+      },
+      "pushNotifs": {
+        "title": "推送通知",
+        "desc": "当智能体需要输入或完成时收到提醒。"
+      },
+      "gitWorktrees": {
+        "title": "Git 与工作树",
+        "desc": "随时浏览工作树、分支和差异。"
+      }
+    }
   },
   "claudeSkills": {
     "title": "技能",

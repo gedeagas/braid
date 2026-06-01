@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Check, ChevronLeft, ChevronsRight, Command, GitBranch, Keyboard as KeyboardIcon, Monitor, Plus, RefreshCw, Send, Smartphone, TerminalSquare, X } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActionSheetIOS, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -16,7 +16,7 @@ import { AGENT_CATALOG, getAgentEntry } from '@/terminal/agentCatalog';
 import { AgentIcon } from '@/terminal/AgentIcon';
 import { useDetectedAgents } from '@/terminal/useDetectedAgents';
 import type { BraidProject, BraidTerminal, BraidWorktree } from '@/transport/types';
-import { colors, shared } from '@/ui/theme';
+import { useShared, useTheme } from '@/ui/theme';
 import { useHostClient } from '@/ui/use-host-client';
 
 const DEFAULT_COLS = 80;
@@ -35,6 +35,8 @@ function terminalLabel(terminal: BraidTerminal) {
 export default function TerminalScreen() {
   const { hostId, worktreePath, worktreeName, terminalId } = useLocalSearchParams<{ hostId: string; worktreePath?: string; worktreeName?: string; terminalId?: string }>();
   const { client, state } = useHostClient(hostId);
+  const colors = useTheme().palette;
+  const shared = useShared();
   const terminalRef = useRef<TerminalWebViewHandle>(null);
   const detectedAgents = useDetectedAgents(client);
   const [projects, setProjects] = useState<BraidProject[]>([]);
@@ -42,6 +44,7 @@ export default function TerminalScreen() {
   const [worktree, setWorktree] = useState<BraidWorktree | null>(null);
   const [terminals, setTerminals] = useState<BraidTerminal[]>([]);
   const [active, setActive] = useState<BraidTerminal | null>(null);
+  const [inputReadyTerminalId, setInputReadyTerminalId] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [selectorsExpanded, setSelectorsExpanded] = useState(true);
@@ -118,6 +121,7 @@ export default function TerminalScreen() {
     openSeqRef.current = seq;
     const previousSubscription = subscriptionRef.current;
     subscriptionRef.current = null;
+    setInputReadyTerminalId(null);
     activeIdRef.current = terminal.id;
     initializedKeyRef.current = terminal.id;
     setActive(terminal);
@@ -131,11 +135,17 @@ export default function TerminalScreen() {
       }
       console.log('[BraidMobile] terminal.subscribed', { terminalId: terminal.id, subscriptionId });
       subscriptionRef.current = { terminalId: terminal.id, subscriptionId };
+      if (activeIdRef.current === terminal.id) {
+        setInputReadyTerminalId(terminal.id);
+      }
       if (previousSubscription) {
         client.unsubscribe(previousSubscription.subscriptionId).catch(() => undefined);
       }
     } catch (err) {
-      if (openSeqRef.current === seq) setError(err instanceof Error ? err.message : String(err));
+      if (openSeqRef.current === seq) {
+        setInputReadyTerminalId(null);
+        setError(err instanceof Error ? err.message : String(err));
+      }
       return;
     }
 
@@ -214,6 +224,8 @@ export default function TerminalScreen() {
       if (next) {
         setSelectorsExpanded(false);
         await openTerminal(next);
+      } else {
+        setInputReadyTerminalId(null);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -250,6 +262,59 @@ export default function TerminalScreen() {
       setCreatingTerminal(false);
     }
   }, [client, creatingTerminal, openTerminal, selectedAgent, selectedAgentId, worktree]);
+
+  // Close a terminal tab: kill it on the desktop, drop it from the tab strip,
+  // and - if it was the active tab - fall back to the next tab (or empty state).
+  const closeTerminal = useCallback(async (terminal: BraidTerminal) => {
+    if (!client) return;
+    const wasActive = activeIdRef.current === terminal.id;
+    try {
+      await client.request('terminal.close', {
+        terminalId: terminal.terminalId,
+        ptyId: terminal.id,
+        worktreePath: terminal.worktreePath,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      return;
+    }
+    if (subscriptionRef.current?.terminalId === terminal.id) {
+      client.unsubscribe(subscriptionRef.current.subscriptionId).catch(() => undefined);
+      subscriptionRef.current = null;
+    }
+    const remaining = terminals.filter((item) => item.id !== terminal.id);
+    setTerminals(remaining);
+    if (wasActive) {
+      const next = remaining[0] ?? null;
+      if (next) {
+        await openTerminal(next);
+      } else {
+        activeIdRef.current = null;
+        setActive(null);
+        setInputReadyTerminalId(null);
+        setSelectorsExpanded(true);
+      }
+    }
+  }, [client, openTerminal, terminals]);
+
+  // Long-press a tab to confirm closing it (native action sheet on iOS, alert on
+  // Android). Mirrors the per-tab close on the desktop.
+  const confirmCloseTerminal = useCallback((terminal: BraidTerminal) => {
+    const title = `Close ${terminalLabel(terminal)}?`;
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { title, options: ['Cancel', 'Close terminal'], destructiveButtonIndex: 1, cancelButtonIndex: 0 },
+        (index) => {
+          if (index === 1) void closeTerminal(terminal);
+        },
+      );
+    } else {
+      Alert.alert(title, undefined, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Close terminal', style: 'destructive', onPress: () => void closeTerminal(terminal) },
+      ]);
+    }
+  }, [closeTerminal]);
 
   useEffect(() => () => clearTerminalLiveInputFocusTimer(liveInputFocusTimerRef), []);
 
@@ -338,8 +403,21 @@ export default function TerminalScreen() {
       .catch(() => undefined);
   }, [state, active, client, fitActiveTerminal]);
 
+  const activeInputReady = active != null && inputReadyTerminalId === active.id;
+  const canSend = state === 'connected' && activeInputReady;
+  const liveInputEnabled = !!active && liveInputHandles.has(active.id);
+  const inputPlaceholder = active
+    ? state === 'connected'
+      ? canSend
+        ? 'Command'
+        : 'Loading terminal...'
+      : 'Connecting...'
+    : state === 'connected'
+      ? 'Select a terminal'
+      : 'Connecting...';
+
   const writeBytes = async (data: string) => {
-    if (!client || !active || !data) return;
+    if (!client || !active || !data || !canSend) return;
     await client.request('terminal.write', { ptyId: active.id, data });
   };
 
@@ -351,7 +429,7 @@ export default function TerminalScreen() {
     // input this sends a bare Enter, replacing the standalone key.
     // sendingRef guards against a double-tap firing the command twice; the
     // input is restored if the write fails so nothing is silently lost.
-    if (!active || sendingRef.current) return;
+    if (!active || !canSend || sendingRef.current) return;
     sendingRef.current = true;
     const text = input;
     setInput('');
@@ -368,11 +446,9 @@ export default function TerminalScreen() {
     }
   };
 
-  const liveInputEnabled = !!active && liveInputHandles.has(active.id);
-
   // Live mode: forward raw bytes straight to the PTY (no buffering, no Enter).
   const sendLiveTerminalInput = (bytes: string) => {
-    if (!bytes || !client || !active) return;
+    if (!bytes || !client || !active || !canSend) return;
     if (!isTerminalLiveInputWithinByteLimit(bytes)) {
       setError('Input too large (max 256 KiB)');
       return;
@@ -381,12 +457,12 @@ export default function TerminalScreen() {
   };
 
   const focusLiveInput = () => {
-    if (!active || !liveInputEnabled) return;
+    if (!canSend || !liveInputEnabled) return;
     liveInputRef.current?.focus();
   };
 
   const toggleLiveInput = () => {
-    if (!active) return;
+    if (!active || !canSend) return;
     const id = active.id;
     const nextEnabled = !liveInputHandles.has(id);
     setLiveInputHandles((prev) => {
@@ -404,7 +480,7 @@ export default function TerminalScreen() {
   };
 
   const handleLiveInputChange = (text: string) => {
-    if (!active || !liveInputHandles.has(active.id)) {
+    if (!active || !canSend || !liveInputHandles.has(active.id)) {
       liveInputRef.current?.setNativeProps({ text: '' });
       return;
     }
@@ -416,7 +492,7 @@ export default function TerminalScreen() {
   };
 
   const handleLiveInputKeyPress = (event: { nativeEvent: { key: string } }) => {
-    if (!active || !liveInputHandles.has(active.id)) return;
+    if (!active || !canSend || !liveInputHandles.has(active.id)) return;
     const bytes = getTerminalLiveSpecialKeyBytes(event.nativeEvent.key);
     if (!bytes) return;
     sendLiveTerminalInput(bytes);
@@ -424,7 +500,7 @@ export default function TerminalScreen() {
   };
 
   const handleLiveInputSubmit = () => {
-    if (!active || !liveInputHandles.has(active.id)) return;
+    if (!active || !canSend || !liveInputHandles.has(active.id)) return;
     sendLiveTerminalInput('\r');
     liveInputRef.current?.setNativeProps({ text: '' });
   };
@@ -434,7 +510,7 @@ export default function TerminalScreen() {
   // Toggle between phone-fit (the desktop yields, PTY sized to this phone) and
   // desktop size (the desktop drives its native dims, we scale to fit).
   const toggleDisplayMode = async () => {
-    if (!client || !active) return;
+    if (!client || !active || !canSend) return;
     const id = active.id;
     const nextDesktop = !desktopModeHandles.has(id);
     const nextSet = new Set(desktopModeRef.current);
@@ -467,6 +543,7 @@ export default function TerminalScreen() {
     setWorktree(project.worktrees?.[0] ?? null);
     setTerminals([]);
     setActive(null);
+    setInputReadyTerminalId(null);
     setSelectorsExpanded(true);
     terminalRef.current?.clear();
   };
@@ -476,6 +553,7 @@ export default function TerminalScreen() {
     setWorktree(next);
     setTerminals([]);
     setActive(null);
+    setInputReadyTerminalId(null);
     setSelectorsExpanded(false);
     terminalRef.current?.clear();
   };
@@ -483,8 +561,224 @@ export default function TerminalScreen() {
   const chromeTitle = typeof worktreeName === 'string' && worktreeName ? worktreeName : worktree?.branch ?? selectedProject?.name ?? 'Session';
   const chromeMeta = selectedProject && worktree ? `${selectedProject.name} / ${worktree.branch}` : worktree?.path ?? 'Select a worktree';
 
+  // Themed style objects, scoped to the component so they track the active
+  // palette (light/dark) instead of capturing a static color at module load.
+  const chromeIconButton = {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  };
+
+  const liveToggleButton = {
+    width: 36,
+    height: 30,
+    marginHorizontal: 6,
+    borderRadius: 8,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    backgroundColor: colors.panelStrong,
+  };
+
+  const liveToggleButtonActive = {
+    backgroundColor: colors.accent,
+  };
+
+  const chromeTextButton = {
+    minHeight: 30,
+    borderRadius: 8,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    paddingHorizontal: 10,
+    marginRight: 4,
+    backgroundColor: colors.panelStrong,
+  };
+
+  const chromeTextButtonLabel = {
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: '700' as const,
+  };
+
+  const chromeTitleStyle = {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '700' as const,
+  };
+
+  const chromeMetaStyle = {
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 16,
+  };
+
+  const selectorChip = {
+    minHeight: 32,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.panelStrong,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    flexDirection: 'row' as const,
+    gap: 6,
+    paddingHorizontal: 10,
+  };
+
+  const selectorChipActive = {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  };
+
+  const selectorChipText = {
+    color: colors.muted,
+    fontSize: 13,
+    fontWeight: '700' as const,
+  };
+
+  const selectorChipTextActive = {
+    color: colors.text,
+  };
+
+  const pickerBackdrop = {
+    flex: 1,
+    backgroundColor: 'rgba(5, 8, 12, 0.72)',
+    justifyContent: 'flex-end' as const,
+    padding: 12,
+  };
+
+  const pickerPanel = {
+    maxHeight: 520,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.panel,
+    overflow: 'hidden' as const,
+  };
+
+  const pickerHeader = {
+    minHeight: 56,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  };
+
+  const pickerTitle = {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '700' as const,
+  };
+
+  const pickerSubtitle = {
+    color: colors.muted,
+    fontSize: 12,
+    marginTop: 2,
+  };
+
+  const pickerCloseButton = {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    backgroundColor: colors.panelStrong,
+  };
+
+  const pickerList = {
+    maxHeight: 520,
+  };
+
+  const pickerListContent = {
+    padding: 10,
+    gap: 8,
+  };
+
+  const pickerSectionLabel = {
+    color: colors.subtle,
+    fontSize: 11,
+    fontWeight: '800' as const,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0,
+    paddingHorizontal: 2,
+    paddingTop: 2,
+  };
+
+  const pickerRow = {
+    minHeight: 52,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.panelStrong,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  };
+
+  const pickerRowIcon = {
+    width: 24,
+    height: 24,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  };
+
+  const pickerRowPressed = {
+    backgroundColor: '#20262D',
+  };
+
+  const pickerRowSelected = {
+    borderColor: colors.accent,
+  };
+
+  const pickerRowTitle = {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '700' as const,
+  };
+
+  const pickerRowSubtitle = {
+    color: colors.muted,
+    fontSize: 12,
+    marginTop: 2,
+    fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
+  };
+
+  const terminalTabStyle = {
+    width: 128,
+    maxWidth: 128,
+    minHeight: 36,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    paddingHorizontal: 10,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  };
+
+  const terminalTabActiveStyle = {
+    borderBottomColor: colors.accent,
+  };
+
+  const terminalTabTextStyle = {
+    flexShrink: 1,
+    color: colors.muted,
+    fontSize: 13,
+  };
+
+  const terminalTabTextActiveStyle = {
+    color: colors.text,
+  };
+
   return (
-    <SafeAreaView style={shared.safe}>
+    // Safe-area insets are panel-colored (not the darker app bg) so the panel
+    // header and bottom key/input bars extend seamlessly into the notch and
+    // home-indicator areas instead of leaving dark bands.
+    <SafeAreaView style={[shared.safe, { backgroundColor: colors.panel }]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={{ backgroundColor: colors.panel, borderBottomWidth: 1, borderBottomColor: colors.border }}>
           <View style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 4 }}>
@@ -529,7 +823,7 @@ export default function TerminalScreen() {
               ) : terminals.map((terminal) => {
                 const isActive = active?.id === terminal.id;
                 return (
-                  <Pressable key={terminal.id} style={[terminalTabStyle, isActive && terminalTabActiveStyle]} onPress={() => openTerminal(terminal)}>
+                  <Pressable key={terminal.id} style={[terminalTabStyle, isActive && terminalTabActiveStyle]} onPress={() => openTerminal(terminal)} onLongPress={() => confirmCloseTerminal(terminal)}>
                     <View style={{ maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <TerminalSquare color={isActive ? colors.text : colors.muted} size={14} />
                       <Text style={[terminalTabTextStyle, isActive && terminalTabTextActiveStyle]} numberOfLines={1}>{terminalLabel(terminal)}</Text>
@@ -667,34 +961,34 @@ export default function TerminalScreen() {
             style={{ flex: 1, height: 43, maxHeight: 43 }}
             contentContainerStyle={{ height: 42, alignItems: 'center', gap: 6, paddingHorizontal: 10 }}
           >
-            <Key label="Esc" onPress={() => void writeBytes('\x1b')} />
-            <Key label="Tab" onPress={() => void writeBytes('\t')} />
-            <Key label="Ctrl+C" onPress={() => void writeBytes('\x03')} />
-            <Key label="Ctrl+D" onPress={() => void writeBytes('\x04')} />
-            <Key label="↑" onPress={() => void writeBytes('\x1b[A')} />
-            <Key label="↓" onPress={() => void writeBytes('\x1b[B')} />
-            <Key label="←" onPress={() => void writeBytes('\x1b[D')} />
-            <Key label="→" onPress={() => void writeBytes('\x1b[C')} />
+            <Key label="Esc" disabled={!canSend} onPress={() => void writeBytes('\x1b')} />
+            <Key label="Tab" disabled={!canSend} onPress={() => void writeBytes('\t')} />
+            <Key label="Ctrl+C" disabled={!canSend} onPress={() => void writeBytes('\x03')} />
+            <Key label="Ctrl+D" disabled={!canSend} onPress={() => void writeBytes('\x04')} />
+            <Key label="↑" disabled={!canSend} onPress={() => void writeBytes('\x1b[A')} />
+            <Key label="↓" disabled={!canSend} onPress={() => void writeBytes('\x1b[B')} />
+            <Key label="←" disabled={!canSend} onPress={() => void writeBytes('\x1b[D')} />
+            <Key label="→" disabled={!canSend} onPress={() => void writeBytes('\x1b[C')} />
           </ScrollView>
           <Pressable
-            style={[liveToggleButton, desktopMode && liveToggleButtonActive, !active && { opacity: 0.35 }]}
-            disabled={!active}
+            style={[liveToggleButton, desktopMode && liveToggleButtonActive, !canSend && { opacity: 0.35 }]}
+            disabled={!canSend}
             onPress={() => void toggleDisplayMode()}
             accessibilityLabel={desktopMode ? 'Switch to phone size' : 'Switch to desktop size'}
           >
             {desktopMode ? (
               <Smartphone color={colors.bg} size={16} />
             ) : (
-              <Monitor color={active ? colors.muted : colors.subtle} size={16} />
+              <Monitor color={canSend ? colors.muted : colors.subtle} size={16} />
             )}
           </Pressable>
           <Pressable
-            style={[liveToggleButton, liveInputEnabled && liveToggleButtonActive, !active && { opacity: 0.35 }]}
-            disabled={!active}
+            style={[liveToggleButton, liveInputEnabled && liveToggleButtonActive, !canSend && { opacity: 0.35 }]}
+            disabled={!canSend}
             onPress={toggleLiveInput}
             accessibilityLabel={liveInputEnabled ? 'Switch to buffered command input' : 'Switch to live terminal input'}
           >
-            <ChevronsRight color={liveInputEnabled ? colors.bg : active ? colors.muted : colors.subtle} size={16} />
+            <ChevronsRight color={liveInputEnabled ? colors.bg : canSend ? colors.muted : colors.subtle} size={16} />
           </Pressable>
         </View>
 
@@ -702,7 +996,7 @@ export default function TerminalScreen() {
           <Pressable
             style={{ flexDirection: 'row', alignItems: 'center', minHeight: 46, gap: 8, paddingHorizontal: 12, paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.panel }}
             onPress={focusLiveInput}
-            disabled={!active}
+            disabled={!canSend}
             accessibilityLabel="Focus live terminal input"
           >
             <KeyboardIcon color={colors.muted} size={16} />
@@ -723,15 +1017,15 @@ export default function TerminalScreen() {
               keyboardType={Platform.OS === 'ios' ? 'ascii-capable' : 'visible-password'}
               returnKeyType="default"
               submitBehavior="submit"
-              editable={!!active}
+              editable={canSend}
               importantForAutofill="no"
               textContentType="none"
             />
           </Pressable>
         ) : (
           <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 46, gap: 8, paddingHorizontal: 12, paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.panel }}>
-            <TextInput value={input} onChangeText={setInput} placeholder={active ? 'Command' : 'Select a terminal'} placeholderTextColor={colors.subtle} autoCapitalize="none" autoCorrect={false} style={[shared.input, { flex: 1, minHeight: 34, height: 34, paddingVertical: 0, borderRadius: 8, backgroundColor: colors.panelStrong, fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) }]} onSubmitEditing={submit} editable={!!active} />
-            <Pressable style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.panelStrong, opacity: active ? 1 : 0.35 }} onPress={submit} disabled={!active}><Send color={colors.text} size={17} /></Pressable>
+            <TextInput value={input} onChangeText={setInput} placeholder={inputPlaceholder} placeholderTextColor={colors.subtle} autoCapitalize="none" autoCorrect={false} style={[shared.input, { flex: 1, minHeight: 34, height: 34, paddingVertical: 0, borderRadius: 8, backgroundColor: colors.panelStrong, fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) }]} onSubmitEditing={submit} editable={canSend} />
+            <Pressable style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.panelStrong, opacity: canSend ? 1 : 0.35 }} onPress={submit} disabled={!canSend}><Send color={colors.text} size={17} /></Pressable>
           </View>
         )}
       </KeyboardAvoidingView>
@@ -739,222 +1033,13 @@ export default function TerminalScreen() {
   );
 }
 
-function Key({ label, onPress }: { label: string; onPress: () => void }) {
+function Key({ label, onPress, disabled = false }: { label: string; onPress: () => void; disabled?: boolean }) {
+  const colors = useTheme().palette;
   return (
-    <Pressable style={{ minWidth: 36, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 5, paddingHorizontal: 10, backgroundColor: colors.panelStrong }} onPress={onPress}>
+    <Pressable disabled={disabled} style={{ minWidth: 36, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 5, paddingHorizontal: 10, backgroundColor: colors.panelStrong, opacity: disabled ? 0.35 : 1 }} onPress={onPress}>
       {label === 'Ctrl+C' ? <Command color={colors.muted} size={12} /> : null}
       <Text style={{ color: colors.muted, fontSize: 12, fontWeight: '700', fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) }}>{label}</Text>
     </Pressable>
   );
 }
 
-const chromeIconButton = {
-  width: 36,
-  height: 36,
-  borderRadius: 18,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
-};
-
-const liveToggleButton = {
-  width: 36,
-  height: 30,
-  marginHorizontal: 6,
-  borderRadius: 8,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
-  backgroundColor: colors.panelStrong,
-};
-
-const liveToggleButtonActive = {
-  backgroundColor: colors.accent,
-};
-
-const chromeTextButton = {
-  minHeight: 30,
-  borderRadius: 8,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
-  paddingHorizontal: 10,
-  marginRight: 4,
-  backgroundColor: colors.panelStrong,
-};
-
-const chromeTextButtonLabel = {
-  color: colors.text,
-  fontSize: 12,
-  fontWeight: '700' as const,
-};
-
-const chromeTitleStyle = {
-  color: colors.text,
-  fontSize: 14,
-  fontWeight: '700' as const,
-};
-
-const chromeMetaStyle = {
-  color: colors.muted,
-  fontSize: 12,
-  lineHeight: 16,
-};
-
-const selectorChip = {
-  minHeight: 32,
-  borderRadius: 8,
-  borderWidth: 1,
-  borderColor: colors.border,
-  backgroundColor: colors.panelStrong,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
-  flexDirection: 'row' as const,
-  gap: 6,
-  paddingHorizontal: 10,
-};
-
-const selectorChipActive = {
-  backgroundColor: colors.accent,
-  borderColor: colors.accent,
-};
-
-const selectorChipText = {
-  color: colors.muted,
-  fontSize: 13,
-  fontWeight: '700' as const,
-};
-
-const selectorChipTextActive = {
-  color: colors.text,
-};
-
-const pickerBackdrop = {
-  flex: 1,
-  backgroundColor: 'rgba(5, 8, 12, 0.72)',
-  justifyContent: 'flex-end' as const,
-  padding: 12,
-};
-
-const pickerPanel = {
-  maxHeight: 520,
-  borderRadius: 16,
-  borderWidth: 1,
-  borderColor: colors.border,
-  backgroundColor: colors.panel,
-  overflow: 'hidden' as const,
-};
-
-const pickerHeader = {
-  minHeight: 56,
-  flexDirection: 'row' as const,
-  alignItems: 'center' as const,
-  gap: 12,
-  paddingHorizontal: 14,
-  paddingVertical: 12,
-  borderBottomWidth: 1,
-  borderBottomColor: colors.border,
-};
-
-const pickerTitle = {
-  color: colors.text,
-  fontSize: 15,
-  fontWeight: '700' as const,
-};
-
-const pickerSubtitle = {
-  color: colors.muted,
-  fontSize: 12,
-  marginTop: 2,
-};
-
-const pickerCloseButton = {
-  width: 34,
-  height: 34,
-  borderRadius: 17,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
-  backgroundColor: colors.panelStrong,
-};
-
-const pickerList = {
-  maxHeight: 520,
-};
-
-const pickerListContent = {
-  padding: 10,
-  gap: 8,
-};
-
-const pickerSectionLabel = {
-  color: colors.subtle,
-  fontSize: 11,
-  fontWeight: '800' as const,
-  textTransform: 'uppercase' as const,
-  letterSpacing: 0,
-  paddingHorizontal: 2,
-  paddingTop: 2,
-};
-
-const pickerRow = {
-  minHeight: 52,
-  flexDirection: 'row' as const,
-  alignItems: 'center' as const,
-  gap: 12,
-  borderRadius: 12,
-  borderWidth: 1,
-  borderColor: colors.border,
-  backgroundColor: colors.panelStrong,
-  paddingHorizontal: 12,
-  paddingVertical: 10,
-};
-
-const pickerRowIcon = {
-  width: 24,
-  height: 24,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
-};
-
-const pickerRowPressed = {
-  backgroundColor: '#20262D',
-};
-
-const pickerRowSelected = {
-  borderColor: colors.accent,
-};
-
-const pickerRowTitle = {
-  color: colors.text,
-  fontSize: 14,
-  fontWeight: '700' as const,
-};
-
-const pickerRowSubtitle = {
-  color: colors.muted,
-  fontSize: 12,
-  marginTop: 2,
-  fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
-};
-
-const terminalTabStyle = {
-  width: 128,
-  maxWidth: 128,
-  minHeight: 36,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
-  paddingHorizontal: 10,
-  borderBottomWidth: 2,
-  borderBottomColor: 'transparent',
-};
-
-const terminalTabActiveStyle = {
-  borderBottomColor: colors.accent,
-};
-
-const terminalTabTextStyle = {
-  flexShrink: 1,
-  color: colors.muted,
-  fontSize: 13,
-};
-
-const terminalTabTextActiveStyle = {
-  color: colors.text,
-};

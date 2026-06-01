@@ -16,6 +16,7 @@ import { useTerminalLifecycle } from './useTerminalLifecycle'
 import { useTerminalFileDrop } from '@/hooks/useTerminalFileDrop'
 import { useTerminalClipboardPaste } from '@/hooks/useTerminalClipboardPaste'
 import { createTerminalCommandObserver } from '@/lib/terminalCommandRefresh'
+import { replayIntoTerminal, isReplaying, POST_REPLAY_MODE_RESET } from '@/lib/replayGuard'
 import '@xterm/xterm/css/xterm.css'
 
 export { cleanupTerminals } from './terminalCache'
@@ -210,9 +211,16 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
         tab.ptyId = result.sessionId
         const observer = createTerminalCommandObserver(worktreePathRef.current, { refreshWorktrees: true })
         tab.commandObserver = observer
-        tab.term.write(result.snapshot)
-        tab.term.write('\r\n\x1b[2m[session reconnected]\x1b[0m\r\n')
+        // Register for daemon-side scrollback persistence so this tab survives a
+        // daemon death (cold app restart), matching big-terminal behavior.
+        ipc.pty.registerBigTerminal(result.sessionId, tab.id)
+        // Replay under guard to suppress xterm auto-replies (DA1, DECRQM, etc.)
+        // leaking back into the reconnected shell as keystrokes.
+        replayIntoTerminal(tab.id, tab.term, result.snapshot)
+        replayIntoTerminal(tab.id, tab.term, '\r\n\x1b[2m[session reconnected]\x1b[0m\r\n')
+        replayIntoTerminal(tab.id, tab.term, POST_REPLAY_MODE_RESET)
         tab.term.onData((data: string) => {
+          if (isReplaying(tab.id)) return
           observer.accept(data)
           ipc.pty.write(result.sessionId, data)
         })
@@ -222,7 +230,21 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
         return
       }
     } catch {
-      // Reattach not available - fall through to fresh spawn
+      // Reattach not available - fall through to scrollback restore + fresh spawn
+    }
+
+    // Fall back to scrollback file replay + fresh spawn (daemon session is gone)
+    let hasScrollback = false
+    try {
+      const scrollback = await ipc.pty.readScrollback(tab.id)
+      if (scrollback && scrollback.length > 0) {
+        hasScrollback = true
+        replayIntoTerminal(tab.id, tab.term, scrollback)
+        replayIntoTerminal(tab.id, tab.term, '\r\n\x1b[2m[history restored]\x1b[0m\r\n')
+        replayIntoTerminal(tab.id, tab.term, POST_REPLAY_MODE_RESET)
+      }
+    } catch {
+      // ignore: best-effort replay
     }
 
     try {
@@ -230,14 +252,19 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
       tab.ptyId = id
       const observer = createTerminalCommandObserver(worktreePathRef.current, { refreshWorktrees: true })
       tab.commandObserver = observer
+      // Register for daemon-side scrollback persistence (writes ~/Braid/bigTerminals/<id>.scrollback on exit/kill/quit).
+      ipc.pty.registerBigTerminal(id, tab.id)
       tab.term.onData((data: string) => {
+        // Suppress xterm auto-replies emitted during scrollback replay.
+        if (isReplaying(tab.id)) return
         observer.accept(data)
         ipc.pty.write(id, data)
       })
       requestAnimationFrame(() => {
         try { tab.fitAddon.fit(); ipc.pty.resize(id, tab.term.cols, tab.term.rows) } catch { /* ignore */ }
       })
-      if (pendingCommandRef.current) {
+      // Auto-run a queued command only on fresh terminals (not on restored history).
+      if (pendingCommandRef.current && !hasScrollback) {
         const cmd = pendingCommandRef.current
         pendingCommandRef.current = null
         setTimeout(() => {
@@ -267,7 +294,7 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
     dispatch({ type: 'UPDATE_TABS', fn: (prev) => {
       const idx = prev.findIndex((t) => t.id === tabId)
       const tab = prev[idx]
-      if (tab) { if (tab.ptyId) ipc.pty.kill(tab.ptyId); tab.commandObserver?.dispose(); tab.resizeObserver?.disconnect(); tab.term.dispose(); containerRefs.current.delete(tabId) }
+      if (tab) { if (tab.ptyId) ipc.pty.kill(tab.ptyId); ipc.pty.deleteScrollback(tabId); tab.commandObserver?.dispose(); tab.resizeObserver?.disconnect(); tab.term.dispose(); containerRefs.current.delete(tabId) }
       const next = prev.filter((t) => t.id !== tabId)
       tabsRef.current = next
       const cached = terminalCache.get(worktreePathRef.current)

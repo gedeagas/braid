@@ -2,11 +2,13 @@ import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 import { useCallback, useEffect, useRef } from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ClientManagerProvider } from '@/transport/client-manager';
 import { loadHosts } from '@/transport/host-store';
 import { configureNotificationHandler } from '@/notifications/mobile-notifications';
 import { getNotificationNavigationPath } from '@/notifications/notification-routing';
+import { ThemeProvider, useTheme } from '@/ui/theme';
 
 // Configure foreground presentation once at module load.
 configureNotificationHandler();
@@ -66,13 +68,30 @@ function useNotificationTapRouting(): void {
   }, [handle, lastResponse]);
 }
 
+// Inner navigator: consumes the active theme so the navigator background and
+// the status-bar foreground track light/dark. contentStyle paints the area
+// behind the notch during mount/transitions so the safe area stays seamless
+// before each screen's own SafeAreaView renders.
+function RootNavigator() {
+  const { palette, scheme } = useTheme();
+  return (
+    <>
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: palette.bg } }} />
+    </>
+  );
+}
+
 export default function RootLayout() {
   useNotificationTapRouting();
 
   return (
-    <ClientManagerProvider>
-      <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false }} />
-    </ClientManagerProvider>
+    <ThemeProvider>
+      <SafeAreaProvider>
+        <ClientManagerProvider>
+          <RootNavigator />
+        </ClientManagerProvider>
+      </SafeAreaProvider>
+    </ThemeProvider>
   );
 }

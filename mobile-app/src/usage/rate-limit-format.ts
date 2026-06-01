@@ -1,4 +1,4 @@
-import { colors } from '@/ui/theme';
+import type { Palette } from '@/ui/theme';
 import type { ProviderRateLimits, RateLimitWindow } from '@/transport/types';
 
 // Pure helpers for rendering Claude/Codex usage. Mirrors the desktop
@@ -10,10 +10,10 @@ export function percentLeft(window: RateLimitWindow): number {
 }
 
 /** Bar color by remaining headroom: green plenty, amber low, red nearly out. */
-export function barColor(leftPct: number): string {
-  if (leftPct > 40) return colors.success;
-  if (leftPct > 20) return colors.warning;
-  return colors.danger;
+export function barColor(leftPct: number, c: Palette): string {
+  if (leftPct > 40) return c.success;
+  if (leftPct > 20) return c.warning;
+  return c.danger;
 }
 
 /** Short human label for a usage window ("5h" session, "Weekly", or "Nh"). */

@@ -13,6 +13,7 @@ import { MOBILE_PROTOCOL_VERSION } from './protocol'
 import { getMobileInstanceName } from './instanceName'
 import { markMobileTerminalActive, markMobileTerminalInactive } from './mobileTerminalPresence'
 import { getMobileDisplayMode, resetMobileDisplayMode, setMobileDisplayMode, type MobileDisplayMode } from './mobileTerminalDisplay'
+import { getTerminalActivity } from './terminalActivity'
 import type {
   JsonRpcRequest,
   JsonRpcResponse,
@@ -282,9 +283,9 @@ register('terminal.list', async (params) => {
   // terminals come back with their real labels after an app restart.
   await ptyService.ensureDaemon?.()
   // Only surface big terminals (center-panel agent sessions, prefix "bt-") to
-  // mobile. Right-side-panel terminals are spawned without registerBigTerminal,
-  // so listInstances reports them with terminalId undefined; plain PTYs are the
-  // same. Filtering on the "bt-" prefix excludes both.
+  // mobile. Right-side-panel terminals (prefix "rt-") register for scrollback
+  // persistence too, so they also appear in listInstances with a terminalId -
+  // but the "bt-" prefix filter excludes them, and they carry no label metadata.
   //
   // Also require a registered label (metadata): a "bt-" PTY whose metadata has
   // been removed is an orphaned/closed session that the desktop no longer shows
@@ -304,7 +305,12 @@ register('terminal.list', async (params) => {
       agentId: terminal.agentId,
     })),
   })
-  return terminals
+  // Enrich each terminal with its current agent state so the mobile homepage can
+  // surface which agents need attention without a separate status RPC.
+  return terminals.map((terminal) => ({
+    ...terminal,
+    status: terminal.terminalId ? getTerminalActivity(terminal.terminalId) : undefined,
+  }))
 })
 
 register('terminal.create', async (params) => {
@@ -352,6 +358,24 @@ register('terminal.create', async (params) => {
     worktreeId,
     worktreePath,
   }
+})
+
+register('terminal.close', async (params) => {
+  const terminalId = params.terminalId as string | undefined
+  const ptyId = params.ptyId as string | undefined
+  // Prefer the big-terminal id: killBigTerminal reaps the PTY and removes the
+  // metadata, which is what makes the tab disappear from terminal.list (a "bt-"
+  // PTY without metadata is treated as a closed/orphaned session). Fall back to
+  // a raw PTY kill when only the ptyId is known.
+  if (terminalId && ptyService.killBigTerminal) {
+    ptyService.killBigTerminal(terminalId)
+  } else if (ptyId) {
+    ptyService.kill(ptyId)
+  } else {
+    throw new Error('terminalId or ptyId is required')
+  }
+  console.log('[MobileRPC] terminal.close', { terminalId, ptyId })
+  return { closed: true }
 })
 
 register('terminal.write', async (params) => {

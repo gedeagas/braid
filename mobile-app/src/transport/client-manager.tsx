@@ -44,6 +44,12 @@ export interface ClientManager {
   getReconnectAttempt: (hostId: string) => number;
   /** Subscribe to connection-state changes (for UI re-renders). */
   subscribe: (listener: () => void) => () => void;
+  /**
+   * Subscribe to desktop `notification` events (agent done / needs-input). The
+   * home screen uses this to live-refresh a host's terminal states - and thus
+   * its "Needs attention" list - the moment an event arrives.
+   */
+  subscribeActivity: (listener: (hostId: string) => void) => () => void;
 }
 
 function createManager(): ClientManager & {
@@ -53,10 +59,15 @@ function createManager(): ClientManager & {
 } {
   const entries = new Map<string, Entry>();
   const listeners = new Set<() => void>();
+  const activityListeners = new Set<(hostId: string) => void>();
   let foregrounded = true;
 
   const emit = () => {
     for (const listener of listeners) listener();
+  };
+
+  const emitActivity = (hostId: string) => {
+    for (const listener of activityListeners) listener(hostId);
   };
 
   // The notification-routing listener is registered once per entry (it survives
@@ -66,6 +77,9 @@ function createManager(): ClientManager & {
     entry.offNotification = entry.client.onNotification((message: RpcNotification) => {
       if (message.method !== 'notification') return;
       void scheduleDesktopNotification(message.params as DesktopNotificationParams, entry.host.id);
+      // Wake any home-screen listener so its "Needs attention" list refreshes
+      // against the host's now-updated terminal states.
+      emitActivity(entry.host.id);
     });
   }
 
@@ -192,6 +206,13 @@ function createManager(): ClientManager & {
     };
   };
 
+  const subscribeActivity = (listener: (hostId: string) => void): (() => void) => {
+    activityListeners.add(listener);
+    return () => {
+      activityListeners.delete(listener);
+    };
+  };
+
   const init = async (): Promise<void> => {
     try {
       const hosts = await loadHosts();
@@ -235,7 +256,7 @@ function createManager(): ClientManager & {
     for (const id of [...entries.keys()]) dropHost(id);
   };
 
-  return { acquireHost, getClient, getState, getReconnectAttempt, dropHost, subscribe, init, onAppState, disposeAll };
+  return { acquireHost, getClient, getState, getReconnectAttempt, dropHost, subscribe, subscribeActivity, init, onAppState, disposeAll };
 }
 
 const Ctx = createContext<ClientManager | null>(null);
@@ -262,6 +283,7 @@ export function ClientManagerProvider({ children }: { children: ReactNode }) {
       getReconnectAttempt: manager.getReconnectAttempt,
       dropHost: manager.dropHost,
       subscribe: manager.subscribe,
+      subscribeActivity: manager.subscribeActivity,
     }),
     [manager],
   );

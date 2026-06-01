@@ -69,6 +69,8 @@ vi.mock('../../pty', () => ({
     spawn: vi.fn(async () => 'pty-new'),
     registerBigTerminal: vi.fn(),
     setBigTerminalMetadata: vi.fn(),
+    killBigTerminal: vi.fn(),
+    kill: vi.fn(),
   },
 }))
 
@@ -180,6 +182,40 @@ describe('RPC Dispatch', () => {
     expect(result.terminalId).toMatch(/^bt-/)
     // Falls back to loadWorktreeIds()['/test/wt'] so the desktop can bind it.
     expect(result.worktreeId).toBe('p1-wt-test/wt-1')
+  })
+
+  it('terminal.close kills the big terminal by its id (reaps PTY + metadata)', async () => {
+    const { ptyService } = await import('../../pty')
+    vi.mocked(ptyService.killBigTerminal!).mockClear()
+    vi.mocked(ptyService.kill).mockClear()
+    const req: JsonRpcRequest = {
+      jsonrpc: '2.0', id: 30, method: 'terminal.close',
+      params: { terminalId: 'bt-100-1', ptyId: 'pty-1' },
+    }
+    const res = await dispatch(req, conn)
+    expect(res.error).toBeUndefined()
+    expect(res.result).toEqual({ closed: true })
+    expect(ptyService.killBigTerminal!).toHaveBeenCalledWith('bt-100-1')
+    expect(ptyService.kill).not.toHaveBeenCalled()
+  })
+
+  it('terminal.close falls back to a raw PTY kill when only ptyId is given', async () => {
+    const { ptyService } = await import('../../pty')
+    vi.mocked(ptyService.killBigTerminal!).mockClear()
+    vi.mocked(ptyService.kill).mockClear()
+    const req: JsonRpcRequest = {
+      jsonrpc: '2.0', id: 31, method: 'terminal.close', params: { ptyId: 'pty-2' },
+    }
+    const res = await dispatch(req, conn)
+    expect(res.error).toBeUndefined()
+    expect(ptyService.kill).toHaveBeenCalledWith('pty-2')
+    expect(ptyService.killBigTerminal!).not.toHaveBeenCalled()
+  })
+
+  it('terminal.close errors when neither terminalId nor ptyId is provided', async () => {
+    const req: JsonRpcRequest = { jsonrpc: '2.0', id: 32, method: 'terminal.close', params: {} }
+    const res = await dispatch(req, conn)
+    expect(res.error).toBeDefined()
   })
 
   it('dispatches sessions.list without full messages', async () => {

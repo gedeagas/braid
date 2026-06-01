@@ -464,7 +464,27 @@
     "unnamed": "Unnamed Device",
     "lastSeen": "Last seen",
     "never": "Never",
-    "remove": "Remove"
+    "remove": "Remove",
+    "pairTitle": "Pair this Mac",
+    "enableHint": "Turn on the companion server to generate a pairing code.",
+    "step1": "Open the Braid app on your phone.",
+    "step2": "Tap Pair and scan this code.",
+    "previewTitle": "On your phone",
+    "cancel": "Cancel",
+    "feat": {
+      "liveTerminals": {
+        "title": "Live terminals",
+        "desc": "Watch and control running agents in real time."
+      },
+      "pushNotifs": {
+        "title": "Push notifications",
+        "desc": "Get alerted when an agent needs input or finishes."
+      },
+      "gitWorktrees": {
+        "title": "Git & worktrees",
+        "desc": "Browse worktrees, branches, and diffs on the go."
+      }
+    }
   },
   "claudeSkills": {
     "title": "Skills",

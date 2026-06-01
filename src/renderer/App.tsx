@@ -17,6 +17,7 @@ import { ShortcutsModal } from '@/components/Shortcuts/ShortcutsModal'
 import { QuickOpen } from '@/components/QuickOpen/QuickOpen'
 import { CommandPalette } from '@/components/CommandPalette/CommandPalette'
 import { MissionControl } from '@/components/MissionControl/MissionControl'
+import { MobilePairingView } from '@/components/MobilePairing/MobilePairingView'
 import { WebAppOverlay } from '@/components/Center/WebAppOverlay'
 import { ToastContainer } from '@/components/shared/ToastContainer'
 import { FlashToastContainer } from '@/components/shared/FlashToastContainer'
@@ -38,6 +39,9 @@ export default function App() {
   const missionControlActive = useUIStore((s) => s.missionControlActive)
   const mcEverOpened = useRef(false)
   if (missionControlActive) mcEverOpened.current = true
+  const mobilePairingActive = useUIStore((s) => s.mobilePairingActive)
+  const mobilePairingEverOpened = useRef(false)
+  if (mobilePairingActive) mobilePairingEverOpened.current = true
   const activeWebAppId = useUIStore((s) => s.activeWebAppId)
   const webAppsEnabled = useUIStore((s) => s.webAppsEnabled)
   const webAppActive = webAppsEnabled && !!activeWebAppId
@@ -237,8 +241,8 @@ export default function App() {
           <SidebarView />
         </div>
         {sidebarPanelOpen && <ResizeHandle direction="horizontal" onResize={handleSidebarResize} onResizeEnd={persistSidebarWidth} />}
-        {/* Hide center+right when Mission Control or web app is active, but keep mounted */}
-        <div style={{ display: (missionControlActive || webAppActive) ? 'none' : 'contents' }}>
+        {/* Hide center+right when Mission Control, the mobile page, or a web app is active, but keep mounted */}
+        <div style={{ display: (missionControlActive || mobilePairingActive || webAppActive) ? 'none' : 'contents' }}>
           <CenterPanel />
           {rightPanelVisible && <ResizeHandle direction="horizontal" onResize={handleRightResize} onResizeEnd={persistRightWidth} />}
           <div className="right-panel" style={{ width: rightPanelVisible ? rightWidth : 0, minWidth: rightPanelVisible ? RIGHT_PANEL_MIN_WIDTH : 0 }}>
@@ -248,6 +252,11 @@ export default function App() {
         {mcEverOpened.current && (
           <div style={{ display: missionControlActive ? 'contents' : 'none' }}>
             <MissionControl />
+          </div>
+        )}
+        {mobilePairingEverOpened.current && (
+          <div style={{ display: mobilePairingActive ? 'contents' : 'none' }}>
+            <MobilePairingView />
           </div>
         )}
         {webAppsEnabled && (

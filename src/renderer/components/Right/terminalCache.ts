@@ -90,6 +90,7 @@ export function cleanupTerminals(worktreePath: string): void {
   if (!cached) return
   for (const tab of cached.tabs) {
     if (tab.ptyId) ipc.pty.kill(tab.ptyId)
+    ipc.pty.deleteScrollback(tab.id)
     tab.commandObserver?.dispose()
     tab.resizeObserver?.disconnect()
     tab.term.dispose()
