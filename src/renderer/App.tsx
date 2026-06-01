@@ -137,6 +137,14 @@ export default function App() {
     const cleanup = initAgentEventListener()
     const cleanupUpdater = initUpdateListeners()
     const cleanupAgentDetection = initAgentDetection()
+    const unsubRemoteBigTerminal = window.api.pty.onBigTerminalRegistered((tab: { terminalId: string; worktreeId?: string; label?: string; agentId?: string }) => {
+      if (!tab.worktreeId) return
+      useUIStore.getState().registerRemoteBigTerminal(tab.worktreeId, {
+        id: tab.terminalId,
+        label: tab.label ?? 'Terminal',
+        agentId: tab.agentId,
+      })
+    })
 
     // Keep dock badge in sync with sessions + big terminal agents needing attention
     const computeBadge = () => {
@@ -161,6 +169,7 @@ export default function App() {
       unsubSettings()
       cleanupUpdater()
       cleanupAgentDetection()
+      unsubRemoteBigTerminal()
       unsubBadge()
       unsubTerminalBadge()
     }

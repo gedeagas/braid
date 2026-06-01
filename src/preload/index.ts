@@ -134,6 +134,8 @@ const api = {
       ipcRenderer.send('pty:removeBigTerminalMetadata', terminalId),
     readScrollback: (terminalId: string) =>
       ipcRenderer.invoke('pty:readScrollback', terminalId) as Promise<string>,
+    isMobileTerminalActive: (terminalId: string) =>
+      ipcRenderer.invoke('pty:isMobileTerminalActive', terminalId) as Promise<boolean>,
     deleteScrollback: (terminalId: string) =>
       ipcRenderer.send('pty:deleteScrollback', terminalId),
     reattach: (sessionId: string) =>
@@ -144,6 +146,16 @@ const api = {
       const handler = (_event: Electron.IpcRendererEvent, status: { terminalId: string; state: string; agentType: string; toolName?: string; interrupted?: boolean }) => callback(status)
       ipcRenderer.on('agent-hook:status', handler)
       return () => ipcRenderer.removeListener('agent-hook:status', handler)
+    },
+    onMobileTerminalActive: (callback: (status: { terminalId: string; active: boolean }) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, status: { terminalId: string; active: boolean }) => callback(status)
+      ipcRenderer.on('pty:mobileTerminalActive', handler)
+      return () => ipcRenderer.removeListener('pty:mobileTerminalActive', handler)
+    },
+    onBigTerminalRegistered: (callback: (tab: { terminalId: string; worktreeId?: string; label?: string; agentId?: string }) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, tab: { terminalId: string; worktreeId?: string; label?: string; agentId?: string }) => callback(tab)
+      ipcRenderer.on('pty:bigTerminalRegistered', handler)
+      return () => ipcRenderer.removeListener('pty:bigTerminalRegistered', handler)
     },
   },
 

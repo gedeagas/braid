@@ -17,13 +17,14 @@ export function parsePairingPayload(payload: string): PairingOffer {
 export class BraidRpcClient {
   private ws: WebSocket | null = null;
   private sharedKey: Uint8Array | null = null;
-  private counter = 0;
+  private sendCounter = 0;
+  private receiveCounter = 0;
+  private connectPromise: Promise<{ deviceId: string; instanceName: string }> | null = null;
   private nextId = 1;
   private queue: Promise<unknown> = Promise.resolve();
   private pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void }>();
   private notificationListeners = new Set<(notification: RpcNotification) => void>();
   private closeListeners = new Set<() => void>();
-  private connecting: Promise<{ deviceId: string; instanceName: string }> | null = null;
 
   constructor(private host: PairedHost) {}
 
@@ -34,27 +35,36 @@ export class BraidRpcClient {
     // Coalesce concurrent connect() calls onto one handshake. With the shared
     // client, the connection manager and a screen's first request() can both
     // trigger connect at once; without this they would open duplicate sockets.
-    if (this.connecting) return this.connecting;
-    this.connecting = this.openConnection();
-    try {
-      return await this.connecting;
-    } finally {
-      this.connecting = null;
-    }
-  }
+    if (this.connectPromise) return this.connectPromise;
 
-  private openConnection(): Promise<{ deviceId: string; instanceName: string }> {
+    this.sharedKey = null;
+    this.sendCounter = 0;
+    this.receiveCounter = 0;
+    console.log('[BraidMobile] rpc.connect.start', { endpoint: this.host.endpoint, hostId: this.host.id });
     const ws = new WebSocket(this.host.endpoint);
     this.ws = ws;
 
     const ephemeral = generateKeyPair();
 
-    return new Promise((resolve, reject) => {
+    this.connectPromise = new Promise((resolve, reject) => {
+      let handshakeKey: Uint8Array | null = null;
+      let handshakeSendCounter = 0;
+      let handshakeReceiveCounter = 0;
+      let settled = false;
+
       const fail = (error: Error) => {
+        if (settled) return;
+        settled = true;
+        console.error('[BraidMobile] rpc.connect.error', error.message);
         cleanup();
         try {
           ws.close();
         } catch {}
+        if (this.ws === ws) this.ws = null;
+        this.sharedKey = null;
+        this.sendCounter = 0;
+        this.receiveCounter = 0;
+        if (this.connectPromise) this.connectPromise = null;
         reject(error);
       };
 
@@ -66,6 +76,8 @@ export class BraidRpcClient {
       };
 
       const onOpen = () => {
+        if (this.ws !== ws) return;
+        console.log('[BraidMobile] rpc.ws.open', { endpoint: this.host.endpoint });
         ws.send(JSON.stringify({
           type: 'e2ee_hello',
           ephemeralPublicKey: toBase64(ephemeral.publicKey),
@@ -73,33 +85,55 @@ export class BraidRpcClient {
         }));
       };
 
-      const onError = () => fail(new Error('WebSocket connection failed'));
-      const onClose = () => fail(new Error('Desktop closed the connection'));
+      const onError = () => {
+        if (this.ws === ws) fail(new Error('WebSocket connection failed'));
+      };
+      const onClose = () => {
+        if (!settled && this.ws === ws) fail(new Error('Desktop closed the connection'));
+      };
 
       const onHandshakeMessage = (event: WebSocketMessageEvent) => {
+        if (this.ws !== ws) return;
         try {
           const data = String(event.data);
-          if (!this.sharedKey) {
+          if (!handshakeKey) {
+            if (!data.trim().startsWith('{')) {
+              console.error('[BraidMobile] rpc.handshake.nonJsonReady', {
+                prefix: data.slice(0, 80),
+                length: data.length,
+              });
+              throw new Error(`Unexpected plaintext handshake response: ${data.slice(0, 40)}`);
+            }
             const ready = JSON.parse(data) as ReadyMessage;
             if (ready.type !== 'e2ee_ready') throw new Error('Unexpected handshake response');
-            this.sharedKey = deriveSharedKey(ephemeral.secretKey, fromBase64(ready.serverEphemeralPublicKey));
-            ws.send(this.encrypt({
+            handshakeKey = deriveSharedKey(ephemeral.secretKey, fromBase64(ready.serverEphemeralPublicKey));
+            console.log('[BraidMobile] rpc.e2ee.ready');
+            const payload = encryptJson({
               type: 'e2ee_auth',
               deviceName: this.host.deviceName,
               devicePublicKey: this.host.devicePublicKey,
-            }, false));
+            }, handshakeKey, handshakeSendCounter, false);
+            handshakeSendCounter += 1;
+            ws.send(payload);
             return;
           }
 
-          const auth = this.decrypt<AuthenticatedMessage>(data, true);
+          const auth = decryptJson<AuthenticatedMessage>(data, handshakeKey, handshakeReceiveCounter, true);
+          handshakeReceiveCounter += 1;
           if (auth.type !== 'e2ee_authenticated') throw new Error('Authentication failed');
+          settled = true;
           cleanup();
           ws.addEventListener('message', this.handleRpcMessage);
           ws.addEventListener('close', this.rejectPending);
+          this.sharedKey = handshakeKey;
+          this.sendCounter = handshakeSendCounter;
+          this.receiveCounter = handshakeReceiveCounter;
           if (auth.deviceToken) this.host.token = auth.deviceToken;
           this.host.id = auth.deviceId;
           this.host.instanceName = auth.instanceName;
           this.host.lastConnectedAt = Date.now();
+          this.connectPromise = null;
+          console.log('[BraidMobile] rpc.authenticated', { deviceId: auth.deviceId, instanceName: auth.instanceName });
           resolve({ deviceId: auth.deviceId, instanceName: auth.instanceName });
         } catch (error) {
           fail(error instanceof Error ? error : new Error(String(error)));
@@ -111,6 +145,7 @@ export class BraidRpcClient {
       ws.addEventListener('error', onError);
       ws.addEventListener('close', onClose);
     });
+    return this.connectPromise;
   }
 
   async request<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {
@@ -149,6 +184,7 @@ export class BraidRpcClient {
     if (!ws || ws.readyState !== WebSocket.OPEN) throw new Error('Not connected to Braid desktop');
     const id = this.nextId++;
     const payload = this.encrypt({ jsonrpc: '2.0', id, method, params }, false);
+    console.log('[BraidMobile] rpc.request.send', { id, method, params });
     ws.send(payload);
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -173,22 +209,24 @@ export class BraidRpcClient {
     this.ws?.removeEventListener('close', this.rejectPending);
     this.ws?.close();
     this.ws = null;
+    this.connectPromise = null;
     this.sharedKey = null;
     this.pending.clear();
-    this.counter = 0;
+    this.sendCounter = 0;
+    this.receiveCounter = 0;
   }
 
   private encrypt(data: unknown, senderIsServer: boolean): string {
     if (!this.sharedKey) throw new Error('Encryption session is not ready');
-    const payload = encryptJson(data, this.sharedKey, this.counter, senderIsServer);
-    this.counter += 1;
+    const payload = encryptJson(data, this.sharedKey, this.sendCounter, senderIsServer);
+    this.sendCounter += 1;
     return payload;
   }
 
   private decrypt<T>(payload: string, senderIsServer: boolean): T {
     if (!this.sharedKey) throw new Error('Encryption session is not ready');
-    const data = decryptJson<T>(payload, this.sharedKey, this.counter, senderIsServer);
-    this.counter += 1;
+    const data = decryptJson<T>(payload, this.sharedKey, this.receiveCounter, senderIsServer);
+    this.receiveCounter += 1;
     return data;
   }
 
@@ -196,6 +234,7 @@ export class BraidRpcClient {
     try {
       const response = this.decrypt<JsonRpcResponse | RpcNotification>(String(event.data), true);
       if ('method' in response && !('id' in response)) {
+        console.log('[BraidMobile] rpc.notification', { method: response.method });
         for (const listener of this.notificationListeners) listener(response);
         return;
       }
@@ -204,9 +243,20 @@ export class BraidRpcClient {
       const pending = this.pending.get(response.id);
       if (!pending) return;
       this.pending.delete(response.id);
-      if (response.error) pending.reject(new Error(response.error.message));
-      else pending.resolve(response.result);
+      if (response.error) {
+        console.error('[BraidMobile] rpc.response.error', { id: response.id, error: response.error.message });
+        pending.reject(new Error(response.error.message));
+      } else {
+        console.log('[BraidMobile] rpc.response.ok', { id: response.id });
+        pending.resolve(response.result);
+      }
     } catch (error) {
+      console.error('[BraidMobile] rpc.message.error', {
+        error: error instanceof Error ? error.message : String(error),
+        sendCounter: this.sendCounter,
+        receiveCounter: this.receiveCounter,
+        pendingIds: [...this.pending.keys()],
+      });
       for (const pending of this.pending.values()) {
         pending.reject(error instanceof Error ? error : new Error(String(error)));
       }

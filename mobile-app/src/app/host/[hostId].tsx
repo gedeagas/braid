@@ -1,106 +1,236 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { Activity, Bell, ChevronLeft, Code2, GitBranch, Globe, MessageSquare, RefreshCw, Server, TerminalSquare } from 'lucide-react-native';
-import * as Notifications from 'expo-notifications';
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { ChevronLeft, ChevronDown, GitBranch, List, Plus, RefreshCw, Search, SlidersHorizontal, UserCircle2, X } from 'lucide-react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, SectionList, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { SESSION_SCREENS_ENABLED } from '@/constants/features';
-import type { BraidProject, BraidSession, BraidStatus } from '@/transport/types';
+import { useListRefresh } from '@/hooks/use-list-refresh';
 import { compatibilityVerdict } from '@/transport/protocol-version';
+import type { BraidProject, BraidStatus, BraidWorktree } from '@/transport/types';
 import { colors, shared } from '@/ui/theme';
 import { useHostClient } from '@/ui/use-host-client';
+
+type HostSection = {
+  key: string;
+  title: string;
+  project: BraidProject;
+  data: BraidWorktree[];
+};
 
 export default function HostScreen() {
   const { hostId } = useLocalSearchParams<{ hostId: string }>();
   const { host, client } = useHostClient(hostId);
   const [status, setStatus] = useState<BraidStatus | null>(null);
   const [projects, setProjects] = useState<BraidProject[]>([]);
-  const [sessions, setSessions] = useState<BraidSession[]>([]);
   const [terminalCounts, setTerminalCounts] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'all' | 'active' | 'main'>('all');
+  const [groupMode, setGroupMode] = useState<'repo' | 'flat'>('repo');
 
   const load = useCallback(async () => {
     if (!client) return;
+    console.log('[BraidMobile] host.load.start', { hostId, endpoint: host?.endpoint });
     setError(null);
+    setLoading(true);
     try {
       await client.connect();
-      setStatus(await client.request<BraidStatus>('status.get'));
+      const nextStatus = await client.request<BraidStatus>('status.get');
+      console.log('[BraidMobile] host.status', nextStatus);
+      setStatus(nextStatus);
       const loadedProjects = await client.request<BraidProject[]>('projects.list');
-      const loadedSessions = await client.request<BraidSession[]>('sessions.list');
-      console.log('[BraidMobile] host.load', {
-        hostId,
-        projects: loadedProjects.map((project) => ({
-          id: project.id,
-          name: project.name,
-          worktrees: project.worktrees?.map((worktree) => ({
-            id: worktree.id,
-            branch: worktree.branch,
-            path: worktree.path,
-          })),
+      console.log('[BraidMobile] host.projects', loadedProjects.map((project) => ({
+        id: project.id,
+        name: project.name,
+        path: project.path,
+        worktreeCount: project.worktrees?.length ?? 0,
+        worktrees: project.worktrees?.map((worktree) => ({
+          id: worktree.id,
+          branch: worktree.branch,
+          path: worktree.path,
+          isMain: worktree.isMain,
         })),
-        sessions: loadedSessions.map((session) => ({
-          id: session.id,
-          name: session.customName || session.name,
-          worktreeId: session.worktreeId,
-          worktreePath: session.worktreePath,
-          status: session.status,
-        })),
-      });
+      })));
       setProjects(loadedProjects);
-      setSessions(loadedSessions.slice(0, 8));
+
       const counts: Record<string, number> = {};
       for (const project of loadedProjects) {
         for (const worktree of project.worktrees ?? []) {
           try {
             const terminals = await client.request<unknown[]>('terminal.list', { worktreePath: worktree.path });
             counts[worktree.path] = terminals.length;
-          } catch {
+            console.log('[BraidMobile] host.terminalCount', { path: worktree.path, count: terminals.length });
+          } catch (err) {
+            console.error('[BraidMobile] host.terminalCount.error', {
+              path: worktree.path,
+              error: err instanceof Error ? err.message : String(err),
+            });
             counts[worktree.path] = 0;
           }
         }
       }
-      console.log('[BraidMobile] host.terminalCounts', counts);
       setTerminalCounts(counts);
     } catch (err) {
+      console.error('[BraidMobile] host.load.error', err instanceof Error ? err.message : String(err));
       setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
     }
-  }, [client]);
+  }, [client, host?.endpoint, hostId]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const { scrollRef, onScroll, refreshNow } = useListRefresh<SectionList<BraidWorktree, HostSection>>(`host:${hostId ?? 'unknown'}`, load, !!client);
 
-  const enableNotifications = async () => {
-    const result = await Notifications.requestPermissionsAsync();
-    if (!result.granted) {
-      Alert.alert('Notifications disabled', 'Enable notifications in system settings to receive mobile alerts.');
-      return;
+  const visibleProjects = useMemo(() => {
+    const lower = query.trim().toLowerCase();
+    const filtered = projects
+      .map((project) => {
+        const worktrees = (project.worktrees ?? []).filter((worktree) => {
+          if (viewMode === 'active' && (terminalCounts[worktree.path] ?? 0) === 0) return false;
+          if (viewMode === 'main' && !worktree.isMain) return false;
+          if (!lower) return true;
+          return [project.name, worktree.branch, worktree.path].some((value) => value?.toLowerCase().includes(lower));
+        });
+        return { ...project, worktrees };
+      })
+      .filter((project) => (project.worktrees ?? []).length > 0);
+
+    return filtered.slice().sort((a, b) => a.name.localeCompare(b.name));
+  }, [projects, query, terminalCounts, viewMode]);
+
+  const sections = useMemo<HostSection[]>(() => {
+    if (groupMode === 'flat') {
+      const data = visibleProjects.flatMap((project) =>
+        (project.worktrees ?? []).map((worktree) => ({ ...worktree, projectName: project.name }))
+      ) as BraidWorktree[];
+      return data.length > 0 ? [{ key: 'all', title: 'Worktrees', project: visibleProjects[0], data }] : [];
     }
-    Alert.alert('Notifications ready', 'Braid Mobile can now show local notifications while connected.');
-  };
+    return visibleProjects.map((project) => ({
+      key: project.id,
+      title: project.name,
+      project,
+      data: project.worktrees ?? [],
+    }));
+  }, [groupMode, visibleProjects]);
+
+  const totalWorktrees = projects.reduce((sum, project) => sum + (project.worktrees?.length ?? 0), 0);
+  const visibleWorktrees = sections.reduce((sum, section) => sum + section.data.length, 0);
+
   const compat = compatibilityVerdict(status?.protocolVersion);
+
+  const activeHostId = host?.id ?? '';
+  const openWorktree = (path: string, branch: string) => {
+    if (!activeHostId) return;
+    router.push({
+      pathname: '/terminal/[hostId]',
+      params: {
+        hostId: activeHostId,
+        worktreePath: path,
+        worktreeName: branch,
+      },
+    });
+  };
 
   if (!host) {
     return (
       <SafeAreaView style={shared.safe}>
-        <View style={shared.shell}><Text style={shared.title}>Desktop not found</Text></View>
+        <View style={shared.shell}>
+          <Text style={shared.title}>Desktop not found</Text>
+        </View>
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={shared.safe}>
-      <View style={shared.shell}>
-        <View style={shared.header}>
-          <Pressable style={[shared.button, shared.secondary]} onPress={() => router.back()}><ChevronLeft color={colors.text} size={18} /></Pressable>
-          <Pressable style={[shared.button, shared.secondary]} onPress={load}><RefreshCw color={colors.text} size={18} /></Pressable>
+      <View style={{ flex: 1 }}>
+        <View style={hostHeader}>
+          <View style={titleRow}>
+            <Pressable style={backButton} onPress={() => router.back()} accessibilityLabel="Go back">
+              <ChevronLeft color={colors.text} size={21} />
+            </Pressable>
+            <View style={titleBlock}>
+              <View style={statusTitleRow}>
+                <Text style={titleText} numberOfLines={1}>
+                  {status?.instanceName ?? host.instanceName ?? 'Host'}
+                </Text>
+                <View style={statusPill}>
+                  <View style={statusDot} />
+                  <Text style={statusText}>online</Text>
+                </View>
+              </View>
+              <Text style={subtitleText} numberOfLines={1}>
+                {host.endpoint}
+              </Text>
+            </View>
+            <Pressable style={refreshButton} onPress={() => void refreshNow()} accessibilityLabel="Refresh host">
+              {loading ? <ActivityIndicator color={colors.text} size="small" /> : <RefreshCw color={colors.text} size={17} />}
+            </Pressable>
+          </View>
         </View>
-        <Text style={shared.title}>{status?.instanceName ?? host.instanceName ?? 'Braid desktop'}</Text>
-        <Text style={shared.subtitle}>{host.endpoint}</Text>
-        {error && <Text style={[shared.subtitle, { color: colors.danger }]}>{error}</Text>}
+
+        <View style={controls}>
+          <View style={searchBox}>
+            <Search color={colors.muted} size={16} />
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Search worktrees"
+              placeholderTextColor={colors.subtle}
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={searchInput}
+            />
+            {query.length > 0 && (
+              <Pressable style={clearButton} onPress={() => setQuery('')} accessibilityLabel="Clear search">
+                <X color={colors.muted} size={15} />
+              </Pressable>
+            )}
+          </View>
+
+          <View style={actionRow}>
+            <View style={segmented}>
+              {(['all', 'active', 'main'] as const).map((mode) => (
+                <Pressable
+                  key={mode}
+                  style={[segment, viewMode === mode && segmentActive]}
+                  onPress={() => setViewMode(mode)}
+                >
+                  <Text style={[segmentText, viewMode === mode && segmentTextActive]}>
+                    {mode === 'all' ? 'All' : mode === 'active' ? 'Active' : 'Main'}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            <Pressable
+              style={[iconButton, groupMode === 'flat' && iconButtonActive]}
+              onPress={() => setGroupMode((mode) => mode === 'repo' ? 'flat' : 'repo')}
+              accessibilityLabel="Toggle grouping"
+            >
+              <SlidersHorizontal color={groupMode === 'flat' ? colors.text : colors.muted} size={17} />
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={shortcutRow}>
+          <Text style={resultText}>
+            {visibleWorktrees} of {totalWorktrees} worktrees
+          </Text>
+          <View style={{ flex: 1 }} />
+          <Pressable style={iconButton} onPress={() => router.push(`/sessions/${host.id}`)} accessibilityLabel="Sessions">
+            <UserCircle2 color={colors.muted} size={18} />
+          </Pressable>
+          <Pressable style={iconButton} onPress={() => router.push(`/worktrees/${host.id}`)} accessibilityLabel="Worktrees">
+            <List color={colors.muted} size={18} />
+          </Pressable>
+          <Pressable style={iconButton} onPress={() => router.push(`/worktrees/${host.id}`)} accessibilityLabel="Add worktree">
+            <Plus color={colors.muted} size={18} />
+          </Pressable>
+        </View>
+
+        {error && <Text style={[shared.subtitle, { color: colors.danger, paddingHorizontal: 12, paddingTop: 6 }]}>{error}</Text>}
         {compat !== 'ok' && status && (
-          <View style={[shared.card, { marginTop: 14, borderColor: colors.warning }]}>
+          <View style={compatBanner}>
             <Text style={{ color: colors.warning, fontWeight: '800' }}>Protocol compatibility</Text>
             <Text style={shared.muted}>
               {compat === 'mobile-too-old'
@@ -112,93 +242,414 @@ export default function HostScreen() {
           </View>
         )}
 
-        <ScrollView contentContainerStyle={{ gap: 12, paddingVertical: 18 }}>
-          <View style={[shared.card, { gap: 10 }]}>
-            <Text style={shared.section}>Overview</Text>
-            <Metric icon={<Server color={colors.accent} size={18} />} label="Version" value={status?.version ?? 'unknown'} />
-            <Metric icon={<GitBranch color={colors.success} size={18} />} label="Projects" value={String(projects.length)} />
-            <Metric icon={<Activity color={colors.warning} size={18} />} label="Sessions" value={String(sessions.length)} />
-          </View>
-
-          <View style={[shared.card, { gap: 10 }]}>
-            <Text style={shared.section}>Worktrees</Text>
-            {projects.length === 0 ? (
-              <Text style={shared.muted}>No projects found.</Text>
-            ) : projects.map((project) => (
-              <View key={project.id} style={{ gap: 8 }}>
-                <Text style={{ color: colors.text, fontWeight: '800', fontSize: 16 }}>{project.name}</Text>
-                {(project.worktrees ?? []).length === 0 ? (
-                  <Text style={shared.muted}>No worktrees found for this project.</Text>
-                ) : (project.worktrees ?? []).map((worktree) => (
-                  <Pressable
-                    key={worktree.path}
-                    style={{
-                      borderRadius: 8,
-                      borderWidth: 1,
-                      borderColor: colors.border,
-                      backgroundColor: colors.panelStrong,
-                      padding: 12,
-                      gap: 6,
-                    }}
-                    onPress={() => router.push({
-                      pathname: '/terminal/[hostId]',
-                      params: {
-                        hostId: host.id,
-                        worktreePath: worktree.path,
-                        worktreeName: worktree.branch,
-                      },
-                    })}
-                  >
-                    <View style={[shared.row, { gap: 10 }]}>
-                      <GitBranch color={worktree.isMain ? colors.success : colors.accent} size={17} />
-                      <Text style={{ color: colors.text, fontWeight: '800', flex: 1 }}>{worktree.branch}</Text>
-                      <View style={[shared.row, { gap: 5 }]}>
-                        <TerminalSquare color={colors.muted} size={15} />
-                        <Text style={{ color: colors.muted, fontWeight: '800' }}>{terminalCounts[worktree.path] ?? 0}</Text>
-                      </View>
-                    </View>
-                    <Text style={shared.muted} numberOfLines={1}>{worktree.path}</Text>
-                  </Pressable>
-                ))}
+        <SectionList
+          ref={scrollRef}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          sections={sections}
+          keyExtractor={(item) => item.path}
+          contentContainerStyle={listContent}
+          stickySectionHeadersEnabled={false}
+          ListEmptyComponent={<Text style={emptyText}>No worktrees found.</Text>}
+          renderSectionHeader={({ section }) => (
+            <View style={projectBlock}>
+              <View style={projectHeader}>
+                <View style={projectHeaderLeft}>
+                  <ChevronDown color={colors.muted} size={16} />
+                  <View style={projectHeaderBullet} />
+                  <Text style={projectHeaderText} numberOfLines={1}>
+                    {section.title.toUpperCase()}
+                  </Text>
+                </View>
+                <View style={projectHeaderCountPill}>
+                  <Text style={projectHeaderCount}>{section.data.length}</Text>
+                </View>
               </View>
-            ))}
-          </View>
-
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            {/* @deprecated SDK chat sessions are deprecated in favor of the terminal screen. */}
-            {SESSION_SCREENS_ENABLED && (
-              <NavTile icon={<MessageSquare color={colors.text} size={20} />} label="Sessions" onPress={() => router.push(`/sessions/${host.id}`)} />
-            )}
-            <NavTile icon={<Code2 color={colors.text} size={20} />} label="Git review" onPress={() => router.push(`/git/${host.id}`)} />
-          </View>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <NavTile icon={<GitBranch color={colors.text} size={20} />} label="Worktrees" onPress={() => router.push(`/worktrees/${host.id}`)} />
-            <NavTile icon={<Globe color={colors.text} size={20} />} label="Browser" onPress={() => router.push(`/browser/${host.id}`)} />
-          </View>
-          <NavTile icon={<Bell color={colors.text} size={20} />} label="Notify" onPress={enableNotifications} />
-
-          {/* @deprecated SDK chat sessions are deprecated in favor of the terminal screen. */}
-          {SESSION_SCREENS_ENABLED && (
-            <View style={[shared.card, { gap: 10 }]}>
-              <Text style={shared.section}>Recent sessions</Text>
-              {sessions.length === 0 ? <Text style={shared.muted}>No sessions found.</Text> : sessions.map((session) => (
-                <Pressable key={session.id} onPress={() => router.push(`/session/${host.id}/${session.id}`)} style={{ paddingVertical: 8 }}>
-                  <Text style={{ color: colors.text, fontWeight: '800' }}>{session.customName || session.name || 'Untitled session'}</Text>
-                  <Text style={shared.muted}>{[session.status, session.model].filter(Boolean).join(' · ')}</Text>
-                </Pressable>
-              ))}
             </View>
           )}
-        </ScrollView>
+          renderItem={({ item, section }) => (
+            <Pressable
+              key={item.path}
+              style={({ pressed }) => [worktreeRow, pressed && worktreeRowPressed]}
+              onPress={() => openWorktree(item.path, item.branch)}
+            >
+              <View style={worktreeStatusCol}>
+                <View style={[worktreeStatusDot, item.isMain ? worktreeStatusDotActive : worktreeStatusDotIdle]} />
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <View style={worktreeTitleRow}>
+                  <Text style={worktreeTitle} numberOfLines={1}>{item.branch}</Text>
+                  {item.isMain && (
+                    <View style={mainBadge}>
+                      <GitBranch color={colors.success} size={11} />
+                      <Text style={mainBadgeText}>main</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={worktreeSubtitle} numberOfLines={1}>
+                  {groupMode === 'flat' ? ((item as BraidWorktree & { projectName?: string }).projectName ?? section.title).toLowerCase() : section.title.toLowerCase()} / {item.path}
+                </Text>
+              </View>
+              <View style={[countBadge, (terminalCounts[item.path] ?? 0) > 0 && countBadgeActive]}>
+                <Text style={[worktreeCount, (terminalCounts[item.path] ?? 0) > 0 && worktreeCountActive]}>
+                  {terminalCounts[item.path] ?? 0}
+                </Text>
+              </View>
+            </Pressable>
+          )}
+        />
       </View>
     </SafeAreaView>
   );
 }
 
-function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return <View style={[shared.row, { gap: 10 }]}>{icon}<Text style={{ color: colors.muted, flex: 1 }}>{label}</Text><Text style={{ color: colors.text, fontWeight: '800' }}>{value}</Text></View>;
-}
+const hostHeader = {
+  borderBottomWidth: 1,
+  borderBottomColor: colors.border,
+  backgroundColor: colors.panel,
+  paddingHorizontal: 12,
+  paddingTop: 8,
+  paddingBottom: 8,
+};
 
-function NavTile({ icon, label, onPress }: { icon: React.ReactNode; label: string; onPress: () => void }) {
-  return <Pressable onPress={onPress} style={[shared.card, { flex: 1, minHeight: 92, justifyContent: 'space-between' }]}>{icon}<Text style={{ color: colors.text, fontWeight: '800', fontSize: 15 }}>{label}</Text></Pressable>;
-}
+const titleRow = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: 8,
+};
+
+const backButton = {
+  width: 36,
+  height: 36,
+  borderRadius: 8,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+};
+
+const titleBlock = {
+  flex: 1,
+  minWidth: 0,
+};
+
+const statusTitleRow = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: 8,
+};
+
+const statusPill = {
+  height: 20,
+  borderRadius: 10,
+  backgroundColor: 'rgba(53, 201, 139, 0.12)',
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: 5,
+  paddingHorizontal: 7,
+};
+
+const statusDot = {
+  width: 7,
+  height: 7,
+  borderRadius: 4,
+  backgroundColor: colors.success,
+};
+
+const statusText = {
+  color: colors.success,
+  fontSize: 10,
+  fontWeight: '800' as const,
+};
+
+const titleText = {
+  color: colors.text,
+  fontSize: 15,
+  lineHeight: 20,
+  fontWeight: '800' as const,
+  flexShrink: 1,
+};
+
+const subtitleText = {
+  color: colors.muted,
+  fontSize: 12,
+  lineHeight: 16,
+};
+
+const refreshButton = {
+  width: 36,
+  height: 36,
+  borderRadius: 8,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+  backgroundColor: colors.panelStrong,
+};
+
+const controls = {
+  gap: 10,
+  paddingHorizontal: 12,
+  paddingTop: 10,
+  paddingBottom: 8,
+  borderBottomWidth: 1,
+  borderBottomColor: colors.border,
+  backgroundColor: colors.panel,
+};
+
+const searchBox = {
+  minHeight: 38,
+  borderRadius: 8,
+  borderWidth: 1,
+  borderColor: colors.border,
+  backgroundColor: colors.bg,
+  paddingHorizontal: 10,
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: 8,
+};
+
+const actionRow = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: 8,
+};
+
+const segmented = {
+  flex: 1,
+  minHeight: 34,
+  borderRadius: 8,
+  borderWidth: 1,
+  borderColor: colors.border,
+  backgroundColor: colors.bg,
+  padding: 3,
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+};
+
+const segment = {
+  flex: 1,
+  minHeight: 26,
+  borderRadius: 6,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+};
+
+const segmentActive = {
+  backgroundColor: colors.panelStrong,
+};
+
+const segmentText = {
+  color: colors.muted,
+  fontSize: 12,
+  fontWeight: '800' as const,
+};
+
+const segmentTextActive = {
+  color: colors.text,
+};
+
+const shortcutRow = {
+  minHeight: 38,
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: 6,
+  paddingHorizontal: 12,
+  borderBottomWidth: 1,
+  borderBottomColor: colors.border,
+  backgroundColor: colors.bg,
+};
+
+const resultText = {
+  color: colors.subtle,
+  fontSize: 12,
+  fontWeight: '700' as const,
+};
+
+const iconButton = {
+  width: 34,
+  height: 34,
+  borderRadius: 8,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+};
+
+const iconButtonActive = {
+  backgroundColor: colors.panelStrong,
+};
+
+const searchInput = {
+  flex: 1,
+  minHeight: 36,
+  color: colors.text,
+  paddingVertical: 7,
+  fontSize: 14,
+};
+
+const clearButton = {
+  width: 26,
+  height: 26,
+  borderRadius: 6,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+};
+
+const compatBanner = {
+  marginHorizontal: 12,
+  marginTop: 12,
+  borderRadius: 8,
+  borderWidth: 1,
+  borderColor: colors.warning,
+  backgroundColor: colors.panelStrong,
+  padding: 12,
+};
+
+const listContent = {
+  paddingTop: 8,
+  paddingBottom: 24,
+};
+
+const emptyText = {
+  color: colors.muted,
+  fontSize: 13,
+  paddingHorizontal: 12,
+  paddingTop: 12,
+};
+
+const projectBlock = {
+  paddingHorizontal: 12,
+  paddingTop: 8,
+  paddingBottom: 4,
+};
+
+const projectHeader = {
+  minHeight: 24,
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  justifyContent: 'space-between' as const,
+};
+
+const projectHeaderLeft = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: 8,
+};
+
+const projectHeaderBullet = {
+  width: 8,
+  height: 8,
+  borderRadius: 4,
+  backgroundColor: colors.subtle,
+};
+
+const projectHeaderText = {
+  color: colors.subtle,
+  fontSize: 11,
+  fontWeight: '800' as const,
+  letterSpacing: 0,
+};
+
+const projectHeaderCountPill = {
+  minWidth: 24,
+  height: 20,
+  borderRadius: 10,
+  backgroundColor: colors.panelStrong,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+  paddingHorizontal: 7,
+};
+
+const projectHeaderCount = {
+  color: colors.muted,
+  fontSize: 11,
+  fontWeight: '800' as const,
+};
+
+const worktreeRow = {
+  minHeight: 54,
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: 8,
+  paddingVertical: 8,
+  paddingHorizontal: 12,
+};
+
+const worktreeRowPressed = {
+  backgroundColor: colors.panel,
+};
+
+const worktreeStatusCol = {
+  width: 20,
+  alignItems: 'center' as const,
+};
+
+const worktreeStatusDot = {
+  width: 12,
+  height: 12,
+  borderRadius: 6,
+};
+
+const worktreeStatusDotActive = {
+  backgroundColor: colors.success,
+};
+
+const worktreeStatusDotIdle = {
+  backgroundColor: colors.subtle,
+};
+
+const worktreeTitleRow = {
+  minHeight: 21,
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: 8,
+};
+
+const worktreeTitle = {
+  color: colors.text,
+  fontSize: 16,
+  lineHeight: 20,
+  fontWeight: '800' as const,
+  flexShrink: 1,
+};
+
+const worktreeSubtitle = {
+  color: colors.muted,
+  fontSize: 12,
+  lineHeight: 16,
+};
+
+const mainBadge = {
+  height: 19,
+  borderRadius: 6,
+  backgroundColor: 'rgba(53, 201, 139, 0.12)',
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: 4,
+  paddingHorizontal: 6,
+};
+
+const mainBadgeText = {
+  color: colors.success,
+  fontSize: 10,
+  fontWeight: '800' as const,
+};
+
+const countBadge = {
+  minWidth: 28,
+  height: 24,
+  borderRadius: 12,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+  backgroundColor: colors.panelStrong,
+  paddingHorizontal: 8,
+};
+
+const countBadgeActive = {
+  backgroundColor: 'rgba(61, 139, 255, 0.16)',
+};
+
+const worktreeCount = {
+  color: colors.subtle,
+  fontSize: 12,
+  fontWeight: '800' as const,
+};
+
+const worktreeCountActive = {
+  color: colors.accent,
+};

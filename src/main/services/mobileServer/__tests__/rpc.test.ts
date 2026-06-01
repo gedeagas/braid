@@ -89,6 +89,7 @@ function makeConnection(): MobileConnection {
     e2ee: {} as E2EESession,
     subscriptions: new Map(),
     connectedAt: Date.now(),
+    sendQueue: Promise.resolve(),
   }
 }
 

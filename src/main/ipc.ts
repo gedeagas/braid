@@ -23,6 +23,7 @@ import { windowCaptureService } from './services/windowCapture'
 import { claudeConfigService, ClaudePermissions, ClaudeHookConfig, SkillDetail, McpServerEntry, McpServerConfig } from './services/claudeConfig'
 import { notesService } from './services/notes'
 import { mobileServer, deviceStore } from './services/mobileServer'
+import { isMobileTerminalActive } from './services/mobileServer/mobileTerminalPresence'
 import { lspService, LspServerConfig } from './services/lsp'
 import { jiraService } from './services/jira'
 import { githubAuthService } from './services/githubAuth'
@@ -220,6 +221,7 @@ export function registerIpcHandlers(): void {
   ipcMain.on('pty:removeBigTerminalMetadata', (_e, terminalId: string) =>
     ptyService.removeBigTerminalMetadata?.(terminalId))
   ipcMain.handle('pty:readScrollback', (_e, terminalId: string) => ptyService.readScrollback(terminalId))
+  ipcMain.handle('pty:isMobileTerminalActive', (_e, terminalId: string) => isMobileTerminalActive(terminalId))
   ipcMain.on('pty:deleteScrollback', (_e, terminalId: string) => ptyService.deleteScrollback(terminalId))
   ipcMain.handle('pty:reattach', (_e, sessionId: string) => {
     if ('reattach' in ptyService && typeof ptyService.reattach === 'function') {

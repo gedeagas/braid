@@ -1,9 +1,10 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, FileDiff, RefreshCw } from 'lucide-react-native';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useListRefresh } from '@/hooks/use-list-refresh';
 import type { BraidProject, BraidWorktree, GitChange } from '@/transport/types';
 import { colors, shared } from '@/ui/theme';
 import { useHostClient } from '@/ui/use-host-client';
@@ -32,7 +33,7 @@ export default function GitScreen() {
     }
   }, [active, client]);
 
-  useEffect(() => { void load(); }, [load]);
+  const { scrollRef, onScroll, refreshNow } = useListRefresh<ScrollView>(`git:${hostId ?? 'unknown'}`, load, !!client);
 
   const openDiff = async (change: GitChange) => {
     if (!client || !active) return;
@@ -44,7 +45,7 @@ export default function GitScreen() {
       <View style={shared.shell}>
         <View style={shared.header}>
           <Pressable style={[shared.button, shared.secondary]} onPress={() => router.back()}><ChevronLeft color={colors.text} size={18} /></Pressable>
-          <Pressable style={[shared.button, shared.secondary]} onPress={load}><RefreshCw color={colors.text} size={18} /></Pressable>
+          <Pressable style={[shared.button, shared.secondary]} onPress={() => void refreshNow()}><RefreshCw color={colors.text} size={18} /></Pressable>
         </View>
         <Text style={shared.title}>Git review</Text>
         {error && <Text style={[shared.subtitle, { color: colors.danger }]}>{error}</Text>}
@@ -55,7 +56,7 @@ export default function GitScreen() {
             </Pressable>
           ))}
         </ScrollView>
-        <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: 18 }}>
+        <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={16} contentContainerStyle={{ gap: 10, paddingBottom: 18 }}>
           {changes.map((change) => (
             <Pressable key={`${change.file}-${change.staged}`} style={[shared.card, { gap: 6 }]} onPress={() => openDiff(change)}>
               <View style={[shared.row, { gap: 10 }]}>

@@ -118,11 +118,16 @@ export const pty = {
     api().pty.setBigTerminalMetadata(metadata),
   removeBigTerminalMetadata: (terminalId: string) => api().pty.removeBigTerminalMetadata(terminalId),
   readScrollback: (terminalId: string) => api().pty.readScrollback(terminalId) as Promise<string>,
+  isMobileTerminalActive: (terminalId: string) => api().pty.isMobileTerminalActive(terminalId) as Promise<boolean>,
   deleteScrollback: (terminalId: string) => api().pty.deleteScrollback(terminalId),
   reattach: (sessionId: string) => api().pty.reattach(sessionId) as Promise<{ sessionId: string; snapshot: string } | null>,
   listSessions: () => api().pty.listSessions() as Promise<Array<{ sessionId: string; cwd: string; cols: number; rows: number; createdAt: number }>>,
   onAgentHookStatus: (callback: (status: { terminalId: string; state: string; agentType: string; toolName?: string; interrupted?: boolean }) => void) =>
     api().pty.onAgentHookStatus(callback),
+  onMobileTerminalActive: (callback: (status: { terminalId: string; active: boolean }) => void) =>
+    api().pty.onMobileTerminalActive(callback),
+  onBigTerminalRegistered: (callback: (tab: { terminalId: string; worktreeId?: string; label?: string; agentId?: string }) => void) =>
+    api().pty.onBigTerminalRegistered(callback),
 }
 
 export const simulator = {

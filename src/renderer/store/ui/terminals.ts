@@ -87,6 +87,8 @@ export interface TerminalsSlice {
   /** In-memory agent status map with full entry (not persisted). Keyed by terminalId. */
   bigTerminalStatusById: Record<string, AgentStatusEntry>
   createBigTerminal: (worktreeId: string, label?: string, initialCommand?: string, agentId?: string, initialInput?: string) => string
+  /** Register a terminal created outside the local renderer, e.g. from the mobile app. */
+  registerRemoteBigTerminal: (worktreeId: string, tab: BigTerminalTab) => void
   renameBigTerminal: (worktreeId: string, id: string, label: string) => void
   closeBigTerminal: (worktreeId: string, id: string) => void
   reorderBigTerminals: (worktreeId: string, fromIndex: number, toIndex: number) => void
@@ -124,6 +126,17 @@ export const createTerminalsSlice: StateCreator<UIState, [], [], TerminalsSlice>
     })
     if (createdTab) syncBigTerminalMetadata(worktreeId, createdTab)
     return id
+  },
+
+  registerRemoteBigTerminal: (worktreeId, tab) => {
+    set((s) => {
+      const existing = s.bigTerminalsByWorktree[worktreeId] ?? []
+      const next = existing.some((t) => t.id === tab.id)
+        ? existing.map((t) => (t.id === tab.id ? { ...t, ...tab } : t))
+        : [...existing, tab]
+      saveBigTerminalsFor(worktreeId, next)
+      return { bigTerminalsByWorktree: { ...s.bigTerminalsByWorktree, [worktreeId]: next } }
+    })
   },
 
   renameBigTerminal: (worktreeId, id, label) => {

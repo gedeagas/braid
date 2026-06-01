@@ -1,13 +1,16 @@
+import { execFile } from 'child_process'
 import crypto from 'crypto'
-import { app } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { storageService } from '../storage'
 import { gitService } from '../git'
 import { agentService } from '../agent'
 import { ptyService } from '../pty'
 import { githubService } from '../github'
 import { sessionStorageService } from '../sessionStorage'
+import { enrichedEnv } from '../../lib/enrichedEnv'
 import { MOBILE_PROTOCOL_VERSION } from './protocol'
 import { getMobileInstanceName } from './instanceName'
+import { markMobileTerminalActive, markMobileTerminalInactive } from './mobileTerminalPresence'
 import type {
   JsonRpcRequest,
   JsonRpcResponse,
@@ -29,6 +32,11 @@ function successResponse(id: number | string, result: unknown): JsonRpcResponse 
 // ── Method Registry ───────────────────────────────────────────────────────────
 
 const methods: RpcMethodMap = new Map()
+const MOBILE_AGENT_CATALOG = [
+  { id: 'claude', label: 'Claude Code', launchCmd: 'claude' },
+  { id: 'codex', label: 'Codex', launchCmd: 'codex' },
+  { id: 'gemini', label: 'Gemini CLI', launchCmd: 'gemini' },
+]
 
 function register(name: string, handler: RpcHandler): void {
   methods.set(name, handler)
@@ -69,6 +77,18 @@ register('projects.list', async () => {
     })),
   })))
   return projects
+})
+
+register('shell.checkTool', async (params) => {
+  const tool = String(params.tool ?? '').trim()
+  if (!/^[a-zA-Z0-9-]+$/.test(tool)) return false
+  return await new Promise<boolean>((resolve) => {
+    execFile('which', [tool], { timeout: 3000, env: enrichedEnv() }, (err, stdout) => {
+      const found = !err && stdout.split(/\r?\n/).some((line) => line.trim().startsWith('/'))
+      if (found) console.log('[MobileRPC] shell.checkTool %s -> %s', tool, stdout.trim())
+      resolve(found)
+    })
+  })
 })
 
 register('worktrees.list', async (params) => {
@@ -263,9 +283,11 @@ register('terminal.list', async (params) => {
 register('terminal.create', async (params) => {
   const worktreePath = params.worktreePath as string
   if (!worktreePath) throw new Error('worktreePath is required')
-  const label = (params.label as string | undefined)?.trim() || 'Claude Code'
-  const command = (params.command as string | undefined)?.trim() || 'claude'
-  const agentId = (params.agentId as string | undefined)?.trim() || 'claude'
+  const requestedAgentId = (params.agentId as string | undefined)?.trim() || MOBILE_AGENT_CATALOG[0]?.id || 'claude'
+  const agent = MOBILE_AGENT_CATALOG.find((item) => item.id === requestedAgentId)
+  const label = (params.label as string | undefined)?.trim() || agent?.label || 'Terminal'
+  const command = (params.command as string | undefined)?.trim() || agent?.launchCmd || 'claude'
+  const agentId = agent?.id || requestedAgentId
   const terminalId = `bt-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`
   const ptyId = await ptyService.spawn(worktreePath, { BRAID_TERMINAL_ID: terminalId })
   ptyService.registerBigTerminal(ptyId, terminalId)
@@ -275,6 +297,17 @@ register('terminal.create', async (params) => {
     agentId,
     worktreeId: params.worktreeId as string | undefined,
   })
+  const worktreeId = params.worktreeId as string | undefined
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) {
+      win.webContents.send('pty:bigTerminalRegistered', {
+        terminalId,
+        worktreeId,
+        label,
+        agentId,
+      })
+    }
+  }
   if (command) ptyService.write(ptyId, `${command}\n`)
   console.log('[MobileRPC] terminal.create', { worktreePath, ptyId, terminalId, label, agentId, command })
   return {
@@ -352,7 +385,10 @@ register('agent.unsubscribe', async (params, connection) => {
 register('terminal.subscribe', async (params, connection) => {
   const subscriptionId = `sub-${crypto.randomUUID().slice(0, 8)}`
   const ptyId = params.ptyId as string
-  console.log('[MobileRPC] terminal.subscribe', { subscriptionId, ptyId })
+  const instance = ptyService.listInstances().find((item) => item.ptyId === ptyId)
+  const terminalId = instance?.terminalId
+  console.log('[MobileRPC] terminal.subscribe', { subscriptionId, ptyId, terminalId })
+  if (terminalId) markMobileTerminalActive(terminalId)
 
   const unsubData = ptyService.onData(ptyId, (_id: string, data: string) => {
     console.log('[MobileRPC] terminal.data', { subscriptionId, ptyId, length: data.length })
@@ -371,7 +407,11 @@ register('terminal.subscribe', async (params, connection) => {
     })
   })
 
-  const unsubscribe = () => { unsubData(); unsubExit() }
+  const unsubscribe = () => {
+    unsubData()
+    unsubExit()
+    if (terminalId) markMobileTerminalInactive(terminalId)
+  }
   connection.subscriptions.set(subscriptionId, unsubscribe)
   return { subscriptionId }
 })
