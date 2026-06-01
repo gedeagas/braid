@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Single-colour Braid streaks for Android 13+ themed icons; inset to the adaptive safe zone -->
+  <g transform="translate(512,512) scale(0.6) translate(-512,-512)">
+    <path d="M -80,500 C 180,380 580,265 1100,170" fill="none" stroke="white" stroke-width="64" stroke-linecap="round"/>
+    <path d="M -80,690 C 180,570 580,455 1100,360" fill="none" stroke="white" stroke-width="80" stroke-linecap="round"/>
+    <path d="M -80,880 C 180,760 580,645 1100,550" fill="none" stroke="white" stroke-width="96" stroke-linecap="round"/>
+  </g>
+</svg>

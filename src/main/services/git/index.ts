@@ -2,15 +2,15 @@ import { getWorktrees, addWorktree, removeWorktree, cloneRepo, parseRepoName } f
 export type { CloneErrorCode } from './worktrees'
 export { CloneError } from './worktrees'
 import { getBranches, getRemoteBranches, setUpstream, renameBranch, getTrackingBranch, isBranchProtected } from './branches'
-import { getStatus, getDiff, getFileDiff, getStagedDiff, getStagedFiles, getFileTree, getTrackedFiles, readFile, writeFile, readFileAsBase64, getFileSize, invalidateFileTree, invalidateTrackedFiles } from './status'
+import { getStatus, getBranchStatus, getDiff, getFileDiff, getStagedDiff, getStagedFiles, getFileTree, getTrackedFiles, readFile, writeFile, readFileAsBase64, getFileSize, invalidateFileTree, invalidateTrackedFiles } from './status'
 import { initRepo, push, pull, stageFiles, unstageFiles, discardChanges, commit } from './operations'
 import { getRemoteUrl, getRemotes, getGitUserConfig, setGitUserConfig, clearGitUserConfig, isRepoRoot, findChildRepos } from './config'
 import { createSnapshot, restoreSnapshot } from './snapshots'
 
-export type { WorktreeInfo, FileEntry, GitChangeInfo } from './types'
+export type { WorktreeInfo, FileEntry, GitChangeInfo, BranchStatusInfo } from './types'
 export { getWorktrees, addWorktree, removeWorktree, cloneRepo, parseRepoName }
 export { getBranches, getRemoteBranches, setUpstream, renameBranch, getTrackingBranch, isBranchProtected }
-export { getStatus, getDiff, getFileDiff, getStagedDiff, getStagedFiles, getFileTree, getTrackedFiles, readFile, writeFile, readFileAsBase64, getFileSize, invalidateFileTree, invalidateTrackedFiles }
+export { getStatus, getBranchStatus, getDiff, getFileDiff, getStagedDiff, getStagedFiles, getFileTree, getTrackedFiles, readFile, writeFile, readFileAsBase64, getFileSize, invalidateFileTree, invalidateTrackedFiles }
 export { initRepo, push, pull, stageFiles, unstageFiles, discardChanges, commit }
 export { getRemoteUrl, getRemotes, getGitUserConfig, setGitUserConfig, clearGitUserConfig, isRepoRoot, findChildRepos }
 export { createSnapshot, restoreSnapshot }
@@ -29,6 +29,7 @@ class GitService {
   isBranchProtected = isBranchProtected
 
   getStatus = getStatus
+  getBranchStatus = getBranchStatus
   getDiff = getDiff
   getFileDiff = getFileDiff
   getStagedDiff = getStagedDiff

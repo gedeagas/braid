@@ -48,7 +48,21 @@
     "rollbackHistory": "回退聊天历史",
     "rollbackHistoryHint": "在用户消息上添加回退按钮。点击后截断聊天历史到该点，并通过 git 快照恢复 worktree 文件。",
     "replayTour": "重播功能引导",
-    "replayTourHint": "再次浏览 Braid 的主要功能"
+    "replayTourHint": "再次浏览 Braid 的主要功能",
+    "maintenance": "孤立的终端",
+    "maintenanceHint": "桌面端不再作为标签页跟踪的守护进程终端会话。清理它们可释放泄漏的代理进程。",
+    "maintenanceScan": "扫描",
+    "maintenanceScanning": "扫描中…",
+    "maintenanceNone": "未找到孤立的终端。",
+    "maintenanceFound_one": "找到 {{count}} 个孤立的终端：",
+    "maintenanceFound_other": "找到 {{count}} 个孤立的终端：",
+    "maintenanceCleanUp": "清理 {{count}} 个",
+    "maintenanceCleaning": "清理中…",
+    "maintenanceDone_one": "已清理 {{count}} 个终端。",
+    "maintenanceDone_other": "已清理 {{count}} 个终端。",
+    "maintenanceError": "无法连接终端守护进程。请重试。",
+    "maintenanceRescan": "重新扫描",
+    "maintenanceClose": "完成"
   },
   "appearance": {
     "uiZoom": "界面缩放",
@@ -456,13 +470,35 @@
     "pairingHeader": "配对设备",
     "generateQr": "生成二维码",
     "regenerateQr": "重新生成",
+    "copyCode": "复制代码",
+    "copiedCode": "已复制",
     "pairingHint": "使用 Braid 移动应用扫描此二维码。每个代码仅限一次使用。",
     "devicesHeader": "已配对设备",
     "noDevices": "尚未配对任何设备",
     "unnamed": "未命名设备",
     "lastSeen": "最后在线",
     "never": "从未",
-    "remove": "移除"
+    "remove": "移除",
+    "pairTitle": "配对此 Mac",
+    "enableHint": "启用配套服务器以生成配对码。",
+    "step1": "在手机上打开 Braid 应用。",
+    "step2": "点按“配对”并扫描此码。",
+    "previewTitle": "在你的手机上",
+    "cancel": "取消",
+    "feat": {
+      "liveTerminals": {
+        "title": "实时终端",
+        "desc": "实时查看和控制运行中的智能体。"
+      },
+      "pushNotifs": {
+        "title": "推送通知",
+        "desc": "当智能体需要输入或完成时收到提醒。"
+      },
+      "gitWorktrees": {
+        "title": "Git 与工作树",
+        "desc": "随时浏览工作树、分支和差异。"
+      }
+    }
   },
   "claudeSkills": {
     "title": "技能",

@@ -204,6 +204,11 @@ export class SocketServer {
           this.sendResponse(client, { id: req.id, type: 'ok' })
           break
 
+        case 'setMetadata':
+          this.host.setMetadata(req.sessionId, req.metadata)
+          this.sendResponse(client, { id: req.id, type: 'ok' })
+          break
+
         case 'ping':
           this.sendResponse(client, { id: req.id, type: 'ok' })
           break

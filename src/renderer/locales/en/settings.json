@@ -48,7 +48,21 @@
     "rollbackHistory": "Rollback chat history",
     "rollbackHistoryHint": "Adds a rewind button to user messages. Clicking it truncates chat history to that point and restores the worktree's files via git snapshot.",
     "replayTour": "Replay Feature Tour",
-    "replayTourHint": "Walk through the main features of Braid again"
+    "replayTourHint": "Walk through the main features of Braid again",
+    "maintenance": "Orphaned terminals",
+    "maintenanceHint": "Daemon terminal sessions the desktop no longer tracks as tabs. Reaping them frees the leaked agent processes.",
+    "maintenanceScan": "Scan",
+    "maintenanceScanning": "Scanning…",
+    "maintenanceNone": "No orphaned terminals found.",
+    "maintenanceFound_one": "Found {{count}} orphaned terminal:",
+    "maintenanceFound_other": "Found {{count}} orphaned terminals:",
+    "maintenanceCleanUp": "Clean up {{count}}",
+    "maintenanceCleaning": "Cleaning up…",
+    "maintenanceDone_one": "Cleaned up {{count}} terminal.",
+    "maintenanceDone_other": "Cleaned up {{count}} terminals.",
+    "maintenanceError": "Couldn't reach the terminal daemon. Try again.",
+    "maintenanceRescan": "Scan again",
+    "maintenanceClose": "Done"
   },
   "appearance": {
     "uiZoom": "UI Zoom",
@@ -456,13 +470,35 @@
     "pairingHeader": "Pair Device",
     "generateQr": "Generate QR Code",
     "regenerateQr": "Regenerate",
+    "copyCode": "Copy Code",
+    "copiedCode": "Copied",
     "pairingHint": "Scan this QR code with the Braid mobile app. Each code is single-use.",
     "devicesHeader": "Paired Devices",
     "noDevices": "No devices paired yet",
     "unnamed": "Unnamed Device",
     "lastSeen": "Last seen",
     "never": "Never",
-    "remove": "Remove"
+    "remove": "Remove",
+    "pairTitle": "Pair this Mac",
+    "enableHint": "Turn on the companion server to generate a pairing code.",
+    "step1": "Open the Braid app on your phone.",
+    "step2": "Tap Pair and scan this code.",
+    "previewTitle": "On your phone",
+    "cancel": "Cancel",
+    "feat": {
+      "liveTerminals": {
+        "title": "Live terminals",
+        "desc": "Watch and control running agents in real time."
+      },
+      "pushNotifs": {
+        "title": "Push notifications",
+        "desc": "Get alerted when an agent needs input or finishes."
+      },
+      "gitWorktrees": {
+        "title": "Git & worktrees",
+        "desc": "Browse worktrees, branches, and diffs on the go."
+      }
+    }
   },
   "claudeSkills": {
     "title": "Skills",

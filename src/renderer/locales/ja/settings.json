@@ -48,7 +48,21 @@
     "rollbackHistory": "チャット履歴の巻き戻し",
     "rollbackHistoryHint": "ユーザーメッセージに巻き戻しボタンを追加します。クリックするとチャット履歴をその時点まで切り詰め、gitスナップショットでワークツリーのファイルを復元します。",
     "replayTour": "機能ツアーを再生",
-    "replayTourHint": "Braidの主な機能をもう一度確認します"
+    "replayTourHint": "Braidの主な機能をもう一度確認します",
+    "maintenance": "孤立したターミナル",
+    "maintenanceHint": "デスクトップがタブとして追跡しなくなったデーモンのターミナルセッションです。削除すると残留したエージェントプロセスが解放されます。",
+    "maintenanceScan": "スキャン",
+    "maintenanceScanning": "スキャン中…",
+    "maintenanceNone": "孤立したターミナルは見つかりませんでした。",
+    "maintenanceFound_one": "孤立したターミナルが{{count}}件見つかりました:",
+    "maintenanceFound_other": "孤立したターミナルが{{count}}件見つかりました:",
+    "maintenanceCleanUp": "{{count}}件を削除",
+    "maintenanceCleaning": "削除中…",
+    "maintenanceDone_one": "{{count}}件のターミナルを削除しました。",
+    "maintenanceDone_other": "{{count}}件のターミナルを削除しました。",
+    "maintenanceError": "ターミナルデーモンに接続できませんでした。もう一度お試しください。",
+    "maintenanceRescan": "再スキャン",
+    "maintenanceClose": "完了"
   },
   "appearance": {
     "uiZoom": "UIズーム",
@@ -456,13 +470,35 @@
     "pairingHeader": "デバイスのペアリング",
     "generateQr": "QRコードを生成",
     "regenerateQr": "再生成",
+    "copyCode": "コードをコピー",
+    "copiedCode": "コピーしました",
     "pairingHint": "BraidモバイルアプリでこのQRコードをスキャンしてください。各コードは1回限り有効です。",
     "devicesHeader": "ペアリング済みデバイス",
     "noDevices": "ペアリング済みのデバイスはありません",
     "unnamed": "名前なしデバイス",
     "lastSeen": "最終接続",
     "never": "なし",
-    "remove": "削除"
+    "remove": "削除",
+    "pairTitle": "この Mac をペアリング",
+    "enableHint": "コンパニオンサーバーを有効にしてペアリングコードを生成します。",
+    "step1": "スマートフォンで Braid アプリを開きます。",
+    "step2": "「ペアリング」をタップしてこのコードをスキャンします。",
+    "previewTitle": "スマートフォンで",
+    "cancel": "キャンセル",
+    "feat": {
+      "liveTerminals": {
+        "title": "ライブターミナル",
+        "desc": "実行中のエージェントをリアルタイムで確認・操作できます。"
+      },
+      "pushNotifs": {
+        "title": "プッシュ通知",
+        "desc": "エージェントが入力を必要とするか完了したときに通知します。"
+      },
+      "gitWorktrees": {
+        "title": "Git とワークツリー",
+        "desc": "ワークツリー、ブランチ、差分を外出先で確認できます。"
+      }
+    }
   },
   "claudeSkills": {
     "title": "スキル",

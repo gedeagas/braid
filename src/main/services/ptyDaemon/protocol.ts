@@ -7,6 +7,7 @@
 import { join } from 'path'
 import { homedir } from 'os'
 import { DEFAULT_TERMINAL_SCROLLBACK_LINES, getTerminalScrollbackBufferMaxLength } from '../../../shared/terminal'
+import type { DaemonSessionMetadata } from './types'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -83,6 +84,13 @@ export interface SetBufferMaxLengthRequest {
   maxLength: number
 }
 
+export interface SetMetadataRequest {
+  id: string
+  type: 'setMetadata'
+  sessionId: string
+  metadata: DaemonSessionMetadata
+}
+
 export interface PingRequest {
   id: string
   type: 'ping'
@@ -102,6 +110,7 @@ export type DaemonRequest =
   | SnapshotRequest
   | ListRequest
   | SetBufferMaxLengthRequest
+  | SetMetadataRequest
   | PingRequest
   | ShutdownRequest
 

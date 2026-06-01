@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/store/ui'
 import { useUpdaterStore } from '@/store/updater'
 import { Tooltip } from '@/components/shared/Tooltip'
-import { IconGitBranch, IconGrid, IconSettings, IconArrowUp } from '@/components/shared/icons'
+import { IconGitBranch, IconGrid, IconSettings, IconArrowUp, IconSmartphone } from '@/components/shared/icons'
 import { ActivityBarApps } from './ActivityBarApps'
 
 interface ActivityBarItemProps {
@@ -34,10 +34,12 @@ export const ActivityBar = memo(function ActivityBar() {
   const { t: tMc } = useTranslation('missionControl')
   const sidebarPanelOpen = useUIStore((s) => s.sidebarPanelOpen)
   const missionControlActive = useUIStore((s) => s.missionControlActive)
+  const mobilePairingActive = useUIStore((s) => s.mobilePairingActive)
   const webAppsEnabled = useUIStore((s) => s.webAppsEnabled)
   const activeWebAppId = useUIStore((s) => s.activeWebAppId)
   const toggleSidebar = useUIStore((s) => s.toggleSidebar)
   const toggleMissionControl = useUIStore((s) => s.toggleMissionControl)
+  const toggleMobilePairing = useUIStore((s) => s.toggleMobilePairing)
   const openSettings = useUIStore((s) => s.openSettings)
   const dismissedUpdate = useUpdaterStore(
     (s) => (s.state.status === 'available' || s.state.status === 'ready') && s.state.dismissed
@@ -68,6 +70,13 @@ export const ActivityBar = memo(function ActivityBar() {
           isActive={missionControlActive}
           onClick={toggleMissionControl}
           dataTour="mission-control"
+        />
+        <ActivityBarItem
+          icon={<IconSmartphone size={20} />}
+          label={t('mobilePairing')}
+          isActive={mobilePairingActive}
+          onClick={toggleMobilePairing}
+          dataTour="mobile-pairing"
         />
         {webAppsEnabled && <ActivityBarApps />}
         <div className="activity-bar-drag-spacer" />

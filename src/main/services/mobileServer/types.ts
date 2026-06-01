@@ -20,7 +20,8 @@ export interface E2EESession {
     secretKey: Uint8Array
   }
   remotePublicKey: Uint8Array    // Mobile's ephemeral public key
-  nonceCounter: number           // Monotonic counter for nonce generation
+  sendCounter: number            // Server -> mobile nonce counter
+  receiveCounter: number         // Mobile -> server nonce counter
   deviceId: string               // Bound during hello phase to prevent session hijacking
   deviceToken: string            // Bound during hello phase for secure pairing finalization
 }
@@ -33,6 +34,7 @@ export interface MobileConnection {
   e2ee: E2EESession
   subscriptions: Map<string, () => void>  // subscriptionId -> unsubscribe fn
   connectedAt: number
+  sendQueue: Promise<void>
 }
 
 // ── Pairing ───────────────────────────────────────────────────────────────────
@@ -67,6 +69,7 @@ export interface E2EEAuthenticated {
   type: 'e2ee_authenticated'
   deviceId: string
   instanceName: string
+  deviceToken?: string
 }
 
 export type HandshakeMessage = E2EEHello | E2EEReady | E2EEAuth | E2EEAuthenticated

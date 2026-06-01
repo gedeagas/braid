@@ -9,7 +9,8 @@ export function cleanIpcError(err: unknown, fallback = 'Unknown error'): string 
 
 export const storage = {
   load: () => api().storage.load(),
-  save: (data: unknown) => api().storage.save(data)
+  save: (data: unknown) => api().storage.save(data),
+  syncWorktreeIds: (map: Record<string, string>) => api().storage.syncWorktreeIds(map)
 }
 
 export const git = {
@@ -87,8 +88,8 @@ export const agent = {
   sendMessage: (sessionId: string, message: string, sdkSessionId: string, cwd: string, model: string, extendedContext: boolean, effortLevel: string, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string, resumeSessionAt?: string) =>
     api().agent.sendMessage(sessionId, message, sdkSessionId, cwd, model, extendedContext, effortLevel, planMode, sessionName, images, additionalDirectories, linkedWorktreeContext, connectedDeviceId, mobileFramework, resumeSessionAt),
   updateSessionName: (sessionId: string, name: string) => api().agent.updateSessionName(sessionId, name),
-  notify: (sessionId: string, type: 'done' | 'error' | 'waiting_input', sessionName?: string, errorMessage?: string, reason?: 'question' | 'plan_approval', branch?: string, projectName?: string) =>
-    api().agent.notify(sessionId, type, sessionName, errorMessage, reason, branch, projectName),
+  notify: (sessionId: string, type: 'done' | 'error' | 'waiting_input', sessionName?: string, errorMessage?: string, reason?: 'question' | 'plan_approval', branch?: string, projectName?: string, worktreePath?: string, terminalId?: string) =>
+    api().agent.notify(sessionId, type, sessionName, errorMessage, reason, branch, projectName, worktreePath, terminalId),
   getSlashCommands: (cwd: string) => api().agent.getSlashCommands(cwd),
   answerToolInput: (sessionId: string, result: Record<string, unknown>) =>
     api().agent.answerToolInput(sessionId, result),
@@ -114,12 +115,37 @@ export const pty = {
   onData: (callback: (id: string, data: string) => void) => api().pty.onData(callback),
   onExit: (callback: (id: string, exitCode: number) => void) => api().pty.onExit(callback),
   registerBigTerminal: (ptyId: string, terminalId: string) => api().pty.registerBigTerminal(ptyId, terminalId),
+  setBigTerminalMetadata: (metadata: { terminalId: string; worktreeId?: string; label?: string; agentId?: string }) =>
+    api().pty.setBigTerminalMetadata(metadata),
+  removeBigTerminalMetadata: (terminalId: string) => api().pty.removeBigTerminalMetadata(terminalId),
+  killBigTerminal: (terminalId: string) => api().pty.killBigTerminal(terminalId),
+  renameBigTerminal: (payload: { terminalId: string; worktreeId?: string; label: string; agentId?: string }) =>
+    api().pty.renameBigTerminal(payload),
   readScrollback: (terminalId: string) => api().pty.readScrollback(terminalId) as Promise<string>,
+  isMobileTerminalActive: (terminalId: string) => api().pty.isMobileTerminalActive(terminalId) as Promise<boolean>,
+  setMobileDisplayMode: (terminalId: string, mode: 'phone' | 'desktop') =>
+    api().pty.setMobileDisplayMode(terminalId, mode),
   deleteScrollback: (terminalId: string) => api().pty.deleteScrollback(terminalId),
   reattach: (sessionId: string) => api().pty.reattach(sessionId) as Promise<{ sessionId: string; snapshot: string } | null>,
   listSessions: () => api().pty.listSessions() as Promise<Array<{ sessionId: string; cwd: string; cols: number; rows: number; createdAt: number }>>,
+  listOrphanedBigTerminals: (knownTerminalIds: string[]) =>
+    api().pty.listOrphanedBigTerminals(knownTerminalIds) as Promise<Array<{ terminalId: string; cwd: string; label?: string; agentId?: string }>>,
+  killOrphanedBigTerminals: (terminalIds: string[]) =>
+    api().pty.killOrphanedBigTerminals(terminalIds) as Promise<number>,
+  setKnownBigTerminals: (items: Array<{ terminalId: string; label?: string; agentId?: string; worktreeId?: string }>) =>
+    api().pty.setKnownBigTerminals(items),
   onAgentHookStatus: (callback: (status: { terminalId: string; state: string; agentType: string; toolName?: string; interrupted?: boolean }) => void) =>
     api().pty.onAgentHookStatus(callback),
+  onMobileTerminalActive: (callback: (status: { terminalId: string; active: boolean }) => void) =>
+    api().pty.onMobileTerminalActive(callback),
+  onMobileDisplayMode: (callback: (status: { terminalId: string; mode: 'phone' | 'desktop' }) => void) =>
+    api().pty.onMobileDisplayMode(callback),
+  onBigTerminalRegistered: (callback: (tab: { terminalId: string; worktreeId?: string; worktreePath?: string; label?: string; agentId?: string }) => void) =>
+    api().pty.onBigTerminalRegistered(callback),
+  onBigTerminalRenamed: (callback: (tab: { terminalId: string; worktreeId?: string; worktreePath?: string; label: string }) => void) =>
+    api().pty.onBigTerminalRenamed(callback),
+  onBigTerminalClosed: (callback: (tab: { terminalId: string; worktreeId?: string; worktreePath?: string }) => void) =>
+    api().pty.onBigTerminalClosed(callback),
 }
 
 export const simulator = {

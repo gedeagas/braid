@@ -28,6 +28,7 @@ function resolveTerminalContext(
   bigTerminalsByWorktree: Record<string, { id: string; label: string }[]>
 ): {
   worktreeId: string
+  worktreePath: string
   branch: string
   projectId: string
   projectName: string
@@ -43,6 +44,7 @@ function resolveTerminalContext(
     if (!project || !wt) return null
     return {
       worktreeId,
+      worktreePath: wt.path,
       branch: wt.branch,
       projectId: project.id,
       projectName: project.name,
@@ -151,11 +153,13 @@ function fireNotification(terminalId: string, type: 'done' | 'error' | 'waiting_
     })
   }
 
-  // Desktop notification via existing infrastructure
+  // Desktop notification via existing infrastructure. worktreePath + terminalId
+  // let the mobile companion deep-link a tap to this exact terminal tab.
   ipc.agent.notify(
     terminalId, type, ctx.label,
     undefined, undefined,
-    ctx.branch, ctx.projectName
+    ctx.branch, ctx.projectName,
+    ctx.worktreePath, terminalId
   )
 }
 

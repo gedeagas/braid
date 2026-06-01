@@ -171,6 +171,43 @@ describe('SessionHost', () => {
     expect(checkpoints[0].cwd).toBe('/tmp')
   })
 
+  it('attaches metadata and surfaces it in list()', async () => {
+    await host.spawn('bt-1', '/repo', 80, 24, '/bin/zsh')
+    host.setMetadata('bt-1', { label: 'Claude', agentId: 'claude', worktreeId: 'wt-1' })
+
+    const list = host.list()
+    expect(list[0].metadata).toEqual({ label: 'Claude', agentId: 'claude', worktreeId: 'wt-1' })
+  })
+
+  it('ignores setMetadata for unknown sessions', () => {
+    // Should not throw
+    host.setMetadata('nope', { label: 'x' })
+    expect(host.has('nope')).toBe(false)
+  })
+
+  it('persists metadata in checkpoint data', async () => {
+    await host.spawn('bt-1', '/repo', 80, 24, '/bin/zsh')
+    host.setMetadata('bt-1', { label: 'My Terminal', agentId: 'codex' })
+
+    const checkpoints = host.getCheckpoints()
+    expect(checkpoints[0].metadata).toEqual({ label: 'My Terminal', agentId: 'codex' })
+  })
+
+  it('restores metadata from checkpoint data', async () => {
+    await host.restore({
+      sessionId: 'bt-1',
+      cwd: '/repo',
+      cols: 80,
+      rows: 24,
+      scrollback: 'prev output',
+      createdAt: 1,
+      checkpointedAt: 2,
+      metadata: { label: 'Restored', agentId: 'gemini' },
+    }, '/bin/zsh')
+
+    expect(host.list()[0].metadata).toEqual({ label: 'Restored', agentId: 'gemini' })
+  })
+
   it('kills all sessions', async () => {
     await host.spawn('s1', '/tmp', 80, 24, '/bin/zsh')
     await host.spawn('s2', '/tmp', 80, 24, '/bin/zsh')

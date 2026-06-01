@@ -1,12 +1,14 @@
 import { WebSocketServer, WebSocket } from 'ws'
 import crypto from 'crypto'
-import { hostname, networkInterfaces } from 'os'
+import { networkInterfaces } from 'os'
 import { logger } from '../../lib/logger'
 import { DEFAULT_MOBILE_PORT } from '../../../shared/mobile-protocol'
 import { deviceStore } from './deviceStore'
 import { dispatch } from './rpc'
+import { setMobileBroadcaster } from './broadcast'
 import * as discovery from './discovery'
 import * as e2ee from './e2ee'
+import { getMobileInstanceName } from './instanceName'
 import type {
   MobileConnection,
   E2EESession,
@@ -14,6 +16,7 @@ import type {
   E2EEAuth,
   JsonRpcRequest,
   JsonRpcNotification,
+  JsonRpcResponse,
   MobileServerStatus,
   PairingOffer,
 } from './types'
@@ -31,16 +34,39 @@ class MobileServer {
 
   constructor() {
     this.instanceId = this.loadOrCreateInstanceId()
+    // Register the broadcast hook so RPC/IPC handlers can push notifications
+    // (e.g. terminal tab rename/close) to every connected device.
+    setMobileBroadcaster((notification, exceptDeviceId) => this.broadcast(notification, exceptDeviceId))
+  }
+
+  /**
+   * Push a notification to every authenticated device, optionally skipping the
+   * one that originated the change. Reuses the per-connection 'rpc:notification'
+   * forwarding (encryption + send-queue ordering) set up at auth time.
+   */
+  private broadcast(notification: JsonRpcNotification, exceptDeviceId?: string): void {
+    for (const [deviceId, conn] of this.connections) {
+      if (deviceId === exceptDeviceId) continue
+      conn.ws.emit('rpc:notification', notification)
+    }
   }
 
   // ── Lifecycle ─────────────────────────────────────────────────────────
 
   async start(): Promise<{ port: number }> {
     if (this.wss) {
-      throw new Error('Mobile server is already running')
+      if (this.port) return { port: this.port }
+      this.stop()
     }
 
     return new Promise((resolve, reject) => {
+      const rejectStart = (err: unknown) => {
+        this.stopPingInterval()
+        this.wss = null
+        this.port = null
+        reject(err)
+      }
+
       this.wss = new WebSocketServer({
         port: DEFAULT_MOBILE_PORT,
         host: '0.0.0.0',
@@ -75,9 +101,9 @@ class MobileServer {
             resolve({ port: this.port })
           })
           this.wss.on('connection', (ws) => this.handleConnection(ws))
-          this.wss.on('error', reject)
+          this.wss.on('error', rejectStart)
         } else {
-          reject(err)
+          rejectStart(err)
         }
       })
 
@@ -152,7 +178,8 @@ class MobileServer {
             sharedKey,
             localKeyPair: serverEphemeral,
             remotePublicKey,
-            nonceCounter: 0,
+            sendCounter: 0,
+            receiveCounter: 0,
             deviceId: device.id,
             deviceToken: hello.deviceToken,
           }
@@ -182,7 +209,7 @@ class MobileServer {
             clearTimeout(handshakeTimer)
             return
           }
-          session.nonceCounter = result.nextCounter
+          session.receiveCounter = result.nextCounter
 
           const authMsg = result.data
 
@@ -204,12 +231,12 @@ class MobileServer {
 
           // Send authenticated response (encrypted)
           const { encrypted, nextCounter } = e2ee.encryptJson(
-            { type: 'e2ee_authenticated', deviceId: device.id, instanceName: hostname() },
+            { type: 'e2ee_authenticated', deviceId: device.id, instanceName: getMobileInstanceName(), deviceToken: device.token },
             session.sharedKey,
-            session.nonceCounter,
+            session.sendCounter,
             true
           )
-          session.nonceCounter = nextCounter
+          session.sendCounter = nextCounter
           ws.send(encrypted)
 
           // Register connection
@@ -219,6 +246,7 @@ class MobileServer {
             e2ee: session,
             subscriptions: new Map(),
             connectedAt: Date.now(),
+            sendQueue: Promise.resolve(),
           }
 
           // Close existing connection from same device
@@ -245,24 +273,19 @@ class MobileServer {
           const conn = this.findConnectionByWs(ws)
           if (!conn) return
 
-          const result = e2ee.decryptJson<JsonRpcRequest>(data, session.sharedKey, conn.e2ee.nonceCounter, false)
+          const result = e2ee.decryptJson<JsonRpcRequest>(data, session.sharedKey, conn.e2ee.receiveCounter, false)
           if (!result) {
             logger.warn('[MobileServer] Failed to decrypt RPC message')
             return
           }
-          conn.e2ee.nonceCounter = result.nextCounter
+          conn.e2ee.receiveCounter = result.nextCounter
 
           const response = await dispatch(result.data, conn)
-          const { encrypted, nextCounter } = e2ee.encryptJson(
-            response,
-            session.sharedKey,
-            conn.e2ee.nonceCounter,
-            true
-          )
-          conn.e2ee.nonceCounter = nextCounter
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(encrypted)
-          }
+          conn.sendQueue = conn.sendQueue
+            .then(() => this.sendEncrypted(conn, response as JsonRpcResponse))
+            .catch((err) => {
+              logger.error('[MobileServer] Failed to send RPC response:', err)
+            })
         }
       } catch (err) {
         logger.error('[MobileServer] Message handling error:', err)
@@ -289,21 +312,28 @@ class MobileServer {
 
   private setupNotificationForwarding(connection: MobileConnection): void {
     connection.ws.on('rpc:notification', (notification: JsonRpcNotification) => {
-      try {
-        const { encrypted, nextCounter } = e2ee.encryptJson(
-          notification,
-          connection.e2ee.sharedKey,
-          connection.e2ee.nonceCounter,
-          true
-        )
-        connection.e2ee.nonceCounter = nextCounter
-        if (connection.ws.readyState === WebSocket.OPEN) {
-          connection.ws.send(encrypted)
-        }
-      } catch (err) {
-        logger.error('[MobileServer] Failed to send notification:', err)
-      }
+      connection.sendQueue = connection.sendQueue
+        .then(() => this.sendEncrypted(connection, notification))
+        .catch((err) => {
+          logger.error('[MobileServer] Failed to send notification:', err)
+        })
     })
+  }
+
+  private async sendEncrypted(
+    connection: MobileConnection,
+    message: JsonRpcResponse | JsonRpcNotification,
+  ): Promise<void> {
+    const { encrypted, nextCounter } = e2ee.encryptJson(
+      message,
+      connection.e2ee.sharedKey,
+      connection.e2ee.sendCounter,
+      true
+    )
+    connection.e2ee.sendCounter = nextCounter
+    if (connection.ws.readyState === WebSocket.OPEN) {
+      connection.ws.send(encrypted)
+    }
   }
 
   // ── Activity probe (ping/pong) ────────────────────────────────────────

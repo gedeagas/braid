@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import * as ipc from '@/lib/ipc'
 import { useTerminalFileDrop } from '@/hooks/useTerminalFileDrop'
 import { useTerminalClipboardPaste } from '@/hooks/useTerminalClipboardPaste'
@@ -18,9 +19,15 @@ interface Props {
 }
 
 export function BigTerminalView({ terminalId, worktreePath, initialCommand, initialInput, agentId }: Props) {
+  const { t } = useTranslation('center')
   const containerRef = useRef<HTMLDivElement>(null)
   const entryRef = useRef<BigTermEntry | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [mobileActive, setMobileActive] = useState(false)
+  // 'desktop' means the paired phone (or the desktop's "Restore desktop size"
+  // button) asked to view this terminal at the desktop's native size, so we
+  // release the hold and fit to our own pane.
+  const [mobileDisplayMode, setMobileDisplayMode] = useState<'phone' | 'desktop'>('phone')
 
   // File-drop onto big terminal
   const getFileDropTarget = useCallback(() => {
@@ -39,6 +46,34 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, init
       setSearchOpen(true)
     }
   }, [])
+
+  useEffect(() => {
+    setMobileDisplayMode('phone')
+    let cancelled = false
+    ipc.pty.isMobileTerminalActive(terminalId)
+      .then((active) => { if (!cancelled) setMobileActive(active) })
+      .catch(() => undefined)
+    const unsubscribe = ipc.pty.onMobileTerminalActive((status) => {
+      if (status.terminalId === terminalId) {
+        setMobileActive(status.active)
+        if (!status.active) {
+          setMobileDisplayMode('phone')
+        }
+      }
+    })
+    const unsubscribeMode = ipc.pty.onMobileDisplayMode((status) => {
+      if (status.terminalId === terminalId) setMobileDisplayMode(status.mode)
+    })
+    return () => {
+      cancelled = true
+      unsubscribe()
+      unsubscribeMode()
+    }
+  }, [terminalId])
+
+  // In 'desktop' mode the phone wants our native size, so we stop holding and
+  // let the ResizeObserver fit to this pane (which resizes the shared PTY).
+  const heldForMobile = mobileActive && mobileDisplayMode !== 'desktop'
 
   useEffect(() => {
     const el = containerRef.current
@@ -76,8 +111,13 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, init
     // frame (e.g. split resize drag). Coalesce into one rAF to avoid loops
     // and keep fit() off the pointermove hot path.
     const scheduleFit = () => {
+      if (heldForMobile) return
       if (entry.pendingFitRafId !== null) return
       entry.pendingFitRafId = requestAnimationFrame(() => {
+        if (heldForMobile) {
+          entry.pendingFitRafId = null
+          return
+        }
         entry.pendingFitRafId = null
         try {
           entry.fitAddon.fit()
@@ -114,7 +154,22 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, init
         el.removeChild(entry.term.element)
       }
     }
-  }, [terminalId, worktreePath])
+  }, [terminalId, worktreePath, heldForMobile])
+
+  const restoreDesktopSize = useCallback(() => {
+    // Tell the main process the terminal is now driven at desktop dimensions.
+    // It broadcasts back a 'desktop' display mode which un-holds this pane
+    // (heldForMobile -> false), re-fits, and resizes the shared PTY. Because
+    // the mode is set on main *before* that resize fires, the resulting
+    // `terminal.resized` event is tagged 'desktop', so the paired phone
+    // resizes its xterm and toggles its desktop/phone indicator.
+    //
+    // We intentionally do NOT set desktopOverride or resize locally here:
+    // doing so would un-hold the pane and emit a 'phone'-tagged resize before
+    // main learns about the mode change, and the later broadcast would be a
+    // no-op (heldForMobile already false), leaving the phone out of sync.
+    ipc.pty.setMobileDisplayMode(terminalId, 'desktop')
+  }, [terminalId])
 
   useEffect(() => {
     updateBigTerminalAgentId(terminalId, agentId)
@@ -181,7 +236,45 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, init
             onClose={() => setSearchOpen(false)}
           />
         )}
-        <div ref={containerRef} style={{ width: '100%', height: '100%', overflow: 'hidden' }} />
+        {heldForMobile && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 2,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'var(--bg-primary)',
+              padding: 24,
+            }}
+          >
+            <div
+              style={{
+                width: 'min(480px, 100%)',
+                borderRadius: 8,
+                background: 'var(--bg-secondary)',
+                padding: 24,
+                color: 'var(--text-primary)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-secondary)', fontSize: 13, marginBottom: 14 }}>
+                <span style={{ width: 9, height: 9, borderRadius: 999, background: 'var(--text-secondary)' }} />
+                <span>{t('heldForMobile.eyebrow')}</span>
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>
+                {t('heldForMobile.title')}
+              </div>
+              <div style={{ color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: 18 }}>
+                {t('heldForMobile.body')}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button className="btn btn-primary" onClick={restoreDesktopSize}>{t('heldForMobile.restore')}</button>
+              </div>
+            </div>
+          </div>
+        )}
+        <div ref={containerRef} style={{ width: '100%', height: '100%', overflow: 'hidden', visibility: heldForMobile ? 'hidden' : 'visible' }} />
       </div>
       {agentId && (
         <div className="chat-input-footer">

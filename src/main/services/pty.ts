@@ -69,6 +69,29 @@ interface PtyInstance {
   process: import('node-pty').IPty
   cwd: string
   buffer: RingBuffer
+  cols: number
+  rows: number
+}
+
+export interface BigTerminalMetadata {
+  terminalId: string
+  worktreeId?: string
+  label?: string
+  agentId?: string
+  /** Accumulated wall-clock time (ms) the agent has spent in the "working" state. */
+  totalRunDurationMs?: number
+}
+
+export interface PtyInstanceInfo {
+  ptyId: string
+  cwd: string
+  terminalId?: string
+  title?: string
+  label?: string
+  agentId?: string
+  worktreeId?: string
+  /** Accumulated wall-clock time (ms) the agent has spent in the "working" state. */
+  totalRunDurationMs?: number
 }
 
 export interface TerminalOutput {
@@ -86,6 +109,9 @@ export interface IPtyService {
   resize(id: string, cols: number, rows: number): void
   /** Kill a specific terminal session. */
   kill(id: string): void
+  /** Kill a big terminal by its stable terminalId (bt-...), regardless of ptyId.
+   *  Used to reliably reap a session on tab close even when no renderer has it cached. */
+  killBigTerminal?(terminalId: string): void
   /** Kill all active terminal sessions. */
   killAll(): void
   /** Run a command non-interactively and resolve when it exits. */
@@ -106,8 +132,16 @@ export interface IPtyService {
   onData(ptyId: string, callback: (ptyId: string, data: string) => void): () => void
   /** Subscribe to exit events from a PTY. Returns an unsubscribe function. */
   onExit(ptyId: string, callback: (ptyId: string, exitCode: number) => void): () => void
+  /** Subscribe to resize events from a PTY (fires with the new dimensions). Returns an unsubscribe function. */
+  onResize?(ptyId: string, callback: (ptyId: string, cols: number, rows: number) => void): () => void
+  /** Current dimensions of a PTY, or null if unknown. */
+  getSize?(ptyId: string): { cols: number; rows: number } | null
   /** List active PTY instances, optionally filtered by worktree path. */
-  listInstances(worktreePath?: string): Array<{ ptyId: string; cwd: string }>
+  listInstances(worktreePath?: string): PtyInstanceInfo[]
+  setBigTerminalMetadata?(metadata: BigTerminalMetadata): void
+  removeBigTerminalMetadata?(terminalId: string): void
+  /** Add elapsed "working" time (ms) to a big terminal's accumulated run duration. */
+  addBigTerminalRunDuration?(terminalId: string, deltaMs: number): void
   /** List active PTY instances with their OS process IDs. */
   listInstancesWithPid(): Array<{ ptyId: string; cwd: string; pid: number | null }>
 }
@@ -119,10 +153,13 @@ class PtyService implements IPtyService {
   private counter = 0
   /** Mapping ptyId -> terminalId for big terminal PTYs (for scrollback persistence). */
   private bigTerminalByPty = new Map<string, string>()
+  private bigTerminalMetadataById = new Map<string, BigTerminalMetadata>()
   /** External data listeners (e.g. mobile companion server). */
   private dataListeners = new Map<string, Set<(ptyId: string, data: string) => void>>()
   /** External exit listeners (e.g. mobile companion server). */
   private exitListeners = new Map<string, Set<(ptyId: string, exitCode: number) => void>>()
+  /** External resize listeners (e.g. mobile companion server). */
+  private resizeListeners = new Map<string, Set<(ptyId: string, cols: number, rows: number) => void>>()
 
   private getWindow(): BrowserWindow | null {
     const windows = BrowserWindow.getAllWindows()
@@ -191,7 +228,7 @@ class PtyService implements IPtyService {
     }
 
     const buffer = new RingBuffer(getTerminalScrollbackBufferMaxLength(mainSettings.terminalScrollback))
-    const instance: PtyInstance = { process: ptyProcess, cwd: safeCwd, buffer }
+    const instance: PtyInstance = { process: ptyProcess, cwd: safeCwd, buffer, cols: 80, rows: 24 }
 
     ptyProcess.onData((data: string) => {
       buffer.push(data)
@@ -218,6 +255,7 @@ class PtyService implements IPtyService {
       // Clean up listener sets
       this.dataListeners.delete(id)
       this.exitListeners.delete(id)
+      this.resizeListeners.delete(id)
     })
 
     this.instances.set(id, instance)
@@ -229,7 +267,23 @@ class PtyService implements IPtyService {
   }
 
   resize(id: string, cols: number, rows: number): void {
-    this.instances.get(id)?.process.resize(cols, rows)
+    const instance = this.instances.get(id)
+    if (!instance) return
+    instance.process.resize(cols, rows)
+    instance.cols = cols
+    instance.rows = rows
+    for (const cb of this.resizeListeners.get(id) ?? []) cb(id, cols, rows)
+  }
+
+  getSize(id: string): { cols: number; rows: number } | null {
+    const instance = this.instances.get(id)
+    return instance ? { cols: instance.cols, rows: instance.rows } : null
+  }
+
+  onResize(ptyId: string, callback: (ptyId: string, cols: number, rows: number) => void): () => void {
+    if (!this.resizeListeners.has(ptyId)) this.resizeListeners.set(ptyId, new Set())
+    this.resizeListeners.get(ptyId)!.add(callback)
+    return () => { this.resizeListeners.get(ptyId)?.delete(callback) }
   }
 
   kill(id: string): void {
@@ -240,6 +294,18 @@ class PtyService implements IPtyService {
     instance?.process.kill()
     this.instances.delete(id)
     this.bigTerminalByPty.delete(id)
+  }
+
+  killBigTerminal(terminalId: string): void {
+    // Reverse-lookup the ptyId from the terminalId so a tab close can reap the
+    // PTY even when the renderer never mounted (and thus never cached) it.
+    for (const [ptyId, tid] of this.bigTerminalByPty) {
+      if (tid === terminalId) {
+        this.kill(ptyId)
+        break
+      }
+    }
+    this.bigTerminalMetadataById.delete(terminalId)
   }
 
   killAll(): void {
@@ -281,11 +347,22 @@ class PtyService implements IPtyService {
   }
 
   /** List all active PTY instances, optionally filtered by worktree path. */
-  listInstances(worktreePath?: string): Array<{ ptyId: string; cwd: string }> {
-    const results: Array<{ ptyId: string; cwd: string }> = []
+  listInstances(worktreePath?: string): PtyInstanceInfo[] {
+    const results: PtyInstanceInfo[] = []
     for (const [id, instance] of this.instances) {
       if (!worktreePath || instance.cwd === worktreePath) {
-        results.push({ ptyId: id, cwd: instance.cwd })
+        const terminalId = this.bigTerminalByPty.get(id)
+        const metadata = terminalId ? this.bigTerminalMetadataById.get(terminalId) : undefined
+        results.push({
+          ptyId: id,
+          cwd: instance.cwd,
+          terminalId,
+          title: metadata?.label,
+          label: metadata?.label,
+          agentId: metadata?.agentId,
+          worktreeId: metadata?.worktreeId,
+          totalRunDurationMs: metadata?.totalRunDurationMs,
+        })
       }
     }
     return results
@@ -314,6 +391,27 @@ class PtyService implements IPtyService {
   registerBigTerminal(ptyId: string, terminalId: string): void {
     if (!this.instances.has(ptyId)) return
     this.bigTerminalByPty.set(ptyId, terminalId)
+  }
+
+  setBigTerminalMetadata(metadata: BigTerminalMetadata): void {
+    // Preserve accumulated run duration across label/agent re-syncs from the
+    // renderer (which doesn't track the run timer and omits totalRunDurationMs).
+    const existing = this.bigTerminalMetadataById.get(metadata.terminalId)
+    this.bigTerminalMetadataById.set(metadata.terminalId, {
+      ...metadata,
+      totalRunDurationMs: metadata.totalRunDurationMs ?? existing?.totalRunDurationMs,
+    })
+  }
+
+  removeBigTerminalMetadata(terminalId: string): void {
+    this.bigTerminalMetadataById.delete(terminalId)
+  }
+
+  addBigTerminalRunDuration(terminalId: string, deltaMs: number): void {
+    if (deltaMs <= 0) return
+    const existing = this.bigTerminalMetadataById.get(terminalId)
+    if (!existing) return
+    existing.totalRunDurationMs = (existing.totalRunDurationMs ?? 0) + deltaMs
   }
 
   readScrollback(terminalId: string): string {
@@ -393,7 +491,15 @@ import { PtyDaemonAdapter } from './ptyDaemon'
  * a standalone daemon process so terminals survive app restarts.
  * Falls back to in-process PtyService if the daemon fails to initialize.
  */
-function createPtyService(): IPtyService & { reattach?: (sessionId: string) => Promise<import('./ptyDaemon').ReattachResult | null>; listSessions?: () => Promise<import('./ptyDaemon').SessionInfo[]>; disconnectFromDaemon?: () => void; ensureDaemon?: () => Promise<void> } {
+/** A big-terminal daemon session the desktop no longer tracks as a tab. */
+export interface OrphanedTerminal {
+  terminalId: string
+  cwd: string
+  label?: string
+  agentId?: string
+}
+
+function createPtyService(): IPtyService & { reattach?: (sessionId: string) => Promise<import('./ptyDaemon').ReattachResult | null>; listSessions?: () => Promise<import('./ptyDaemon').SessionInfo[]>; disconnectFromDaemon?: () => void; ensureDaemon?: () => Promise<void>; listOrphanedBigTerminals?: (knownTerminalIds: string[]) => Promise<OrphanedTerminal[]>; killOrphanedBigTerminals?: (terminalIds: string[]) => Promise<number> } {
   try {
     const adapter = new PtyDaemonAdapter()
     console.log('[pty] Using daemon adapter')

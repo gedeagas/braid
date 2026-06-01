@@ -8,15 +8,17 @@ import { ResizeHandle } from '@/components/shared/ResizeHandle'
 import { useProjectsStore } from '@/store/projects'
 import { initAgentEventListener, useSessionsStore } from '@/store/sessions'
 import { useUIStore } from '@/store/ui'
+import { syncAllPersistedBigTerminalMetadata } from '@/store/ui/terminals'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { applyTheme } from '@/themes/apply'
 import { findTheme, builtinThemes } from '@/themes/palettes'
-import { settings, appWindow, dock } from '@/lib/ipc'
+import { settings, appWindow, dock, mobile } from '@/lib/ipc'
 import { SettingsOverlay } from '@/components/Settings/SettingsOverlay'
 import { ShortcutsModal } from '@/components/Shortcuts/ShortcutsModal'
 import { QuickOpen } from '@/components/QuickOpen/QuickOpen'
 import { CommandPalette } from '@/components/CommandPalette/CommandPalette'
 import { MissionControl } from '@/components/MissionControl/MissionControl'
+import { MobilePairingView } from '@/components/MobilePairing/MobilePairingView'
 import { WebAppOverlay } from '@/components/Center/WebAppOverlay'
 import { ToastContainer } from '@/components/shared/ToastContainer'
 import { FlashToastContainer } from '@/components/shared/FlashToastContainer'
@@ -38,6 +40,9 @@ export default function App() {
   const missionControlActive = useUIStore((s) => s.missionControlActive)
   const mcEverOpened = useRef(false)
   if (missionControlActive) mcEverOpened.current = true
+  const mobilePairingActive = useUIStore((s) => s.mobilePairingActive)
+  const mobilePairingEverOpened = useRef(false)
+  if (mobilePairingActive) mobilePairingEverOpened.current = true
   const activeWebAppId = useUIStore((s) => s.activeWebAppId)
   const webAppsEnabled = useUIStore((s) => s.webAppsEnabled)
   const webAppActive = webAppsEnabled && !!activeWebAppId
@@ -99,6 +104,10 @@ export default function App() {
 
   useEffect(() => {
     console.log('[Braid] App mounted')
+    // Push every persisted big-terminal label to the daemon so the mobile app
+    // (and cold-start hydrate) can name terminals in worktrees the user hasn't
+    // re-selected this session - loadInitial() hydrates state without syncing.
+    syncAllPersistedBigTerminalMetadata()
     loadProjects()
       .then(() => console.log('[Braid] Projects loaded'))
       .catch((e) => console.error('[Braid] Failed to load projects:', e))
@@ -134,9 +143,57 @@ export default function App() {
     syncSettings()
     const unsubSettings = useUIStore.subscribe(syncSettings)
 
+    // Restore the mobile companion server if it was enabled before restart.
+    if (useUIStore.getState().mobileServerEnabled) {
+      mobile.start().catch((e: unknown) => console.error('[Braid] Failed to restore mobile server:', e))
+    }
+
     const cleanup = initAgentEventListener()
     const cleanupUpdater = initUpdateListeners()
     const cleanupAgentDetection = initAgentDetection()
+    const unsubRemoteBigTerminal = window.api.pty.onBigTerminalRegistered((tab: { terminalId: string; worktreeId?: string; worktreePath?: string; label?: string; agentId?: string }) => {
+      // Resolve the worktree id: trust the broadcast, else map the path against
+      // the renderer's own worktrees (covers deep-link worktrees the main
+      // process registry didn't have an id for).
+      let worktreeId = tab.worktreeId
+      if (!worktreeId && tab.worktreePath) {
+        for (const project of useProjectsStore.getState().projects) {
+          const match = project.worktrees.find((w) => w.path === tab.worktreePath)
+          if (match) { worktreeId = match.id; break }
+        }
+      }
+      if (!worktreeId) return
+      useUIStore.getState().registerRemoteBigTerminal(worktreeId, {
+        id: tab.terminalId,
+        label: tab.label ?? 'Terminal',
+        agentId: tab.agentId,
+      })
+    })
+
+    // Resolve a broadcast's worktree id: trust the payload, else map its path
+    // against the renderer's own worktrees (deep-link worktrees may lack an id).
+    const resolveWorktreeId = (tab: { worktreeId?: string; worktreePath?: string }): string | undefined => {
+      if (tab.worktreeId) return tab.worktreeId
+      if (!tab.worktreePath) return undefined
+      for (const project of useProjectsStore.getState().projects) {
+        const match = project.worktrees.find((w) => w.path === tab.worktreePath)
+        if (match) return match.id
+      }
+      return undefined
+    }
+
+    // Live-sync big-terminal tab renames/closes initiated on another desktop
+    // window or a paired mobile device.
+    const unsubBigTerminalRenamed = window.api.pty.onBigTerminalRenamed((tab: { terminalId: string; worktreeId?: string; worktreePath?: string; label: string }) => {
+      const worktreeId = resolveWorktreeId(tab)
+      if (!worktreeId) return
+      useUIStore.getState().applyRemoteBigTerminalRename(worktreeId, tab.terminalId, tab.label)
+    })
+    const unsubBigTerminalClosed = window.api.pty.onBigTerminalClosed((tab: { terminalId: string; worktreeId?: string; worktreePath?: string }) => {
+      const worktreeId = resolveWorktreeId(tab)
+      if (!worktreeId) return
+      useUIStore.getState().removeRemoteBigTerminal(worktreeId, tab.terminalId)
+    })
 
     // Keep dock badge in sync with sessions + big terminal agents needing attention
     const computeBadge = () => {
@@ -161,6 +218,9 @@ export default function App() {
       unsubSettings()
       cleanupUpdater()
       cleanupAgentDetection()
+      unsubRemoteBigTerminal()
+      unsubBigTerminalRenamed()
+      unsubBigTerminalClosed()
       unsubBadge()
       unsubTerminalBadge()
     }
@@ -218,8 +278,8 @@ export default function App() {
           <SidebarView />
         </div>
         {sidebarPanelOpen && <ResizeHandle direction="horizontal" onResize={handleSidebarResize} onResizeEnd={persistSidebarWidth} />}
-        {/* Hide center+right when Mission Control or web app is active, but keep mounted */}
-        <div style={{ display: (missionControlActive || webAppActive) ? 'none' : 'contents' }}>
+        {/* Hide center+right when Mission Control, the mobile page, or a web app is active, but keep mounted */}
+        <div style={{ display: (missionControlActive || mobilePairingActive || webAppActive) ? 'none' : 'contents' }}>
           <CenterPanel />
           {rightPanelVisible && <ResizeHandle direction="horizontal" onResize={handleRightResize} onResizeEnd={persistRightWidth} />}
           <div className="right-panel" style={{ width: rightPanelVisible ? rightWidth : 0, minWidth: rightPanelVisible ? RIGHT_PANEL_MIN_WIDTH : 0 }}>
@@ -229,6 +289,11 @@ export default function App() {
         {mcEverOpened.current && (
           <div style={{ display: missionControlActive ? 'contents' : 'none' }}>
             <MissionControl />
+          </div>
+        )}
+        {mobilePairingEverOpened.current && (
+          <div style={{ display: mobilePairingActive ? 'contents' : 'none' }}>
+            <MobilePairingView />
           </div>
         )}
         {webAppsEnabled && (
