@@ -5,6 +5,7 @@
   "packageManager": "yarn@4.13.0",
   "dependencies": {
     "@expo/ui": "~56.0.15",
+    "@xterm/xterm": "6.1.0-beta.198",
     "buffer": "^6.0.3",
     "expo": "~56.0.8",
     "expo-camera": "^56.0.7",

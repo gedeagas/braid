@@ -68,21 +68,26 @@ export default function HostScreen() {
       setProjects(loadedProjects);
 
       const counts: Record<string, number> = {};
-      for (const project of loadedProjects) {
-        for (const worktree of project.worktrees ?? []) {
-          try {
-            const terminals = await client.request<unknown[]>('terminal.list', { worktreePath: worktree.path });
-            counts[worktree.path] = terminals.length;
-            console.log('[BraidMobile] host.terminalCount', { path: worktree.path, count: terminals.length });
-          } catch (err) {
-            console.error('[BraidMobile] host.terminalCount.error', {
-              path: worktree.path,
-              error: err instanceof Error ? err.message : String(err),
-            });
-            counts[worktree.path] = 0;
-          }
-        }
-      }
+      // Fetch every worktree's terminal count concurrently. Sequential requests
+      // serialized one round-trip per worktree, which scaled poorly for projects
+      // with many worktrees and slowed the host screen's first paint.
+      await Promise.all(
+        loadedProjects.flatMap((project) =>
+          (project.worktrees ?? []).map(async (worktree) => {
+            try {
+              const terminals = await client.request<unknown[]>('terminal.list', { worktreePath: worktree.path });
+              counts[worktree.path] = terminals.length;
+              console.log('[BraidMobile] host.terminalCount', { path: worktree.path, count: terminals.length });
+            } catch (err) {
+              console.error('[BraidMobile] host.terminalCount.error', {
+                path: worktree.path,
+                error: err instanceof Error ? err.message : String(err),
+              });
+              counts[worktree.path] = 0;
+            }
+          }),
+        ),
+      );
       setTerminalCounts(counts);
     } catch (err) {
       console.error('[BraidMobile] host.load.error', err instanceof Error ? err.message : String(err));

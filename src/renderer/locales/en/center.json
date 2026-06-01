@@ -1,4 +1,10 @@
 {
+  "heldForMobile": {
+    "eyebrow": "Open on mobile",
+    "title": "This terminal is being used by your mobile app",
+    "body": "The session is held at the dimensions your phone reported. Restore to use it on your desktop.",
+    "restore": "Restore desktop size"
+  },
   "selectWorktreeHint": "Select a worktree and start a new chat session",
   "startConversation": "Start a conversation",
   "dropImageHint": "Drop image to attach",

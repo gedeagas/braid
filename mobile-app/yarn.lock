@@ -2879,6 +2879,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@xterm/xterm@npm:6.1.0-beta.198":
+  version: 6.1.0-beta.198
+  resolution: "@xterm/xterm@npm:6.1.0-beta.198"
+  checksum: 10c0/dcfd7c80f4e8a71cb5e48c9a189537fc87ed7878f982db75054c1fa67669a119b3dd2cfba34d719f36be5eb878132c7eff882354b486d7d0b855fb168b2011b4
+  languageName: node
+  linkType: hard
+
 "abbrev@npm:^4.0.0":
   version: 4.0.0
   resolution: "abbrev@npm:4.0.0"
@@ -3429,6 +3436,7 @@ __metadata:
     "@types/react": "npm:~19.2.2"
     "@types/react-native-zeroconf": "npm:^0"
     "@types/ws": "npm:^8.18.1"
+    "@xterm/xterm": "npm:6.1.0-beta.198"
     buffer: "npm:^6.0.3"
     eslint: "npm:^9.0.0"
     eslint-config-expo: "npm:~56.0.4"

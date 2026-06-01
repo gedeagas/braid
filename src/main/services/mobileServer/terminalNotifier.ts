@@ -67,6 +67,12 @@ async function handleStatus(status: AgentHookStatus): Promise<void> {
   const label = instance?.label || instance?.title || 'Agent'
   const { projectName, branch } = await resolveLocation(instance?.cwd)
 
+  // resolveLocation awaits git work; a newer hook event may have changed this
+  // terminal's state in the meantime (e.g. waiting -> working). If so, the
+  // notification we're about to send is stale - drop it so we don't push an
+  // "agent needs input" alert for a terminal that's already moved on.
+  if (lastNotified.get(status.terminalId) !== normalized) return
+
   agentService.notifyMobile({
     sessionId: status.terminalId,
     type,

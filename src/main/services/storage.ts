@@ -2,6 +2,7 @@ import { app } from 'electron'
 import { join } from 'path'
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs'
 import { DATA_DIR_NAME } from '../appBrand'
+import { logger } from '../lib/logger'
 
 export interface StorageLspServerConfig {
   id: string
@@ -92,8 +93,14 @@ class StorageService {
   }
 
   saveWorktreeIds(map: Record<string, string>): void {
-    mkdirSync(this.configDir, { recursive: true })
-    writeFileSync(this.worktreeIdsPath, JSON.stringify(map, null, 2), 'utf-8')
+    // Best-effort cache (see loadWorktreeIds): an unwritable config dir (bad
+    // permissions, disk full) must not crash the main process. Swallow and log.
+    try {
+      mkdirSync(this.configDir, { recursive: true })
+      writeFileSync(this.worktreeIdsPath, JSON.stringify(map, null, 2), 'utf-8')
+    } catch (err) {
+      logger.warn('[storage] failed to persist worktree id registry:', err)
+    }
   }
 }
 

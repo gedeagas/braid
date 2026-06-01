@@ -1,4 +1,10 @@
 {
+  "heldForMobile": {
+    "eyebrow": "Dibuka di ponsel",
+    "title": "Terminal ini sedang digunakan oleh aplikasi mobile Anda",
+    "body": "Sesi ditahan pada dimensi yang dilaporkan ponsel Anda. Pulihkan untuk menggunakannya di desktop.",
+    "restore": "Pulihkan ukuran desktop"
+  },
   "selectWorktreeHint": "Pilih worktree dan mulai sesi chat baru",
   "startConversation": "Mulai percakapan",
   "dropImageHint": "Jatuhkan gambar untuk melampirkan",

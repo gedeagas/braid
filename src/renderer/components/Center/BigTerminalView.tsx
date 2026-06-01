@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import * as ipc from '@/lib/ipc'
 import { useTerminalFileDrop } from '@/hooks/useTerminalFileDrop'
 import { useTerminalClipboardPaste } from '@/hooks/useTerminalClipboardPaste'
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export function BigTerminalView({ terminalId, worktreePath, initialCommand, initialInput, agentId }: Props) {
+  const { t } = useTranslation('center')
   const containerRef = useRef<HTMLDivElement>(null)
   const entryRef = useRef<BigTermEntry | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -258,16 +260,16 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, init
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-secondary)', fontSize: 13, marginBottom: 14 }}>
                 <span style={{ width: 9, height: 9, borderRadius: 999, background: 'var(--text-secondary)' }} />
-                <span>Open on mobile</span>
+                <span>{t('heldForMobile.eyebrow')}</span>
               </div>
               <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>
-                This terminal is being used by your mobile app
+                {t('heldForMobile.title')}
               </div>
               <div style={{ color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: 18 }}>
-                The session is held at the dimensions your phone reported. Restore to use it on your desktop.
+                {t('heldForMobile.body')}
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button className="btn btn-primary" onClick={restoreDesktopSize}>Restore desktop size</button>
+                <button className="btn btn-primary" onClick={restoreDesktopSize}>{t('heldForMobile.restore')}</button>
               </div>
             </div>
           </div>

@@ -3,6 +3,7 @@ import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native'
 import { WebView } from 'react-native-webview'
 import type { WebViewMessageEvent } from 'react-native-webview'
 import { colors as appColors } from '@/ui/theme'
+import { XTERM_CSS, XTERM_JS } from './xtermVendor'
 
 type RuntimeMobileTerminalTheme = {
   theme?: Partial<Record<
@@ -197,7 +198,7 @@ const XTERM_HTML = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@6.1.0-beta.198/css/xterm.min.css">
+<style>${XTERM_CSS}</style>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
@@ -342,7 +343,7 @@ const XTERM_HTML = `<!DOCTYPE html>
     <button id="sel-menu-all">Select All</button>
   </div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@6.1.0-beta.198/lib/xterm.min.js"></script>
+<script>${XTERM_JS}</script>
 <script>
 (function() {
   var surface = document.getElementById('terminal-surface');

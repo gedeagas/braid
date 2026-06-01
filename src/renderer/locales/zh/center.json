@@ -1,4 +1,10 @@
 {
+  "heldForMobile": {
+    "eyebrow": "在移动端打开",
+    "title": "此终端正在被你的移动应用使用",
+    "body": "会话保持在手机报告的尺寸。恢复后即可在桌面端使用。",
+    "restore": "恢复桌面尺寸"
+  },
   "selectWorktreeHint": "选择一个 worktree 并开始新的聊天会话",
   "startConversation": "开始对话",
   "dropImageHint": "拖放图片以附加",
