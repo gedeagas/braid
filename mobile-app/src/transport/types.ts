@@ -83,6 +83,7 @@ export interface BraidSession {
 
 export interface BraidTerminal {
   id: string;
+  ptyId?: string;
   terminalId?: string;
   name?: string;
   title?: string;
@@ -92,6 +93,8 @@ export interface BraidTerminal {
   worktreeId?: string;
   worktreePath?: string;
   status?: string;
+  /** Accumulated wall-clock time (ms) the agent has spent in the "working" state. */
+  totalRunDurationMs?: number;
 }
 
 export interface GitChange {
@@ -106,4 +109,29 @@ export interface RpcNotification {
   jsonrpc: '2.0';
   method: string;
   params: Record<string, unknown>;
+}
+
+// ── Rate limits (mirrors the desktop's shared/rate-limit-types) ────────────────
+
+export interface RateLimitWindow {
+  usedPercent: number;
+  windowMinutes: number;
+  resetsAt: number | null;
+  resetDescription: string | null;
+}
+
+export type ProviderRateLimitStatus = 'idle' | 'fetching' | 'ok' | 'error' | 'unavailable';
+
+export interface ProviderRateLimits {
+  provider: 'claude' | 'codex';
+  session: RateLimitWindow | null;
+  weekly: RateLimitWindow | null;
+  updatedAt: number;
+  error: string | null;
+  status: ProviderRateLimitStatus;
+}
+
+export interface RateLimitState {
+  claude: ProviderRateLimits | null;
+  codex: ProviderRateLimits | null;
 }

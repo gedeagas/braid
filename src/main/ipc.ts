@@ -24,6 +24,7 @@ import { claudeConfigService, ClaudePermissions, ClaudeHookConfig, SkillDetail, 
 import { notesService } from './services/notes'
 import { mobileServer, deviceStore } from './services/mobileServer'
 import { isMobileTerminalActive } from './services/mobileServer/mobileTerminalPresence'
+import { setMobileDisplayMode, type MobileDisplayMode } from './services/mobileServer/mobileTerminalDisplay'
 import { lspService, LspServerConfig } from './services/lsp'
 import { jiraService } from './services/jira'
 import { githubAuthService } from './services/githubAuth'
@@ -35,11 +36,11 @@ import { ClaudeUsageStore } from './services/claudeUsage'
 import type { ClaudeUsageScope, ClaudeUsageRange, ClaudeUsageBreakdownKind } from '../shared/claude-usage-types'
 import { CodexUsageStore } from './services/codexUsage'
 import type { CodexUsageScope, CodexUsageRange, CodexUsageBreakdownKind } from '../shared/codex-usage-types'
-import { RateLimitService } from './services/rateLimits/service'
+import { rateLimitService } from './services/rateLimits/service'
 import { collectResourceSnapshot } from './services/rateLimits/resourceCollector'
 import { DEFAULT_TERMINAL_SCROLLBACK_LINES, clampTerminalScrollbackLines, getTerminalScrollbackBufferMaxLength } from '../shared/terminal'
 
-export const rateLimitService = new RateLimitService()
+export { rateLimitService }
 
 function execFileText(
   file: string,
@@ -90,6 +91,9 @@ export function registerIpcHandlers(): void {
   // Storage
   ipcMain.handle('storage:load', () => storageService.load())
   ipcMain.handle('storage:save', (_e, data) => storageService.save(data))
+  ipcMain.handle('storage:syncWorktreeIds', (_e, map: Record<string, string>) =>
+    storageService.saveWorktreeIds(map)
+  )
 
   // Git
   ipcMain.handle('git:getWorktrees', (_e, repoPath: string) => gitService.getWorktrees(repoPath))
@@ -220,8 +224,12 @@ export function registerIpcHandlers(): void {
     ptyService.setBigTerminalMetadata?.(metadata))
   ipcMain.on('pty:removeBigTerminalMetadata', (_e, terminalId: string) =>
     ptyService.removeBigTerminalMetadata?.(terminalId))
+  ipcMain.on('pty:killBigTerminal', (_e, terminalId: string) =>
+    ptyService.killBigTerminal?.(terminalId))
   ipcMain.handle('pty:readScrollback', (_e, terminalId: string) => ptyService.readScrollback(terminalId))
   ipcMain.handle('pty:isMobileTerminalActive', (_e, terminalId: string) => isMobileTerminalActive(terminalId))
+  ipcMain.on('pty:setMobileDisplayMode', (_e, terminalId: string, mode: MobileDisplayMode) =>
+    setMobileDisplayMode(terminalId, mode))
   ipcMain.on('pty:deleteScrollback', (_e, terminalId: string) => ptyService.deleteScrollback(terminalId))
   ipcMain.handle('pty:reattach', (_e, sessionId: string) => {
     if ('reattach' in ptyService && typeof ptyService.reattach === 'function') {

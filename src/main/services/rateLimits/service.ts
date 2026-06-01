@@ -162,3 +162,7 @@ export class RateLimitService {
     this.mainWindow.webContents.send('rateLimits:update', this.getState())
   }
 }
+
+// Module singleton: the renderer IPC handlers and the mobile RPC bridge share
+// one instance so both report the same cached usage without re-fetching.
+export const rateLimitService = new RateLimitService()

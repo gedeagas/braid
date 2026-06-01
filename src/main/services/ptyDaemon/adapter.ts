@@ -5,7 +5,7 @@
  * The renderer is completely unaware of the daemon - it uses the same
  * IPC protocol (pty:spawn, pty:write, pty:data, etc.).
  */
-import { BrowserWindow, app } from 'electron'
+import { BrowserWindow } from 'electron'
 import { existsSync, lstatSync, accessSync, constants as fsConstants, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
@@ -75,6 +75,10 @@ export class PtyDaemonAdapter implements IPtyService {
   private dataListeners = new Map<string, Set<(ptyId: string, data: string) => void>>()
   /** External exit listeners (e.g. mobile companion server). */
   private exitListeners = new Map<string, Set<(ptyId: string, exitCode: number) => void>>()
+  /** External resize listeners (e.g. mobile companion server). */
+  private resizeListeners = new Map<string, Set<(ptyId: string, cols: number, rows: number) => void>>()
+  /** Last known dimensions per session (the daemon doesn't echo size back, so we track the requested dims). */
+  private sizeBySession = new Map<string, { cols: number; rows: number }>()
   /** Serializes concurrent ensureDaemon() calls to prevent spawning duplicate daemons. */
   private pendingEnsure: Promise<void> | null = null
 
@@ -109,6 +113,8 @@ export class PtyDaemonAdapter implements IPtyService {
       for (const cb of this.exitListeners.get(sessionId) ?? []) cb(sessionId, exitCode)
       this.dataListeners.delete(sessionId)
       this.exitListeners.delete(sessionId)
+      this.resizeListeners.delete(sessionId)
+      this.sizeBySession.delete(sessionId)
     })
   }
 
@@ -147,6 +153,34 @@ export class PtyDaemonAdapter implements IPtyService {
       removeSocketFile()
       await this.spawnDaemon()
       await this.client.connect()
+    }
+
+    // Rebuild the local big-terminal metadata map from the daemon. After an app
+    // restart the daemon keeps PTYs (and their persisted labels) alive, but this
+    // process starts with an empty map - so listInstances() would otherwise lose
+    // the real terminal names until the renderer re-syncs them.
+    await this.hydrateMetadataFromDaemon()
+  }
+
+  /** Pull persisted big-terminal metadata from the daemon into the local maps. */
+  private async hydrateMetadataFromDaemon(): Promise<void> {
+    try {
+      const sessions = await this.client.list()
+      for (const session of sessions) {
+        const metadata = session.metadata
+        if (!metadata || (!metadata.label && !metadata.agentId && !metadata.worktreeId)) continue
+        // For big terminals the daemon sessionId is the stable terminalId.
+        this.bigTerminalBySession.set(session.sessionId, session.sessionId)
+        this.bigTerminalMetadataById.set(session.sessionId, {
+          terminalId: session.sessionId,
+          label: metadata.label,
+          agentId: metadata.agentId,
+          worktreeId: metadata.worktreeId,
+          totalRunDurationMs: metadata.totalRunDurationMs,
+        })
+      }
+    } catch {
+      // Best effort - labels just fall back to the terminal id.
     }
   }
 
@@ -239,6 +273,18 @@ export class PtyDaemonAdapter implements IPtyService {
 
   resize(id: string, cols: number, rows: number): void {
     this.client.resize(id, cols, rows)
+    this.sizeBySession.set(id, { cols, rows })
+    for (const cb of this.resizeListeners.get(id) ?? []) cb(id, cols, rows)
+  }
+
+  getSize(id: string): { cols: number; rows: number } | null {
+    return this.sizeBySession.get(id) ?? null
+  }
+
+  onResize(ptyId: string, callback: (ptyId: string, cols: number, rows: number) => void): () => void {
+    if (!this.resizeListeners.has(ptyId)) this.resizeListeners.set(ptyId, new Set())
+    this.resizeListeners.get(ptyId)!.add(callback)
+    return () => { this.resizeListeners.get(ptyId)?.delete(callback) }
   }
 
   kill(id: string): void {
@@ -254,6 +300,20 @@ export class PtyDaemonAdapter implements IPtyService {
     this.cwdBySession.delete(id)
     this.bigTerminalBySession.delete(id)
     this.buffers.delete(id)
+  }
+
+  killBigTerminal(terminalId: string): void {
+    // Reverse-lookup the daemon sessionId from the terminalId so a tab close can
+    // reap the persistent daemon session even when no renderer has it cached.
+    // Without this, a closed big terminal survives in the daemon and resurfaces
+    // (e.g. to the mobile app) as an orphaned session.
+    for (const [sessionId, tid] of this.bigTerminalBySession) {
+      if (tid === terminalId) {
+        this.kill(sessionId)
+        break
+      }
+    }
+    this.bigTerminalMetadataById.delete(terminalId)
   }
 
   killAll(): void {
@@ -301,11 +361,45 @@ export class PtyDaemonAdapter implements IPtyService {
   }
 
   setBigTerminalMetadata(metadata: BigTerminalMetadata): void {
-    this.bigTerminalMetadataById.set(metadata.terminalId, metadata)
+    // Preserve any accumulated run duration: the renderer syncs label/agent/
+    // worktree but doesn't track the run timer, so it omits totalRunDurationMs.
+    // A blind replace would reset the agent-time clock on every label sync.
+    const existing = this.bigTerminalMetadataById.get(metadata.terminalId)
+    const merged: BigTerminalMetadata = {
+      ...metadata,
+      totalRunDurationMs: metadata.totalRunDurationMs ?? existing?.totalRunDurationMs,
+    }
+    this.bigTerminalMetadataById.set(metadata.terminalId, merged)
+    // Persist on the daemon session (keyed by terminalId == sessionId) so the
+    // label and run time survive an app restart. Best effort: ensure daemon up.
+    this.ensureDaemon()
+      .then(() => this.client.setMetadata(metadata.terminalId, {
+        label: merged.label,
+        agentId: merged.agentId,
+        worktreeId: merged.worktreeId,
+        totalRunDurationMs: merged.totalRunDurationMs,
+      }))
+      .catch(() => { /* renderer re-syncs on next worktree hydration */ })
   }
 
   removeBigTerminalMetadata(terminalId: string): void {
     this.bigTerminalMetadataById.delete(terminalId)
+  }
+
+  addBigTerminalRunDuration(terminalId: string, deltaMs: number): void {
+    if (deltaMs <= 0) return
+    const existing = this.bigTerminalMetadataById.get(terminalId)
+    if (!existing) return
+    existing.totalRunDurationMs = (existing.totalRunDurationMs ?? 0) + deltaMs
+    // Persist to the daemon so accumulated agent time survives an app restart.
+    this.ensureDaemon()
+      .then(() => this.client.setMetadata(terminalId, {
+        label: existing.label,
+        agentId: existing.agentId,
+        worktreeId: existing.worktreeId,
+        totalRunDurationMs: existing.totalRunDurationMs,
+      }))
+      .catch(() => { /* best effort; in-memory value still reported until restart */ })
   }
 
   readScrollback(terminalId: string): string {
@@ -357,6 +451,7 @@ export class PtyDaemonAdapter implements IPtyService {
           label: metadata?.label,
           agentId: metadata?.agentId,
           worktreeId: metadata?.worktreeId,
+          totalRunDurationMs: metadata?.totalRunDurationMs,
         })
       }
     }

@@ -1,11 +1,17 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { Check, ChevronLeft, Command, GitBranch, Plus, RefreshCw, Send, TerminalSquare, X } from 'lucide-react-native';
+import { Check, ChevronLeft, ChevronsRight, Command, GitBranch, Keyboard as KeyboardIcon, Monitor, Plus, RefreshCw, Send, Smartphone, TerminalSquare, X } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { TerminalWebView, type TerminalWebViewHandle } from '@/terminal/TerminalWebView';
+import {
+  clearTerminalLiveInputFocusTimer,
+  getTerminalLiveSpecialKeyBytes,
+  isTerminalLiveInputWithinByteLimit,
+  scheduleTerminalLiveInputFocus,
+} from '@/terminal/terminal-live-input';
 import { AGENT_CATALOG, getAgentEntry } from '@/terminal/agentCatalog';
 import { AgentIcon } from '@/terminal/AgentIcon';
 import { useDetectedAgents } from '@/terminal/useDetectedAgents';
@@ -16,6 +22,11 @@ import { useHostClient } from '@/ui/use-host-client';
 const DEFAULT_COLS = 80;
 const DEFAULT_ROWS = 24;
 const DEFAULT_AGENT_STORAGE_KEY = 'braid.mobile.terminal.defaultAgentId';
+// Gap between writing the command text and the Enter byte. TUIs (e.g. Claude
+// Code) treat a CR that arrives in the same PTY chunk as the pasted text as a
+// literal newline, not a submit; a brief gap makes Enter land as a discrete
+// keypress so a single tap actually runs the command.
+const SUBMIT_ENTER_DELAY_MS = 40;
 
 function terminalLabel(terminal: BraidTerminal) {
   return terminal.label || terminal.title || terminal.name || terminal.terminalId || terminal.cwd?.split('/').pop() || terminal.id.slice(0, 6);
@@ -23,7 +34,7 @@ function terminalLabel(terminal: BraidTerminal) {
 
 export default function TerminalScreen() {
   const { hostId, worktreePath, worktreeName, terminalId } = useLocalSearchParams<{ hostId: string; worktreePath?: string; worktreeName?: string; terminalId?: string }>();
-  const { client } = useHostClient(hostId);
+  const { client, state } = useHostClient(hostId);
   const terminalRef = useRef<TerminalWebViewHandle>(null);
   const detectedAgents = useDetectedAgents(client);
   const [projects, setProjects] = useState<BraidProject[]>([]);
@@ -33,16 +44,34 @@ export default function TerminalScreen() {
   const [active, setActive] = useState<BraidTerminal | null>(null);
   const [input, setInput] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [ready, setReady] = useState(false);
   const [selectorsExpanded, setSelectorsExpanded] = useState(true);
   const [creatingTerminal, setCreatingTerminal] = useState(false);
   const [agentPickerOpen, setAgentPickerOpen] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState<string>(AGENT_CATALOG[0]?.id ?? 'claude');
+  // Set of terminal ids in "live" passthrough mode, so each tab remembers its
+  // own input mode when you switch between them.
+  const [liveInputHandles, setLiveInputHandles] = useState<Set<string>>(() => new Set());
+  // Set of terminal ids showing at the desktop's native size (vs. phone-fit).
+  const [desktopModeHandles, setDesktopModeHandles] = useState<Set<string>>(() => new Set());
   const activeIdRef = useRef<string | null>(null);
+  // Tracks which deep-link terminalId we've already switched to, so the
+  // notification target is honored once (when it first appears in the list) and
+  // doesn't yank the user back when the terminal list later changes.
+  const honoredTerminalIdRef = useRef<string | null>(null);
   const initializedKeyRef = useRef<string | null>(null);
   const terminalFrameHeightRef = useRef<number | undefined>(undefined);
   const subscriptionRef = useRef<{ terminalId: string; subscriptionId: string } | null>(null);
   const openSeqRef = useRef(0);
+  const sendingRef = useRef(false);
+  const liveInputRef = useRef<TextInput>(null);
+  const liveInputFocusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Mirror of desktopModeHandles for use inside callbacks/notification handlers
+  // that must not re-create on every set change.
+  const desktopModeRef = useRef<Set<string>>(new Set());
+  useEffect(() => { desktopModeRef.current = desktopModeHandles; }, [desktopModeHandles]);
+  // Tracks the previous connection state so we can detect a reconnect (the app
+  // backgrounding closes the socket, which drops the server-side subscription).
+  const prevStateRef = useRef(state);
 
   const selectedProject = projects.find((project) => project.id === projectId) ?? projects[0] ?? null;
   const isSessionScoped = typeof worktreePath === 'string' && worktreePath.length > 0;
@@ -68,6 +97,9 @@ export default function TerminalScreen() {
 
   const fitActiveTerminal = useCallback(async (terminal: BraidTerminal) => {
     if (!client || !terminalRef.current) return;
+    // In desktop mode we render the desktop's native dimensions (driven by
+    // terminal.resized notifications), so never shrink the PTY to phone-fit.
+    if (desktopModeRef.current.has(terminal.id)) return;
     await terminalRef.current.awaitReady();
     const dims = await terminalRef.current.measureFitDimensions(terminalFrameHeightRef.current);
     console.log('[BraidMobile] terminal.fit', {
@@ -94,13 +126,13 @@ export default function TerminalScreen() {
     try {
       const subscriptionId = await client.subscribe('terminal.subscribe', { ptyId: terminal.id });
       if (openSeqRef.current !== seq) {
-        await client.request('terminal.unsubscribe', { subscriptionId }).catch(() => undefined);
+        await client.unsubscribe(subscriptionId).catch(() => undefined);
         return;
       }
       console.log('[BraidMobile] terminal.subscribed', { terminalId: terminal.id, subscriptionId });
       subscriptionRef.current = { terminalId: terminal.id, subscriptionId };
       if (previousSubscription) {
-        client.request('terminal.unsubscribe', { subscriptionId: previousSubscription.subscriptionId }).catch(() => undefined);
+        client.unsubscribe(previousSubscription.subscriptionId).catch(() => undefined);
       }
     } catch (err) {
       if (openSeqRef.current === seq) setError(err instanceof Error ? err.message : String(err));
@@ -172,8 +204,9 @@ export default function TerminalScreen() {
       const list = raw.map((terminal) => ({
         ...terminal,
         id: terminal.id ?? terminal.ptyId ?? '',
+        terminalId: terminal.terminalId ?? terminal.id ?? terminal.ptyId,
         worktreePath: targetWorktree.path,
-      })).filter((terminal) => terminal.id && terminal.agentId);
+      })).filter((terminal) => terminal.id);
       console.log('[BraidMobile] terminal.list', { worktree: targetWorktree, list });
       setTerminals(list);
       const next = list.find((terminal) => terminal.id === preferredId || terminal.terminalId === preferredId) ?? list[0] ?? null;
@@ -218,27 +251,92 @@ export default function TerminalScreen() {
     }
   }, [client, creatingTerminal, openTerminal, selectedAgent, selectedAgentId, worktree]);
 
+  useEffect(() => () => clearTerminalLiveInputFocusTimer(liveInputFocusTimerRef), []);
+
   useEffect(() => { void loadProjects(); }, [loadProjects]);
   // On first load for a worktree, prefer the tab the notification deep-linked to
   // (terminalId matches either the pty id or the Braid big-terminal id).
   useEffect(() => { void loadTerminals(worktree, active?.id ?? terminalId); }, [worktree]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Honor a notification deep-link to a specific terminal. The param can change
+  // while this screen is already mounted (a warm tap reuses it), and the target
+  // may only appear once the list loads - so react to both. Guarded by
+  // honoredTerminalIdRef so we switch once per terminalId and never override a
+  // tab the user picked afterward.
+  useEffect(() => {
+    if (!terminalId || honoredTerminalIdRef.current === terminalId) return;
+    const target = terminals.find((item) => item.id === terminalId || item.terminalId === terminalId);
+    if (!target) return;
+    honoredTerminalIdRef.current = terminalId;
+    if (target.id !== activeIdRef.current) void openTerminal(target);
+  }, [terminalId, terminals, openTerminal]);
+
   useEffect(() => {
     if (!client) return;
     const off = client.onNotification((notification) => {
-      if (notification.method !== 'terminal.data') return;
-      const params = notification.params as { ptyId?: string; data?: string };
-      if (params.ptyId === activeIdRef.current && params.data) {
-        console.log('[BraidMobile] terminal.data', { ptyId: params.ptyId, length: params.data.length });
-        terminalRef.current?.write(params.data);
+      if (notification.method === 'terminal.data') {
+        const params = notification.params as { ptyId?: string; data?: string };
+        if (params.ptyId === activeIdRef.current && params.data) {
+          terminalRef.current?.write(params.data);
+        }
+        return;
+      }
+      if (notification.method === 'terminal.resized') {
+        const params = notification.params as { ptyId?: string; cols?: number; rows?: number; displayMode?: 'phone' | 'desktop' };
+        if (params.ptyId !== activeIdRef.current) return;
+        // The server is authoritative for display mode (it resets to phone on
+        // disconnect), so reconcile local state - this keeps the toggle correct
+        // when switching tabs or reconnecting into an existing terminal.
+        if (params.displayMode && params.ptyId) {
+          const id = params.ptyId;
+          const wantDesktop = params.displayMode === 'desktop';
+          if (wantDesktop !== desktopModeRef.current.has(id)) {
+            const next = new Set(desktopModeRef.current);
+            if (wantDesktop) next.add(id);
+            else next.delete(id);
+            desktopModeRef.current = next;
+            setDesktopModeHandles(next);
+          }
+        }
+        // The desktop changed the PTY dimensions (e.g. we entered desktop mode
+        // and it fit to its own pane). Match the WebView's xterm so it renders
+        // correctly; TerminalWebView CSS-scales the wide canvas to fit.
+        if (params.cols && params.rows && desktopModeRef.current.has(params.ptyId)) {
+          console.log('[BraidMobile] terminal.resized', { ptyId: params.ptyId, cols: params.cols, rows: params.rows });
+          terminalRef.current?.resize(params.cols, params.rows);
+        }
       }
     });
     return () => {
       off();
       const current = subscriptionRef.current;
-      if (current) client.request('terminal.unsubscribe', { subscriptionId: current.subscriptionId }).catch(() => undefined);
+      if (current) client.unsubscribe(current.subscriptionId).catch(() => undefined);
     };
   }, [client]);
+
+  // Catch the active terminal up after a reconnect. The client auto-resends the
+  // terminal.subscribe on reconnect (resendSubscriptions), so the live stream
+  // resumes on its own - re-subscribing here would duplicate it. We only replay
+  // scrollback (to pick up output emitted while backgrounded) and refit. Keyed
+  // off the connection-state transition since the client instance is reused.
+  useEffect(() => {
+    const prev = prevStateRef.current;
+    prevStateRef.current = state;
+    // Only on a real transition back into 'connected' (a reconnect), not the
+    // initial connect (handled by loadTerminals) - `active` is null until then.
+    if (state !== 'connected' || prev === 'connected' || !active || !client) return;
+    const terminal = active;
+    console.log('[BraidMobile] terminal.resume', { ptyId: terminal.id });
+    client
+      .request<string>('terminal.readScrollback', { ptyId: terminal.id })
+      .then((scrollback) => {
+        if (activeIdRef.current !== terminal.id) return;
+        terminalRef.current?.init(DEFAULT_COLS, DEFAULT_ROWS, '');
+        if (scrollback) terminalRef.current?.write(scrollback);
+        void fitActiveTerminal(terminal);
+      })
+      .catch(() => undefined);
+  }, [state, active, client, fitActiveTerminal]);
 
   const writeBytes = async (data: string) => {
     if (!client || !active || !data) return;
@@ -246,9 +344,121 @@ export default function TerminalScreen() {
   };
 
   const submit = async () => {
-    if (!input) return;
-    await writeBytes(`${input}\n`);
+    // Behave like pressing Enter: send the typed text (if any), then the
+    // carriage return as a SEPARATE write so the TUI registers it as a discrete
+    // Enter keypress rather than folding it into the pasted text (which would
+    // insert a literal newline and require a second tap to submit). With empty
+    // input this sends a bare Enter, replacing the standalone key.
+    // sendingRef guards against a double-tap firing the command twice; the
+    // input is restored if the write fails so nothing is silently lost.
+    if (!active || sendingRef.current) return;
+    sendingRef.current = true;
+    const text = input;
     setInput('');
+    try {
+      if (text) {
+        await writeBytes(text);
+        await new Promise((resolve) => setTimeout(resolve, SUBMIT_ENTER_DELAY_MS));
+      }
+      await writeBytes('\r');
+    } catch {
+      setInput(text);
+    } finally {
+      sendingRef.current = false;
+    }
+  };
+
+  const liveInputEnabled = !!active && liveInputHandles.has(active.id);
+
+  // Live mode: forward raw bytes straight to the PTY (no buffering, no Enter).
+  const sendLiveTerminalInput = (bytes: string) => {
+    if (!bytes || !client || !active) return;
+    if (!isTerminalLiveInputWithinByteLimit(bytes)) {
+      setError('Input too large (max 256 KiB)');
+      return;
+    }
+    client.request('terminal.write', { ptyId: active.id, data: bytes }).catch(() => undefined);
+  };
+
+  const focusLiveInput = () => {
+    if (!active || !liveInputEnabled) return;
+    liveInputRef.current?.focus();
+  };
+
+  const toggleLiveInput = () => {
+    if (!active) return;
+    const id = active.id;
+    const nextEnabled = !liveInputHandles.has(id);
+    setLiveInputHandles((prev) => {
+      const next = new Set(prev);
+      if (nextEnabled) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+    if (nextEnabled) {
+      scheduleTerminalLiveInputFocus(liveInputFocusTimerRef, () => liveInputRef.current?.focus());
+    } else {
+      clearTerminalLiveInputFocusTimer(liveInputFocusTimerRef);
+      liveInputRef.current?.blur();
+    }
+  };
+
+  const handleLiveInputChange = (text: string) => {
+    if (!active || !liveInputHandles.has(active.id)) {
+      liveInputRef.current?.setNativeProps({ text: '' });
+      return;
+    }
+    if (text.length > 0) sendLiveTerminalInput(text);
+    // Why: the field is only a keyboard capture surface. Clearing the native
+    // value prevents subsequent keyboard events from replaying already-sent
+    // characters while React state stays the empty string.
+    liveInputRef.current?.setNativeProps({ text: '' });
+  };
+
+  const handleLiveInputKeyPress = (event: { nativeEvent: { key: string } }) => {
+    if (!active || !liveInputHandles.has(active.id)) return;
+    const bytes = getTerminalLiveSpecialKeyBytes(event.nativeEvent.key);
+    if (!bytes) return;
+    sendLiveTerminalInput(bytes);
+    liveInputRef.current?.setNativeProps({ text: '' });
+  };
+
+  const handleLiveInputSubmit = () => {
+    if (!active || !liveInputHandles.has(active.id)) return;
+    sendLiveTerminalInput('\r');
+    liveInputRef.current?.setNativeProps({ text: '' });
+  };
+
+  const desktopMode = !!active && desktopModeHandles.has(active.id);
+
+  // Toggle between phone-fit (the desktop yields, PTY sized to this phone) and
+  // desktop size (the desktop drives its native dims, we scale to fit).
+  const toggleDisplayMode = async () => {
+    if (!client || !active) return;
+    const id = active.id;
+    const nextDesktop = !desktopModeHandles.has(id);
+    const nextSet = new Set(desktopModeRef.current);
+    if (nextDesktop) nextSet.add(id);
+    else nextSet.delete(id);
+    desktopModeRef.current = nextSet; // sync immediately so resize notifications are honored
+    setDesktopModeHandles(nextSet);
+    try {
+      if (nextDesktop) {
+        // The desktop un-holds and fits to its own pane; the resulting PTY
+        // resize streams back via terminal.resized, which sizes our xterm.
+        await client.request('terminal.setDisplayMode', { ptyId: id, mode: 'desktop' });
+      } else {
+        const dims = await terminalRef.current?.measureFitDimensions(terminalFrameHeightRef.current);
+        await client.request('terminal.setDisplayMode', {
+          ptyId: id,
+          mode: 'phone',
+          viewport: dims ? { cols: dims.cols, rows: dims.rows } : undefined,
+        });
+        if (dims) terminalRef.current?.resize(dims.cols, dims.rows);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
   };
 
   const selectProject = (project: BraidProject) => {
@@ -444,34 +654,86 @@ export default function TerminalScreen() {
           <TerminalWebView
             ref={terminalRef}
             onWebReady={() => {
-              setReady(true);
               if (active && initializedKeyRef.current !== active.id) void openTerminal(active);
             }}
             onTerminalInput={writeBytes}
           />
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ height: 43, maxHeight: 43, flexGrow: 0, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.panel }}
-          contentContainerStyle={{ height: 42, alignItems: 'center', gap: 6, paddingHorizontal: 10 }}
-        >
-          <Key label="Esc" onPress={() => void writeBytes('\x1b')} />
-          <Key label="Tab" onPress={() => void writeBytes('\t')} />
-          <Key label="Enter" onPress={() => void writeBytes('\r')} />
-          <Key label="Ctrl+C" onPress={() => void writeBytes('\x03')} />
-          <Key label="Ctrl+D" onPress={() => void writeBytes('\x04')} />
-          <Key label="↑" onPress={() => void writeBytes('\x1b[A')} />
-          <Key label="↓" onPress={() => void writeBytes('\x1b[B')} />
-          <Key label="←" onPress={() => void writeBytes('\x1b[D')} />
-          <Key label="→" onPress={() => void writeBytes('\x1b[C')} />
-        </ScrollView>
-
-        <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 46, gap: 8, paddingHorizontal: 12, paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.panel }}>
-          <TextInput value={input} onChangeText={setInput} placeholder={active ? 'Command' : 'Select a terminal'} placeholderTextColor={colors.subtle} autoCapitalize="none" autoCorrect={false} style={[shared.input, { flex: 1, minHeight: 34, height: 34, paddingVertical: 0, borderRadius: 8, backgroundColor: colors.panelStrong, fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) }]} onSubmitEditing={submit} editable={!!active} />
-          <Pressable style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.panelStrong, opacity: active ? 1 : 0.35 }} onPress={submit} disabled={!active}><Send color={colors.text} size={17} /></Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center', height: 43, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.panel }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ flex: 1, height: 43, maxHeight: 43 }}
+            contentContainerStyle={{ height: 42, alignItems: 'center', gap: 6, paddingHorizontal: 10 }}
+          >
+            <Key label="Esc" onPress={() => void writeBytes('\x1b')} />
+            <Key label="Tab" onPress={() => void writeBytes('\t')} />
+            <Key label="Ctrl+C" onPress={() => void writeBytes('\x03')} />
+            <Key label="Ctrl+D" onPress={() => void writeBytes('\x04')} />
+            <Key label="↑" onPress={() => void writeBytes('\x1b[A')} />
+            <Key label="↓" onPress={() => void writeBytes('\x1b[B')} />
+            <Key label="←" onPress={() => void writeBytes('\x1b[D')} />
+            <Key label="→" onPress={() => void writeBytes('\x1b[C')} />
+          </ScrollView>
+          <Pressable
+            style={[liveToggleButton, desktopMode && liveToggleButtonActive, !active && { opacity: 0.35 }]}
+            disabled={!active}
+            onPress={() => void toggleDisplayMode()}
+            accessibilityLabel={desktopMode ? 'Switch to phone size' : 'Switch to desktop size'}
+          >
+            {desktopMode ? (
+              <Smartphone color={colors.bg} size={16} />
+            ) : (
+              <Monitor color={active ? colors.muted : colors.subtle} size={16} />
+            )}
+          </Pressable>
+          <Pressable
+            style={[liveToggleButton, liveInputEnabled && liveToggleButtonActive, !active && { opacity: 0.35 }]}
+            disabled={!active}
+            onPress={toggleLiveInput}
+            accessibilityLabel={liveInputEnabled ? 'Switch to buffered command input' : 'Switch to live terminal input'}
+          >
+            <ChevronsRight color={liveInputEnabled ? colors.bg : active ? colors.muted : colors.subtle} size={16} />
+          </Pressable>
         </View>
+
+        {liveInputEnabled ? (
+          <Pressable
+            style={{ flexDirection: 'row', alignItems: 'center', minHeight: 46, gap: 8, paddingHorizontal: 12, paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.panel }}
+            onPress={focusLiveInput}
+            disabled={!active}
+            accessibilityLabel="Focus live terminal input"
+          >
+            <KeyboardIcon color={colors.muted} size={16} />
+            <Text style={{ flex: 1, color: colors.muted, fontSize: 12, fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) }} numberOfLines={1}>
+              Keyboard input goes directly to terminal
+            </Text>
+            <TextInput
+              ref={liveInputRef}
+              style={{ position: 'absolute', opacity: 0, width: 1, height: 1, color: colors.text }}
+              value=""
+              onChangeText={handleLiveInputChange}
+              onKeyPress={handleLiveInputKeyPress}
+              onSubmitEditing={handleLiveInputSubmit}
+              placeholder=""
+              autoCapitalize="none"
+              autoCorrect={false}
+              spellCheck={false}
+              keyboardType={Platform.OS === 'ios' ? 'ascii-capable' : 'visible-password'}
+              returnKeyType="default"
+              submitBehavior="submit"
+              editable={!!active}
+              importantForAutofill="no"
+              textContentType="none"
+            />
+          </Pressable>
+        ) : (
+          <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 46, gap: 8, paddingHorizontal: 12, paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.panel }}>
+            <TextInput value={input} onChangeText={setInput} placeholder={active ? 'Command' : 'Select a terminal'} placeholderTextColor={colors.subtle} autoCapitalize="none" autoCorrect={false} style={[shared.input, { flex: 1, minHeight: 34, height: 34, paddingVertical: 0, borderRadius: 8, backgroundColor: colors.panelStrong, fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) }]} onSubmitEditing={submit} editable={!!active} />
+            <Pressable style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.panelStrong, opacity: active ? 1 : 0.35 }} onPress={submit} disabled={!active}><Send color={colors.text} size={17} /></Pressable>
+          </View>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -492,6 +754,20 @@ const chromeIconButton = {
   borderRadius: 18,
   alignItems: 'center' as const,
   justifyContent: 'center' as const,
+};
+
+const liveToggleButton = {
+  width: 36,
+  height: 30,
+  marginHorizontal: 6,
+  borderRadius: 8,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+  backgroundColor: colors.panelStrong,
+};
+
+const liveToggleButtonActive = {
+  backgroundColor: colors.accent,
 };
 
 const chromeTextButton = {

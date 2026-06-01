@@ -22,7 +22,10 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, init
   const entryRef = useRef<BigTermEntry | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const [mobileActive, setMobileActive] = useState(false)
-  const [desktopOverride, setDesktopOverride] = useState(false)
+  // 'desktop' means the paired phone (or the desktop's "Restore desktop size"
+  // button) asked to view this terminal at the desktop's native size, so we
+  // release the hold and fit to our own pane.
+  const [mobileDisplayMode, setMobileDisplayMode] = useState<'phone' | 'desktop'>('phone')
 
   // File-drop onto big terminal
   const getFileDropTarget = useCallback(() => {
@@ -43,7 +46,7 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, init
   }, [])
 
   useEffect(() => {
-    setDesktopOverride(false)
+    setMobileDisplayMode('phone')
     let cancelled = false
     ipc.pty.isMobileTerminalActive(terminalId)
       .then((active) => { if (!cancelled) setMobileActive(active) })
@@ -51,16 +54,24 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, init
     const unsubscribe = ipc.pty.onMobileTerminalActive((status) => {
       if (status.terminalId === terminalId) {
         setMobileActive(status.active)
-        if (!status.active) setDesktopOverride(false)
+        if (!status.active) {
+          setMobileDisplayMode('phone')
+        }
       }
+    })
+    const unsubscribeMode = ipc.pty.onMobileDisplayMode((status) => {
+      if (status.terminalId === terminalId) setMobileDisplayMode(status.mode)
     })
     return () => {
       cancelled = true
       unsubscribe()
+      unsubscribeMode()
     }
   }, [terminalId])
 
-  const heldForMobile = mobileActive && !desktopOverride
+  // In 'desktop' mode the phone wants our native size, so we stop holding and
+  // let the ResizeObserver fit to this pane (which resizes the shared PTY).
+  const heldForMobile = mobileActive && mobileDisplayMode !== 'desktop'
 
   useEffect(() => {
     const el = containerRef.current
@@ -144,16 +155,19 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, init
   }, [terminalId, worktreePath, heldForMobile])
 
   const restoreDesktopSize = useCallback(() => {
-    setDesktopOverride(true)
-    requestAnimationFrame(() => {
-      const entry = entryRef.current
-      if (!entry?.ptyId) return
-      try {
-        entry.fitAddon.fit()
-        ipc.pty.resize(entry.ptyId, entry.term.cols, entry.term.rows)
-      } catch { /* ignore */ }
-    })
-  }, [])
+    // Tell the main process the terminal is now driven at desktop dimensions.
+    // It broadcasts back a 'desktop' display mode which un-holds this pane
+    // (heldForMobile -> false), re-fits, and resizes the shared PTY. Because
+    // the mode is set on main *before* that resize fires, the resulting
+    // `terminal.resized` event is tagged 'desktop', so the paired phone
+    // resizes its xterm and toggles its desktop/phone indicator.
+    //
+    // We intentionally do NOT set desktopOverride or resize locally here:
+    // doing so would un-hold the pane and emit a 'phone'-tagged resize before
+    // main learns about the mode change, and the later broadcast would be a
+    // no-op (heldForMobile already false), leaving the phone out of sync.
+    ipc.pty.setMobileDisplayMode(terminalId, 'desktop')
+  }, [terminalId])
 
   useEffect(() => {
     updateBigTerminalAgentId(terminalId, agentId)

@@ -6,7 +6,7 @@
  */
 import { accessSync, existsSync, constants as fsConstants } from 'fs'
 import { BUFFER_MAX_LENGTH } from './protocol'
-import type { DaemonSession, CheckpointData, SessionInfo } from './types'
+import type { DaemonSession, CheckpointData, SessionInfo, DaemonSessionMetadata } from './types'
 
 // ── RingBuffer ───────────────────────────────────────────────────────────────
 
@@ -62,6 +62,8 @@ interface SessionEntry {
   pty: import('node-pty').IPty
   buffer: RingBuffer
   attachedClients: number
+  /** Big-terminal display metadata (label/agent/worktree), persisted in checkpoints. */
+  metadata?: DaemonSessionMetadata
 }
 
 // ── Events ───────────────────────────────────────────────────────────────────
@@ -231,6 +233,7 @@ export class SessionHost {
       pty: ptyProcess,
       buffer,
       attachedClients: 0,
+      metadata: checkpoint.metadata,
     }
 
     ptyProcess.onData((data: string) => {
@@ -312,6 +315,12 @@ export class SessionHost {
     return this.sessions.has(sessionId)
   }
 
+  /** Attach/replace big-terminal display metadata for a session. No-op if unknown. */
+  setMetadata(sessionId: string, metadata: DaemonSessionMetadata): void {
+    const entry = this.sessions.get(sessionId)
+    if (entry) entry.metadata = metadata
+  }
+
   /** List all active sessions. */
   list(): SessionInfo[] {
     const result: SessionInfo[] = []
@@ -322,6 +331,7 @@ export class SessionHost {
         cols: entry.cols,
         rows: entry.rows,
         createdAt: entry.createdAt,
+        metadata: entry.metadata,
       })
     }
     return result
@@ -340,6 +350,7 @@ export class SessionHost {
         scrollback: entry.buffer.read(),
         createdAt: entry.createdAt,
         checkpointedAt: now,
+        metadata: entry.metadata,
       })
     }
     return result

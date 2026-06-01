@@ -137,9 +137,19 @@ export default function App() {
     const cleanup = initAgentEventListener()
     const cleanupUpdater = initUpdateListeners()
     const cleanupAgentDetection = initAgentDetection()
-    const unsubRemoteBigTerminal = window.api.pty.onBigTerminalRegistered((tab: { terminalId: string; worktreeId?: string; label?: string; agentId?: string }) => {
-      if (!tab.worktreeId) return
-      useUIStore.getState().registerRemoteBigTerminal(tab.worktreeId, {
+    const unsubRemoteBigTerminal = window.api.pty.onBigTerminalRegistered((tab: { terminalId: string; worktreeId?: string; worktreePath?: string; label?: string; agentId?: string }) => {
+      // Resolve the worktree id: trust the broadcast, else map the path against
+      // the renderer's own worktrees (covers deep-link worktrees the main
+      // process registry didn't have an id for).
+      let worktreeId = tab.worktreeId
+      if (!worktreeId && tab.worktreePath) {
+        for (const project of useProjectsStore.getState().projects) {
+          const match = project.worktrees.find((w) => w.path === tab.worktreePath)
+          if (match) { worktreeId = match.id; break }
+        }
+      }
+      if (!worktreeId) return
+      useUIStore.getState().registerRemoteBigTerminal(worktreeId, {
         id: tab.terminalId,
         label: tab.label ?? 'Terminal',
         agentId: tab.agentId,

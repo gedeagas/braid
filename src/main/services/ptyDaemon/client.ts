@@ -7,6 +7,7 @@
 import { connect, type Socket } from 'net'
 import { EventEmitter } from 'events'
 import { SOCKET_PATH, encode, decode, type DaemonMessage, type DaemonRequest, type DaemonResponse, type DataEvent, type ExitEvent } from './protocol'
+import type { DaemonSessionMetadata, SessionInfo } from './types'
 
 const REQUEST_TIMEOUT_MS = 10_000
 const RECONNECT_DELAY_MS = 1_000
@@ -129,13 +130,18 @@ export class DaemonClient extends EventEmitter<DaemonClientEvents> {
     return (result as { snapshot: string }).snapshot
   }
 
-  async list(): Promise<Array<{ sessionId: string; cwd: string; cols: number; rows: number; createdAt: number }>> {
+  async list(): Promise<SessionInfo[]> {
     const result = await this.request({ type: 'list' } as Omit<DaemonRequest, 'id'> & { type: 'list' })
-    return (result as { sessions: Array<{ sessionId: string; cwd: string; cols: number; rows: number; createdAt: number }> }).sessions
+    return (result as { sessions: SessionInfo[] }).sessions
   }
 
   async setBufferMaxLength(maxLength: number): Promise<void> {
     await this.request({ type: 'setBufferMaxLength', maxLength } as Omit<DaemonRequest, 'id'> & { type: 'setBufferMaxLength' })
+  }
+
+  /** Persist big-terminal display metadata on the daemon session (fire-and-forget). */
+  setMetadata(sessionId: string, metadata: DaemonSessionMetadata): void {
+    this.send({ type: 'setMetadata', sessionId, metadata } as Omit<DaemonRequest, 'id'> & { type: 'setMetadata' })
   }
 
   async ping(): Promise<void> {

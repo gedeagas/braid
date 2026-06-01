@@ -67,9 +67,14 @@ function syncBigTerminalMetadata(worktreeId: string, tab: BigTerminalTab): void 
   } catch {}
 }
 
-function removeBigTerminalMetadata(terminalId: string): void {
+// Kill the underlying PTY and forget its metadata. Killing by terminalId (not
+// ptyId) reaps the session even when this renderer never mounted/cached it -
+// otherwise a closed big terminal lingers as an orphaned daemon session and
+// resurfaces (e.g. to the mobile app) with no label. The service-side
+// killBigTerminal also clears the metadata, so no separate remove is needed.
+function killAndForgetBigTerminal(terminalId: string): void {
   try {
-    ipc.pty.removeBigTerminalMetadata(terminalId)
+    ipc.pty.killBigTerminal(terminalId)
   } catch {}
 }
 
@@ -130,7 +135,9 @@ export const createTerminalsSlice: StateCreator<UIState, [], [], TerminalsSlice>
 
   registerRemoteBigTerminal: (worktreeId, tab) => {
     set((s) => {
-      const existing = s.bigTerminalsByWorktree[worktreeId] ?? []
+      // Hydrate from persisted storage when this worktree hasn't been loaded
+      // this session, so a remote registration doesn't clobber existing tabs.
+      const existing = s.bigTerminalsByWorktree[worktreeId] ?? loadBigTerminalsFor(worktreeId)
       const next = existing.some((t) => t.id === tab.id)
         ? existing.map((t) => (t.id === tab.id ? { ...t, ...tab } : t))
         : [...existing, tab]
@@ -152,7 +159,7 @@ export const createTerminalsSlice: StateCreator<UIState, [], [], TerminalsSlice>
   },
 
   closeBigTerminal: (worktreeId, id) => {
-    removeBigTerminalMetadata(id)
+    killAndForgetBigTerminal(id)
     set((s) => {
       const existing = s.bigTerminalsByWorktree[worktreeId] ?? []
       const next = existing.filter((t) => t.id !== id)
@@ -214,7 +221,7 @@ export const createTerminalsSlice: StateCreator<UIState, [], [], TerminalsSlice>
   },
 
   clearBigTerminalsForWorktree: (worktreeId) => {
-    get().bigTerminalsByWorktree[worktreeId]?.forEach((tab) => removeBigTerminalMetadata(tab.id))
+    get().bigTerminalsByWorktree[worktreeId]?.forEach((tab) => killAndForgetBigTerminal(tab.id))
     try { localStorage.removeItem(SK.bigTerminalTabsPrefix + worktreeId) } catch {}
     set((s) => {
       const next = { ...s.bigTerminalsByWorktree }

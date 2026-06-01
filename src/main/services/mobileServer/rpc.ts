@@ -7,10 +7,12 @@ import { agentService } from '../agent'
 import { ptyService } from '../pty'
 import { githubService } from '../github'
 import { sessionStorageService } from '../sessionStorage'
+import { rateLimitService } from '../rateLimits/service'
 import { enrichedEnv } from '../../lib/enrichedEnv'
 import { MOBILE_PROTOCOL_VERSION } from './protocol'
 import { getMobileInstanceName } from './instanceName'
 import { markMobileTerminalActive, markMobileTerminalInactive } from './mobileTerminalPresence'
+import { getMobileDisplayMode, resetMobileDisplayMode, setMobileDisplayMode, type MobileDisplayMode } from './mobileTerminalDisplay'
 import type {
   JsonRpcRequest,
   JsonRpcResponse,
@@ -55,16 +57,27 @@ register('status.get', async () => {
   }
 })
 
+// ── Rate limits ─────────────────────────────────────────────────────────────
+// Mirror the desktop's Claude/Codex usage (session + weekly windows) to mobile.
+// `get` returns the desktop's cached state (cheap); `refresh` forces a re-fetch.
+
+register('rateLimits.get', async () => rateLimitService.getState())
+
+register('rateLimits.refresh', async () => rateLimitService.refresh())
+
 // ── Projects / Worktrees ──────────────────────────────────────────────────────
 
 register('projects.list', async () => {
   const data = storageService.load()
+  // Attach the desktop's stable worktree id (path -> id) so terminals created
+  // from mobile carry a worktreeId the desktop can bind to. See storage.ts.
+  const worktreeIds = storageService.loadWorktreeIds()
   const projects = await Promise.all(data.projects.map(async (project) => ({
     ...project,
-    worktrees: await gitService.getWorktrees(project.path).catch((err) => {
+    worktrees: (await gitService.getWorktrees(project.path).catch((err) => {
       console.warn('[MobileRPC] projects.list worktrees failed', { project: project.name, path: project.path, err })
       return []
-    }),
+    })).map((worktree) => ({ ...worktree, id: worktreeIds[worktree.path] })),
   })))
   console.log('[MobileRPC] projects.list', projects.map((project) => ({
     id: project.id,
@@ -265,7 +278,21 @@ register('github.syncStatus', async (params) => {
 
 register('terminal.list', async (params) => {
   const worktreePath = params.worktreePath as string | undefined
-  const terminals = ptyService.listInstances(worktreePath)
+  // Ensure the daemon connection (and its metadata hydration) is ready, so
+  // terminals come back with their real labels after an app restart.
+  await ptyService.ensureDaemon?.()
+  // Only surface big terminals (center-panel agent sessions, prefix "bt-") to
+  // mobile. Right-side-panel terminals are spawned without registerBigTerminal,
+  // so listInstances reports them with terminalId undefined; plain PTYs are the
+  // same. Filtering on the "bt-" prefix excludes both.
+  //
+  // Also require a registered label (metadata): a "bt-" PTY whose metadata has
+  // been removed is an orphaned/closed session that the desktop no longer shows
+  // as a tab. Surfacing it would leak a stale terminal labelled with its raw
+  // "bt-<timestamp>" id. Every live tab has metadata, so this is a safe filter.
+  const terminals = ptyService
+    .listInstances(worktreePath)
+    .filter((terminal) => terminal.terminalId?.startsWith('bt-') && terminal.label)
   console.log('[MobileRPC] terminal.list', {
     worktreePath,
     terminals: terminals.map((terminal) => ({
@@ -289,27 +316,31 @@ register('terminal.create', async (params) => {
   const command = (params.command as string | undefined)?.trim() || agent?.launchCmd || 'claude'
   const agentId = agent?.id || requestedAgentId
   const terminalId = `bt-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`
+  // Prefer the id the client sent, but fall back to the registry keyed by path.
+  // The registry covers worktrees reachable via deep links that the client
+  // could not resolve to an id, so the desktop can still bind the terminal.
+  const worktreeId = (params.worktreeId as string | undefined) || storageService.loadWorktreeIds()[worktreePath]
   const ptyId = await ptyService.spawn(worktreePath, { BRAID_TERMINAL_ID: terminalId })
   ptyService.registerBigTerminal(ptyId, terminalId)
   ptyService.setBigTerminalMetadata?.({
     terminalId,
     label,
     agentId,
-    worktreeId: params.worktreeId as string | undefined,
+    worktreeId,
   })
-  const worktreeId = params.worktreeId as string | undefined
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) {
       win.webContents.send('pty:bigTerminalRegistered', {
         terminalId,
         worktreeId,
+        worktreePath,
         label,
         agentId,
       })
     }
   }
   if (command) ptyService.write(ptyId, `${command}\n`)
-  console.log('[MobileRPC] terminal.create', { worktreePath, ptyId, terminalId, label, agentId, command })
+  console.log('[MobileRPC] terminal.create', { worktreePath, ptyId, terminalId, worktreeId, label, agentId, command })
   return {
     id: ptyId,
     ptyId,
@@ -318,7 +349,7 @@ register('terminal.create', async (params) => {
     title: label,
     label,
     agentId,
-    worktreeId: params.worktreeId,
+    worktreeId,
     worktreePath,
   }
 })
@@ -329,6 +360,29 @@ register('terminal.write', async (params) => {
 
 register('terminal.resize', async (params) => {
   ptyService.resize(params.ptyId as string, params.cols as number, params.rows as number)
+})
+
+// Switch a terminal between 'phone' (desktop yields, PTY fit to the phone's
+// viewport) and 'desktop' (desktop drives its native dims, phone scales to fit).
+register('terminal.setDisplayMode', async (params) => {
+  const ptyId = params.ptyId as string
+  const mode: MobileDisplayMode = params.mode === 'desktop' ? 'desktop' : 'phone'
+  const instance = ptyService.listInstances().find((item) => item.ptyId === ptyId)
+  const terminalId = (params.terminalId as string | undefined) ?? instance?.terminalId
+  if (terminalId) setMobileDisplayMode(terminalId, mode)
+
+  if (mode === 'phone') {
+    // Re-engage phone fit: resize the PTY to the viewport the device measured.
+    const viewport = params.viewport as { cols?: number; rows?: number } | undefined
+    if (viewport?.cols && viewport?.rows) {
+      ptyService.resize(ptyId, viewport.cols, viewport.rows)
+    }
+  }
+  // For 'desktop' the desktop renderer un-holds and fits to its own pane; the
+  // resulting resize streams back via the 'terminal.resized' subscription.
+
+  const size = ptyService.getSize?.(ptyId) ?? null
+  return { displayMode: mode, cols: size?.cols ?? null, rows: size?.rows ?? null }
 })
 
 register('terminal.readScrollback', async (params) => {
@@ -407,9 +461,27 @@ register('terminal.subscribe', async (params, connection) => {
     })
   })
 
+  // Stream PTY dimension changes so the device can resize its (CSS-scaling)
+  // xterm to match — this is how 'desktop' display mode shows the terminal at
+  // the desktop's native size.
+  const emitResized = (cols: number, rows: number) => {
+    connection.ws.emit('rpc:notification', {
+      jsonrpc: '2.0' as const,
+      method: 'terminal.resized',
+      params: { subscriptionId, ptyId, cols, rows, displayMode: terminalId ? getMobileDisplayMode(terminalId) : 'phone' },
+    })
+  }
+  const unsubResize = ptyService.onResize?.(ptyId, (_id: string, cols: number, rows: number) => emitResized(cols, rows))
+  // Send the current dimensions + mode once so a device reconnecting into an
+  // existing terminal immediately knows whether it is phone- or desktop-sized.
+  const currentSize = ptyService.getSize?.(ptyId)
+  if (currentSize) emitResized(currentSize.cols, currentSize.rows)
+
   const unsubscribe = () => {
     unsubData()
     unsubExit()
+    unsubResize?.()
+    if (terminalId) resetMobileDisplayMode(terminalId)
     if (terminalId) markMobileTerminalInactive(terminalId)
   }
   connection.subscriptions.set(subscriptionId, unsubscribe)

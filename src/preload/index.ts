@@ -6,7 +6,9 @@ const api = {
   // Storage
   storage: {
     load: () => ipcRenderer.invoke('storage:load'),
-    save: (data: unknown) => ipcRenderer.invoke('storage:save', data)
+    save: (data: unknown) => ipcRenderer.invoke('storage:save', data),
+    syncWorktreeIds: (map: Record<string, string>) =>
+      ipcRenderer.invoke('storage:syncWorktreeIds', map)
   },
 
   // Git
@@ -132,10 +134,14 @@ const api = {
       ipcRenderer.send('pty:setBigTerminalMetadata', metadata),
     removeBigTerminalMetadata: (terminalId: string) =>
       ipcRenderer.send('pty:removeBigTerminalMetadata', terminalId),
+    killBigTerminal: (terminalId: string) =>
+      ipcRenderer.send('pty:killBigTerminal', terminalId),
     readScrollback: (terminalId: string) =>
       ipcRenderer.invoke('pty:readScrollback', terminalId) as Promise<string>,
     isMobileTerminalActive: (terminalId: string) =>
       ipcRenderer.invoke('pty:isMobileTerminalActive', terminalId) as Promise<boolean>,
+    setMobileDisplayMode: (terminalId: string, mode: 'phone' | 'desktop') =>
+      ipcRenderer.send('pty:setMobileDisplayMode', terminalId, mode),
     deleteScrollback: (terminalId: string) =>
       ipcRenderer.send('pty:deleteScrollback', terminalId),
     reattach: (sessionId: string) =>
@@ -152,8 +158,13 @@ const api = {
       ipcRenderer.on('pty:mobileTerminalActive', handler)
       return () => ipcRenderer.removeListener('pty:mobileTerminalActive', handler)
     },
-    onBigTerminalRegistered: (callback: (tab: { terminalId: string; worktreeId?: string; label?: string; agentId?: string }) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, tab: { terminalId: string; worktreeId?: string; label?: string; agentId?: string }) => callback(tab)
+    onMobileDisplayMode: (callback: (status: { terminalId: string; mode: 'phone' | 'desktop' }) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, status: { terminalId: string; mode: 'phone' | 'desktop' }) => callback(status)
+      ipcRenderer.on('pty:mobileDisplayMode', handler)
+      return () => ipcRenderer.removeListener('pty:mobileDisplayMode', handler)
+    },
+    onBigTerminalRegistered: (callback: (tab: { terminalId: string; worktreeId?: string; worktreePath?: string; label?: string; agentId?: string }) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, tab: { terminalId: string; worktreeId?: string; worktreePath?: string; label?: string; agentId?: string }) => callback(tab)
       ipcRenderer.on('pty:bigTerminalRegistered', handler)
       return () => ipcRenderer.removeListener('pty:bigTerminalRegistered', handler)
     },

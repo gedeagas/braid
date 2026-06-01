@@ -29,6 +29,8 @@ interface Entry {
   offClose: (() => void) | null;
   reconnectTimer: ReturnType<typeof setTimeout> | null;
   disposed: boolean;
+  /** True once the first successful connect has happened (drives replay vs initial subscribe). */
+  everConnected: boolean;
 }
 
 export interface ClientManager {
@@ -57,25 +59,27 @@ function createManager(): ClientManager & {
     for (const listener of listeners) listener();
   };
 
-  function startNotifications(entry: Entry): void {
+  // The notification-routing listener is registered once per entry (it survives
+  // close()/reconnect since the client doesn't clear notificationListeners).
+  function startNotificationRouting(entry: Entry): void {
+    if (entry.offNotification) return;
     entry.offNotification = entry.client.onNotification((message: RpcNotification) => {
       if (message.method !== 'notification') return;
       void scheduleDesktopNotification(message.params as DesktopNotificationParams, entry.host.id);
     });
+  }
+
+  // Subscribe to desktop notifications once. On later reconnects the client's
+  // resendSubscriptions() replays this automatically, so we never re-subscribe.
+  function subscribeNotifications(entry: Entry): void {
     entry.client
       .subscribe('notifications.subscribe')
       .then((id) => {
         entry.notifSubId = id;
       })
       .catch(() => {
-        // Retried on the next reconnect.
+        // Retried on the next reconnect via resendSubscriptions().
       });
-  }
-
-  function teardownNotifications(entry: Entry): void {
-    entry.offNotification?.();
-    entry.offNotification = null;
-    entry.notifSubId = null;
   }
 
   function scheduleReconnect(entry: Entry): void {
@@ -103,7 +107,14 @@ function createManager(): ClientManager & {
         if (entry.disposed) return;
         entry.state = 'connected';
         entry.attempt = 0;
-        startNotifications(entry);
+        if (entry.everConnected) {
+          // Reconnect: replay every tracked subscription (terminals + notifications)
+          // so live streams resume without each screen re-subscribing itself.
+          entry.client.resendSubscriptions();
+        } else {
+          entry.everConnected = true;
+          subscribeNotifications(entry);
+        }
         emit();
       })
       .catch(() => {
@@ -126,11 +137,15 @@ function createManager(): ClientManager & {
       offClose: null,
       reconnectTimer: null,
       disposed: false,
+      everConnected: false,
     };
+    // Register notification routing once; it survives reconnects (the client
+    // keeps notificationListeners across close()), so we never tear it down
+    // except when the host is permanently dropped.
+    startNotificationRouting(entry);
     entry.offClose = client.onClose(() => {
       if (entry.disposed) return;
       entry.state = 'disconnected';
-      teardownNotifications(entry);
       emit();
       scheduleReconnect(entry);
     });
@@ -161,8 +176,10 @@ function createManager(): ClientManager & {
     if (!entry) return;
     entry.disposed = true;
     if (entry.reconnectTimer) clearTimeout(entry.reconnectTimer);
-    teardownNotifications(entry);
+    entry.offNotification?.();
+    entry.offNotification = null;
     entry.offClose?.();
+    entry.client.clearSubscriptions();
     entry.client.close();
     entries.delete(hostId);
     emit();
@@ -204,7 +221,9 @@ function createManager(): ClientManager & {
           clearTimeout(entry.reconnectTimer);
           entry.reconnectTimer = null;
         }
-        teardownNotifications(entry);
+        // Keep the notification routing listener and tracked subscriptions in
+        // place; close() preserves them and resendSubscriptions() replays on
+        // the next foreground connect.
         entry.state = 'disconnected';
         entry.client.close();
       }

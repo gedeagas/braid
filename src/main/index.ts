@@ -29,6 +29,8 @@ import { initAutoUpdater, stopAutoUpdater } from './services/autoUpdate'
 import { waitForEnrichedEnv } from './lib/enrichedEnv'
 import { ensureAllAgentHooks } from './services/agentHooks'
 import { startAgentHookServer, stopAgentHookServer } from './services/agentHookServer'
+import { startMobileTerminalNotifier } from './services/mobileServer/terminalNotifier'
+import { startTerminalRunTimer } from './services/terminalRunTimer'
 import { ptyService } from './services/pty'
 import { mobileServer } from './services/mobileServer'
 import { HTML_PREVIEW_PARTITION } from '../shared/html-preview'
@@ -312,6 +314,14 @@ app.whenReady().then(async () => {
   startAgentHookServer()
     .then(() => ensureAllAgentHooks())
     .catch((err) => console.warn('[agentHookServer] Failed to start:', err))
+
+  // Bridge big-terminal agent status to paired mobile devices (main-process,
+  // independent of the renderer observing the terminal).
+  startMobileTerminalNotifier()
+
+  // Accumulate per-terminal agent "working" time into terminal metadata so the
+  // mobile homepage can report real agent time for terminal-driven sessions.
+  startTerminalRunTimer()
 
   // Mobile companion server starts on demand via the mobile:start IPC handler
   // when the user enables it in Settings > Mobile Companion.

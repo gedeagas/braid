@@ -25,6 +25,12 @@ export class BraidRpcClient {
   private pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void }>();
   private notificationListeners = new Set<(notification: RpcNotification) => void>();
   private closeListeners = new Set<() => void>();
+  // Active stream subscriptions, tracked so they can be auto-replayed after a
+  // reconnect (the desktop drops all subscriptions when the socket closes, and
+  // assigns fresh server ids on re-subscribe). Keyed by a stable client-local
+  // id so callers hold a handle that survives reconnects.
+  private subscriptions = new Map<string, { method: string; params: Record<string, unknown>; serverId: string | null }>();
+  private subCounter = 0;
 
   constructor(private host: PairedHost) {}
 
@@ -173,9 +179,52 @@ export class BraidRpcClient {
     };
   }
 
+  /**
+   * Start a stream subscription. Returns a stable client-local handle (not the
+   * server's subscription id) that survives reconnects - pass it to
+   * unsubscribe(). The subscription is re-sent automatically after a reconnect
+   * via resendSubscriptions(); notification routing is content-based (by
+   * ptyId/method in onNotification), so the changing server id doesn't matter.
+   */
   async subscribe(method: string, params: Record<string, unknown> = {}): Promise<string> {
-    const result = await this.request<{ subscriptionId: string }>(method, params);
-    return result.subscriptionId;
+    const localId = `lsub-${++this.subCounter}`;
+    this.subscriptions.set(localId, { method, params, serverId: null });
+    await this.sendSubscribe(localId);
+    return localId;
+  }
+
+  private async sendSubscribe(localId: string): Promise<void> {
+    const entry = this.subscriptions.get(localId);
+    if (!entry) return;
+    const result = await this.request<{ subscriptionId: string }>(entry.method, entry.params);
+    // The handle may have been unsubscribed while the request was in flight.
+    const current = this.subscriptions.get(localId);
+    if (current) current.serverId = result.subscriptionId;
+  }
+
+  async unsubscribe(localId: string): Promise<void> {
+    const entry = this.subscriptions.get(localId);
+    this.subscriptions.delete(localId);
+    if (!entry?.serverId) return;
+    const unsubMethod = entry.method.replace(/\.subscribe$/, '.unsubscribe');
+    await this.request(unsubMethod, { subscriptionId: entry.serverId }).catch(() => undefined);
+  }
+
+  /**
+   * Re-send every tracked subscription. Called by the connection manager after
+   * a reconnect so live streams (terminals, notifications) resume without each
+   * screen having to detect the drop and re-subscribe itself.
+   */
+  resendSubscriptions(): void {
+    for (const [localId, entry] of this.subscriptions) {
+      entry.serverId = null;
+      void this.sendSubscribe(localId).catch(() => undefined);
+    }
+  }
+
+  /** Forget all tracked subscriptions (used when permanently dropping a host). */
+  clearSubscriptions(): void {
+    this.subscriptions.clear();
   }
 
   private async sendRequest<T>(method: string, params: Record<string, unknown>): Promise<T> {
@@ -234,7 +283,6 @@ export class BraidRpcClient {
     try {
       const response = this.decrypt<JsonRpcResponse | RpcNotification>(String(event.data), true);
       if ('method' in response && !('id' in response)) {
-        console.log('[BraidMobile] rpc.notification', { method: response.method });
         for (const listener of this.notificationListeners) listener(response);
         return;
       }

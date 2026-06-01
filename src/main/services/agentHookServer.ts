@@ -41,6 +41,20 @@ interface HookRequestBody {
   isInterrupt?: boolean
 }
 
+// ── Main-process status listeners ────────────────────────────────────────────
+//
+// Besides forwarding to the renderer, hook status is delivered to in-process
+// listeners. This lets the main process react (e.g. push mobile notifications)
+// without depending on the renderer having the terminal mounted.
+
+type HookStatusListener = (status: AgentHookStatus) => void
+const hookStatusListeners = new Set<HookStatusListener>()
+
+export function onHookStatus(listener: HookStatusListener): () => void {
+  hookStatusListeners.add(listener)
+  return () => hookStatusListeners.delete(listener)
+}
+
 // ── Per-Agent Event-to-State Mappings ────────────────────────────────────────
 
 const EVENT_MAPS: Record<AgentHookTarget, Record<string, AgentStatusState>> = {
@@ -236,6 +250,12 @@ export async function startAgentHookServer(): Promise<{ port: number; token: str
           const win = BrowserWindow.getAllWindows()[0]
           if (win && !win.isDestroyed()) {
             win.webContents.send('agent-hook:status', status)
+          }
+
+          // Deliver to in-process listeners (e.g. mobile notification bridge),
+          // which run regardless of whether the renderer has this terminal open.
+          for (const listener of hookStatusListeners) {
+            try { listener(status) } catch { /* a listener must not block others */ }
           }
         } catch {
           // Malformed JSON - ignore

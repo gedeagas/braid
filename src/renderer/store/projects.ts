@@ -46,14 +46,29 @@ function loadWorktreeIdRegistry(): Record<string, string> {
   return {}
 }
 
-/** Save the path→id map to localStorage */
+/**
+ * Mirror the path→id map to the main process so the mobile RPC (`projects.list`)
+ * can return the same worktree id the desktop uses. Best effort: the renderer
+ * remains the source of truth, this is just a cache for the main process.
+ */
+function syncWorktreeIdRegistryToMain(registry: Record<string, string>): void {
+  try {
+    ipc.storage.syncWorktreeIds(registry)
+  } catch {}
+}
+
+/** Save the path→id map to localStorage and mirror it to the main process. */
 function saveWorktreeIdRegistry(registry: Record<string, string>): void {
   try {
     localStorage.setItem(WORKTREE_ID_REGISTRY_KEY, JSON.stringify(registry))
   } catch {}
+  syncWorktreeIdRegistryToMain(registry)
 }
 
 const worktreeIdRegistry = loadWorktreeIdRegistry()
+// Push the persisted registry to main on startup so already-known worktree ids
+// are available to the mobile RPC even when no new ids are minted this session.
+syncWorktreeIdRegistryToMain(worktreeIdRegistry)
 
 /**
  * Generate a unique worktree ID.

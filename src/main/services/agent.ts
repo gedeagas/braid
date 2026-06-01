@@ -453,6 +453,18 @@ class AgentCoordinator {
     return () => { this.notifyListeners.delete(callback) }
   }
 
+  /**
+   * Push a notification to paired mobile devices only (no desktop OS
+   * notification). Used by the main-process hook bridge so terminal agent
+   * status reaches the phone regardless of desktop window focus or whether the
+   * renderer has the terminal mounted.
+   */
+  notifyMobile(notification: MobileNotification): void {
+    for (const cb of this.notifyListeners) {
+      try { cb(notification) } catch { /* a listener failure must not block notify */ }
+    }
+  }
+
   private sendEvent(sessionId: string, event: unknown): void {
     const win = this.getWindow()
     if (win && !win.isDestroyed()) {
@@ -508,8 +520,13 @@ class AgentCoordinator {
     // Push to paired mobile devices first — unlike the desktop notification,
     // this fires regardless of desktop window focus, since the user may be
     // away from the desktop with only their phone.
-    if (this.notifyListeners.size > 0) {
-      const mobileEvent: MobileNotification = {
+    //
+    // Terminal-originated notifications (terminalId set) are pushed to mobile by
+    // the main-process hook bridge (mobileServer/terminalNotifier) instead, so
+    // delivery doesn't depend on the renderer observing the terminal. We only
+    // emit here for SDK-session notifications to avoid double-notifying.
+    if (!terminalId) {
+      this.notifyMobile({
         sessionId,
         type,
         title: titles[type],
@@ -518,10 +535,7 @@ class AgentCoordinator {
         terminalId,
         branch: branch || undefined,
         projectName: meta?.projectName || undefined,
-      }
-      for (const cb of this.notifyListeners) {
-        try { cb(mobileEvent) } catch { /* a listener failure must not block notify */ }
-      }
+      })
     }
 
     const win = this.getWindow()

@@ -1,11 +1,40 @@
 import * as Notifications from 'expo-notifications';
+import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 import { buildLocalNotificationData, type DesktopNotificationParams } from './notification-routing';
 
 const ANDROID_CHANNEL_ID = 'braid-desktop';
+const PUSH_ENABLED_KEY = 'braid.mobile.pushNotificationsEnabled';
 
 let channelConfigured = false;
+
+export interface NotificationPermissionState {
+  granted: boolean;
+  /** Raw OS status: 'granted' | 'denied' | 'undetermined'. */
+  status: string;
+  /** False once the OS will no longer show the prompt (user must use Settings). */
+  canAskAgain: boolean;
+}
+
+export async function getNotificationPermissionState(): Promise<NotificationPermissionState> {
+  const { status, canAskAgain, granted } = await Notifications.getPermissionsAsync();
+  return { granted, status, canAskAgain };
+}
+
+/**
+ * User-facing on/off toggle for desktop notifications, persisted across launches.
+ * Defaults to enabled so a freshly paired device still surfaces alerts (the OS
+ * permission prompt then gates actual delivery).
+ */
+export async function loadPushNotificationsEnabled(): Promise<boolean> {
+  const raw = await SecureStore.getItemAsync(PUSH_ENABLED_KEY).catch(() => null);
+  return raw === null ? true : raw === 'true';
+}
+
+export async function savePushNotificationsEnabled(enabled: boolean): Promise<void> {
+  await SecureStore.setItemAsync(PUSH_ENABLED_KEY, enabled ? 'true' : 'false').catch(() => undefined);
+}
 
 /**
  * Foreground presentation. Without this, expo-notifications silently drops
@@ -50,6 +79,7 @@ export async function scheduleDesktopNotification(
   params: DesktopNotificationParams,
   hostId: string,
 ): Promise<void> {
+  if (!(await loadPushNotificationsEnabled())) return;
   configureChannel();
   const granted = await ensureNotificationPermissions();
   if (!granted) return;

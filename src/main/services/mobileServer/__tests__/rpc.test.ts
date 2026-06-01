@@ -5,6 +5,7 @@ import type { MobileConnection, TrustedDevice, E2EESession, JsonRpcRequest } fro
 // Mock all service dependencies before importing rpc
 vi.mock('electron', () => ({
   app: { getVersion: () => '1.0.0' },
+  BrowserWindow: { getAllWindows: () => [] },
 }))
 
 vi.mock('../../storage', () => ({
@@ -14,6 +15,7 @@ vi.mock('../../storage', () => ({
         { id: 'p1', name: 'TestProject', path: '/test/path' },
       ],
     })),
+    loadWorktreeIds: vi.fn(() => ({ '/test/wt': 'p1-wt-test/wt-1' })),
   },
 }))
 
@@ -48,12 +50,25 @@ vi.mock('../../agent', () => ({
 
 vi.mock('../../pty', () => ({
   ptyService: {
-    listInstances: vi.fn(() => [{ ptyId: 'pty-1', cwd: '/test' }]),
+    listInstances: vi.fn(() => [
+      // Center-panel/mobile big terminal - should be surfaced to mobile.
+      { ptyId: 'pty-1', cwd: '/test', terminalId: 'bt-100-1', label: 'Claude', agentId: 'claude' },
+      // Right-side-panel terminal - never registered, so terminalId undefined.
+      { ptyId: 'pty-2', cwd: '/test' },
+      // Orphaned big terminal - metadata removed on close, so no label. Must be
+      // filtered out: it is a closed/zombie session the desktop no longer shows.
+      { ptyId: 'pty-3', cwd: '/test', terminalId: 'bt-100-3' },
+    ]),
     write: vi.fn(),
     resize: vi.fn(),
+    getSize: vi.fn(() => ({ cols: 120, rows: 40 })),
+    onResize: vi.fn(() => () => {}),
     readTerminalOutput: vi.fn(() => []),
     onData: vi.fn(() => () => {}),
     onExit: vi.fn(() => () => {}),
+    spawn: vi.fn(async () => 'pty-new'),
+    registerBigTerminal: vi.fn(),
+    setBigTerminalMetadata: vi.fn(),
   },
 }))
 
@@ -62,6 +77,16 @@ vi.mock('../../github', () => ({
     getPrStatus: vi.fn(async () => null),
     getChecks: vi.fn(async () => []),
     getGitSyncStatus: vi.fn(async () => ({ ahead: 0, behind: 0 })),
+  },
+}))
+
+vi.mock('../../rateLimits/service', () => ({
+  rateLimitService: {
+    getState: vi.fn(() => ({
+      claude: { provider: 'claude', session: { usedPercent: 20, windowMinutes: 300, resetsAt: null, resetDescription: null }, weekly: null, updatedAt: 1000, error: null, status: 'ok' },
+      codex: null,
+    })),
+    refresh: vi.fn(async () => ({ claude: null, codex: null })),
   },
 }))
 
@@ -122,6 +147,16 @@ describe('RPC Dispatch', () => {
     expect(result.projects).toHaveLength(1)
   })
 
+  it('dispatches rateLimits.get with the desktop cached usage', async () => {
+    const req: JsonRpcRequest = { jsonrpc: '2.0', id: 50, method: 'rateLimits.get' }
+    const res = await dispatch(req, conn)
+    expect(res.error).toBeUndefined()
+    const state = res.result as { claude: Record<string, unknown> | null; codex: unknown }
+    expect(state.claude?.status).toBe('ok')
+    expect((state.claude?.session as Record<string, unknown>).windowMinutes).toBe(300)
+    expect(state.codex).toBeNull()
+  })
+
   it('dispatches projects.list', async () => {
     const req: JsonRpcRequest = { jsonrpc: '2.0', id: 2, method: 'projects.list' }
     const res = await dispatch(req, conn)
@@ -129,6 +164,22 @@ describe('RPC Dispatch', () => {
     const projects = res.result as Array<Record<string, unknown>>
     expect(projects).toHaveLength(1)
     expect(projects[0].name).toBe('TestProject')
+    // Worktrees carry the desktop's stable id so mobile-created terminals bind.
+    const worktrees = projects[0].worktrees as Array<Record<string, unknown>>
+    expect(worktrees[0].id).toBe('p1-wt-test/wt-1')
+  })
+
+  it('terminal.create resolves worktreeId from the registry when client omits it', async () => {
+    const req: JsonRpcRequest = {
+      jsonrpc: '2.0', id: 99, method: 'terminal.create',
+      params: { worktreePath: '/test/wt', agentId: 'claude' },
+    }
+    const res = await dispatch(req, conn)
+    expect(res.error).toBeUndefined()
+    const result = res.result as Record<string, unknown>
+    expect(result.terminalId).toMatch(/^bt-/)
+    // Falls back to loadWorktreeIds()['/test/wt'] so the desktop can bind it.
+    expect(result.worktreeId).toBe('p1-wt-test/wt-1')
   })
 
   it('dispatches sessions.list without full messages', async () => {
@@ -148,11 +199,16 @@ describe('RPC Dispatch', () => {
     expect(res.result).toEqual([])
   })
 
-  it('dispatches terminal.list', async () => {
+  it('dispatches terminal.list and excludes non big terminals and orphans', async () => {
     const req: JsonRpcRequest = { jsonrpc: '2.0', id: 5, method: 'terminal.list', params: { worktreePath: '/test' } }
     const res = await dispatch(req, conn)
     expect(res.error).toBeUndefined()
-    expect(res.result).toEqual([{ ptyId: 'pty-1', cwd: '/test' }])
+    const terminals = res.result as Array<Record<string, unknown>>
+    // Only the labelled bt- big terminal is surfaced; the right-panel terminal
+    // (no terminalId) and the orphaned bt- terminal (no label) are filtered out.
+    expect(terminals).toHaveLength(1)
+    expect(terminals[0].ptyId).toBe('pty-1')
+    expect(terminals[0].terminalId).toBe('bt-100-1')
   })
 
   it('handles errors in handlers gracefully', async () => {
@@ -200,5 +256,50 @@ describe('RPC Dispatch', () => {
     expect(names).toContain('github.prStatus')
     expect(names).toContain('terminal.list')
     expect(names).toContain('agent.subscribe')
+    expect(names).toContain('terminal.setDisplayMode')
+  })
+
+  it('terminal.setDisplayMode desktop reports the mode and does not phone-fit', async () => {
+    const { ptyService } = await import('../../pty')
+    vi.mocked(ptyService.resize).mockClear()
+    const req: JsonRpcRequest = {
+      jsonrpc: '2.0', id: 20, method: 'terminal.setDisplayMode',
+      params: { ptyId: 'pty-1', mode: 'desktop' },
+    }
+    const res = await dispatch(req, conn)
+    expect(res.error).toBeUndefined()
+    const result = res.result as Record<string, unknown>
+    expect(result.displayMode).toBe('desktop')
+    // Desktop mode never resizes the PTY to the phone viewport; the desktop drives it.
+    expect(ptyService.resize).not.toHaveBeenCalled()
+  })
+
+  it('terminal.setDisplayMode phone resizes the PTY to the reported viewport', async () => {
+    const { ptyService } = await import('../../pty')
+    vi.mocked(ptyService.resize).mockClear()
+    const req: JsonRpcRequest = {
+      jsonrpc: '2.0', id: 21, method: 'terminal.setDisplayMode',
+      params: { ptyId: 'pty-1', mode: 'phone', viewport: { cols: 40, rows: 24 } },
+    }
+    const res = await dispatch(req, conn)
+    expect(res.error).toBeUndefined()
+    expect((res.result as Record<string, unknown>).displayMode).toBe('phone')
+    expect(ptyService.resize).toHaveBeenCalledWith('pty-1', 40, 24)
+  })
+
+  it('terminal.subscribe streams resize events and emits the current size', async () => {
+    const { ptyService } = await import('../../pty')
+    const req: JsonRpcRequest = {
+      jsonrpc: '2.0', id: 22, method: 'terminal.subscribe', params: { ptyId: 'pty-1' },
+    }
+    const res = await dispatch(req, conn)
+    expect(res.error).toBeUndefined()
+    // It wires a resize listener so desktop-mode dimension changes reach the phone.
+    expect(ptyService.onResize).toHaveBeenCalledWith('pty-1', expect.any(Function))
+    // And pushes the current dimensions once so a reconnecting device is in sync.
+    expect(conn.ws.emit).toHaveBeenCalledWith('rpc:notification', expect.objectContaining({
+      method: 'terminal.resized',
+      params: expect.objectContaining({ ptyId: 'pty-1', cols: 120, rows: 40 }),
+    }))
   })
 })

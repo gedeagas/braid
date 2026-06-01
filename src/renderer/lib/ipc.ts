@@ -9,7 +9,8 @@ export function cleanIpcError(err: unknown, fallback = 'Unknown error'): string 
 
 export const storage = {
   load: () => api().storage.load(),
-  save: (data: unknown) => api().storage.save(data)
+  save: (data: unknown) => api().storage.save(data),
+  syncWorktreeIds: (map: Record<string, string>) => api().storage.syncWorktreeIds(map)
 }
 
 export const git = {
@@ -117,8 +118,11 @@ export const pty = {
   setBigTerminalMetadata: (metadata: { terminalId: string; worktreeId?: string; label?: string; agentId?: string }) =>
     api().pty.setBigTerminalMetadata(metadata),
   removeBigTerminalMetadata: (terminalId: string) => api().pty.removeBigTerminalMetadata(terminalId),
+  killBigTerminal: (terminalId: string) => api().pty.killBigTerminal(terminalId),
   readScrollback: (terminalId: string) => api().pty.readScrollback(terminalId) as Promise<string>,
   isMobileTerminalActive: (terminalId: string) => api().pty.isMobileTerminalActive(terminalId) as Promise<boolean>,
+  setMobileDisplayMode: (terminalId: string, mode: 'phone' | 'desktop') =>
+    api().pty.setMobileDisplayMode(terminalId, mode),
   deleteScrollback: (terminalId: string) => api().pty.deleteScrollback(terminalId),
   reattach: (sessionId: string) => api().pty.reattach(sessionId) as Promise<{ sessionId: string; snapshot: string } | null>,
   listSessions: () => api().pty.listSessions() as Promise<Array<{ sessionId: string; cwd: string; cols: number; rows: number; createdAt: number }>>,
@@ -126,7 +130,9 @@ export const pty = {
     api().pty.onAgentHookStatus(callback),
   onMobileTerminalActive: (callback: (status: { terminalId: string; active: boolean }) => void) =>
     api().pty.onMobileTerminalActive(callback),
-  onBigTerminalRegistered: (callback: (tab: { terminalId: string; worktreeId?: string; label?: string; agentId?: string }) => void) =>
+  onMobileDisplayMode: (callback: (status: { terminalId: string; mode: 'phone' | 'desktop' }) => void) =>
+    api().pty.onMobileDisplayMode(callback),
+  onBigTerminalRegistered: (callback: (tab: { terminalId: string; worktreeId?: string; worktreePath?: string; label?: string; agentId?: string }) => void) =>
     api().pty.onBigTerminalRegistered(callback),
 }
 

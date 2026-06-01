@@ -1,11 +1,12 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
-import { ChevronRight, Monitor, Plus, QrCode, RefreshCw, TerminalSquare, Wifi, X } from 'lucide-react-native';
+import { Bell, ChevronRight, Monitor, Plus, QrCode, RefreshCw, TerminalSquare, Wifi, X } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,7 +20,8 @@ import { useClientManager } from '@/transport/client-manager';
 import { loadHosts, removeHost, saveHosts, upsertHost } from '@/transport/host-store';
 import { type BonjourHost, matchesDiscoveredHost, mergeDiscoveredEndpoint, startBonjourBrowser } from '@/transport/bonjour';
 import { createHostFromOffer, parsePairingPayload } from '@/transport/rpc-client';
-import type { BraidSession, BraidStatus, PairedHost } from '@/transport/types';
+import type { BraidSession, BraidStatus, BraidTerminal, PairedHost, RateLimitState } from '@/transport/types';
+import { RateLimitSection } from '@/usage/RateLimitSection';
 
 type ConnectionState = 'idle' | 'connecting' | 'online' | 'offline';
 
@@ -31,6 +33,7 @@ interface HostSnapshot {
   sessions: BraidSession[];
   sessionTotal: number;
   agentTimeMs: number;
+  rateLimits?: RateLimitState | null;
 }
 
 const COLORS = {
@@ -56,6 +59,7 @@ export default function HomeScreen() {
   const [manualPayload, setManualPayload] = useState('');
   const [discoveredHosts, setDiscoveredHosts] = useState<BonjourHost[]>([]);
   const [bonjourError, setBonjourError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
   const scannedRef = useRef(false);
   const manager = useClientManager();
@@ -69,6 +73,7 @@ export default function HomeScreen() {
         sessions: current[host.id]?.sessions ?? [],
         sessionTotal: current[host.id]?.sessionTotal ?? 0,
         agentTimeMs: current[host.id]?.agentTimeMs ?? 0,
+        rateLimits: current[host.id]?.rateLimits ?? null,
       },
     }));
 
@@ -78,12 +83,26 @@ export default function HomeScreen() {
     try {
       const status = await client.request<BraidStatus>('status.get');
       const sessions = await client.request<BraidSession[]>('sessions.list');
-      const agentTimeMs = sessions.reduce((sum, session) => sum + (session.totalRunDurationMs ?? 0), 0);
+      // Agent time reflects terminal-driven agents (the supported path); SDK
+      // chat sessions are deprecated and no longer accrue run time.
+      const terminals = await client.request<BraidTerminal[]>('terminal.list');
+      const agentTimeMs = terminals.reduce((sum, terminal) => sum + (terminal.totalRunDurationMs ?? 0), 0);
+      // Best-effort: older desktops won't expose rateLimits.get, so a failure
+      // here must not knock the host offline - fall back to the last value.
+      const rateLimits = await client.request<RateLimitState>('rateLimits.get').catch(() => undefined);
       const saved = await upsertHost(host);
       setHosts(saved);
       setSnapshots((current) => ({
         ...current,
-        [host.id]: { host, state: 'online', status, sessions: sessions.slice(0, 6), sessionTotal: sessions.length, agentTimeMs },
+        [host.id]: {
+          host,
+          state: 'online',
+          status,
+          sessions: sessions.slice(0, 6),
+          sessionTotal: sessions.length,
+          agentTimeMs,
+          rateLimits: rateLimits ?? current[host.id]?.rateLimits ?? null,
+        },
       }));
     } catch (error) {
       setSnapshots((current) => ({
@@ -95,6 +114,7 @@ export default function HomeScreen() {
           sessions: current[host.id]?.sessions ?? [],
           sessionTotal: current[host.id]?.sessionTotal ?? 0,
           agentTimeMs: current[host.id]?.agentTimeMs ?? 0,
+          rateLimits: current[host.id]?.rateLimits ?? null,
         },
       }));
     }
@@ -103,6 +123,17 @@ export default function HomeScreen() {
   const refreshAll = useCallback((items: PairedHost[]) => {
     for (const host of items) void refreshHost(host);
   }, [refreshHost]);
+
+  // Pull-to-refresh: awaits every host so the spinner stays until the slowest
+  // one settles (refreshHost swallows its own errors, so this never rejects).
+  const onPullRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all(hosts.map((host) => refreshHost(host)));
+    } finally {
+      setRefreshing(false);
+    }
+  }, [hosts, refreshHost]);
 
   useEffect(() => {
     let active = true;
@@ -215,17 +246,42 @@ export default function HomeScreen() {
     [discoveredHosts, hosts],
   );
 
+  // Desktops reporting at least one Claude/Codex window, so the Usage section
+  // only renders when there's something to show.
+  const usageHosts = useMemo(
+    () => sortedSnapshots.filter((item) => item.rateLimits && (item.rateLimits.claude || item.rateLimits.codex)),
+    [sortedSnapshots],
+  );
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-      <ScrollView style={styles.shell} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.shell}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onPullRefresh}
+            tintColor={COLORS.muted}
+            colors={[COLORS.accent]}
+            progressBackgroundColor={COLORS.panel}
+          />
+        }
+      >
         <View style={styles.header}>
           <View style={styles.brand}>
             <View style={styles.brandMark} />
             <Text style={styles.brandName}>Braid</Text>
           </View>
-          <Pressable style={styles.iconButton} onPress={() => refreshAll(hosts)} accessibilityLabel="Refresh">
-            <RefreshCw color={COLORS.muted} size={18} />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable style={styles.iconButton} onPress={() => router.push('/notifications' as Parameters<typeof router.push>[0])} accessibilityLabel="Notification settings">
+              <Bell color={COLORS.muted} size={18} />
+            </Pressable>
+            <Pressable style={styles.iconButton} onPress={() => refreshAll(hosts)} accessibilityLabel="Refresh">
+              <RefreshCw color={COLORS.muted} size={18} />
+            </Pressable>
+          </View>
         </View>
 
         <Text style={styles.welcome}>Welcome back</Text>
@@ -261,6 +317,22 @@ export default function HomeScreen() {
               onLongPress={() => removeDesktop(snapshot.host)}
             />
           ))
+        )}
+
+        {usageHosts.length > 0 && (
+          <>
+            <Text style={styles.sectionLabel}>Usage</Text>
+            {usageHosts.map((snapshot) => (
+              <View key={snapshot.host.id} style={styles.usageBlock}>
+                {usageHosts.length > 1 && (
+                  <Text style={styles.usageHostLabel} numberOfLines={1}>
+                    {snapshot.status?.instanceName ?? snapshot.host.instanceName ?? 'Braid desktop'}
+                  </Text>
+                )}
+                <RateLimitSection state={snapshot.rateLimits!} now={Date.now()} />
+              </View>
+            ))}
+          </>
         )}
 
         {unpairedNearby.length > 0 && (
@@ -457,6 +529,7 @@ const styles = StyleSheet.create({
   shell: { flex: 1 },
   content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 48 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   brandMark: { width: 22, height: 22, borderRadius: 7, backgroundColor: COLORS.accent },
   brandName: { color: COLORS.text, fontSize: 19, fontWeight: '800', letterSpacing: 0.2 },
@@ -528,6 +601,8 @@ const styles = StyleSheet.create({
   rowSubtitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 4 },
   rowSubtitle: { color: COLORS.muted, fontSize: 13, flexShrink: 1 },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
+  usageBlock: { marginBottom: 10 },
+  usageHostLabel: { color: COLORS.muted, fontSize: 12, fontWeight: '700', marginBottom: 6 },
   quickRow: { flexDirection: 'row', gap: 12 },
   quickTile: {
     flex: 1,
