@@ -2,6 +2,7 @@ import { useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/store/ui'
 import { SettingsMobile } from '@/components/Settings/SettingsMobile'
+import { IconClose } from '@/components/shared/icons'
 
 /**
  * Full-page overlay for enabling the mobile companion server and pairing the
@@ -33,7 +34,7 @@ export function MobilePairingView() {
         <div className="drag-region" />
         <span className="mobile-pairing-title">{t('mobilePairing')}</span>
         <button className="btn-icon" onClick={handleClose} aria-label={t('mobilePairing')}>
-          ✕
+          <IconClose size={11} />
         </button>
       </div>
       <div className="mobile-pairing-body">

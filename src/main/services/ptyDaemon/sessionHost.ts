@@ -332,6 +332,7 @@ export class SessionHost {
         rows: entry.rows,
         createdAt: entry.createdAt,
         metadata: entry.metadata,
+        attachedClients: entry.attachedClients,
       })
     }
     return result

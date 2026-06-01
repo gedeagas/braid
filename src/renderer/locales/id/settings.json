@@ -48,7 +48,21 @@
     "rollbackHistory": "Rollback riwayat chat",
     "rollbackHistoryHint": "Menambahkan tombol rewind pada pesan pengguna. Menekannya akan memotong riwayat chat hingga titik tersebut dan memulihkan file worktree melalui snapshot git.",
     "replayTour": "Putar Ulang Tur Fitur",
-    "replayTourHint": "Telusuri fitur utama Braid sekali lagi"
+    "replayTourHint": "Telusuri fitur utama Braid sekali lagi",
+    "maintenance": "Terminal yatim",
+    "maintenanceHint": "Sesi terminal daemon yang tidak lagi dilacak desktop sebagai tab. Membersihkannya membebaskan proses agen yang bocor.",
+    "maintenanceScan": "Pindai",
+    "maintenanceScanning": "Memindai…",
+    "maintenanceNone": "Tidak ada terminal yatim ditemukan.",
+    "maintenanceFound_one": "Ditemukan {{count}} terminal yatim:",
+    "maintenanceFound_other": "Ditemukan {{count}} terminal yatim:",
+    "maintenanceCleanUp": "Bersihkan {{count}}",
+    "maintenanceCleaning": "Membersihkan…",
+    "maintenanceDone_one": "Membersihkan {{count}} terminal.",
+    "maintenanceDone_other": "Membersihkan {{count}} terminal.",
+    "maintenanceError": "Tidak dapat menjangkau daemon terminal. Coba lagi.",
+    "maintenanceRescan": "Pindai ulang",
+    "maintenanceClose": "Selesai"
   },
   "appearance": {
     "uiZoom": "Zoom UI",

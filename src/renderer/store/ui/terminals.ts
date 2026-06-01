@@ -45,6 +45,88 @@ function loadBigTerminalsFor(worktreeId: string): BigTerminalTab[] {
   }
 }
 
+/**
+ * Every persisted big-terminal id across ALL worktrees. This is the desktop's
+ * authoritative "what should exist" set, used to detect orphaned daemon
+ * sessions (live "bt-" terminals not referenced by any persisted tab). Scans
+ * every localStorage key under the big-terminal prefix, not just the active
+ * worktree, so the orphan check never reaps a terminal in a worktree the user
+ * simply hasn't reopened this session.
+ */
+export function getAllPersistedBigTerminalIds(): string[] {
+  return getAllPersistedBigTerminals().map((tab) => tab.terminalId)
+}
+
+export interface PersistedBigTerminal {
+  terminalId: string
+  label?: string
+  agentId?: string
+  worktreeId?: string
+}
+
+/**
+ * Every persisted big terminal across ALL worktrees, with its label/agent. The
+ * mobile app needs the label here (not just the id) because a terminal's name
+ * lives in renderer state and isn't always in the daemon's metadata - pushing it
+ * to main lets terminal.list show the real name for terminals in worktrees the
+ * desktop hasn't reopened this session.
+ */
+export function getAllPersistedBigTerminals(): PersistedBigTerminal[] {
+  const result: PersistedBigTerminal[] = []
+  try {
+    const prefix = SK.bigTerminalTabsPrefix
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (!key?.startsWith(prefix)) continue
+      const worktreeId = key.slice(prefix.length)
+      for (const tab of loadBigTerminalsFor(worktreeId)) {
+        result.push({ terminalId: tab.id, label: tab.label, agentId: tab.agentId, worktreeId })
+      }
+    }
+  } catch {
+    // Best effort - an empty set just means the cleanup finds "everything" an
+    // orphan, which the manual review step guards against.
+  }
+  return result
+}
+
+/**
+ * Push every persisted big terminal's metadata (label/agent/worktree) to the
+ * daemon once on startup. loadInitial() only hydrates renderer state, and
+ * restoreBigTerminalsForWorktree only fires on an explicit worktree select - so
+ * without this the last-selected worktree's terminals would have a name on the
+ * desktop but none in the daemon, leaving the mobile app (and cold-start
+ * hydrate) showing unnamed terminals. setMetadata is a no-op on the daemon for
+ * sessions that no longer exist, so this can't resurrect orphans.
+ */
+export function syncAllPersistedBigTerminalMetadata(): void {
+  try {
+    const prefix = SK.bigTerminalTabsPrefix
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (!key?.startsWith(prefix)) continue
+      const worktreeId = key.slice(prefix.length)
+      for (const tab of loadBigTerminalsFor(worktreeId)) syncBigTerminalMetadata(worktreeId, tab)
+    }
+  } catch {
+    // Best effort - the per-worktree sync on select still covers the active one.
+  }
+  pushKnownBigTerminals()
+}
+
+/**
+ * Tell the main process the full set of big-terminal ids we track (across all
+ * worktrees). The mobile terminal.list intersects the daemon's session list with
+ * this set, so it can surface terminals in worktrees the desktop hasn't reopened
+ * while still excluding orphaned daemon sessions. Pushed on startup and after any
+ * tab create/close/rename (every saveBigTerminalsFor).
+ */
+function pushKnownBigTerminals(): void {
+  try {
+    ipc.pty.setKnownBigTerminals(getAllPersistedBigTerminals())
+  } catch {}
+}
+
 function saveBigTerminalsFor(worktreeId: string, tabs: BigTerminalTab[]): void {
   try {
     const persisted = tabs.map((tab) => ({
@@ -54,11 +136,28 @@ function saveBigTerminalsFor(worktreeId: string, tabs: BigTerminalTab[]): void {
     }))
     localStorage.setItem(SK.bigTerminalTabsPrefix + worktreeId, JSON.stringify(persisted))
   } catch {}
+  // Keep the main process's known-id set in sync so mobile's daemon-sourced
+  // terminal.list reflects creates/closes/renames without a restart.
+  pushKnownBigTerminals()
 }
 
 function syncBigTerminalMetadata(worktreeId: string, tab: BigTerminalTab): void {
   try {
     ipc.pty.setBigTerminalMetadata({
+      terminalId: tab.id,
+      worktreeId,
+      label: tab.label,
+      agentId: tab.agentId,
+    })
+  } catch {}
+}
+
+// A user-initiated rename: persists the new label on the main process AND fans
+// it out to other desktop windows + every connected mobile device so the tab
+// strip updates live everywhere. (setBigTerminalMetadata alone doesn't notify.)
+function broadcastBigTerminalRename(worktreeId: string, tab: BigTerminalTab): void {
+  try {
+    ipc.pty.renameBigTerminal({
       terminalId: tab.id,
       worktreeId,
       label: tab.label,
@@ -95,7 +194,11 @@ export interface TerminalsSlice {
   /** Register a terminal created outside the local renderer, e.g. from the mobile app. */
   registerRemoteBigTerminal: (worktreeId: string, tab: BigTerminalTab) => void
   renameBigTerminal: (worktreeId: string, id: string, label: string) => void
+  /** Apply a rename that originated elsewhere (another window or a mobile device). No metadata re-sync. */
+  applyRemoteBigTerminalRename: (worktreeId: string, id: string, label: string) => void
   closeBigTerminal: (worktreeId: string, id: string) => void
+  /** Remove a tab whose PTY was already closed elsewhere (another window or a mobile device). No kill. */
+  removeRemoteBigTerminal: (worktreeId: string, id: string) => void
   reorderBigTerminals: (worktreeId: string, fromIndex: number, toIndex: number) => void
   /** Update agent status for a big terminal. Creates entry if not present, merges otherwise. */
   updateBigTerminalStatus: (terminalId: string, payload: AgentStatusPayload) => void
@@ -155,7 +258,39 @@ export const createTerminalsSlice: StateCreator<UIState, [], [], TerminalsSlice>
       saveBigTerminalsFor(worktreeId, next)
       return { bigTerminalsByWorktree: { ...s.bigTerminalsByWorktree, [worktreeId]: next } }
     })
-    syncBigTerminalMetadata(worktreeId, { ...(current ?? { id, label: trimmed }), label: trimmed })
+    broadcastBigTerminalRename(worktreeId, { ...(current ?? { id, label: trimmed }), label: trimmed })
+  },
+
+  applyRemoteBigTerminalRename: (worktreeId, id, label) => {
+    const trimmed = label.trim() || 'Terminal'
+    set((s) => {
+      // Hydrate from storage if this worktree hasn't been loaded this session,
+      // so a remote rename doesn't clobber persisted tabs.
+      const existing = s.bigTerminalsByWorktree[worktreeId] ?? loadBigTerminalsFor(worktreeId)
+      if (!existing.some((t) => t.id === id)) return s
+      const next = existing.map((t) => (t.id === id ? { ...t, label: trimmed } : t))
+      saveBigTerminalsFor(worktreeId, next)
+      return { bigTerminalsByWorktree: { ...s.bigTerminalsByWorktree, [worktreeId]: next } }
+    })
+    // No metadata re-sync: the change originated on the main process, which is
+    // already authoritative. Re-syncing would echo a redundant broadcast.
+  },
+
+  removeRemoteBigTerminal: (worktreeId, id) => {
+    // Mirror closeBigTerminal minus the kill - the PTY was already reaped by
+    // whoever initiated the close (another window or a mobile device).
+    set((s) => {
+      const existing = s.bigTerminalsByWorktree[worktreeId] ?? loadBigTerminalsFor(worktreeId)
+      if (!existing.some((t) => t.id === id)) return s
+      const next = existing.filter((t) => t.id !== id)
+      saveBigTerminalsFor(worktreeId, next)
+      const statusNext = { ...s.bigTerminalStatusById }
+      delete statusNext[id]
+      return {
+        bigTerminalsByWorktree: { ...s.bigTerminalsByWorktree, [worktreeId]: next },
+        bigTerminalStatusById: statusNext,
+      }
+    })
   },
 
   closeBigTerminal: (worktreeId, id) => {
@@ -210,14 +345,18 @@ export const createTerminalsSlice: StateCreator<UIState, [], [], TerminalsSlice>
   },
 
   restoreBigTerminalsForWorktree: (worktreeId) => {
-    let loadedTabs: BigTerminalTab[] = []
     set((s) => {
       if (s.bigTerminalsByWorktree[worktreeId] !== undefined) return s // already hydrated
-      const loaded = loadBigTerminalsFor(worktreeId)
-      loadedTabs = loaded
-      return { bigTerminalsByWorktree: { ...s.bigTerminalsByWorktree, [worktreeId]: loaded } }
+      return { bigTerminalsByWorktree: { ...s.bigTerminalsByWorktree, [worktreeId]: loadBigTerminalsFor(worktreeId) } }
     })
-    loadedTabs.forEach((tab) => syncBigTerminalMetadata(worktreeId, tab))
+    // Re-sync metadata to the daemon/adapter for the worktree's CURRENT tabs,
+    // even when state was already hydrated. loadInitial() populates the
+    // last-selected worktree at store creation without syncing, so without this
+    // its terminals would have a label on the desktop (renderer state) but none
+    // in the daemon - leaving the mobile app (and cold-start hydrate) with an
+    // unnamed terminal. Syncing is idempotent, so doing it on every visit is safe.
+    const tabs = get().bigTerminalsByWorktree[worktreeId] ?? []
+    tabs.forEach((tab) => syncBigTerminalMetadata(worktreeId, tab))
   },
 
   clearBigTerminalsForWorktree: (worktreeId) => {

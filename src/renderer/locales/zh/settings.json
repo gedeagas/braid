@@ -48,7 +48,21 @@
     "rollbackHistory": "回退聊天历史",
     "rollbackHistoryHint": "在用户消息上添加回退按钮。点击后截断聊天历史到该点，并通过 git 快照恢复 worktree 文件。",
     "replayTour": "重播功能引导",
-    "replayTourHint": "再次浏览 Braid 的主要功能"
+    "replayTourHint": "再次浏览 Braid 的主要功能",
+    "maintenance": "孤立的终端",
+    "maintenanceHint": "桌面端不再作为标签页跟踪的守护进程终端会话。清理它们可释放泄漏的代理进程。",
+    "maintenanceScan": "扫描",
+    "maintenanceScanning": "扫描中…",
+    "maintenanceNone": "未找到孤立的终端。",
+    "maintenanceFound_one": "找到 {{count}} 个孤立的终端：",
+    "maintenanceFound_other": "找到 {{count}} 个孤立的终端：",
+    "maintenanceCleanUp": "清理 {{count}} 个",
+    "maintenanceCleaning": "清理中…",
+    "maintenanceDone_one": "已清理 {{count}} 个终端。",
+    "maintenanceDone_other": "已清理 {{count}} 个终端。",
+    "maintenanceError": "无法连接终端守护进程。请重试。",
+    "maintenanceRescan": "重新扫描",
+    "maintenanceClose": "完成"
   },
   "appearance": {
     "uiZoom": "界面缩放",

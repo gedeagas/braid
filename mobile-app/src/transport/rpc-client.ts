@@ -7,6 +7,10 @@ import type { JsonRpcResponse, PairedHost, PairingOffer, RpcNotification } from 
 type AuthenticatedMessage = { type: 'e2ee_authenticated'; deviceId: string; instanceName: string; deviceToken?: string };
 type ReadyMessage = { type: 'e2ee_ready'; serverEphemeralPublicKey: string };
 const REQUEST_TIMEOUT_MS = 12_000;
+// Per-message RPC tracing. Off by default: these fire on every request and
+// response (i.e. every keystroke and every terminal.data ack), so logging them
+// is pure hot-path overhead. Flip to true to debug the wire protocol.
+const VERBOSE_RPC_LOGS = false;
 
 export function parsePairingPayload(payload: string): PairingOffer {
   const trimmed = payload.trim();
@@ -233,7 +237,7 @@ export class BraidRpcClient {
     if (!ws || ws.readyState !== WebSocket.OPEN) throw new Error('Not connected to Braid desktop');
     const id = this.nextId++;
     const payload = this.encrypt({ jsonrpc: '2.0', id, method, params }, false);
-    console.log('[BraidMobile] rpc.request.send', { id, method, params });
+    if (VERBOSE_RPC_LOGS) console.log('[BraidMobile] rpc.request.send', { id, method, params });
     ws.send(payload);
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -295,7 +299,7 @@ export class BraidRpcClient {
         console.error('[BraidMobile] rpc.response.error', { id: response.id, error: response.error.message });
         pending.reject(new Error(response.error.message));
       } else {
-        console.log('[BraidMobile] rpc.response.ok', { id: response.id });
+        if (VERBOSE_RPC_LOGS) console.log('[BraidMobile] rpc.response.ok', { id: response.id });
         pending.resolve(response.result);
       }
     } catch (error) {

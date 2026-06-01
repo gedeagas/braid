@@ -136,6 +136,8 @@ const api = {
       ipcRenderer.send('pty:removeBigTerminalMetadata', terminalId),
     killBigTerminal: (terminalId: string) =>
       ipcRenderer.send('pty:killBigTerminal', terminalId),
+    renameBigTerminal: (payload: { terminalId: string; worktreeId?: string; label: string; agentId?: string }) =>
+      ipcRenderer.send('pty:renameBigTerminal', payload),
     readScrollback: (terminalId: string) =>
       ipcRenderer.invoke('pty:readScrollback', terminalId) as Promise<string>,
     isMobileTerminalActive: (terminalId: string) =>
@@ -148,6 +150,12 @@ const api = {
       ipcRenderer.invoke('pty:reattach', sessionId) as Promise<{ sessionId: string; snapshot: string } | null>,
     listSessions: () =>
       ipcRenderer.invoke('pty:listSessions') as Promise<Array<{ sessionId: string; cwd: string; cols: number; rows: number; createdAt: number }>>,
+    listOrphanedBigTerminals: (knownTerminalIds: string[]) =>
+      ipcRenderer.invoke('pty:listOrphanedBigTerminals', knownTerminalIds) as Promise<Array<{ terminalId: string; cwd: string; label?: string; agentId?: string }>>,
+    killOrphanedBigTerminals: (terminalIds: string[]) =>
+      ipcRenderer.invoke('pty:killOrphanedBigTerminals', terminalIds) as Promise<number>,
+    setKnownBigTerminals: (items: Array<{ terminalId: string; label?: string; agentId?: string; worktreeId?: string }>) =>
+      ipcRenderer.send('pty:setKnownBigTerminals', items),
     onAgentHookStatus: (callback: (status: { terminalId: string; state: string; agentType: string; toolName?: string; interrupted?: boolean }) => void) => {
       const handler = (_event: Electron.IpcRendererEvent, status: { terminalId: string; state: string; agentType: string; toolName?: string; interrupted?: boolean }) => callback(status)
       ipcRenderer.on('agent-hook:status', handler)
@@ -167,6 +175,16 @@ const api = {
       const handler = (_event: Electron.IpcRendererEvent, tab: { terminalId: string; worktreeId?: string; worktreePath?: string; label?: string; agentId?: string }) => callback(tab)
       ipcRenderer.on('pty:bigTerminalRegistered', handler)
       return () => ipcRenderer.removeListener('pty:bigTerminalRegistered', handler)
+    },
+    onBigTerminalRenamed: (callback: (tab: { terminalId: string; worktreeId?: string; worktreePath?: string; label: string }) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, tab: { terminalId: string; worktreeId?: string; worktreePath?: string; label: string }) => callback(tab)
+      ipcRenderer.on('pty:bigTerminalRenamed', handler)
+      return () => ipcRenderer.removeListener('pty:bigTerminalRenamed', handler)
+    },
+    onBigTerminalClosed: (callback: (tab: { terminalId: string; worktreeId?: string; worktreePath?: string }) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, tab: { terminalId: string; worktreeId?: string; worktreePath?: string }) => callback(tab)
+      ipcRenderer.on('pty:bigTerminalClosed', handler)
+      return () => ipcRenderer.removeListener('pty:bigTerminalClosed', handler)
     },
   },
 

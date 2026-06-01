@@ -140,6 +140,50 @@ describe('terminalsSlice', () => {
     })
   })
 
+  describe('applyRemoteBigTerminalRename', () => {
+    it('relabels an existing tab and persists', () => {
+      const { actions, read } = makeSlice()
+      const id = actions.createBigTerminal(WT)
+      actions.applyRemoteBigTerminalRename(WT, id, 'from-mobile')
+      expect(read()[WT]!.find((t) => t.id === id)?.label).toBe('from-mobile')
+      const raw = JSON.parse(localStorage.getItem(SK.bigTerminalTabsPrefix + WT)!)
+      expect(raw[0].label).toBe('from-mobile')
+    })
+
+    it('falls back to "Terminal" when the remote label is blank', () => {
+      const { actions, read } = makeSlice()
+      const id = actions.createBigTerminal(WT)
+      actions.applyRemoteBigTerminalRename(WT, id, '   ')
+      expect(read()[WT]!.find((t) => t.id === id)?.label).toBe('Terminal')
+    })
+
+    it('is a no-op for an unknown id', () => {
+      const { actions, read } = makeSlice()
+      const id = actions.createBigTerminal(WT, 'keep')
+      actions.applyRemoteBigTerminalRename(WT, 'bt-missing', 'ignored')
+      expect(read()[WT]!.find((t) => t.id === id)?.label).toBe('keep')
+    })
+  })
+
+  describe('removeRemoteBigTerminal', () => {
+    it('drops the tab and persists without touching others', () => {
+      const { actions, read } = makeSlice()
+      const a = actions.createBigTerminal(WT)
+      const b = actions.createBigTerminal(WT)
+      actions.removeRemoteBigTerminal(WT, a)
+      expect(read()[WT]!.map((t) => t.id)).toEqual([b])
+      const raw = JSON.parse(localStorage.getItem(SK.bigTerminalTabsPrefix + WT)!)
+      expect(raw.map((t: { id: string }) => t.id)).toEqual([b])
+    })
+
+    it('is a no-op for an unknown id', () => {
+      const { actions, read } = makeSlice()
+      const id = actions.createBigTerminal(WT)
+      actions.removeRemoteBigTerminal(WT, 'bt-missing')
+      expect(read()[WT]!.map((t) => t.id)).toEqual([id])
+    })
+  })
+
   describe('closeBigTerminal', () => {
     it('removes the terminal and persists', () => {
       const { actions, read } = makeSlice()

@@ -52,4 +52,7 @@ export interface SessionInfo {
   rows: number
   createdAt: number
   metadata?: DaemonSessionMetadata
+  /** Number of clients currently attached (viewing) this session. 0 = nobody is
+   *  looking at it right now, which is the safety signal for orphan cleanup. */
+  attachedClients: number
 }

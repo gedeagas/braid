@@ -491,7 +491,15 @@ import { PtyDaemonAdapter } from './ptyDaemon'
  * a standalone daemon process so terminals survive app restarts.
  * Falls back to in-process PtyService if the daemon fails to initialize.
  */
-function createPtyService(): IPtyService & { reattach?: (sessionId: string) => Promise<import('./ptyDaemon').ReattachResult | null>; listSessions?: () => Promise<import('./ptyDaemon').SessionInfo[]>; disconnectFromDaemon?: () => void; ensureDaemon?: () => Promise<void> } {
+/** A big-terminal daemon session the desktop no longer tracks as a tab. */
+export interface OrphanedTerminal {
+  terminalId: string
+  cwd: string
+  label?: string
+  agentId?: string
+}
+
+function createPtyService(): IPtyService & { reattach?: (sessionId: string) => Promise<import('./ptyDaemon').ReattachResult | null>; listSessions?: () => Promise<import('./ptyDaemon').SessionInfo[]>; disconnectFromDaemon?: () => void; ensureDaemon?: () => Promise<void>; listOrphanedBigTerminals?: (knownTerminalIds: string[]) => Promise<OrphanedTerminal[]>; killOrphanedBigTerminals?: (terminalIds: string[]) => Promise<number> } {
   try {
     const adapter = new PtyDaemonAdapter()
     console.log('[pty] Using daemon adapter')

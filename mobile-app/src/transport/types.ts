@@ -105,6 +105,13 @@ export interface GitChange {
   deletions?: number;
 }
 
+export interface GitBranchStatus {
+  current: string | null;
+  tracking: string | null;
+  ahead: number;
+  behind: number;
+}
+
 export interface RpcNotification {
   jsonrpc: '2.0';
   method: string;

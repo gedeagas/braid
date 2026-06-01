@@ -1,11 +1,11 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { Check, ChevronLeft, ChevronsRight, Command, GitBranch, Keyboard as KeyboardIcon, Monitor, Plus, RefreshCw, Send, Smartphone, TerminalSquare, X } from 'lucide-react-native';
+import { Check, ChevronLeft, ChevronsRight, Command, GitBranch, Keyboard as KeyboardIcon, Monitor, Pencil, Plus, RefreshCw, Send, Smartphone, TerminalSquare, Trash2, X } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActionSheetIOS, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { TerminalWebView, type TerminalWebViewHandle } from '@/terminal/TerminalWebView';
+import { TerminalWebView, TERMINAL_THEMES, type TerminalWebViewHandle } from '@/terminal/TerminalWebView';
 import {
   clearTerminalLiveInputFocusTimer,
   getTerminalLiveSpecialKeyBytes,
@@ -35,7 +35,7 @@ function terminalLabel(terminal: BraidTerminal) {
 export default function TerminalScreen() {
   const { hostId, worktreePath, worktreeName, terminalId } = useLocalSearchParams<{ hostId: string; worktreePath?: string; worktreeName?: string; terminalId?: string }>();
   const { client, state } = useHostClient(hostId);
-  const colors = useTheme().palette;
+  const { palette: colors, scheme } = useTheme();
   const shared = useShared();
   const terminalRef = useRef<TerminalWebViewHandle>(null);
   const detectedAgents = useDetectedAgents(client);
@@ -51,12 +51,27 @@ export default function TerminalScreen() {
   const [creatingTerminal, setCreatingTerminal] = useState(false);
   const [agentPickerOpen, setAgentPickerOpen] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState<string>(AGENT_CATALOG[0]?.id ?? 'claude');
+  // Terminal being renamed (null when the rename modal is closed) + its draft.
+  const [renameTarget, setRenameTarget] = useState<{ terminal: BraidTerminal; draft: string } | null>(null);
+  // Terminal whose long-press action sheet is open (null when closed).
+  const [actionTarget, setActionTarget] = useState<BraidTerminal | null>(null);
   // Set of terminal ids in "live" passthrough mode, so each tab remembers its
   // own input mode when you switch between them.
   const [liveInputHandles, setLiveInputHandles] = useState<Set<string>>(() => new Set());
   // Set of terminal ids showing at the desktop's native size (vs. phone-fit).
   const [desktopModeHandles, setDesktopModeHandles] = useState<Set<string>>(() => new Set());
   const activeIdRef = useRef<string | null>(null);
+  // Mirror of the active terminal object, for the notification handler (deps:
+  // [client]) which must not re-create on every `active` change.
+  const activeTerminalRef = useRef<BraidTerminal | null>(null);
+  // Mirror of the tab list so the notification handler can reconcile remote
+  // rename/close events without re-subscribing on every list change.
+  const terminalsRef = useRef<BraidTerminal[]>([]);
+  // Last phone-fit dimensions we applied to the PTY. Used to detect when the
+  // desktop (its active tab momentarily un-held) has resized the shared PTY
+  // away from our phone viewport, so we can re-assert the fit instead of
+  // rendering desktop-width output in our narrow grid.
+  const phoneFitDimsRef = useRef<{ cols: number; rows: number } | null>(null);
   // Tracks which deep-link terminalId we've already switched to, so the
   // notification target is honored once (when it first appears in the list) and
   // doesn't yank the user back when the terminal list later changes.
@@ -72,6 +87,12 @@ export default function TerminalScreen() {
   // that must not re-create on every set change.
   const desktopModeRef = useRef<Set<string>>(new Set());
   useEffect(() => { desktopModeRef.current = desktopModeHandles; }, [desktopModeHandles]);
+  useEffect(() => { activeTerminalRef.current = active; }, [active]);
+  useEffect(() => { terminalsRef.current = terminals; }, [terminals]);
+  // Mirror of the active worktree so the notification handler can re-fetch the
+  // tab strip for the right worktree without re-subscribing on every change.
+  const worktreeRef = useRef<BraidWorktree | null>(worktree);
+  useEffect(() => { worktreeRef.current = worktree; }, [worktree]);
   // Tracks the previous connection state so we can detect a reconnect (the app
   // backgrounding closes the socket, which drops the server-side subscription).
   const prevStateRef = useRef(state);
@@ -111,6 +132,7 @@ export default function TerminalScreen() {
       dims,
     });
     if (!dims) return;
+    phoneFitDimsRef.current = dims;
     terminalRef.current.resize(dims.cols, dims.rows);
     await client.request('terminal.resize', { ptyId: terminal.id, cols: dims.cols, rows: dims.rows });
   }, [client]);
@@ -232,6 +254,44 @@ export default function TerminalScreen() {
     }
   }, [client, openTerminal]);
 
+  // Lightweight re-sync of the tab strip when the desktop's terminal set changes
+  // (a terminal was created or restored after a cold start). Unlike
+  // loadTerminals this never re-opens an already-active terminal, so a live
+  // session isn't interrupted: it only opens a tab when none is active, or when
+  // the previously-active tab has vanished. This is what makes a terminal the
+  // desktop restored show up without the user manually pulling to refresh.
+  const refreshTerminalList = useCallback(async (targetWorktree: BraidWorktree | null) => {
+    if (!client || !targetWorktree) return;
+    try {
+      const raw = await client.request<Array<BraidTerminal & { ptyId?: string }>>('terminal.list', { worktreePath: targetWorktree.path });
+      const list = raw.map((terminal) => ({
+        ...terminal,
+        id: terminal.id ?? terminal.ptyId ?? '',
+        terminalId: terminal.terminalId ?? terminal.id ?? terminal.ptyId,
+        worktreePath: targetWorktree.path,
+      })).filter((terminal) => terminal.id);
+      console.log('[BraidMobile] terminal.listChanged.refresh', { worktree: targetWorktree.path, count: list.length });
+      setTerminals(list);
+      const activeId = activeIdRef.current;
+      // Active tab still present - leave the live session untouched.
+      if (activeId && list.some((terminal) => terminal.id === activeId)) return;
+      const next = list[0] ?? null;
+      if (next) {
+        setSelectorsExpanded(false);
+        await openTerminal(next);
+      } else if (activeId) {
+        // The active tab was reaped elsewhere and nothing remains.
+        activeIdRef.current = null;
+        setActive(null);
+        setInputReadyTerminalId(null);
+        setSelectorsExpanded(true);
+      }
+    } catch (err) {
+      // Best effort; the manual refresh button (⟳) remains as a fallback.
+      console.log('[BraidMobile] terminal.listChanged.refresh.error', { error: err instanceof Error ? err.message : String(err) });
+    }
+  }, [client, openTerminal]);
+
   const createTerminal = useCallback(async (agentId?: string) => {
     if (!client || !worktree || creatingTerminal) return;
     const agent = getAgentEntry(agentId ?? selectedAgentId) ?? selectedAgent ?? AGENT_CATALOG[0];
@@ -297,24 +357,32 @@ export default function TerminalScreen() {
     }
   }, [client, openTerminal, terminals]);
 
-  // Long-press a tab to confirm closing it (native action sheet on iOS, alert on
-  // Android). Mirrors the per-tab close on the desktop.
-  const confirmCloseTerminal = useCallback((terminal: BraidTerminal) => {
-    const title = `Close ${terminalLabel(terminal)}?`;
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { title, options: ['Cancel', 'Close terminal'], destructiveButtonIndex: 1, cancelButtonIndex: 0 },
-        (index) => {
-          if (index === 1) void closeTerminal(terminal);
-        },
-      );
-    } else {
-      Alert.alert(title, undefined, [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Close terminal', style: 'destructive', onPress: () => void closeTerminal(terminal) },
-      ]);
+  // Rename a terminal tab: optimistically relabel locally, then tell the
+  // desktop (which fans the new label out to every other paired device and the
+  // desktop tab strip). Mirrors the desktop's inline tab rename.
+  const renameTerminal = useCallback(async (terminal: BraidTerminal, label: string) => {
+    if (!client) return;
+    const trimmed = label.trim();
+    if (!trimmed || trimmed === terminalLabel(terminal)) return;
+    const relabel = (t: BraidTerminal) => ({ ...t, label: trimmed, title: trimmed, name: trimmed });
+    setTerminals((current) => current.map((item) => (item.id === terminal.id ? relabel(item) : item)));
+    setActive((current) => (current && current.id === terminal.id ? relabel(current) : current));
+    try {
+      await client.request('terminal.rename', {
+        terminalId: terminal.terminalId,
+        ptyId: terminal.id,
+        label: trimmed,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     }
-  }, [closeTerminal]);
+  }, [client]);
+
+  // Long-press a tab to open a themed action sheet (rename / close). Mirrors the
+  // per-tab actions on the desktop.
+  const showTerminalActions = useCallback((terminal: BraidTerminal) => {
+    setActionTarget(terminal);
+  }, []);
 
   useEffect(() => () => clearTerminalLiveInputFocusTimer(liveInputFocusTimerRef), []);
 
@@ -339,6 +407,56 @@ export default function TerminalScreen() {
   useEffect(() => {
     if (!client) return;
     const off = client.onNotification((notification) => {
+      // The desktop's live terminal set changed (a tab was created, or a session
+      // was restored/reattached after a cold start). Re-sync the strip for the
+      // current worktree - this is what surfaces a restored terminal without a
+      // manual pull. Non-disruptive: it won't re-open the active tab.
+      if (notification.method === 'terminal.listChanged') {
+        const params = notification.params as { worktreePath?: string };
+        const wt = worktreeRef.current;
+        if (wt && (!params.worktreePath || params.worktreePath === wt.path)) {
+          void refreshTerminalList(wt);
+        }
+        return;
+      }
+      // A tab was renamed elsewhere (desktop or another device): relabel locally.
+      if (notification.method === 'terminal.tabRenamed') {
+        const params = notification.params as { terminalId?: string; label?: string };
+        const tid = params.terminalId;
+        const label = params.label;
+        if (!tid || !label) return;
+        const matches = (t: BraidTerminal) => t.terminalId === tid || t.id === tid;
+        const relabel = (t: BraidTerminal) => ({ ...t, label, title: label, name: label });
+        setTerminals((current) => current.map((t) => (matches(t) ? relabel(t) : t)));
+        setActive((current) => (current && matches(current) ? relabel(current) : current));
+        return;
+      }
+      // A tab was closed elsewhere: drop it, and if it was active fall back to
+      // the next tab (or the empty state). The PTY is already reaped server-side.
+      if (notification.method === 'terminal.tabClosed') {
+        const tid = (notification.params as { terminalId?: string }).terminalId;
+        if (!tid) return;
+        const closed = terminalsRef.current.find((t) => t.terminalId === tid || t.id === tid);
+        if (!closed) return;
+        const remaining = terminalsRef.current.filter((t) => t.id !== closed.id);
+        setTerminals(remaining);
+        if (activeIdRef.current === closed.id) {
+          if (subscriptionRef.current?.terminalId === closed.id) {
+            client.unsubscribe(subscriptionRef.current.subscriptionId).catch(() => undefined);
+            subscriptionRef.current = null;
+          }
+          const next = remaining[0] ?? null;
+          if (next) {
+            void openTerminal(next);
+          } else {
+            activeIdRef.current = null;
+            setActive(null);
+            setInputReadyTerminalId(null);
+            setSelectorsExpanded(true);
+          }
+        }
+        return;
+      }
       if (notification.method === 'terminal.data') {
         const params = notification.params as { ptyId?: string; data?: string };
         if (params.ptyId === activeIdRef.current && params.data) {
@@ -363,12 +481,28 @@ export default function TerminalScreen() {
             setDesktopModeHandles(next);
           }
         }
-        // The desktop changed the PTY dimensions (e.g. we entered desktop mode
-        // and it fit to its own pane). Match the WebView's xterm so it renders
-        // correctly; TerminalWebView CSS-scales the wide canvas to fit.
-        if (params.cols && params.rows && desktopModeRef.current.has(params.ptyId)) {
+        if (!params.cols || !params.rows) return;
+        if (desktopModeRef.current.has(params.ptyId)) {
+          // Desktop mode: the desktop drives its native dims, so match the
+          // WebView's xterm; TerminalWebView CSS-scales the wide canvas to fit.
           console.log('[BraidMobile] terminal.resized', { ptyId: params.ptyId, cols: params.cols, rows: params.rows });
           terminalRef.current?.resize(params.cols, params.rows);
+          return;
+        }
+        // Phone mode: we own the PTY size and the desktop is meant to yield. If
+        // the shared PTY was resized away from our phone viewport (e.g. the
+        // desktop's active tab momentarily un-held and fit the PTY to its own
+        // pane during the connect race), re-assert the phone fit so xterm and
+        // the PTY stay in sync instead of wrapping desktop-width output into our
+        // narrow grid. Compared against the dims we last applied so our own
+        // resize echo doesn't loop; the desktop holds once it learns we're
+        // attached, so this converges in a single round.
+        const fit = phoneFitDimsRef.current;
+        const diverged = !fit || fit.cols !== params.cols || fit.rows !== params.rows;
+        const term = activeTerminalRef.current;
+        if (diverged && term && term.id === params.ptyId) {
+          console.log('[BraidMobile] terminal.resized.reassert', { ptyId: params.ptyId, cols: params.cols, rows: params.rows });
+          void fitActiveTerminal(term);
         }
       }
     });
@@ -377,7 +511,7 @@ export default function TerminalScreen() {
       const current = subscriptionRef.current;
       if (current) client.unsubscribe(current.subscriptionId).catch(() => undefined);
     };
-  }, [client]);
+  }, [client, fitActiveTerminal, openTerminal, refreshTerminalList]);
 
   // Catch the active terminal up after a reconnect. The client auto-resends the
   // terminal.subscribe on reconnect (resendSubscriptions), so the live stream
@@ -387,9 +521,14 @@ export default function TerminalScreen() {
   useEffect(() => {
     const prev = prevStateRef.current;
     prevStateRef.current = state;
-    // Only on a real transition back into 'connected' (a reconnect), not the
-    // initial connect (handled by loadTerminals) - `active` is null until then.
-    if (state !== 'connected' || prev === 'connected' || !active || !client) return;
+    // Only on a real transition back into 'connected' (a reconnect).
+    if (state !== 'connected' || prev === 'connected' || !client) return;
+    // listChanged notifications are dropped while the socket is closed (app
+    // backgrounded), so re-sync the tab strip on reconnect to pick up terminals
+    // the desktop created or restored in the meantime.
+    void refreshTerminalList(worktreeRef.current);
+    // Nothing more to do if no tab is active yet (handled by loadTerminals).
+    if (!active) return;
     const terminal = active;
     console.log('[BraidMobile] terminal.resume', { ptyId: terminal.id });
     client
@@ -401,7 +540,7 @@ export default function TerminalScreen() {
         void fitActiveTerminal(terminal);
       })
       .catch(() => undefined);
-  }, [state, active, client, fitActiveTerminal]);
+  }, [state, active, client, fitActiveTerminal, refreshTerminalList]);
 
   const activeInputReady = active != null && inputReadyTerminalId === active.id;
   const canSend = state === 'connected' && activeInputReady;
@@ -530,7 +669,10 @@ export default function TerminalScreen() {
           mode: 'phone',
           viewport: dims ? { cols: dims.cols, rows: dims.rows } : undefined,
         });
-        if (dims) terminalRef.current?.resize(dims.cols, dims.rows);
+        if (dims) {
+          phoneFitDimsRef.current = dims;
+          terminalRef.current?.resize(dims.cols, dims.rows);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -689,6 +831,18 @@ export default function TerminalScreen() {
     backgroundColor: colors.panelStrong,
   };
 
+  const actionRow = {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 12,
+    minHeight: 48,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.panel,
+  };
+
   const pickerList = {
     maxHeight: 520,
   };
@@ -792,6 +946,14 @@ export default function TerminalScreen() {
                 <Text style={chromeTextButtonLabel}>{selectorsExpanded ? 'Hide' : 'Change'}</Text>
               </Pressable>
             )}
+            <Pressable
+              style={[chromeIconButton, !worktree && { opacity: 0.35 }]}
+              disabled={!worktree}
+              onPress={() => worktree && router.push({ pathname: '/git/[hostId]', params: { hostId, worktreePath: worktree.path, worktreeName: worktree.branch } })}
+              accessibilityLabel="Open source control"
+            >
+              <GitBranch color={colors.text} size={18} />
+            </Pressable>
             <Pressable style={chromeIconButton} onPress={() => loadTerminals(worktree, active?.id)}><RefreshCw color={colors.text} size={17} /></Pressable>
           </View>
 
@@ -823,7 +985,7 @@ export default function TerminalScreen() {
               ) : terminals.map((terminal) => {
                 const isActive = active?.id === terminal.id;
                 return (
-                  <Pressable key={terminal.id} style={[terminalTabStyle, isActive && terminalTabActiveStyle]} onPress={() => openTerminal(terminal)} onLongPress={() => confirmCloseTerminal(terminal)}>
+                  <Pressable key={terminal.id} style={[terminalTabStyle, isActive && terminalTabActiveStyle]} onPress={() => openTerminal(terminal)} onLongPress={() => showTerminalActions(terminal)}>
                     <View style={{ maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <TerminalSquare color={isActive ? colors.text : colors.muted} size={14} />
                       <Text style={[terminalTabTextStyle, isActive && terminalTabTextActiveStyle]} numberOfLines={1}>{terminalLabel(terminal)}</Text>
@@ -844,6 +1006,94 @@ export default function TerminalScreen() {
         </View>
 
         {error && <Text style={{ color: colors.danger, paddingHorizontal: 12, paddingVertical: 8, fontSize: 12 }}>{error}</Text>}
+
+        <Modal visible={renameTarget != null} transparent animationType="fade" onRequestClose={() => setRenameTarget(null)}>
+          {/* Lift the bottom-anchored panel above the keyboard so the input isn't covered. */}
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <Pressable style={pickerBackdrop} onPress={() => setRenameTarget(null)}>
+            {/* Stop propagation so taps inside the panel don't dismiss it. */}
+            <Pressable style={pickerPanel} onPress={() => undefined}>
+              <View style={pickerHeader}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={pickerTitle}>Rename terminal</Text>
+                  <Text style={pickerSubtitle} numberOfLines={1}>{renameTarget ? terminalLabel(renameTarget.terminal) : ''}</Text>
+                </View>
+                <Pressable style={pickerCloseButton} onPress={() => setRenameTarget(null)} accessibilityLabel="Cancel rename">
+                  <X color={colors.text} size={18} />
+                </Pressable>
+              </View>
+              <View style={{ padding: 14, gap: 12 }}>
+                <TextInput
+                  value={renameTarget?.draft ?? ''}
+                  onChangeText={(text) => setRenameTarget((current) => (current ? { ...current, draft: text } : current))}
+                  placeholder="Terminal name"
+                  placeholderTextColor={colors.subtle}
+                  autoFocus
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="done"
+                  onSubmitEditing={() => {
+                    if (renameTarget) void renameTerminal(renameTarget.terminal, renameTarget.draft);
+                    setRenameTarget(null);
+                  }}
+                  style={[shared.input, { minHeight: 40, height: 40, paddingVertical: 0, borderRadius: 8, backgroundColor: colors.panelStrong }]}
+                />
+                <Pressable
+                  style={{ minHeight: 42, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accent, opacity: renameTarget?.draft.trim() ? 1 : 0.4 }}
+                  disabled={!renameTarget?.draft.trim()}
+                  onPress={() => {
+                    if (renameTarget) void renameTerminal(renameTarget.terminal, renameTarget.draft);
+                    setRenameTarget(null);
+                  }}
+                >
+                  <Text style={{ color: colors.bg, fontSize: 14, fontWeight: '700' }}>Rename</Text>
+                </Pressable>
+              </View>
+            </Pressable>
+          </Pressable>
+          </KeyboardAvoidingView>
+        </Modal>
+
+        <Modal visible={actionTarget != null} transparent animationType="fade" onRequestClose={() => setActionTarget(null)}>
+          <Pressable style={pickerBackdrop} onPress={() => setActionTarget(null)}>
+            {/* Stop propagation so taps inside the panel don't dismiss it. */}
+            <Pressable style={pickerPanel} onPress={() => undefined}>
+              <View style={pickerHeader}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={pickerTitle}>Terminal actions</Text>
+                  <Text style={pickerSubtitle} numberOfLines={1}>{actionTarget ? terminalLabel(actionTarget) : ''}</Text>
+                </View>
+                <Pressable style={pickerCloseButton} onPress={() => setActionTarget(null)} accessibilityLabel="Cancel">
+                  <X color={colors.text} size={18} />
+                </Pressable>
+              </View>
+              <View style={{ padding: 14, gap: 8 }}>
+                <Pressable
+                  style={({ pressed }) => [actionRow, pressed && { backgroundColor: colors.panelStrong }]}
+                  onPress={() => {
+                    const target = actionTarget;
+                    setActionTarget(null);
+                    if (target) setRenameTarget({ terminal: target, draft: target.label || target.title || target.name || '' });
+                  }}
+                >
+                  <Pencil color={colors.text} size={18} />
+                  <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600' }}>Rename</Text>
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [actionRow, pressed && { backgroundColor: colors.panelStrong }]}
+                  onPress={() => {
+                    const target = actionTarget;
+                    setActionTarget(null);
+                    if (target) void closeTerminal(target);
+                  }}
+                >
+                  <Trash2 color={colors.danger} size={18} />
+                  <Text style={{ color: colors.danger, fontSize: 15, fontWeight: '600' }}>Close terminal</Text>
+                </Pressable>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
 
         <Modal visible={agentPickerOpen} transparent animationType="fade" onRequestClose={() => setAgentPickerOpen(false)}>
           <Pressable style={pickerBackdrop} onPress={() => setAgentPickerOpen(false)}>
@@ -947,6 +1197,7 @@ export default function TerminalScreen() {
         >
           <TerminalWebView
             ref={terminalRef}
+            terminalTheme={TERMINAL_THEMES[scheme]}
             onWebReady={() => {
               if (active && initializedKeyRef.current !== active.id) void openTerminal(active);
             }}

@@ -5,6 +5,7 @@ import { logger } from '../../lib/logger'
 import { DEFAULT_MOBILE_PORT } from '../../../shared/mobile-protocol'
 import { deviceStore } from './deviceStore'
 import { dispatch } from './rpc'
+import { setMobileBroadcaster } from './broadcast'
 import * as discovery from './discovery'
 import * as e2ee from './e2ee'
 import { getMobileInstanceName } from './instanceName'
@@ -33,6 +34,21 @@ class MobileServer {
 
   constructor() {
     this.instanceId = this.loadOrCreateInstanceId()
+    // Register the broadcast hook so RPC/IPC handlers can push notifications
+    // (e.g. terminal tab rename/close) to every connected device.
+    setMobileBroadcaster((notification, exceptDeviceId) => this.broadcast(notification, exceptDeviceId))
+  }
+
+  /**
+   * Push a notification to every authenticated device, optionally skipping the
+   * one that originated the change. Reuses the per-connection 'rpc:notification'
+   * forwarding (encryption + send-queue ordering) set up at auth time.
+   */
+  private broadcast(notification: JsonRpcNotification, exceptDeviceId?: string): void {
+    for (const [deviceId, conn] of this.connections) {
+      if (deviceId === exceptDeviceId) continue
+      conn.ws.emit('rpc:notification', notification)
+    }
   }
 
   // ── Lifecycle ─────────────────────────────────────────────────────────

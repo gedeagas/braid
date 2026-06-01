@@ -337,3 +337,66 @@
   margin-left: auto;
   padding-left: var(--space-16);
 }
+
+/* Orphaned-terminal cleanup card (Settings -> General -> Maintenance) */
+.settings-orphans {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  align-items: flex-start;
+}
+
+.settings-orphans-status {
+  margin: 0;
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+}
+
+.settings-orphans-error {
+  margin: 0;
+  font-size: var(--text-base);
+  color: var(--red);
+}
+
+.settings-orphans-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  max-height: 180px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.settings-orphans-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-8);
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-orphans-item:last-child {
+  border-bottom: none;
+}
+
+.settings-orphans-item-label {
+  font-size: var(--text-base);
+  color: var(--text-primary);
+}
+
+.settings-orphans-item-cwd {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  word-break: break-all;
+}
+
+.settings-orphans-actions {
+  display: flex;
+  gap: var(--space-8);
+}

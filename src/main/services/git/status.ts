@@ -3,7 +3,7 @@ import { join, relative } from 'path'
 import { getValidGit } from './core'
 import { ServiceCache } from '../../lib/serviceCache'
 import { isBinaryFile } from '../../lib/binaryFile'
-import type { FileEntry, GitChangeInfo } from './types'
+import type { BranchStatusInfo, FileEntry, GitChangeInfo } from './types'
 
 const FILE_TREE_IGNORE = new Set(['.git', 'node_modules', '.DS_Store', '.claude'])
 
@@ -100,6 +100,23 @@ export async function getStatus(worktreePath: string): Promise<GitChangeInfo[]> 
   }
 
   return changes
+}
+
+/**
+ * Branch summary for the source-control UI: current branch name, its upstream
+ * tracking ref, and how far ahead/behind it is. `simple-git`'s status already
+ * carries these, so this is one cheap call.
+ */
+export async function getBranchStatus(worktreePath: string): Promise<BranchStatusInfo> {
+  const git = await getValidGit(worktreePath)
+  if (!git) return { current: null, tracking: null, ahead: 0, behind: 0 }
+  const status = await git.status()
+  return {
+    current: status.current ?? null,
+    tracking: status.tracking ?? null,
+    ahead: status.ahead ?? 0,
+    behind: status.behind ?? 0,
+  }
 }
 
 export async function getDiff(worktreePath: string): Promise<string> {

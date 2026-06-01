@@ -55,6 +55,10 @@ export default function HomeScreen() {
   const [discoveredHosts, setDiscoveredHosts] = useState<BonjourHost[]>([]);
   const [bonjourError, setBonjourError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  // Terminals the user has already opened from "Needs attention", keyed by
+  // terminal with the exact signature (status + run time) they acknowledged.
+  // The card reappears only when a genuinely newer event changes the signature.
+  const [acknowledged, setAcknowledged] = useState<Record<string, string>>({});
   const [permission, requestPermission] = useCameraPermissions();
   const scannedRef = useRef(false);
   const manager = useClientManager();
@@ -236,10 +240,13 @@ export default function HomeScreen() {
     const items = sortedSnapshots.flatMap((snapshot) =>
       snapshot.terminals
         .filter((terminal) => terminal.status === 'waiting' || terminal.status === 'done')
+        // Drop terminals the user already opened, unless a newer event (new
+        // status or more run time) has fired since they acknowledged it.
+        .filter((terminal) => acknowledged[attentionKey(snapshot.host.id, terminal)] !== attentionSignature(terminal))
         .map((terminal) => ({ hostId: snapshot.host.id, terminal })),
     );
     return items.sort((a, b) => attentionRank(a.terminal.status) - attentionRank(b.terminal.status));
-  }, [sortedSnapshots]);
+  }, [sortedSnapshots, acknowledged]);
 
   // Live, actionable counts that replace the old vanity totals.
   const counts = useMemo(() => {
@@ -261,6 +268,12 @@ export default function HomeScreen() {
   // Deep-link to the exact terminal, reusing the same path builder the
   // notification tap uses so both entry points behave identically.
   const openAttention = useCallback((hostId: string, terminal: BraidTerminal) => {
+    // Acknowledge this exact state so the card clears immediately on tap and
+    // doesn't linger (a 'done' terminal otherwise stays 'done' forever).
+    setAcknowledged((current) => ({
+      ...current,
+      [attentionKey(hostId, terminal)]: attentionSignature(terminal),
+    }));
     const branch = terminal.cwd ? terminal.cwd.split('/').pop() : undefined;
     const path = getNotificationNavigationPath(
       {
@@ -533,6 +546,20 @@ function terminalLabel(terminal: BraidTerminal): string {
     terminal.id ||
     'Agent'
   );
+}
+
+/** Stable identity for a terminal within a host, for acknowledgement tracking. */
+function attentionKey(hostId: string, terminal: BraidTerminal): string {
+  return `${hostId}:${terminal.terminalId ?? terminal.id}`;
+}
+
+/**
+ * A fingerprint of the terminal's attention-worthy state. Combines status with
+ * accumulated run time so that a finished agent that later runs again produces a
+ * new signature and re-surfaces in "Needs attention".
+ */
+function attentionSignature(terminal: BraidTerminal): string {
+  return `${terminal.status ?? ''}:${terminal.totalRunDurationMs ?? 0}`;
 }
 
 /** Sort key: waiting (needs input) ranks above done (finished). */

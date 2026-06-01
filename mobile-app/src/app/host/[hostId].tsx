@@ -527,8 +527,8 @@ export default function HostScreen() {
   };
 
   return (
-    <SafeAreaView style={shared.safe}>
-      <View style={{ flex: 1 }}>
+    <SafeAreaView style={[shared.safe, { backgroundColor: colors.panel }]} edges={['top', 'left', 'right']}>
+      <View style={{ flex: 1, backgroundColor: colors.bg }}>
         <View style={hostHeader}>
           <View style={titleRow}>
             <Pressable style={backButton} onPress={() => router.back()} accessibilityLabel="Go back">

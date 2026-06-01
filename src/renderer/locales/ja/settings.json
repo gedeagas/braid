@@ -48,7 +48,21 @@
     "rollbackHistory": "チャット履歴の巻き戻し",
     "rollbackHistoryHint": "ユーザーメッセージに巻き戻しボタンを追加します。クリックするとチャット履歴をその時点まで切り詰め、gitスナップショットでワークツリーのファイルを復元します。",
     "replayTour": "機能ツアーを再生",
-    "replayTourHint": "Braidの主な機能をもう一度確認します"
+    "replayTourHint": "Braidの主な機能をもう一度確認します",
+    "maintenance": "孤立したターミナル",
+    "maintenanceHint": "デスクトップがタブとして追跡しなくなったデーモンのターミナルセッションです。削除すると残留したエージェントプロセスが解放されます。",
+    "maintenanceScan": "スキャン",
+    "maintenanceScanning": "スキャン中…",
+    "maintenanceNone": "孤立したターミナルは見つかりませんでした。",
+    "maintenanceFound_one": "孤立したターミナルが{{count}}件見つかりました:",
+    "maintenanceFound_other": "孤立したターミナルが{{count}}件見つかりました:",
+    "maintenanceCleanUp": "{{count}}件を削除",
+    "maintenanceCleaning": "削除中…",
+    "maintenanceDone_one": "{{count}}件のターミナルを削除しました。",
+    "maintenanceDone_other": "{{count}}件のターミナルを削除しました。",
+    "maintenanceError": "ターミナルデーモンに接続できませんでした。もう一度お試しください。",
+    "maintenanceRescan": "再スキャン",
+    "maintenanceClose": "完了"
   },
   "appearance": {
     "uiZoom": "UIズーム",

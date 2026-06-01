@@ -62,8 +62,11 @@ function makeStyles(c: Palette) {
 - Module-level `StyleSheet.create` that references colors is the migration trap: it captures
   one palette at load. Convert it to a `makeStyles(c)` factory fed through `useThemedStyles`,
   or move the style objects inside the component so they close over `useTheme().palette`.
-- The terminal's `TerminalWebView` renders its own (intentionally dark) terminal surface from
-  the static palette and does not theme - that is deliberate.
+- The terminal's `TerminalWebView` themes with the app: it exports `TERMINAL_THEMES` (Tokyonight
+  Storm for dark, Tokyonight Day for light), and the terminal screen passes
+  `terminalTheme={TERMINAL_THEMES[scheme]}` so the xterm surface and its selection chrome
+  switch with `useTheme().scheme`. To retune the terminal palettes, edit `DARK_TERMINAL_THEME` /
+  `LIGHT_TERMINAL_THEME` in `src/terminal/TerminalWebView.tsx`.
 
 ## `src/ui/kit/` - reusable themed components
 

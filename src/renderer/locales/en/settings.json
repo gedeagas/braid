@@ -48,7 +48,21 @@
     "rollbackHistory": "Rollback chat history",
     "rollbackHistoryHint": "Adds a rewind button to user messages. Clicking it truncates chat history to that point and restores the worktree's files via git snapshot.",
     "replayTour": "Replay Feature Tour",
-    "replayTourHint": "Walk through the main features of Braid again"
+    "replayTourHint": "Walk through the main features of Braid again",
+    "maintenance": "Orphaned terminals",
+    "maintenanceHint": "Daemon terminal sessions the desktop no longer tracks as tabs. Reaping them frees the leaked agent processes.",
+    "maintenanceScan": "Scan",
+    "maintenanceScanning": "Scanning…",
+    "maintenanceNone": "No orphaned terminals found.",
+    "maintenanceFound_one": "Found {{count}} orphaned terminal:",
+    "maintenanceFound_other": "Found {{count}} orphaned terminals:",
+    "maintenanceCleanUp": "Clean up {{count}}",
+    "maintenanceCleaning": "Cleaning up…",
+    "maintenanceDone_one": "Cleaned up {{count}} terminal.",
+    "maintenanceDone_other": "Cleaned up {{count}} terminals.",
+    "maintenanceError": "Couldn't reach the terminal daemon. Try again.",
+    "maintenanceRescan": "Scan again",
+    "maintenanceClose": "Done"
   },
   "appearance": {
     "uiZoom": "UI Zoom",

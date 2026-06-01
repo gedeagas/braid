@@ -14,6 +14,8 @@ import { getMobileInstanceName } from './instanceName'
 import { markMobileTerminalActive, markMobileTerminalInactive } from './mobileTerminalPresence'
 import { getMobileDisplayMode, resetMobileDisplayMode, setMobileDisplayMode, type MobileDisplayMode } from './mobileTerminalDisplay'
 import { getTerminalActivity } from './terminalActivity'
+import { getKnownBigTerminals, hasKnownBigTerminals } from './knownBigTerminals'
+import { broadcastMobileNotification } from './broadcast'
 import type {
   JsonRpcRequest,
   JsonRpcResponse,
@@ -21,6 +23,16 @@ import type {
   RpcMethodMap,
   MobileConnection,
 } from './types'
+
+// ── Terminal output coalescing ──────────────────────────────────────────────
+//
+// Window over which PTY output chunks are batched into a single terminal.data
+// notification (see terminal.subscribe). Short enough to stay imperceptible for
+// interactive echo, long enough to collapse bursty output into a few frames.
+const TERMINAL_COALESCE_MS = 8
+// Flush immediately once the buffer reaches this size so a firehose of output
+// streams promptly instead of accumulating latency while it waits for the timer.
+const TERMINAL_COALESCE_MAX_BYTES = 32 * 1024
 
 // ── Error helpers ─────────────────────────────────────────────────────────────
 
@@ -209,6 +221,10 @@ register('git.status', async (params) => {
   return gitService.getStatus(params.worktreePath as string)
 })
 
+register('git.branchStatus', async (params) => {
+  return gitService.getBranchStatus(params.worktreePath as string)
+})
+
 register('git.diff', async (params) => {
   return gitService.getDiff(params.worktreePath as string)
 })
@@ -282,36 +298,115 @@ register('terminal.list', async (params) => {
   // Ensure the daemon connection (and its metadata hydration) is ready, so
   // terminals come back with their real labels after an app restart.
   await ptyService.ensureDaemon?.()
-  // Only surface big terminals (center-panel agent sessions, prefix "bt-") to
-  // mobile. Right-side-panel terminals (prefix "rt-") register for scrollback
-  // persistence too, so they also appear in listInstances with a terminalId -
-  // but the "bt-" prefix filter excludes them, and they carry no label metadata.
+  // Resolve the worktree's stable id so we can match terminals the same way the
+  // desktop does. This is the crux of "desktop shows the tabs but mobile sees
+  // none": the desktop tracks big terminals by worktreeId/terminalId and never
+  // compares cwd, whereas a strict `cwd === worktreePath` match silently drops
+  // everything when the daemon's stored cwd differs from the path mobile
+  // resolved (symlinked paths like /var vs /private/var, a trailing slash, etc).
+  const normalize = (path?: string): string | undefined => path?.replace(/\/+$/, '')
+  const targetPath = normalize(worktreePath)
+  // Resolve the worktree id by normalized-path comparison (not a strict key
+  // lookup) so a path-format difference can't also defeat the id match.
+  const worktreeIdMap = storageService.loadWorktreeIds()
+  const worktreeId = worktreePath
+    ? worktreeIdMap[worktreePath] ?? Object.entries(worktreeIdMap).find(([path]) => normalize(path) === targetPath)?.[1]
+    : undefined
+
+  // Source the terminal set from the DAEMON, not the in-process instance map.
+  // listInstances() only holds sessions this process spawned/reattached (i.e.
+  // worktrees the desktop opened this session), which is why non-opened
+  // worktrees' terminals were invisible until clicked. The daemon's session list
+  // has every live "bt-" session regardless of whether the desktop reattached it.
   //
-  // Also require a registered label (metadata): a "bt-" PTY whose metadata has
-  // been removed is an orphaned/closed session that the desktop no longer shows
-  // as a tab. Surfacing it would leak a stale terminal labelled with its raw
-  // "bt-<timestamp>" id. Every live tab has metadata, so this is a safe filter.
-  const terminals = ptyService
-    .listInstances(worktreePath)
-    .filter((terminal) => terminal.terminalId?.startsWith('bt-') && terminal.label)
+  // To keep orphans out without depending on a label, intersect with the
+  // renderer's persisted-id set (the desktop's authoritative "what should
+  // exist"). Until the renderer has pushed that set, fall back to the in-process
+  // map so a fresh start can never surface a stale orphan.
+  const daemonSessions = (await ptyService.listSessions?.()) ?? []
+  const known = getKnownBigTerminals()
+  const useKnown = hasKnownBigTerminals()
+  const fallbackById = new Map(ptyService.listInstances().map((instance) => [instance.terminalId, instance]))
+
+  const matchesWorktree = (cwd: string, metaWorktreeId?: string): boolean => {
+    if (!worktreePath) return true
+    if (worktreeId && metaWorktreeId === worktreeId) return true
+    return normalize(cwd) === targetPath
+  }
+
+  const terminals = daemonSessions
+    .filter((session) => {
+      if (!session.sessionId.startsWith('bt-')) return false
+      // Orphan guard: only surface terminals the desktop still tracks. Before the
+      // renderer reports its set, restrict to sessions already in the in-process
+      // map (reattached this session) so we never leak orphans.
+      if (useKnown ? !known.has(session.sessionId) : !fallbackById.has(session.sessionId)) return false
+      const meta = known.get(session.sessionId)
+      return matchesWorktree(session.cwd, meta?.worktreeId ?? session.metadata?.worktreeId)
+    })
+    .map((session) => {
+      const meta = known.get(session.sessionId)
+      const instance = fallbackById.get(session.sessionId)
+      // Prefer the renderer's label - it's the source of truth and is present
+      // even when the daemon's own metadata label never got set (the label lives
+      // in renderer state, not always in the daemon), which is why a terminal
+      // would otherwise fall back to its cwd basename for a name.
+      const label = meta?.label || session.metadata?.label || instance?.label || session.cwd.split('/').pop() || session.sessionId
+      return {
+        id: session.sessionId,
+        ptyId: session.sessionId,
+        terminalId: session.sessionId,
+        cwd: session.cwd,
+        title: label,
+        label,
+        agentId: meta?.agentId ?? session.metadata?.agentId ?? instance?.agentId,
+        worktreeId: meta?.worktreeId ?? session.metadata?.worktreeId ?? instance?.worktreeId,
+        status: getTerminalActivity(session.sessionId),
+        // Monotonic accumulated working time. Mobile needs this both for its
+        // "agent time" total and to fingerprint a finished agent so a re-run
+        // (which adds more working time) re-surfaces in "Needs attention".
+        totalRunDurationMs: session.metadata?.totalRunDurationMs ?? instance?.totalRunDurationMs,
+      }
+    })
   console.log('[MobileRPC] terminal.list', {
     worktreePath,
-    terminals: terminals.map((terminal) => ({
-      ptyId: terminal.ptyId,
-      cwd: terminal.cwd,
-      terminalId: terminal.terminalId,
-      title: terminal.title,
-      label: terminal.label,
-      agentId: terminal.agentId,
-    })),
+    worktreeId,
+    useKnown,
+    knownCount: known.size,
+    matched: terminals.map((terminal) => ({ terminalId: terminal.terminalId, label: terminal.label })),
   })
-  // Enrich each terminal with its current agent state so the mobile homepage can
-  // surface which agents need attention without a separate status RPC.
-  return terminals.map((terminal) => ({
-    ...terminal,
-    status: terminal.terminalId ? getTerminalActivity(terminal.terminalId) : undefined,
-  }))
+  return terminals
 })
+
+// Fan a big-terminal tab lifecycle change out to every desktop renderer window
+// so the center-panel tab strip updates live (mirrors terminal.create's
+// 'pty:bigTerminalRegistered' broadcast).
+function notifyDesktopWindows(channel: string, payload: Record<string, unknown>): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send(channel, payload)
+  }
+}
+
+// Resolve the worktree path + id for a big terminal from its live PTY instance,
+// so a rename/close notification carries enough context for the desktop and
+// other devices to locate the tab.
+function resolveTerminalContext(terminalId?: string, ptyId?: string): {
+  terminalId?: string
+  worktreePath?: string
+  worktreeId?: string
+  agentId?: string
+} {
+  const instances = ptyService.listInstances()
+  const instance = terminalId
+    ? instances.find((item) => item.terminalId === terminalId)
+    : instances.find((item) => item.ptyId === ptyId)
+  return {
+    terminalId: terminalId ?? instance?.terminalId,
+    worktreePath: instance?.cwd,
+    worktreeId: instance?.worktreeId,
+    agentId: instance?.agentId,
+  }
+}
 
 register('terminal.create', async (params) => {
   const worktreePath = params.worktreePath as string
@@ -346,6 +441,10 @@ register('terminal.create', async (params) => {
     }
   }
   if (command) ptyService.write(ptyId, `${command}\n`)
+  // Notify other connected devices so their tab strip picks up the new terminal.
+  // The originator already adds it optimistically; the refresh is non-disruptive
+  // (it never re-opens the active tab) so broadcasting to all is harmless.
+  broadcastMobileNotification({ jsonrpc: '2.0', method: 'terminal.listChanged', params: { worktreePath } })
   console.log('[MobileRPC] terminal.create', { worktreePath, ptyId, terminalId, worktreeId, label, agentId, command })
   return {
     id: ptyId,
@@ -360,9 +459,12 @@ register('terminal.create', async (params) => {
   }
 })
 
-register('terminal.close', async (params) => {
+register('terminal.close', async (params, connection) => {
   const terminalId = params.terminalId as string | undefined
   const ptyId = params.ptyId as string | undefined
+  // Capture the worktree context before killing - killBigTerminal removes the
+  // metadata, so the desktop/other devices would otherwise lose the worktree id.
+  const context = resolveTerminalContext(terminalId, ptyId)
   // Prefer the big-terminal id: killBigTerminal reaps the PTY and removes the
   // metadata, which is what makes the tab disappear from terminal.list (a "bt-"
   // PTY without metadata is treated as a closed/orphaned session). Fall back to
@@ -375,7 +477,41 @@ register('terminal.close', async (params) => {
     throw new Error('terminalId or ptyId is required')
   }
   console.log('[MobileRPC] terminal.close', { terminalId, ptyId })
+  if (context.terminalId) {
+    // Reflect the close on the desktop (remove the center-panel tab) and on
+    // every other paired device. The originating device already dropped the tab.
+    notifyDesktopWindows('pty:bigTerminalClosed', context)
+    broadcastMobileNotification(
+      { jsonrpc: '2.0', method: 'terminal.tabClosed', params: { ...context } },
+      connection.device.id,
+    )
+  }
   return { closed: true }
+})
+
+// Rename a big terminal's tab from a device. Updates the persisted metadata,
+// reflects the new label on the desktop, and fans it out to other devices.
+register('terminal.rename', async (params, connection) => {
+  const terminalId = params.terminalId as string | undefined
+  const ptyId = params.ptyId as string | undefined
+  const label = (params.label as string | undefined)?.trim()
+  if (!label) throw new Error('label is required')
+  const context = resolveTerminalContext(terminalId, ptyId)
+  if (!context.terminalId) throw new Error('terminalId or ptyId is required')
+  ptyService.setBigTerminalMetadata?.({
+    terminalId: context.terminalId,
+    label,
+    agentId: context.agentId,
+    worktreeId: context.worktreeId,
+  })
+  const payload = { ...context, label }
+  notifyDesktopWindows('pty:bigTerminalRenamed', payload)
+  broadcastMobileNotification(
+    { jsonrpc: '2.0', method: 'terminal.tabRenamed', params: payload },
+    connection.device.id,
+  )
+  console.log('[MobileRPC] terminal.rename', payload)
+  return { renamed: true, label }
 })
 
 register('terminal.write', async (params) => {
@@ -468,16 +604,50 @@ register('terminal.subscribe', async (params, connection) => {
   console.log('[MobileRPC] terminal.subscribe', { subscriptionId, ptyId, terminalId })
   if (terminalId) markMobileTerminalActive(terminalId)
 
-  const unsubData = ptyService.onData(ptyId, (_id: string, data: string) => {
-    console.log('[MobileRPC] terminal.data', { subscriptionId, ptyId, length: data.length })
+  // Ensure this process is attached to the daemon session so its live output
+  // streams to onData below. After a cold start a restored big terminal is
+  // hydrated into the instance list but not yet attached (the desktop reattaches
+  // lazily, per worktree), so without this onData never fires and the device
+  // sees a frozen, blank terminal for any session the desktop hasn't opened.
+  await ptyService.reattach?.(ptyId)
+
+  // Coalesce PTY output. Bursty programs (build logs, `cat`, `yarn install`)
+  // emit many tiny chunks; sending one notification each pays full
+  // encrypt + base64 + WS-frame overhead per chunk and floods the device with
+  // bridge hops. Instead we buffer and flush on a short timer, collapsing a
+  // burst into a few large frames. The delay (TERMINAL_COALESCE_MS) is well
+  // below human perception, so interactive echo still feels instant; a hard
+  // byte cap flushes immediately so a firehose can't grow unbounded latency.
+  let pending = ''
+  let flushTimer: ReturnType<typeof setTimeout> | null = null
+  const flush = () => {
+    if (flushTimer) {
+      clearTimeout(flushTimer)
+      flushTimer = null
+    }
+    if (!pending) return
+    const data = pending
+    pending = ''
     connection.ws.emit('rpc:notification', {
       jsonrpc: '2.0' as const,
       method: 'terminal.data',
       params: { subscriptionId, ptyId, data },
     })
+  }
+
+  const unsubData = ptyService.onData(ptyId, (_id: string, data: string) => {
+    pending += data
+    if (pending.length >= TERMINAL_COALESCE_MAX_BYTES) {
+      flush()
+      return
+    }
+    if (!flushTimer) flushTimer = setTimeout(flush, TERMINAL_COALESCE_MS)
   })
 
   const unsubExit = ptyService.onExit(ptyId, (_id: string, exitCode: number) => {
+    // Drain buffered output before the exit so the device never sees the
+    // terminal close ahead of its final bytes.
+    flush()
     connection.ws.emit('rpc:notification', {
       jsonrpc: '2.0' as const,
       method: 'terminal.exit',
@@ -502,6 +672,11 @@ register('terminal.subscribe', async (params, connection) => {
   if (currentSize) emitResized(currentSize.cols, currentSize.rows)
 
   const unsubscribe = () => {
+    if (flushTimer) {
+      clearTimeout(flushTimer)
+      flushTimer = null
+    }
+    pending = ''
     unsubData()
     unsubExit()
     unsubResize?.()

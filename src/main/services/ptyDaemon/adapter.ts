@@ -16,7 +16,7 @@ import { DaemonClient } from './client'
 import { isDaemonRunning, removeSocketFile } from './lifecycle'
 import { SOCKET_PATH } from './protocol'
 import { RingBuffer } from './sessionHost'
-import type { BigTerminalMetadata, IPtyService, PtyInstanceInfo, TerminalOutput } from '../pty'
+import type { BigTerminalMetadata, IPtyService, OrphanedTerminal, PtyInstanceInfo, TerminalOutput } from '../pty'
 import type { ReattachResult, SessionInfo } from './types'
 import { getTerminalScrollbackBufferMaxLength } from '../../../shared/terminal'
 
@@ -168,6 +168,10 @@ export class PtyDaemonAdapter implements IPtyService {
       const sessions = await this.client.list()
       for (const session of sessions) {
         const metadata = session.metadata
+        // Require metadata (a label/agent/worktree). A "bt-" daemon session with
+        // no metadata is an orphan the desktop no longer tracks as a tab (the
+        // renderer only re-syncs labels for terminals in its persisted list).
+        // Registering it would leak a stale, label-less terminal to mobile.
         if (!metadata || (!metadata.label && !metadata.agentId && !metadata.worktreeId)) continue
         // For big terminals the daemon sessionId is the stable terminalId.
         this.bigTerminalBySession.set(session.sessionId, session.sessionId)
@@ -178,6 +182,11 @@ export class PtyDaemonAdapter implements IPtyService {
           worktreeId: metadata.worktreeId,
           totalRunDurationMs: metadata.totalRunDurationMs,
         })
+        // Seed the cwd map too. listInstances() (which backs the mobile
+        // terminal.list) iterates cwdBySession, so without this a cold-started
+        // big terminal stays invisible until the desktop renderer reattaches it
+        // by opening that worktree's panel.
+        this.cwdBySession.set(session.sessionId, session.cwd)
       }
     } catch {
       // Best effort - labels just fall back to the terminal id.
@@ -524,10 +533,15 @@ export class PtyDaemonAdapter implements IPtyService {
     try {
       await this.ensureDaemon()
       const result = await this.client.attach(sessionId)
-      // Initialize local buffer with snapshot so readTerminalOutput works
-      const buffer = new RingBuffer(getTerminalScrollbackBufferMaxLength(mainSettings.terminalScrollback))
-      buffer.push(result.snapshot)
-      this.buffers.set(sessionId, buffer)
+      // Seed a local buffer from the snapshot so readTerminalOutput works. Don't
+      // clobber an existing buffer: the desktop and mobile can each attach the
+      // same session, and replacing a live buffer would drop the scrollback the
+      // other side has already accumulated.
+      if (!this.buffers.has(sessionId)) {
+        const buffer = new RingBuffer(getTerminalScrollbackBufferMaxLength(mainSettings.terminalScrollback))
+        buffer.push(result.snapshot)
+        this.buffers.set(sessionId, buffer)
+      }
       // Populate cwdBySession from the daemon's session list if we don't have it
       if (!this.cwdBySession.has(sessionId)) {
         try {
@@ -552,5 +566,62 @@ export class PtyDaemonAdapter implements IPtyService {
     } catch {
       return []
     }
+  }
+
+  /**
+   * Report big-terminal daemon sessions the desktop no longer tracks. The
+   * renderer is authoritative for "what should exist" (its persisted tab lists),
+   * so it passes the full set of known terminalIds and we return every live
+   * "bt-" session not in that set. Read-only - the caller decides what to reap.
+   */
+  async listOrphanedBigTerminals(knownTerminalIds: string[]): Promise<OrphanedTerminal[]> {
+    const known = new Set(knownTerminalIds)
+    const sessions = await this.listSessions()
+    return sessions
+      .filter((session) =>
+        session.sessionId.startsWith('bt-') &&
+        !known.has(session.sessionId) &&
+        // Safety interlock: never treat a session anyone is actively attached to
+        // as an orphan, even if the renderer's persisted-id set is incomplete.
+        // This is the guard that prevents reaping a terminal the user is viewing.
+        session.attachedClients === 0)
+      .map((session) => ({
+        terminalId: session.sessionId,
+        cwd: session.cwd,
+        label: session.metadata?.label,
+        agentId: session.metadata?.agentId,
+      }))
+  }
+
+  /**
+   * Reap the given orphaned big terminals in the daemon. For big terminals the
+   * daemon sessionId IS the terminalId, so we can kill directly even when this
+   * process never reattached them (so they aren't in the local maps). Returns
+   * the number actually killed.
+   */
+  async killOrphanedBigTerminals(terminalIds: string[]): Promise<number> {
+    await this.ensureDaemon()
+    // Defense in depth: re-check attachment immediately before killing so a stale
+    // request (a session that became live between scan and confirm) can never
+    // reap a terminal someone is now viewing. Only sessions with zero attached
+    // clients are eligible.
+    const attachedById = new Map((await this.listSessions()).map((s) => [s.sessionId, s.attachedClients]))
+    let killed = 0
+    for (const terminalId of terminalIds) {
+      if (!terminalId.startsWith('bt-')) continue
+      if ((attachedById.get(terminalId) ?? 0) > 0) continue
+      try {
+        await this.client.kill(terminalId)
+        killed++
+      } catch {
+        // Session may already be dead - still clear any local state below.
+      }
+      this.cwdBySession.delete(terminalId)
+      this.bigTerminalBySession.delete(terminalId)
+      this.bigTerminalMetadataById.delete(terminalId)
+      this.buffers.delete(terminalId)
+      this.deleteScrollback(terminalId)
+    }
+    return killed
   }
 }

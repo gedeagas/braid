@@ -18,3 +18,10 @@ export interface GitChangeInfo {
   additions?: number
   deletions?: number
 }
+
+export interface BranchStatusInfo {
+  current: string | null
+  tracking: string | null
+  ahead: number
+  behind: number
+}

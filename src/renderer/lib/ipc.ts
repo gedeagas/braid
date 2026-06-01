@@ -119,6 +119,8 @@ export const pty = {
     api().pty.setBigTerminalMetadata(metadata),
   removeBigTerminalMetadata: (terminalId: string) => api().pty.removeBigTerminalMetadata(terminalId),
   killBigTerminal: (terminalId: string) => api().pty.killBigTerminal(terminalId),
+  renameBigTerminal: (payload: { terminalId: string; worktreeId?: string; label: string; agentId?: string }) =>
+    api().pty.renameBigTerminal(payload),
   readScrollback: (terminalId: string) => api().pty.readScrollback(terminalId) as Promise<string>,
   isMobileTerminalActive: (terminalId: string) => api().pty.isMobileTerminalActive(terminalId) as Promise<boolean>,
   setMobileDisplayMode: (terminalId: string, mode: 'phone' | 'desktop') =>
@@ -126,6 +128,12 @@ export const pty = {
   deleteScrollback: (terminalId: string) => api().pty.deleteScrollback(terminalId),
   reattach: (sessionId: string) => api().pty.reattach(sessionId) as Promise<{ sessionId: string; snapshot: string } | null>,
   listSessions: () => api().pty.listSessions() as Promise<Array<{ sessionId: string; cwd: string; cols: number; rows: number; createdAt: number }>>,
+  listOrphanedBigTerminals: (knownTerminalIds: string[]) =>
+    api().pty.listOrphanedBigTerminals(knownTerminalIds) as Promise<Array<{ terminalId: string; cwd: string; label?: string; agentId?: string }>>,
+  killOrphanedBigTerminals: (terminalIds: string[]) =>
+    api().pty.killOrphanedBigTerminals(terminalIds) as Promise<number>,
+  setKnownBigTerminals: (items: Array<{ terminalId: string; label?: string; agentId?: string; worktreeId?: string }>) =>
+    api().pty.setKnownBigTerminals(items),
   onAgentHookStatus: (callback: (status: { terminalId: string; state: string; agentType: string; toolName?: string; interrupted?: boolean }) => void) =>
     api().pty.onAgentHookStatus(callback),
   onMobileTerminalActive: (callback: (status: { terminalId: string; active: boolean }) => void) =>
@@ -134,6 +142,10 @@ export const pty = {
     api().pty.onMobileDisplayMode(callback),
   onBigTerminalRegistered: (callback: (tab: { terminalId: string; worktreeId?: string; worktreePath?: string; label?: string; agentId?: string }) => void) =>
     api().pty.onBigTerminalRegistered(callback),
+  onBigTerminalRenamed: (callback: (tab: { terminalId: string; worktreeId?: string; worktreePath?: string; label: string }) => void) =>
+    api().pty.onBigTerminalRenamed(callback),
+  onBigTerminalClosed: (callback: (tab: { terminalId: string; worktreeId?: string; worktreePath?: string }) => void) =>
+    api().pty.onBigTerminalClosed(callback),
 }
 
 export const simulator = {

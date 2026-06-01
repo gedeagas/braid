@@ -8,10 +8,11 @@ import { ResizeHandle } from '@/components/shared/ResizeHandle'
 import { useProjectsStore } from '@/store/projects'
 import { initAgentEventListener, useSessionsStore } from '@/store/sessions'
 import { useUIStore } from '@/store/ui'
+import { syncAllPersistedBigTerminalMetadata } from '@/store/ui/terminals'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { applyTheme } from '@/themes/apply'
 import { findTheme, builtinThemes } from '@/themes/palettes'
-import { settings, appWindow, dock } from '@/lib/ipc'
+import { settings, appWindow, dock, mobile } from '@/lib/ipc'
 import { SettingsOverlay } from '@/components/Settings/SettingsOverlay'
 import { ShortcutsModal } from '@/components/Shortcuts/ShortcutsModal'
 import { QuickOpen } from '@/components/QuickOpen/QuickOpen'
@@ -103,6 +104,10 @@ export default function App() {
 
   useEffect(() => {
     console.log('[Braid] App mounted')
+    // Push every persisted big-terminal label to the daemon so the mobile app
+    // (and cold-start hydrate) can name terminals in worktrees the user hasn't
+    // re-selected this session - loadInitial() hydrates state without syncing.
+    syncAllPersistedBigTerminalMetadata()
     loadProjects()
       .then(() => console.log('[Braid] Projects loaded'))
       .catch((e) => console.error('[Braid] Failed to load projects:', e))
@@ -138,6 +143,11 @@ export default function App() {
     syncSettings()
     const unsubSettings = useUIStore.subscribe(syncSettings)
 
+    // Restore the mobile companion server if it was enabled before restart.
+    if (useUIStore.getState().mobileServerEnabled) {
+      mobile.start().catch((e: unknown) => console.error('[Braid] Failed to restore mobile server:', e))
+    }
+
     const cleanup = initAgentEventListener()
     const cleanupUpdater = initUpdateListeners()
     const cleanupAgentDetection = initAgentDetection()
@@ -158,6 +168,31 @@ export default function App() {
         label: tab.label ?? 'Terminal',
         agentId: tab.agentId,
       })
+    })
+
+    // Resolve a broadcast's worktree id: trust the payload, else map its path
+    // against the renderer's own worktrees (deep-link worktrees may lack an id).
+    const resolveWorktreeId = (tab: { worktreeId?: string; worktreePath?: string }): string | undefined => {
+      if (tab.worktreeId) return tab.worktreeId
+      if (!tab.worktreePath) return undefined
+      for (const project of useProjectsStore.getState().projects) {
+        const match = project.worktrees.find((w) => w.path === tab.worktreePath)
+        if (match) return match.id
+      }
+      return undefined
+    }
+
+    // Live-sync big-terminal tab renames/closes initiated on another desktop
+    // window or a paired mobile device.
+    const unsubBigTerminalRenamed = window.api.pty.onBigTerminalRenamed((tab: { terminalId: string; worktreeId?: string; worktreePath?: string; label: string }) => {
+      const worktreeId = resolveWorktreeId(tab)
+      if (!worktreeId) return
+      useUIStore.getState().applyRemoteBigTerminalRename(worktreeId, tab.terminalId, tab.label)
+    })
+    const unsubBigTerminalClosed = window.api.pty.onBigTerminalClosed((tab: { terminalId: string; worktreeId?: string; worktreePath?: string }) => {
+      const worktreeId = resolveWorktreeId(tab)
+      if (!worktreeId) return
+      useUIStore.getState().removeRemoteBigTerminal(worktreeId, tab.terminalId)
     })
 
     // Keep dock badge in sync with sessions + big terminal agents needing attention
@@ -184,6 +219,8 @@ export default function App() {
       cleanupUpdater()
       cleanupAgentDetection()
       unsubRemoteBigTerminal()
+      unsubBigTerminalRenamed()
+      unsubBigTerminalClosed()
       unsubBadge()
       unsubTerminalBadge()
     }

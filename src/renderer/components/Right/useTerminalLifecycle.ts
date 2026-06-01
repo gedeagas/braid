@@ -190,6 +190,11 @@ export function useTerminalLifecycle({
         const firstId = restoredTabs[0]?.id ?? null
         setActiveTabId(firstId)
         activeTabIdRef.current = firstId
+        // Register in the module cache up front. Global PTY routing finds a tab's
+        // xterm by walking terminalCache (findTabByPtyId), so without this the
+        // reattached session's live output is dropped — the terminal replays its
+        // snapshot, prints "[session reconnected]", then appears frozen.
+        terminalCache.set(worktreePath, { tabs: restoredTabs, activeTabId: firstId })
         // Mark all as pending attach so they get spawned/reattached when the DOM ref fires
         for (const tab of restoredTabs) {
           pendingAttach.current.set(tab.id, tab)

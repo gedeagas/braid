@@ -10,6 +10,10 @@ import {
   IconInbox,
   IconGitBranch,
   IconSmartphone,
+  IconLock,
+  IconSparkle,
+  IconCopy,
+  IconRefresh,
   type IconProps,
 } from '@/components/shared/icons'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
@@ -167,6 +171,11 @@ export function SettingsMobile() {
       <div className="mobile-hero">
         {/* Pairing card */}
         <section className="mobile-pair-card">
+          <div className="mobile-pair-pattern" aria-hidden="true">
+            <span className="mobile-pair-lane mobile-pair-lane--top" />
+            <span className="mobile-pair-lane mobile-pair-lane--middle" />
+            <span className="mobile-pair-lane mobile-pair-lane--bottom" />
+          </div>
           <header className="mobile-pair-head">
             <span className="mobile-pair-badge">
               <IconSmartphone size={18} />
@@ -175,6 +184,10 @@ export function SettingsMobile() {
               <h3 className="mobile-pair-title">{t('mobile.pairTitle')}</h3>
               <p className="mobile-pair-sub">{t('mobile.enableServerDesc')}</p>
             </div>
+            <span className="mobile-secure-chip">
+              <IconLock size={11} />
+              E2EE
+            </span>
           </header>
 
           <div className="mobile-server-row">
@@ -182,6 +195,7 @@ export function SettingsMobile() {
               <StatusDot state={running ? 'success' : 'failure'} />
               {running ? t('mobile.running', { port: state.serverPort }) : t('mobile.enableServer')}
             </span>
+            {running && <span className="mobile-server-chip">LAN</span>}
             <Toggle checked={running} onChange={handleToggle} disabled={state.loading} />
           </div>
 
@@ -191,26 +205,44 @@ export function SettingsMobile() {
             <div className="mobile-pair-body">
               {state.qrDataUrl ? (
                 <>
-                  <div className="mobile-qr-frame">
-                    <img src={state.qrDataUrl} alt={t('mobile.pairTitle')} />
+                  <div className="mobile-qr-stage">
+                    <div className="mobile-qr-frame">
+                      <span className="mobile-qr-scanline" aria-hidden="true" />
+                      <img src={state.qrDataUrl} alt={t('mobile.pairTitle')} />
+                    </div>
+                    <div className="mobile-signal-stack" aria-hidden="true">
+                      <span />
+                      <span />
+                      <span />
+                    </div>
                   </div>
                   <ol className="mobile-steps">
-                    <li><span className="mobile-step-num">1</span>{t('mobile.step1')}</li>
-                    <li><span className="mobile-step-num">2</span>{t('mobile.step2')}</li>
+                    <li><span className="mobile-step-num">1</span><span>{t('mobile.step1')}</span></li>
+                    <li><span className="mobile-step-num">2</span><span>{t('mobile.step2')}</span></li>
                   </ol>
                   <div className="mobile-qr-actions">
                     <Button size="sm" onClick={handleCopy} disabled={!state.pairingPayload}>
+                      <IconCopy size={13} />
                       {copied ? t('mobile.copiedCode') : t('mobile.copyCode')}
                     </Button>
                     <Button size="sm" onClick={handleGeneratePairing}>
+                      <IconRefresh size={13} />
                       {t('mobile.regenerateQr')}
                     </Button>
                   </div>
                 </>
               ) : (
                 <div className="mobile-pair-cta">
+                  <div className="mobile-cta-visual" aria-hidden="true">
+                    <span className="mobile-cta-device" />
+                    <span className="mobile-cta-scan mobile-cta-scan--one" />
+                    <span className="mobile-cta-scan mobile-cta-scan--two" />
+                    <span className="mobile-cta-node mobile-cta-node--a" />
+                    <span className="mobile-cta-node mobile-cta-node--b" />
+                  </div>
                   <p className="mobile-pair-cta-text">{t('mobile.pairingHint')}</p>
                   <Button variant="primary" onClick={handleGeneratePairing}>
+                    <IconSparkle size={14} />
                     {t('mobile.generateQr')}
                   </Button>
                 </div>
@@ -223,16 +255,53 @@ export function SettingsMobile() {
 
         {/* App preview */}
         <aside className="mobile-preview" aria-hidden="true">
-          <div className="mobile-phone">
-            <span className="mobile-phone-notch" />
-            <div className="mobile-phone-screen">
-              <span className="mobile-phone-title">{t('mobile.previewTitle')}</span>
-              {FEATURES.map(({ key, Icon }) => (
-                <div key={key} className="mobile-phone-row">
-                  <span className="mobile-phone-row-icon"><Icon size={14} /></span>
-                  <span className="mobile-phone-row-label">{t(`mobile.feat.${key}.title`)}</span>
+          <div className="mobile-device-stage">
+            <span className="mobile-device-beam mobile-device-beam--one" />
+            <span className="mobile-device-beam mobile-device-beam--two" />
+            <span className="mobile-device-beam mobile-device-beam--three" />
+            <div className="mobile-phone">
+              <span className="mobile-phone-notch" />
+              <div className="mobile-phone-screen">
+                <div className="mobile-app-preview-header">
+                  <span className="mobile-app-preview-brand">
+                    <span className="mobile-app-preview-mark">B</span>
+                    Braid
+                  </span>
+                  <span className="mobile-app-preview-icon" />
                 </div>
-              ))}
+                <div className="mobile-app-preview-actions">
+                  <div className="mobile-app-preview-action">
+                    <IconSmartphone size={12} />
+                    <span>Pair Desktop</span>
+                  </div>
+                  <div className="mobile-app-preview-action">
+                    <IconCopy size={12} />
+                    <span>Enter Code</span>
+                  </div>
+                </div>
+                <span className="mobile-app-preview-welcome">Welcome back</span>
+                <div className="mobile-app-preview-stats">
+                  <span><strong>1</strong>Need input</span>
+                  <span><strong>2</strong>Working</span>
+                  <span><strong>3</strong>Agents</span>
+                </div>
+                <span className="mobile-app-preview-section">Needs attention</span>
+                <div className="mobile-app-preview-row">
+                  <span className="mobile-app-preview-tile"><IconTerminal size={13} /></span>
+                  <span className="mobile-app-preview-row-copy">
+                    <span>Mobile Companion</span>
+                    <small>mobile-app-init · Needs input</small>
+                  </span>
+                </div>
+                <span className="mobile-app-preview-section">Desktops</span>
+                <div className="mobile-app-preview-row">
+                  <span className="mobile-app-preview-tile"><IconSmartphone size={13} /></span>
+                  <span className="mobile-app-preview-row-copy">
+                    <span>Braid desktop</span>
+                    <small>Connected · 4 projects · 3 agents</small>
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
           <ul className="mobile-feature-list">

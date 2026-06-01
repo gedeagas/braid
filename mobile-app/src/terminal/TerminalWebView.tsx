@@ -30,6 +30,13 @@ type RuntimeMobileTerminalTheme = {
     | 'brightWhite',
     string
   >>
+  // Minimum foreground/background contrast ratio xterm enforces per cell. TUIs
+  // (e.g. Claude Code) fill code blocks and diffs with a background color, and
+  // their syntax-highlight foregrounds aren't tuned for it; on a light theme
+  // that lands as washed-out, barely-legible text. A floor here makes xterm
+  // dynamically darken those foregrounds so code blocks stay readable. 1 (the
+  // xterm default) disables it. Only set above 1 where it's needed (light).
+  minimumContrastRatio?: number
 }
 
 const colors = {
@@ -106,7 +113,8 @@ type TerminalMessage =
   | { type: 'do-select-all'; id?: number }
   | { type: 'set-theme'; id?: number; terminalTheme?: MobileTerminalTheme }
 
-const DEFAULT_TERMINAL_THEME: MobileTerminalTheme['theme'] = {
+// Tokyonight (Storm) — the original dark terminal scheme.
+const DARK_TERMINAL_THEME: MobileTerminalTheme['theme'] = {
   background: colors.terminalBg,
   foreground: '#c0caf5',
   cursor: '#c0caf5',
@@ -129,6 +137,50 @@ const DEFAULT_TERMINAL_THEME: MobileTerminalTheme['theme'] = {
   brightMagenta: '#bb9af7',
   brightCyan: '#7dcfff',
   brightWhite: '#c0caf5'
+}
+
+// Tokyonight Day — the light sibling, tuned for a light background.
+// Why: the upstream Tokyonight Day palette reads poorly on a phone in
+// daylight — its foreground is a medium blue, ANSI color-0 ("black") is a
+// near-invisible light gray, and the normal colors are bright/washed out.
+// We keep the Tokyonight Day hue identity but darken the foreground and the
+// normal ANSI ramp to clear AA contrast on a cleaner, brighter background,
+// while preserving the original bright colors as saturated accents.
+const LIGHT_TERMINAL_THEME: MobileTerminalTheme['theme'] = {
+  background: '#eceef4',
+  foreground: '#2a2e3f',
+  cursor: '#2a2e3f',
+  cursorAccent: '#eceef4',
+  selectionBackground: '#c2cbe8',
+  selectionForeground: '#1f2230',
+  black: '#33374a',
+  red: '#c8275c',
+  green: '#486f2a',
+  yellow: '#8a5d1a',
+  blue: '#2059c9',
+  magenta: '#8138d6',
+  cyan: '#0a6e8c',
+  white: '#5c6794',
+  brightBlack: '#6b7299',
+  brightRed: '#f52a65',
+  brightGreen: '#587539',
+  brightYellow: '#8c6c3e',
+  brightBlue: '#2e7de9',
+  brightMagenta: '#9854f1',
+  brightCyan: '#007197',
+  brightWhite: '#3760bf'
+}
+
+// The WebView falls back to dark when no theme is posted from RN.
+const DEFAULT_TERMINAL_THEME = DARK_TERMINAL_THEME
+
+/** Terminal themes keyed by the app's resolved color scheme. */
+export const TERMINAL_THEMES: Record<'light' | 'dark', MobileTerminalTheme> = {
+  // 4.5 == WCAG AA for body text. Keeps code-block / diff foregrounds legible
+  // against the backgrounds TUIs paint, without flattening normal output.
+  light: { theme: LIGHT_TERMINAL_THEME, minimumContrastRatio: 4.5 },
+  // Dark already has ample contrast on those same backgrounds; leave it off.
+  dark: { theme: DARK_TERMINAL_THEME }
 }
 
 // Why: TUI apps (Claude Code / Ink) emit escape codes with absolute cursor
@@ -202,7 +254,7 @@ const XTERM_HTML = `<!DOCTYPE html>
     width: 3px;
     min-height: 24px;
     border-radius: 999px;
-    background: ${colors.textSecondary};
+    background: var(--term-scroll-thumb, ${colors.textSecondary});
     will-change: transform, height;
   }
   /* Why: selection overlay sits in unscaled viewport coords, above the
@@ -229,9 +281,9 @@ const XTERM_HTML = `<!DOCTYPE html>
     left: 50%; top: 22px;
     transform: translateX(-50%);
     width: 14px; height: 14px;
-    background: #7aa2f7;
+    background: var(--term-handle, #7aa2f7);
     border-radius: 50%;
-    border: 2px solid #c0caf5;
+    border: 2px solid var(--term-handle-border, #c0caf5);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
   }
   .sel-handle.start::before { top: 8px; }
@@ -241,7 +293,7 @@ const XTERM_HTML = `<!DOCTYPE html>
     left: 50%; top: 22px;
     transform: translateX(-50%);
     width: 2px; height: 16px;
-    background: #7aa2f7;
+    background: var(--term-handle, #7aa2f7);
   }
   .sel-handle.end::before { top: 22px; }
   .sel-handle.end::after {
@@ -250,12 +302,12 @@ const XTERM_HTML = `<!DOCTYPE html>
     left: 50%; top: 6px;
     transform: translateX(-50%);
     width: 2px; height: 16px;
-    background: #7aa2f7;
+    background: var(--term-handle, #7aa2f7);
   }
   #sel-menu {
     position: absolute;
     pointer-events: auto;
-    background: #2a2f4a;
+    background: var(--term-menu-bg, #2a2f4a);
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
     display: flex;
@@ -268,13 +320,13 @@ const XTERM_HTML = `<!DOCTYPE html>
   #sel-menu button {
     background: transparent;
     border: none;
-    color: #c0caf5;
+    color: var(--term-menu-text, #c0caf5);
     font: 600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     padding: 10px 16px;
     cursor: pointer;
   }
-  #sel-menu button:active { background: #414868; }
-  #sel-menu button + button { border-left: 1px solid #414868; }
+  #sel-menu button:active { background: var(--term-menu-active, #414868); }
+  #sel-menu button + button { border-left: 1px solid var(--term-menu-divider, #414868); }
 </style>
 </head>
 <body>
@@ -316,6 +368,9 @@ const XTERM_HTML = `<!DOCTYPE html>
   var terminalGeneration = 0;
   var defaultTheme = ${JSON.stringify(DEFAULT_TERMINAL_THEME)};
   var terminalTheme = defaultTheme;
+  // Per-cell contrast floor (see MobileTerminalTheme.minimumContrastRatio).
+  // 1 disables it; light mode raises it so code blocks stay readable.
+  var minimumContrastRatio = 1;
   var activeAltScreenSnapshot = false;
   var trackedMouseTrackingMode = 'none';
   var sgrMouseMode = false;
@@ -417,10 +472,27 @@ const XTERM_HTML = `<!DOCTYPE html>
 
   function applyTerminalTheme(input) {
     terminalTheme = normalizeTerminalTheme(input);
+    minimumContrastRatio = input && typeof input.minimumContrastRatio === 'number' && input.minimumContrastRatio >= 1
+      ? input.minimumContrastRatio
+      : 1;
     var background = terminalTheme.background || '${colors.terminalBg}';
-    document.documentElement.style.background = background;
+    var rootStyle = document.documentElement.style;
+    rootStyle.background = background;
     document.body.style.background = background;
-    if (term) term.options.theme = terminalTheme;
+    // Drive the selection chrome (handles, copy menu, scroll thumb) off the
+    // active palette so it reads correctly in both light and dark, rather than
+    // staying locked to the dark CSS defaults.
+    rootStyle.setProperty('--term-handle', terminalTheme.blue || '#7aa2f7');
+    rootStyle.setProperty('--term-handle-border', terminalTheme.foreground || '#c0caf5');
+    rootStyle.setProperty('--term-menu-bg', terminalTheme.brightBlack || '#2a2f4a');
+    rootStyle.setProperty('--term-menu-text', terminalTheme.foreground || '#c0caf5');
+    rootStyle.setProperty('--term-menu-active', terminalTheme.selectionBackground || '#414868');
+    rootStyle.setProperty('--term-menu-divider', terminalTheme.background || '#414868');
+    rootStyle.setProperty('--term-scroll-thumb', terminalTheme.foreground || '${colors.textSecondary}');
+    if (term) {
+      term.options.theme = terminalTheme;
+      term.options.minimumContrastRatio = minimumContrastRatio;
+    }
   }
 
   function getCellHeight() {
@@ -709,6 +781,7 @@ const XTERM_HTML = `<!DOCTYPE html>
       cols: cols || 80,
       rows: rows || 24,
       theme: terminalTheme,
+      minimumContrastRatio: minimumContrastRatio,
       fontFamily: '"Menlo", "Consolas", "DejaVu Sans Mono", monospace',
       fontSize: 13,
       scrollback: 5000,
