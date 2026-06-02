@@ -406,6 +406,16 @@ function notifyDesktopWindows(channel: string, payload: Record<string, unknown>)
   }
 }
 
+// Tell desktop renderers the phone-fit dimensions a mobile device just applied
+// to the shared PTY. A held big-terminal pane mirrors its xterm to these dims so
+// the buffer is laid out at the same width the phone saw; when the desktop later
+// restores its own dimensions xterm reflows cleanly instead of leaving
+// phone-width scrollback stranded in a wide pane.
+function notifyMobileFit(terminalId: string | undefined, cols: number, rows: number): void {
+  if (!terminalId) return
+  notifyDesktopWindows('pty:mobileFit', { terminalId, cols, rows })
+}
+
 // Resolve the worktree path + id for a big terminal from its live PTY instance,
 // so a rename/close notification carries enough context for the desktop and
 // other devices to locate the tab.
@@ -563,6 +573,7 @@ register('terminal.resize', async (params, connection) => {
   const terminalId = ptyService.listInstances().find((item) => item.ptyId === ptyId)?.terminalId
   if (terminalId) setMobileTerminalActor(terminalId, connection.device.id)
   ptyService.resize(ptyId, params.cols as number, params.rows as number)
+  notifyMobileFit(terminalId, params.cols as number, params.rows as number)
 })
 
 // Switch a terminal between 'phone' (desktop yields, PTY fit to the phone's
@@ -581,6 +592,7 @@ register('terminal.setDisplayMode', async (params, connection) => {
     if (viewport?.cols && viewport?.rows) {
       if (terminalId) setMobileTerminalActor(terminalId, connection.device.id)
       ptyService.resize(ptyId, viewport.cols, viewport.rows)
+      notifyMobileFit(terminalId, viewport.cols, viewport.rows)
     }
   }
   // For 'desktop' the desktop renderer un-holds and fits to its own pane; the
@@ -679,6 +691,7 @@ register('terminal.subscribe', async (params, connection) => {
   ) {
     if (terminalId) setMobileTerminalActor(terminalId, connection.device.id)
     ptyService.resize(ptyId, subscribeViewport!.cols as number, subscribeViewport!.rows as number)
+    notifyMobileFit(terminalId, subscribeViewport!.cols as number, subscribeViewport!.rows as number)
   }
 
   // Coalesce PTY output. Bursty programs (build logs, `cat`, `yarn install`)

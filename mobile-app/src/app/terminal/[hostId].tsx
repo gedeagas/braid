@@ -17,6 +17,7 @@ import { AGENT_CATALOG, getAgentEntry } from '@/terminal/agentCatalog';
 import { AgentIcon } from '@/terminal/AgentIcon';
 import { useDetectedAgents } from '@/terminal/useDetectedAgents';
 import type { BraidProject, BraidTerminal, BraidWorktree } from '@/transport/types';
+import { CornerInset } from '@/ui/kit';
 import { useShared, useTheme } from '@/ui/theme';
 import { useHostClient } from '@/ui/use-host-client';
 
@@ -1081,6 +1082,7 @@ export default function TerminalScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={{ backgroundColor: colors.panel, borderBottomWidth: 1, borderBottomColor: colors.border }}>
           <View style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 4 }}>
+            <CornerInset />
             <Pressable style={chromeIconButton} onPress={() => router.back()}><ChevronLeft color={colors.text} size={21} /></Pressable>
             <View style={{ flex: 1, minWidth: 0, paddingHorizontal: 4 }}>
               <Text style={chromeTitleStyle} numberOfLines={1}>{chromeTitle}</Text>

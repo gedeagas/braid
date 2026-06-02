@@ -14,6 +14,7 @@ import { MOBILE_CAPABILITY } from '@/transport/protocol-version';
 import { removeHost } from '@/transport/host-store';
 import type { BraidProject, BraidStatus, BraidWorktree, PrStatus } from '@/transport/types';
 import { ConnectionLog } from '@/ui/ConnectionLog';
+import { CornerInset } from '@/ui/kit';
 import { ProtocolBlockScreen } from '@/ui/ProtocolBlockScreen';
 import { StatusDot } from '@/ui/StatusDot';
 import { useShared, useTheme } from '@/ui/theme';
@@ -726,6 +727,7 @@ export default function HostScreen() {
       <View style={{ flex: 1, backgroundColor: colors.bg }}>
         <View style={hostHeader}>
           <View style={titleRow}>
+            <CornerInset />
             <Pressable style={backButton} onPress={() => router.back()} accessibilityLabel="Go back">
               <ChevronLeft color={colors.text} size={21} />
             </Pressable>

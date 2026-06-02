@@ -18,7 +18,7 @@ import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, V
 import { startDiagnosticFetchTimeout, type DiagnosticFetchTimeout } from '@/diagnostics/diagnostic-fetch-timeout';
 import { formatEndpoint, testHostReachability } from '@/diagnostics/host-reachability';
 import { loadHosts } from '@/transport/host-store';
-import { Screen } from '@/ui/kit';
+import { CornerInset, Screen } from '@/ui/kit';
 import { useTheme, useThemedStyles, type Palette } from '@/ui/theme';
 
 interface CheckResult {
@@ -194,6 +194,7 @@ export default function TroubleshootScreen() {
   return (
     <Screen edges={['top', 'left', 'right']}>
       <View style={styles.topRow}>
+        <CornerInset />
         <Pressable style={styles.back} onPress={() => router.back()} accessibilityLabel="Back">
           <ChevronLeft size={22} color={c.text} />
         </Pressable>

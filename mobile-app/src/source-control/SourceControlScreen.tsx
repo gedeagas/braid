@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useListRefresh } from '@/hooks/use-list-refresh';
 import type { BraidProject, GitBranchStatus, GitChange } from '@/transport/types';
+import { CornerInset } from '@/ui/kit';
 import { useTheme } from '@/ui/theme';
 import { useHostClient } from '@/ui/use-host-client';
 
@@ -211,6 +212,7 @@ export default function SourceControlScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: c.bg }} edges={['top', 'left', 'right', 'bottom']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: c.border, backgroundColor: c.bg }}>
+          <CornerInset />
           <Pressable style={{ width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }} onPress={() => router.back()} accessibilityLabel="Go back">
             <ChevronLeft color={c.text} size={22} />
           </Pressable>

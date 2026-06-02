@@ -5,6 +5,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import WebView from 'react-native-webview';
 
+import { CornerInset } from '@/ui/kit';
 import { colors, shared } from '@/ui/theme';
 import { useHostClient } from '@/ui/use-host-client';
 
@@ -20,6 +21,7 @@ export default function BrowserScreen() {
     <SafeAreaView style={shared.safe}>
       <View style={shared.shell}>
         <View style={shared.header}>
+          <CornerInset />
           <Pressable style={[shared.button, shared.secondary]} onPress={() => router.back()}><ChevronLeft color={colors.text} size={18} /></Pressable>
           <Pressable style={[shared.button, shared.secondary]} onPress={() => webRef.current?.reload()}><RefreshCw color={colors.text} size={18} /></Pressable>
         </View>

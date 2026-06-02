@@ -11,7 +11,7 @@ import {
   type NotificationPermissionState,
 } from '@/notifications/mobile-notifications';
 import { useShared, useTheme, useThemedStyles, type Palette } from '@/ui/theme';
-import { Button, Card, Screen } from '@/ui/kit';
+import { Button, Card, CornerInset, Screen } from '@/ui/kit';
 
 interface State {
   pushEnabled: boolean;
@@ -73,6 +73,7 @@ export default function NotificationsScreen() {
     <Screen edges={['top', 'left', 'right']}>
       <View style={shared.shell}>
         <View style={styles.topRow}>
+          <CornerInset />
           <Pressable style={styles.back} onPress={() => router.back()} accessibilityLabel="Back">
             <ChevronLeft color={c.text} size={22} />
           </Pressable>

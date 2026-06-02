@@ -1,6 +1,6 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ChevronRight, LifeBuoy, Monitor, Plus, QrCode, RefreshCw, Settings, TerminalSquare, Wifi, X } from 'lucide-react-native';
+import { ChevronRight, LifeBuoy, Monitor, Plus, QrCode, RefreshCw, Settings, TerminalSquare, Trash2, Wifi, X } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import {
   Alert,
@@ -14,6 +14,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import Animated, { FadeInDown, LinearTransition, useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { getNotificationNavigationPath } from '@/notifications/notification-routing';
@@ -48,6 +49,7 @@ interface AttentionItem {
 export default function HomeScreen() {
   const { palette: COLORS } = useTheme();
   const styles = useThemedStyles(makeStyles);
+  const reduceMotion = useReducedMotion();
   const [hosts, setHosts] = useState<PairedHost[]>([]);
   const [snapshots, setSnapshots] = useState<Record<string, HostSnapshot>>({});
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -284,6 +286,42 @@ export default function HomeScreen() {
     return { needInput, working, total };
   }, [sortedSnapshots]);
 
+  const homeStatus = useMemo(() => {
+    if (counts.needInput > 0) {
+      return {
+        tone: 'attention' as const,
+        title: counts.needInput === 1 ? '1 agent needs input' : `${counts.needInput} agents need input`,
+        subtitle: 'Open the newest request and keep the work moving.',
+      };
+    }
+    if (counts.working > 0) {
+      return {
+        tone: 'working' as const,
+        title: plural(counts.working, 'agent') + ' working',
+        subtitle: 'Everything active is running in the background.',
+      };
+    }
+    if (sortedSnapshots.some((snapshot) => snapshot.state === 'connecting')) {
+      return {
+        tone: 'connecting' as const,
+        title: 'Connecting to desktop',
+        subtitle: 'Checking paired desktops and agent state.',
+      };
+    }
+    if (sortedSnapshots.length === 0) {
+      return {
+        tone: 'empty' as const,
+        title: 'Pair your first desktop',
+        subtitle: 'Scan the pairing code from desktop Settings > Mobile.',
+      };
+    }
+    return {
+      tone: 'quiet' as const,
+      title: 'All agents quiet',
+      subtitle: 'No agents need input right now.',
+    };
+  }, [counts.needInput, counts.working, sortedSnapshots]);
+
   const knownHostIds = useMemo(() => new Set(hosts.map((host) => host.id)), [hosts]);
 
   // Deep-link to the exact terminal, reusing the same path builder the
@@ -377,27 +415,32 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <View style={styles.quickRow}>
-          <Pressable style={styles.quickTile} onPress={openScanner}>
+        <Animated.View
+          entering={reduceMotion ? undefined : FadeInDown.duration(220).springify().damping(18).stiffness(180)}
+          layout={reduceMotion ? undefined : LinearTransition.duration(180)}
+          style={[styles.statusHero, homeStatus.tone === 'attention' && styles.statusHeroAttention]}
+        >
+          <Text style={styles.statusEyebrow}>Today</Text>
+          <Text style={styles.statusTitle}>{homeStatus.title}</Text>
+          <Text style={styles.statusSubtitle}>{homeStatus.subtitle}</Text>
+        </Animated.View>
+
+        <View style={[styles.quickRow, sortedSnapshots.length > 0 && styles.quickRowCompact]}>
+          <Pressable style={({ pressed }) => [styles.quickTile, sortedSnapshots.length > 0 && styles.quickTileCompact, pressed && styles.pressed]} onPress={openScanner}>
             <QrCode color={COLORS.muted} size={20} />
             <Text style={styles.quickText}>Pair Desktop</Text>
           </Pressable>
-          <Pressable style={styles.quickTile} onPress={() => setManualOpen(true)}>
+          <Pressable style={({ pressed }) => [styles.quickTile, sortedSnapshots.length > 0 && styles.quickTileCompact, pressed && styles.pressed]} onPress={() => setManualOpen(true)}>
             <Plus color={COLORS.muted} size={20} />
             <Text style={styles.quickText}>Enter Code</Text>
           </Pressable>
         </View>
 
-        <Text style={styles.welcome}>Welcome back</Text>
-
-        <View style={styles.statsRow}>
-          <StatCard value={String(counts.needInput)} label="Need input" emphasis={counts.needInput > 0 ? 'alert' : undefined} />
-          <StatCard value={String(counts.working)} label="Working" />
-          <StatCard value={String(counts.total)} label="Agents" />
-        </View>
-
         {attention.length > 0 && (
-          <>
+          <Animated.View
+            entering={reduceMotion ? undefined : FadeInDown.delay(60).duration(220)}
+            layout={reduceMotion ? undefined : LinearTransition.duration(180)}
+          >
             <View style={styles.sectionHeaderRow}>
               <Text style={[styles.sectionLabel, styles.sectionLabelFlush]}>Needs attention</Text>
               <Pressable onPress={clearAllAttention} hitSlop={8} accessibilityLabel="Clear all">
@@ -412,14 +455,25 @@ export default function HomeScreen() {
                 dotColor={terminal.status === 'waiting' ? COLORS.warning : COLORS.success}
                 subtitle={attentionSubtitle(terminal)}
                 onPress={() => openAttention(hostId, terminal)}
+                highlight={terminal.status === 'waiting'}
               />
             ))}
-          </>
+          </Animated.View>
         )}
+
+        <Animated.View
+          entering={reduceMotion ? undefined : FadeInDown.delay(attention.length > 0 ? 120 : 60).duration(220)}
+          layout={reduceMotion ? undefined : LinearTransition.duration(180)}
+          style={styles.statusStrip}
+        >
+          <StatusPill value={String(counts.needInput)} label="Need input" emphasis={counts.needInput > 0 ? 'alert' : undefined} />
+          <StatusPill value={String(counts.working)} label="Working" />
+          <StatusPill value={String(counts.total)} label="Agents" />
+        </Animated.View>
 
         <Text style={styles.sectionLabel}>Desktops</Text>
         {sortedSnapshots.length === 0 ? (
-          <Pressable style={styles.emptyCard} onPress={openScanner}>
+          <Pressable style={({ pressed }) => [styles.emptyCard, pressed && styles.pressed]} onPress={openScanner}>
             <View style={styles.iconTile}>
               <QrCode color={COLORS.muted} size={22} />
             </View>
@@ -450,6 +504,16 @@ export default function HomeScreen() {
                 subtitle={verdictError ? verdict.label : desktopSubtitle(snapshot)}
                 onPress={() => router.push(`/host/${encodeURIComponent(snapshot.host.id)}`)}
                 onLongPress={() => removeDesktop(snapshot.host)}
+                trailingAction={
+                  <Pressable
+                    style={({ pressed }) => [styles.removeButton, pressed && styles.pressed]}
+                    onPress={() => removeDesktop(snapshot.host)}
+                    hitSlop={8}
+                    accessibilityLabel={`Remove ${snapshot.status?.instanceName ?? snapshot.host.instanceName ?? 'Braid desktop'}`}
+                  >
+                    <Trash2 color={COLORS.subtle} size={18} />
+                  </Pressable>
+                }
               />
             );
           })
@@ -563,12 +627,12 @@ export default function HomeScreen() {
   );
 }
 
-function StatCard({ value, label, emphasis }: { value: string; label: string; emphasis?: 'alert' }) {
+function StatusPill({ value, label, emphasis }: { value: string; label: string; emphasis?: 'alert' }) {
   const styles = useThemedStyles(makeStyles);
   return (
-    <View style={styles.statCard}>
-      <Text style={[styles.statValue, emphasis === 'alert' && styles.statValueAlert]}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+    <View style={styles.statusPill}>
+      <Text style={[styles.statusPillValue, emphasis === 'alert' && styles.statusPillValueAlert]}>{value}</Text>
+      <Text style={styles.statusPillLabel}>{label}</Text>
     </View>
   );
 }
@@ -580,6 +644,8 @@ function RowCard({
   dotColor,
   onPress,
   onLongPress,
+  trailingAction,
+  highlight,
 }: {
   icon: React.ReactNode;
   title: string;
@@ -587,11 +653,13 @@ function RowCard({
   dotColor?: string;
   onPress: () => void;
   onLongPress?: () => void;
+  trailingAction?: React.ReactNode;
+  highlight?: boolean;
 }) {
   const { palette: COLORS } = useTheme();
   const styles = useThemedStyles(makeStyles);
   return (
-    <Pressable style={styles.rowCard} onPress={onPress} onLongPress={onLongPress}>
+    <Pressable style={({ pressed }) => [styles.rowCard, highlight && styles.rowCardHighlight, pressed && styles.pressed]} onPress={onPress} onLongPress={onLongPress}>
       <View style={styles.iconTile}>{icon}</View>
       <View style={styles.rowBody}>
         <Text style={styles.rowTitle} numberOfLines={1}>{title}</Text>
@@ -600,6 +668,7 @@ function RowCard({
           <Text style={styles.rowSubtitle} numberOfLines={1}>{subtitle}</Text>
         </View>
       </View>
+      {trailingAction}
       <ChevronRight color={COLORS.subtle} size={20} />
     </Pressable>
   );
@@ -687,20 +756,56 @@ function makeStyles(COLORS: Palette) {
       borderWidth: 1,
       borderColor: COLORS.border,
     },
-    welcome: { color: COLORS.text, fontSize: 30, fontWeight: '800', marginTop: 22 },
-    statsRow: { flexDirection: 'row', gap: 10, marginTop: 18 },
-    statCard: {
-      flex: 1,
-      borderRadius: 14,
+    pressed: { opacity: 0.72, transform: [{ scale: 0.985 }] },
+    statusHero: {
+      marginTop: 24,
+      borderRadius: 18,
       borderWidth: 1,
       borderColor: COLORS.border,
       backgroundColor: COLORS.panel,
-      paddingVertical: 14,
-      paddingHorizontal: 13,
+      paddingVertical: 18,
+      paddingHorizontal: 18,
     },
-    statValue: { color: COLORS.text, fontSize: 22, fontWeight: '800' },
-    statValueAlert: { color: COLORS.warning },
-    statLabel: { color: COLORS.muted, fontSize: 12, marginTop: 5 },
+    statusHeroAttention: {
+      borderColor: COLORS.warning,
+      backgroundColor: COLORS.panelStrong,
+    },
+    statusEyebrow: {
+      color: COLORS.subtle,
+      fontSize: 11,
+      fontWeight: '800',
+      textTransform: 'uppercase',
+      letterSpacing: 0.7,
+      marginBottom: 8,
+    },
+    statusTitle: { color: COLORS.text, fontSize: 29, lineHeight: 34, fontWeight: '800' },
+    statusSubtitle: { color: COLORS.muted, fontSize: 14, lineHeight: 20, marginTop: 8 },
+    statusStrip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 18,
+      paddingVertical: 8,
+      paddingHorizontal: 8,
+      borderRadius: 14,
+      backgroundColor: COLORS.panel,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
+    statusPill: {
+      flex: 1,
+      minHeight: 38,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      borderRadius: 10,
+      backgroundColor: COLORS.panelStrong,
+      paddingHorizontal: 8,
+    },
+    statusPillValue: { color: COLORS.text, fontSize: 15, fontWeight: '800' },
+    statusPillValueAlert: { color: COLORS.warning },
+    statusPillLabel: { color: COLORS.muted, fontSize: 11, fontWeight: '700' },
     sectionLabel: {
       color: COLORS.subtle,
       fontSize: 12,
@@ -730,6 +835,10 @@ function makeStyles(COLORS: Palette) {
       padding: 14,
       marginBottom: 10,
     },
+    rowCardHighlight: {
+      borderColor: COLORS.warning,
+      backgroundColor: COLORS.panelStrong,
+    },
     emptyCard: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -755,9 +864,20 @@ function makeStyles(COLORS: Palette) {
     rowSubtitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 4 },
     rowSubtitle: { color: COLORS.muted, fontSize: 13, flexShrink: 1 },
     statusDot: { width: 8, height: 8, borderRadius: 4 },
+    removeButton: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: COLORS.panelStrong,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
     usageBlock: { marginBottom: 10 },
     usageHostLabel: { color: COLORS.muted, fontSize: 12, fontWeight: '700', marginBottom: 6 },
     quickRow: { flexDirection: 'row', gap: 12, marginTop: 18 },
+    quickRowCompact: { marginTop: 12 },
     quickTile: {
       flex: 1,
       flexDirection: 'row',
@@ -769,6 +889,10 @@ function makeStyles(COLORS: Palette) {
       backgroundColor: COLORS.panel,
       paddingVertical: 16,
       paddingHorizontal: 16,
+    },
+    quickTileCompact: {
+      paddingVertical: 12,
+      paddingHorizontal: 14,
     },
     quickText: { color: COLORS.text, fontSize: 14, fontWeight: '700' },
     footnote: { color: COLORS.subtle, fontSize: 12, marginTop: 18, textAlign: 'center' },
