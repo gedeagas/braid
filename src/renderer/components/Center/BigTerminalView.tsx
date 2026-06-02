@@ -22,6 +22,11 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, init
   const { t } = useTranslation('center')
   const containerRef = useRef<HTMLDivElement>(null)
   const entryRef = useRef<BigTermEntry | null>(null)
+  // Last phone-fit dimensions a paired mobile device applied to the shared PTY,
+  // and a live mirror of `heldForMobile` so the (terminalId-scoped) mobile-fit
+  // listener can read the current hold state without re-subscribing.
+  const mobileFitRef = useRef<{ cols: number; rows: number } | null>(null)
+  const heldForMobileRef = useRef(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [mobileActive, setMobileActive] = useState(false)
   // 'desktop' means the paired phone (or the desktop's "Restore desktop size"
@@ -64,16 +69,32 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, init
     const unsubscribeMode = ipc.pty.onMobileDisplayMode((status) => {
       if (status.terminalId === terminalId) setMobileDisplayMode(status.mode)
     })
+    // While the desktop is yielding to a phone, size our xterm to the phone's
+    // PTY dims (the "held at phone size" buffer): the held buffer is laid out at the
+    // width the phone shows, so xterm reflows cleanly back to desktop width on
+    // restore instead of stranding phone-width scrollback in a wide pane. The
+    // mount effect's scheduleFit() bails while held, so this does not fight it.
+    const unsubscribeFit = ipc.pty.onMobileFit((status) => {
+      if (status.terminalId !== terminalId) return
+      mobileFitRef.current = { cols: status.cols, rows: status.rows }
+      if (!heldForMobileRef.current) return
+      const entry = entryRef.current
+      if (!entry || entry.disposed) return
+      if (entry.term.cols === status.cols && entry.term.rows === status.rows) return
+      try { entry.term.resize(status.cols, status.rows) } catch { /* ignore */ }
+    })
     return () => {
       cancelled = true
       unsubscribe()
       unsubscribeMode()
+      unsubscribeFit()
     }
   }, [terminalId])
 
   // In 'desktop' mode the phone wants our native size, so we stop holding and
   // let the ResizeObserver fit to this pane (which resizes the shared PTY).
   const heldForMobile = mobileActive && mobileDisplayMode !== 'desktop'
+  heldForMobileRef.current = heldForMobile
 
   useEffect(() => {
     const el = containerRef.current
@@ -155,6 +176,66 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, init
       }
     }
   }, [terminalId, worktreePath, heldForMobile])
+
+  // Robust restore (mirrors the desktop terminal pane's desktop-fit handler). When the
+  // pane un-holds after a mobile session, the mount effect's single rAF fit()
+  // can silently no-op if it measured the container before layout settled (it
+  // was just toggled from visibility:hidden), leaving xterm - which we sized
+  // down to the phone's dims while held - and the shared PTY parked narrow. A
+  // short fallback re-measures and force-fits if xterm is still stuck at the
+  // phone dims, so the PTY returns to desktop width and xterm reflows scrollback
+  // back out to full width.
+  const prevHeldRef = useRef(heldForMobile)
+  useEffect(() => {
+    const wasHeld = prevHeldRef.current
+    prevHeldRef.current = heldForMobile
+    if (!wasHeld || heldForMobile) return // only on the held -> un-held transition
+
+    const entry = entryRef.current
+    const el = containerRef.current
+    if (!entry || !el) return
+
+    const phoneFit = mobileFitRef.current
+    // Dims xterm is parked at as we un-hold; if a fit lands they change, if it
+    // silently fails they stay and the fallback forces the resize.
+    const stuckCols = entry.term.cols
+    const stuckRows = entry.term.rows
+
+    // Primary: fit once the browser settles the visibility:hidden -> visible flip.
+    const rafId = requestAnimationFrame(() => {
+      try {
+        entry.fitAddon.fit()
+        if (entry.ptyId) ipc.pty.resize(entry.ptyId, entry.term.cols, entry.term.rows)
+      } catch { /* ignore */ }
+    })
+
+    // Belt-and-suspenders: force a re-fit if the rAF fit threw or no-oped - but
+    // only for a visible, non-zero pane (a hidden pane's later activation refit
+    // corrects it) and only while xterm is still parked at the phone's dims, so
+    // a desktop pane the user resized in the meantime is never clobbered.
+    const timerId = window.setTimeout(() => {
+      if (entry.disposed) return
+      const rect = el.getBoundingClientRect()
+      if (rect.width === 0 || rect.height === 0) return
+      const stillStuck =
+        entry.term.cols === stuckCols &&
+        entry.term.rows === stuckRows &&
+        (!phoneFit || (entry.term.cols === phoneFit.cols && entry.term.rows === phoneFit.rows))
+      if (!stillStuck) return
+      try {
+        const proposed = entry.fitAddon.proposeDimensions()
+        if (proposed && (proposed.cols !== entry.term.cols || proposed.rows !== entry.term.rows)) {
+          entry.fitAddon.fit()
+          if (entry.ptyId) ipc.pty.resize(entry.ptyId, entry.term.cols, entry.term.rows)
+        }
+      } catch { /* ignore */ }
+    }, 100)
+
+    return () => {
+      cancelAnimationFrame(rafId)
+      window.clearTimeout(timerId)
+    }
+  }, [heldForMobile])
 
   const restoreDesktopSize = useCallback(() => {
     // Tell the main process the terminal is now driven at desktop dimensions.

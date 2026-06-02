@@ -3,7 +3,7 @@ import { Bell, ChevronLeft, ChevronRight, LifeBuoy } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useShared, useTheme, useThemedStyles, type Palette, type ThemeMode } from '@/ui/theme';
-import { Card, Screen, SegmentedControl } from '@/ui/kit';
+import { Card, CornerInset, Screen, SegmentedControl } from '@/ui/kit';
 
 const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
   { value: 'system', label: 'System' },
@@ -20,6 +20,7 @@ export default function SettingsScreen() {
     <Screen edges={['top', 'left', 'right']}>
       <View style={shared.shell}>
         <View style={styles.topRow}>
+          <CornerInset />
           <Pressable style={styles.back} onPress={() => router.back()} accessibilityLabel="Back">
             <ChevronLeft color={c.text} size={22} />
           </Pressable>

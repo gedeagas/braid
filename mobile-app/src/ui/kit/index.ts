@@ -3,6 +3,7 @@
  * the active palette via `useTheme()`, so they switch with light/dark for free.
  */
 export { Screen } from './Screen';
+export { CornerInset } from './CornerInset';
 export { Button, type ButtonVariant } from './Button';
 export { Card } from './Card';
 export { SegmentedControl, type SegmentOption } from './SegmentedControl';

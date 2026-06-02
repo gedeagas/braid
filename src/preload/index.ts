@@ -173,6 +173,11 @@ const api = {
       ipcRenderer.on('pty:mobileDisplayMode', handler)
       return () => ipcRenderer.removeListener('pty:mobileDisplayMode', handler)
     },
+    onMobileFit: (callback: (status: { terminalId: string; cols: number; rows: number }) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, status: { terminalId: string; cols: number; rows: number }) => callback(status)
+      ipcRenderer.on('pty:mobileFit', handler)
+      return () => ipcRenderer.removeListener('pty:mobileFit', handler)
+    },
     onBigTerminalRegistered: (callback: (tab: { terminalId: string; worktreeId?: string; worktreePath?: string; label?: string; agentId?: string }) => void) => {
       const handler = (_event: Electron.IpcRendererEvent, tab: { terminalId: string; worktreeId?: string; worktreePath?: string; label?: string; agentId?: string }) => callback(tab)
       ipcRenderer.on('pty:bigTerminalRegistered', handler)

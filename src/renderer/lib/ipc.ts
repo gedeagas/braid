@@ -140,6 +140,8 @@ export const pty = {
     api().pty.onMobileTerminalActive(callback),
   onMobileDisplayMode: (callback: (status: { terminalId: string; mode: 'phone' | 'desktop' }) => void) =>
     api().pty.onMobileDisplayMode(callback),
+  onMobileFit: (callback: (status: { terminalId: string; cols: number; rows: number }) => void) =>
+    api().pty.onMobileFit(callback),
   onBigTerminalRegistered: (callback: (tab: { terminalId: string; worktreeId?: string; worktreePath?: string; label?: string; agentId?: string }) => void) =>
     api().pty.onBigTerminalRegistered(callback),
   onBigTerminalRenamed: (callback: (tab: { terminalId: string; worktreeId?: string; worktreePath?: string; label: string }) => void) =>
