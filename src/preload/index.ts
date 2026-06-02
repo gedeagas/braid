@@ -525,8 +525,18 @@ const api = {
     }>,
     start: () => ipcRenderer.invoke('mobile:start') as Promise<{ port: number }>,
     stop: () => ipcRenderer.invoke('mobile:stop') as Promise<void>,
-    generatePairingOffer: () => ipcRenderer.invoke('mobile:generatePairingOffer') as Promise<{
-      endpoint: string; token: string; serverPublicKey: string
+    generatePairingOffer: (options?: { transport?: 'lan' | 'ngrok' }) =>
+      ipcRenderer.invoke('mobile:generatePairingOffer', options) as Promise<{
+        endpoint: string; token: string; serverPublicKey: string; transport?: 'lan' | 'ngrok'
+      } | null>,
+    getNgrokTunnelStatus: () => ipcRenderer.invoke('mobile:getNgrokTunnelStatus') as Promise<{
+      running: boolean; port: number | null; url: string | null; endpoint: string | null; startedAt: number | null; error: string | null
+    }>,
+    startNgrokTunnel: () => ipcRenderer.invoke('mobile:startNgrokTunnel') as Promise<{
+      running: boolean; port: number | null; url: string | null; endpoint: string | null; startedAt: number | null; error: string | null
+    }>,
+    stopNgrokTunnel: () => ipcRenderer.invoke('mobile:stopNgrokTunnel') as Promise<{
+      running: boolean; port: number | null; url: string | null; endpoint: string | null; startedAt: number | null; error: string | null
     } | null>,
     getDevices: () => ipcRenderer.invoke('mobile:getDevices') as Promise<Array<{
       id: string; name: string; publicKey: string; pairedAt: number; lastSeenAt: number

@@ -12,7 +12,7 @@
 //
 // Bump MIN_COMPATIBLE_DESKTOP_VERSION only when mobile starts requiring a server
 // feature added at a specific protocol version - it hard-blocks older desktops.
-export const MOBILE_PROTOCOL_VERSION = 3;
+export const MOBILE_PROTOCOL_VERSION = 4;
 export const MIN_COMPATIBLE_DESKTOP_VERSION = 1;
 
 // Capability ids the desktop advertises in `status.get`. Gate features on these

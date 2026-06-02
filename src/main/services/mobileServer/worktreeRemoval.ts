@@ -64,15 +64,25 @@ export async function removeWorktreeViaDesktop(repoPath: string, worktreePath: s
   }
 
   const requestId = crypto.randomUUID()
+  let timer: ReturnType<typeof setTimeout>
   const ack = new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(() => {
+    timer = setTimeout(() => {
       pending.delete(requestId)
       reject(new Error('renderer_removal_timeout'))
     }, RENDERER_REMOVAL_TIMEOUT_MS)
     pending.set(requestId, { resolve, reject, timer })
   })
 
-  win.webContents.send('mobile:removeWorktreeRequest', { requestId, repoPath, worktreePath })
+  try {
+    // send() can throw if the webContents was destroyed between the liveness
+    // check and here; clear the pending entry + timer so it doesn't leak and
+    // later fire an unhandled rejection.
+    win.webContents.send('mobile:removeWorktreeRequest', { requestId, repoPath, worktreePath })
+  } catch (err) {
+    clearTimeout(timer!)
+    pending.delete(requestId)
+    throw err
+  }
 
   try {
     await ack

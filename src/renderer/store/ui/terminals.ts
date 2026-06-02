@@ -195,6 +195,18 @@ function persistActiveView(worktreeId: string, view: CenterView | null): void {
   try { localStorage.setItem(SK.activeCenterViewPrefix + worktreeId, JSON.stringify(view)) } catch {}
 }
 
+// Read the persisted active center view for a worktree. The store only hydrates
+// activeCenterViewByWorktree for the last-selected worktree (see loadInitial), so
+// for any other worktree the in-memory entry is absent even when localStorage has
+// one. Returns undefined when nothing is persisted. Mirrors loadBigTerminalsFor.
+function loadActiveViewFor(worktreeId: string): CenterView | null | undefined {
+  if (!worktreeId) return undefined
+  try {
+    const raw = localStorage.getItem(SK.activeCenterViewPrefix + worktreeId)
+    return raw == null ? undefined : (JSON.parse(raw) as CenterView | null)
+  } catch { return undefined }
+}
+
 // When the closed terminal was the active center view, pick its replacement: the
 // adjacent remaining terminal (same "clamp to last" rule as TabbedTerminal.closeTab),
 // or null when none remain (CenterPanel then falls back to the active session / empty).
@@ -314,7 +326,14 @@ export const createTerminalsSlice: StateCreator<UIState, [], [], TerminalsSlice>
       delete statusNext[id]
       // If the desktop was viewing this exact terminal (same worktree), switch to
       // the next tab so the close is instant instead of leaving a dead pane.
-      const nextView = nextViewAfterClose(s.activeCenterViewByWorktree?.[worktreeId], id, next, closedIndex)
+      // The remote close can target a worktree that isn't hydrated this session, so
+      // fall back to the persisted active view (the `in` check keeps an explicit
+      // in-memory `null` from being overridden). Without this, a stale persisted
+      // active view would survive and surface a dead pane on next selection.
+      const currentView = (s.activeCenterViewByWorktree && worktreeId in s.activeCenterViewByWorktree)
+        ? s.activeCenterViewByWorktree[worktreeId]
+        : loadActiveViewFor(worktreeId)
+      const nextView = nextViewAfterClose(currentView, id, next, closedIndex)
       const viewUpdate = nextView === undefined ? {} : (() => {
         persistActiveView(worktreeId, nextView)
         return { activeCenterViewByWorktree: { ...s.activeCenterViewByWorktree, [worktreeId]: nextView } }

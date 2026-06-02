@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import QRCode from 'qrcode'
 import { useUIStore } from '@/store/ui'
 import { Toggle } from '@/components/shared/Toggle'
+import { SegmentedControl } from '@/components/shared/SegmentedControl'
 import { Button } from '@/components/ui'
 import { StatusDot } from '@/components/ui/StatusDot'
 import {
@@ -14,6 +15,7 @@ import {
   IconSparkle,
   IconCopy,
   IconRefresh,
+  IconGlobe,
   type IconProps,
 } from '@/components/shared/icons'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
@@ -31,13 +33,27 @@ interface PairingOffer {
   endpoint: string
   token: string
   serverPublicKey: string
+  transport?: PairingTransport
+}
+
+type PairingTransport = 'lan' | 'ngrok'
+
+interface NgrokTunnelStatus {
+  running: boolean
+  port: number | null
+  url: string | null
+  endpoint: string | null
+  startedAt: number | null
+  error: string | null
 }
 
 interface MobileState {
   devices: MobileDevice[]
+  pairingTransport: PairingTransport
   pairingOffer: PairingOffer | null
   pairingPayload: string | null
   qrDataUrl: string | null
+  ngrokTunnel: NgrokTunnelStatus
   serverRunning: boolean
   serverPort: number | null
   connectedDevices: Array<{ id: string; name: string; connectedAt: number }>
@@ -48,7 +64,9 @@ interface MobileState {
 type MobileAction =
   | { type: 'SET_STATUS'; running: boolean; port: number | null; connectedDevices: Array<{ id: string; name: string; connectedAt: number }> }
   | { type: 'SET_DEVICES'; devices: MobileDevice[] }
+  | { type: 'SET_TRANSPORT'; transport: PairingTransport }
   | { type: 'SET_PAIRING'; offer: PairingOffer | null; pairingPayload: string | null; qrDataUrl: string | null }
+  | { type: 'SET_NGROK_TUNNEL'; tunnel: NgrokTunnelStatus }
   | { type: 'SET_LOADING'; loading: boolean }
   | { type: 'SET_ERROR'; error: string | null }
 
@@ -58,8 +76,12 @@ function reducer(state: MobileState, action: MobileAction): MobileState {
       return { ...state, serverRunning: action.running, serverPort: action.port, connectedDevices: action.connectedDevices }
     case 'SET_DEVICES':
       return { ...state, devices: action.devices }
+    case 'SET_TRANSPORT':
+      return { ...state, pairingTransport: action.transport }
     case 'SET_PAIRING':
       return { ...state, pairingOffer: action.offer, pairingPayload: action.pairingPayload, qrDataUrl: action.qrDataUrl }
+    case 'SET_NGROK_TUNNEL':
+      return { ...state, ngrokTunnel: action.tunnel }
     case 'SET_LOADING':
       return { ...state, loading: action.loading }
     case 'SET_ERROR':
@@ -82,9 +104,11 @@ export function SettingsMobile() {
 
   const [state, dispatch] = useReducer(reducer, {
     devices: [],
+    pairingTransport: 'lan',
     pairingOffer: null,
     pairingPayload: null,
     qrDataUrl: null,
+    ngrokTunnel: { running: false, port: null, url: null, endpoint: null, startedAt: null, error: null },
     serverRunning: false,
     serverPort: null,
     connectedDevices: [],
@@ -92,16 +116,19 @@ export function SettingsMobile() {
     error: null,
   })
 
-  const { copied, handleCopy } = useCopyToClipboard(state.pairingPayload ?? '')
+  const { copied: copiedCode, handleCopy: handleCopyCode } = useCopyToClipboard(state.pairingPayload ?? '')
+  const { copied: copiedEndpoint, handleCopy: handleCopyEndpoint } = useCopyToClipboard(state.ngrokTunnel.endpoint ?? '')
 
   const loadData = useCallback(async () => {
     try {
-      const [status, devices] = await Promise.all([
+      const [status, devices, tunnel] = await Promise.all([
         ipc.mobile.getStatus(),
         ipc.mobile.getDevices(),
+        ipc.mobile.getNgrokTunnelStatus(),
       ])
       dispatch({ type: 'SET_STATUS', running: status.running, port: status.port, connectedDevices: status.connectedDevices })
       dispatch({ type: 'SET_DEVICES', devices: devices as MobileDevice[] })
+      dispatch({ type: 'SET_NGROK_TUNNEL', tunnel: tunnel as NgrokTunnelStatus })
     } catch {
       // Server may not be running
     }
@@ -120,6 +147,7 @@ export function SettingsMobile() {
       } else {
         await ipc.mobile.stop()
         dispatch({ type: 'SET_PAIRING', offer: null, pairingPayload: null, qrDataUrl: null })
+        dispatch({ type: 'SET_NGROK_TUNNEL', tunnel: { running: false, port: null, url: null, endpoint: null, startedAt: null, error: null } })
       }
       setMobileServerEnabled(enabled)
       await loadData()
@@ -131,9 +159,14 @@ export function SettingsMobile() {
   }
 
   const handleGeneratePairing = async () => {
+    dispatch({ type: 'SET_LOADING', loading: true })
     dispatch({ type: 'SET_ERROR', error: null })
     try {
-      const offer = await ipc.mobile.generatePairingOffer()
+      if (state.pairingTransport === 'ngrok') {
+        const tunnel = await ipc.mobile.startNgrokTunnel()
+        dispatch({ type: 'SET_NGROK_TUNNEL', tunnel: tunnel as NgrokTunnelStatus })
+      }
+      const offer = await ipc.mobile.generatePairingOffer({ transport: state.pairingTransport })
       if (!offer) return
       const payload = btoa(JSON.stringify(offer))
       const qrDataUrl = await QRCode.toDataURL(payload, {
@@ -142,6 +175,30 @@ export function SettingsMobile() {
         color: { dark: '#0b0b0c', light: '#ffffff' },
       })
       dispatch({ type: 'SET_PAIRING', offer: offer as PairingOffer, pairingPayload: payload, qrDataUrl })
+    } catch (err) {
+      dispatch({ type: 'SET_ERROR', error: err instanceof Error ? err.message : String(err) })
+    } finally {
+      dispatch({ type: 'SET_LOADING', loading: false })
+    }
+  }
+
+  const handleTransportChange = (transport: PairingTransport) => {
+    dispatch({ type: 'SET_TRANSPORT', transport })
+    dispatch({ type: 'SET_PAIRING', offer: null, pairingPayload: null, qrDataUrl: null })
+    dispatch({ type: 'SET_ERROR', error: null })
+    if (transport === 'lan' && state.ngrokTunnel.running) {
+      void ipc.mobile.stopNgrokTunnel().then((tunnel: NgrokTunnelStatus | null) => {
+        if (tunnel) dispatch({ type: 'SET_NGROK_TUNNEL', tunnel: tunnel as NgrokTunnelStatus })
+      }).catch(() => undefined)
+    }
+  }
+
+  const handleStopNgrokTunnel = async () => {
+    dispatch({ type: 'SET_ERROR', error: null })
+    try {
+      const tunnel = await ipc.mobile.stopNgrokTunnel()
+      if (tunnel) dispatch({ type: 'SET_NGROK_TUNNEL', tunnel: tunnel as NgrokTunnelStatus })
+      dispatch({ type: 'SET_PAIRING', offer: null, pairingPayload: null, qrDataUrl: null })
     } catch (err) {
       dispatch({ type: 'SET_ERROR', error: err instanceof Error ? err.message : String(err) })
     }
@@ -164,6 +221,11 @@ export function SettingsMobile() {
   const connectedIds = new Set(state.connectedDevices.map((d) => d.id))
   const pairedDevices = state.devices.filter((d) => d.publicKey)
   const running = state.serverRunning
+  const tunnelReady = state.ngrokTunnel.running && Boolean(state.ngrokTunnel.endpoint)
+  const transportOptions = [
+    { value: 'lan' as const, label: t('mobile.transportLan') },
+    { value: 'ngrok' as const, label: t('mobile.transportNgrok') },
+  ]
 
   return (
     <div className="mobile-settings">
@@ -195,9 +257,48 @@ export function SettingsMobile() {
               <StatusDot state={running ? 'success' : 'failure'} />
               {running ? t('mobile.running', { port: state.serverPort }) : t('mobile.enableServer')}
             </span>
-            {running && <span className="mobile-server-chip">LAN</span>}
+            {running && <span className="mobile-server-chip">{state.pairingTransport === 'ngrok' ? 'ngrok' : 'LAN'}</span>}
             <Toggle checked={running} onChange={handleToggle} disabled={state.loading} />
           </div>
+
+          {running && (
+            <div className="mobile-transport-row">
+              <div className="mobile-transport-copy">
+                <span className="mobile-transport-label">{t('mobile.transportLabel')}</span>
+                <span className="mobile-transport-desc">
+                  {state.pairingTransport === 'ngrok' ? t('mobile.transportNgrokDesc') : t('mobile.transportLanDesc')}
+                </span>
+              </div>
+              <SegmentedControl<PairingTransport>
+                options={transportOptions}
+                value={state.pairingTransport}
+                onChange={handleTransportChange}
+                disabled={state.loading}
+              />
+            </div>
+          )}
+
+          {running && state.pairingTransport === 'ngrok' && (
+            <div className="mobile-ngrok-panel">
+              <div className="mobile-ngrok-status">
+                <span className="mobile-ngrok-heading">
+                  <IconGlobe size={13} />
+                  <StatusDot state={tunnelReady ? 'success' : state.ngrokTunnel.error ? 'failure' : 'skipped'} />
+                  {tunnelReady ? t('mobile.ngrokReady') : state.loading ? t('mobile.ngrokStarting') : t('mobile.ngrokStopped')}
+                </span>
+                {state.ngrokTunnel.endpoint && <code>{state.ngrokTunnel.endpoint}</code>}
+              </div>
+              <div className="mobile-ngrok-actions">
+                <Button size="sm" onClick={handleCopyEndpoint} disabled={!state.ngrokTunnel.endpoint}>
+                  <IconCopy size={13} />
+                  {copiedEndpoint ? t('mobile.copiedEndpoint') : t('mobile.copyEndpoint')}
+                </Button>
+                <Button size="sm" onClick={handleStopNgrokTunnel} disabled={!state.ngrokTunnel.running}>
+                  {t('mobile.stopTunnel')}
+                </Button>
+              </div>
+            </div>
+          )}
 
           {state.error && <div className="mobile-error">{state.error}</div>}
 
@@ -221,11 +322,11 @@ export function SettingsMobile() {
                     <li><span className="mobile-step-num">2</span><span>{t('mobile.step2')}</span></li>
                   </ol>
                   <div className="mobile-qr-actions">
-                    <Button size="sm" onClick={handleCopy} disabled={!state.pairingPayload}>
+                    <Button size="sm" onClick={handleCopyCode} disabled={!state.pairingPayload}>
                       <IconCopy size={13} />
-                      {copied ? t('mobile.copiedCode') : t('mobile.copyCode')}
+                      {copiedCode ? t('mobile.copiedCode') : t('mobile.copyCode')}
                     </Button>
-                    <Button size="sm" onClick={handleGeneratePairing}>
+                    <Button size="sm" onClick={handleGeneratePairing} disabled={state.loading}>
                       <IconRefresh size={13} />
                       {t('mobile.regenerateQr')}
                     </Button>
@@ -241,7 +342,7 @@ export function SettingsMobile() {
                     <span className="mobile-cta-node mobile-cta-node--b" />
                   </div>
                   <p className="mobile-pair-cta-text">{t('mobile.pairingHint')}</p>
-                  <Button variant="primary" onClick={handleGeneratePairing}>
+                  <Button variant="primary" onClick={handleGeneratePairing} disabled={state.loading}>
                     <IconSparkle size={14} />
                     {t('mobile.generateQr')}
                   </Button>

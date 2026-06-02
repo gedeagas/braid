@@ -4,10 +4,11 @@ import nacl from 'tweetnacl'
  * E2EE layer using tweetnacl (NaCl box = Curve25519 + XSalsa20-Poly1305).
  *
  * Handshake:
- * 1. Mobile sends plaintext: { type: "e2ee_hello", ephemeralPublicKey, deviceToken }
+ * 1. Mobile sends plaintext: { type: "e2ee_hello", ephemeralPublicKey }
  * 2. Server generates ephemeral keypair, derives shared key
  *    Sends plaintext: { type: "e2ee_ready", serverEphemeralPublicKey }
- * 3. All subsequent messages are NaCl box encrypted
+ * 3. Mobile sends encrypted auth, including its deviceToken.
+ * 4. All subsequent messages are NaCl box encrypted.
  *
  * Nonce space is partitioned: server uses even counters, client uses odd,
  * preventing nonce reuse from both sides.

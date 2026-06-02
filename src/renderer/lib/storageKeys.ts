@@ -132,6 +132,9 @@ export const SK = {
 
   // ── Mobile Companion ────────────────────────────────────────────────────
   mobileServerEnabled:        `${prefix}:mobileServerEnabled`,
+
+  // ── Power ───────────────────────────────────────────────────────────────
+  keepAwakeWhileAgentsRun:    `${prefix}:keepAwakeWhileAgentsRun`,
 } as const
 
 export type StorageKey = (typeof SK)[keyof typeof SK]

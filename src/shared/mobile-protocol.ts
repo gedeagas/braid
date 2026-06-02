@@ -16,7 +16,7 @@
 // Bump MIN_COMPATIBLE_MOBILE_VERSION (the desktop-side kill switch) only when an
 // old mobile build can no longer talk to this desktop safely - it hard-blocks
 // those clients via the compatibility verdict.
-export const MOBILE_PROTOCOL_VERSION = 3
+export const MOBILE_PROTOCOL_VERSION = 4
 export const MIN_COMPATIBLE_MOBILE_VERSION = 1
 export const DEFAULT_MOBILE_PORT = 6839
 

@@ -50,6 +50,14 @@ export interface PairingOffer {
   endpoint: string                // "ws://<lanIp>:6839"
   token: string                   // One-time pairing token
   serverPublicKey: string         // Base64-encoded identity public key
+  transport?: MobilePairingTransport
+}
+
+export type MobilePairingTransport = 'lan' | 'ngrok'
+
+export interface GeneratePairingOfferOptions {
+  endpoint?: string
+  transport?: MobilePairingTransport
 }
 
 // ── E2EE Handshake Messages (plaintext phase) ────────────────────────────────
@@ -57,7 +65,7 @@ export interface PairingOffer {
 export interface E2EEHello {
   type: 'e2ee_hello'
   ephemeralPublicKey: string      // Base64-encoded
-  deviceToken: string             // One-time pairing token or existing device token
+  deviceToken?: string            // Legacy plaintext token; new clients send it in encrypted auth
 }
 
 export interface E2EEReady {
@@ -68,6 +76,7 @@ export interface E2EEReady {
 export interface E2EEAuth {
   type: 'e2ee_auth'
   deviceId?: string               // Present for returning devices
+  deviceToken?: string            // One-time pairing token or existing device token
   deviceName: string              // User-facing name for this mobile device
   devicePublicKey: string         // Base64-encoded permanent Curve25519 key
   capabilities?: MobileClientCapabilities  // Optional feature negotiation (v3+)
@@ -145,4 +154,13 @@ export interface MobileServerStatus {
     name: string
     connectedAt: number
   }>
+}
+
+export interface MobileNgrokTunnelStatus {
+  running: boolean
+  port: number | null
+  url: string | null
+  endpoint: string | null
+  startedAt: number | null
+  error: string | null
 }

@@ -7,6 +7,7 @@ import type { JsonRpcResponse, PairedHost, PairingOffer, RpcNotification } from 
 
 type AuthenticatedMessage = { type: 'e2ee_authenticated'; deviceId: string; instanceName: string; deviceToken?: string };
 type ReadyMessage = { type: 'e2ee_ready'; serverEphemeralPublicKey: string };
+type HandshakeMode = 'secure' | 'legacy';
 const REQUEST_TIMEOUT_MS = 12_000;
 // The desktop closes the socket with this code (mobileServer.ts) when the device
 // token is missing/invalid/revoked or the encrypted auth fails. It is terminal:
@@ -67,10 +68,29 @@ export class BraidRpcClient {
     // trigger connect at once; without this they would open duplicate sockets.
     if (this.connectPromise) return this.connectPromise;
 
+    const connectPromise = this.connectWithHandshake('secure').catch((error) => {
+      if (this.shouldRetryLegacyHello(error)) {
+        console.warn('[BraidMobile] rpc.connect.legacyHelloFallback', { endpoint: this.host.endpoint });
+        return this.connectWithHandshake('legacy');
+      }
+      throw error;
+    });
+    const finalPromise = connectPromise.finally(() => {
+      if (this.connectPromise === finalPromise) this.connectPromise = null;
+    });
+    this.connectPromise = finalPromise;
+    return this.connectPromise;
+  }
+
+  private shouldRetryLegacyHello(error: unknown): boolean {
+    return error instanceof BraidAuthError && this.host.endpoint.startsWith('ws://');
+  }
+
+  private async connectWithHandshake(mode: HandshakeMode): Promise<{ deviceId: string; instanceName: string }> {
     this.sharedKey = null;
     this.sendCounter = 0;
     this.receiveCounter = 0;
-    console.log('[BraidMobile] rpc.connect.start', { endpoint: this.host.endpoint, hostId: this.host.id });
+    console.log('[BraidMobile] rpc.connect.start', { endpoint: this.host.endpoint, hostId: this.host.id, mode });
     const ws = new WebSocket(this.host.endpoint);
     // Deliver binary terminal-output frames (protocol v3) as ArrayBuffers
     // rather than the RN default Blob, so handleRpcMessage can decode them
@@ -81,7 +101,7 @@ export class BraidRpcClient {
 
     const ephemeral = generateKeyPair();
 
-    this.connectPromise = new Promise((resolve, reject) => {
+    const handshakePromise = new Promise<{ deviceId: string; instanceName: string }>((resolve, reject) => {
       let handshakeKey: Uint8Array | null = null;
       let handshakeSendCounter = 0;
       let handshakeReceiveCounter = 0;
@@ -99,7 +119,6 @@ export class BraidRpcClient {
         this.sharedKey = null;
         this.sendCounter = 0;
         this.receiveCounter = 0;
-        if (this.connectPromise) this.connectPromise = null;
         reject(error);
       };
 
@@ -112,12 +131,13 @@ export class BraidRpcClient {
 
       const onOpen = () => {
         if (this.ws !== ws) return;
-        console.log('[BraidMobile] rpc.ws.open', { endpoint: this.host.endpoint });
-        ws.send(JSON.stringify({
+        console.log('[BraidMobile] rpc.ws.open', { endpoint: this.host.endpoint, mode });
+        const hello: { type: 'e2ee_hello'; ephemeralPublicKey: string; deviceToken?: string } = {
           type: 'e2ee_hello',
           ephemeralPublicKey: toBase64(ephemeral.publicKey),
-          deviceToken: this.host.token,
-        }));
+        };
+        if (mode === 'legacy') hello.deviceToken = this.host.token;
+        ws.send(JSON.stringify(hello));
       };
 
       const onError = () => {
@@ -153,6 +173,7 @@ export class BraidRpcClient {
             console.log('[BraidMobile] rpc.e2ee.ready');
             const payload = encryptJson({
               type: 'e2ee_auth',
+              deviceToken: this.host.token,
               deviceName: this.host.deviceName,
               devicePublicKey: this.host.devicePublicKey,
               // Advertise client capabilities. The desktop ignores unknown keys
@@ -182,7 +203,6 @@ export class BraidRpcClient {
           this.host.id = auth.deviceId;
           this.host.instanceName = auth.instanceName;
           this.host.lastConnectedAt = Date.now();
-          this.connectPromise = null;
           console.log('[BraidMobile] rpc.authenticated', { deviceId: auth.deviceId, instanceName: auth.instanceName });
           // Notify listeners (the ClientManager) that a handshake completed -
           // regardless of who triggered connect(). A screen calling connect()
@@ -200,7 +220,7 @@ export class BraidRpcClient {
       ws.addEventListener('error', onError);
       ws.addEventListener('close', onClose);
     });
-    return this.connectPromise;
+    return handshakePromise;
   }
 
   async request<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {
@@ -275,15 +295,17 @@ export class BraidRpcClient {
   ): Promise<string> {
     const localId = `lsub-${++this.subCounter}`;
     this.subscriptions.set(localId, { method, params, serverId: null });
-    const result = await this.sendSubscribe(localId);
-    if (onInitialResult && result) onInitialResult(result as R);
+    const result = await this.sendSubscribe<R>(localId);
+    if (onInitialResult && result) onInitialResult(result);
     return localId;
   }
 
-  private async sendSubscribe(localId: string): Promise<{ subscriptionId: string } | undefined> {
+  private async sendSubscribe<T extends { subscriptionId: string } = { subscriptionId: string }>(
+    localId: string,
+  ): Promise<T | undefined> {
     const entry = this.subscriptions.get(localId);
     if (!entry) return undefined;
-    const result = await this.request<{ subscriptionId: string }>(entry.method, entry.params);
+    const result = await this.request<T>(entry.method, entry.params);
     // The handle may have been unsubscribed while the request was in flight.
     const current = this.subscriptions.get(localId);
     if (current) current.serverId = result.subscriptionId;

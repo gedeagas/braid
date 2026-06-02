@@ -354,7 +354,10 @@ export const mobile = {
   getStatus: () => api().mobile.getStatus(),
   start: () => api().mobile.start(),
   stop: () => api().mobile.stop(),
-  generatePairingOffer: () => api().mobile.generatePairingOffer(),
+  generatePairingOffer: (options?: { transport?: 'lan' | 'ngrok' }) => api().mobile.generatePairingOffer(options),
+  getNgrokTunnelStatus: () => api().mobile.getNgrokTunnelStatus(),
+  startNgrokTunnel: () => api().mobile.startNgrokTunnel(),
+  stopNgrokTunnel: () => api().mobile.stopNgrokTunnel(),
   getDevices: () => api().mobile.getDevices(),
   removeDevice: (deviceId: string) => api().mobile.removeDevice(deviceId),
   onRemoveWorktreeRequest: (

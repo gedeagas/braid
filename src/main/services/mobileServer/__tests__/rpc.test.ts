@@ -147,7 +147,7 @@ describe('RPC Dispatch', () => {
     expect(res.result).toBeDefined()
     const result = res.result as Record<string, unknown>
     expect(result.version).toBe('1.0.0')
-    expect(result.protocolVersion).toBe(3)
+    expect(result.protocolVersion).toBe(4)
     expect(result.minCompatibleMobileVersion).toBe(1)
     expect(result.capabilities).toContain('terminal.binary-stream.v1')
     expect(result.projects).toHaveLength(1)

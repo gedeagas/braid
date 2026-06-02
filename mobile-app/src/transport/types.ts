@@ -2,6 +2,7 @@ export interface PairingOffer {
   endpoint: string;
   token: string;
   serverPublicKey: string;
+  transport?: 'lan' | 'ngrok';
 }
 
 export interface PairedHost {

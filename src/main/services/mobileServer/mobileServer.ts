@@ -20,6 +20,7 @@ import type {
   JsonRpcResponse,
   MobileServerStatus,
   PairingOffer,
+  GeneratePairingOfferOptions,
 } from './types'
 
 const HANDSHAKE_TIMEOUT_MS = 5_000
@@ -161,19 +162,18 @@ class MobileServer {
             return
           }
 
-          // Validate device token
-          const device = deviceStore.getByToken(hello.deviceToken)
-          if (!device) {
-            logger.warn('[MobileServer] Invalid device token')
-            ws.close(4001, 'Invalid device token')
-            clearTimeout(handshakeTimer)
-            return
-          }
-
           // Generate ephemeral keypair and derive shared key
           serverEphemeral = e2ee.generateKeyPair()
           const remotePublicKey = e2ee.fromBase64(hello.ephemeralPublicKey)
           const sharedKey = e2ee.deriveSharedKey(serverEphemeral.secretKey, remotePublicKey)
+          const legacyDeviceToken = typeof hello.deviceToken === 'string' ? hello.deviceToken : ''
+          const legacyDevice = legacyDeviceToken ? deviceStore.getByToken(legacyDeviceToken) : null
+          if (legacyDeviceToken && !legacyDevice) {
+            logger.warn('[MobileServer] Invalid legacy device token')
+            ws.close(4001, 'Invalid device token')
+            clearTimeout(handshakeTimer)
+            return
+          }
 
           session = {
             sharedKey,
@@ -181,8 +181,8 @@ class MobileServer {
             remotePublicKey,
             sendCounter: 0,
             receiveCounter: 0,
-            deviceId: device.id,
-            deviceToken: hello.deviceToken,
+            deviceId: legacyDevice?.id ?? '',
+            deviceToken: legacyDeviceToken,
           }
 
           // Step 2: Send e2ee_ready (plaintext - last plaintext message)
@@ -213,12 +213,26 @@ class MobileServer {
           session.receiveCounter = result.nextCounter
 
           const authMsg = result.data
+          const encryptedDeviceToken = typeof authMsg.deviceToken === 'string' ? authMsg.deviceToken : ''
+          if (session.deviceToken && encryptedDeviceToken && session.deviceToken !== encryptedDeviceToken) {
+            logger.warn('[MobileServer] Device token mismatch during auth')
+            ws.close(4001, 'Device token mismatch')
+            clearTimeout(handshakeTimer)
+            return
+          }
+          const deviceToken = encryptedDeviceToken || session.deviceToken
+          if (!deviceToken) {
+            logger.warn('[MobileServer] Missing device token during auth')
+            ws.close(4001, 'Missing device token')
+            clearTimeout(handshakeTimer)
+            return
+          }
 
           // Retrieve the device bound during the hello phase to prevent session hijacking
-          let device = deviceStore.getById(session.deviceId)
+          let device = session.deviceId ? deviceStore.getById(session.deviceId) : deviceStore.getByToken(deviceToken)
           if (device && device.publicKey === '') {
             // New pairing - finalize using the cryptographically bound token
-            device = deviceStore.finalizePairing(session.deviceToken, authMsg.deviceName, authMsg.devicePublicKey)
+            device = deviceStore.finalizePairing(deviceToken, authMsg.deviceName, authMsg.devicePublicKey)
           }
 
           if (!device) {
@@ -226,6 +240,9 @@ class MobileServer {
             clearTimeout(handshakeTimer)
             return
           }
+
+          session.deviceId = device.id
+          session.deviceToken = deviceToken
 
           deviceStore.updateLastSeen(device.id)
           clearTimeout(handshakeTimer)
@@ -415,16 +432,20 @@ class MobileServer {
   // ── Pairing ───────────────────────────────────────────────────────────
 
   /** Generate a pairing offer for display as QR code. */
-  generatePairingOffer(): PairingOffer | null {
+  generatePairingOffer(options: GeneratePairingOfferOptions = {}): PairingOffer | null {
     if (!this.port) return null
-    const lanIp = this.getLanIp()
-    if (!lanIp) return null
+    const endpoint = options.endpoint ?? (() => {
+      const lanIp = this.getLanIp()
+      return lanIp ? `ws://${lanIp}:${this.port}` : null
+    })()
+    if (!endpoint) return null
 
     const token = deviceStore.createPairingToken()
     return {
-      endpoint: `ws://${lanIp}:${this.port}`,
+      endpoint,
       token,
       serverPublicKey: this.instanceId,
+      transport: options.transport ?? 'lan',
     }
   }
 

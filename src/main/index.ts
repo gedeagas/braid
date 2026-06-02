@@ -21,7 +21,7 @@ process.on('unhandledRejection', (reason) => logger.error('Unhandled rejection',
 import { app, BrowserWindow, clipboard, components, desktopCapturer, Menu, session, shell, nativeImage } from 'electron'
 import { join } from 'path'
 import { APP_DISPLAY_NAME } from './appBrand'
-import { registerIpcHandlers, rateLimitService } from './ipc'
+import { registerIpcHandlers, rateLimitService, mainSettings } from './ipc'
 import { createAppMenu } from './menu'
 import { windowCaptureService } from './services/windowCapture'
 import { lspService } from './services/lsp'
@@ -29,11 +29,13 @@ import { initAutoUpdater, stopAutoUpdater } from './services/autoUpdate'
 import { waitForEnrichedEnv } from './lib/enrichedEnv'
 import { ensureAllAgentHooks } from './services/agentHooks'
 import { startAgentHookServer, stopAgentHookServer } from './services/agentHookServer'
+import { startAgentAwakeService, stopAgentAwakeService } from './services/agentAwake'
 import { startMobileTerminalNotifier } from './services/mobileServer/terminalNotifier'
 import { startTerminalActivityTracking } from './services/mobileServer/terminalActivity'
 import { startTerminalRunTimer } from './services/terminalRunTimer'
 import { ptyService } from './services/pty'
 import { mobileServer } from './services/mobileServer'
+import { mobileNgrokTunnel } from './services/mobileServer/ngrokTunnel'
 import { HTML_PREVIEW_PARTITION } from '../shared/html-preview'
 
 // Prevent EPIPE errors from crashing the process when stdout/stderr pipes break
@@ -328,6 +330,11 @@ app.whenReady().then(async () => {
   // mobile homepage can report real agent time for terminal-driven sessions.
   startTerminalRunTimer()
 
+  // Keep the computer awake while agents are actively working (opt-in). The
+  // initial enabled flag is the persisted setting; the renderer re-syncs the
+  // real value shortly after launch via settings:sync.
+  startAgentAwakeService(mainSettings.keepAwakeWhileAgentsRun)
+
   // Mobile companion server starts on demand via the mobile:start IPC handler
   // when the user enables it in Settings > Mobile Companion.
 
@@ -365,6 +372,8 @@ app.on('before-quit', () => {
   }
   stopAutoUpdater()
   stopAgentHookServer()
+  stopAgentAwakeService()
+  mobileNgrokTunnel.stop()
   mobileServer.stop()
   lspService.shutdownAll()
 })

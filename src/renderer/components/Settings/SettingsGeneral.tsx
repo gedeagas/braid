@@ -25,6 +25,8 @@ export function SettingsGeneral() {
   const setToolMessageStyle = useUIStore((s) => s.setToolMessageStyle)
   const skipDeleteWorktreeConfirm = useUIStore((s) => s.skipDeleteWorktreeConfirm)
   const setSkipDeleteWorktreeConfirm = useUIStore((s) => s.setSkipDeleteWorktreeConfirm)
+  const keepAwakeWhileAgentsRun = useUIStore((s) => s.keepAwakeWhileAgentsRun)
+  const setKeepAwakeWhileAgentsRun = useUIStore((s) => s.setKeepAwakeWhileAgentsRun)
   const setFeatureTourComplete = useUIStore((s) => s.setFeatureTourComplete)
   const closeSettings = useUIStore((s) => s.closeSettings)
 
@@ -57,6 +59,10 @@ export function SettingsGeneral() {
 
       <FormField label={t('general.skipDeleteConfirm')} horizontal>
         <Toggle checked={skipDeleteWorktreeConfirm} onChange={setSkipDeleteWorktreeConfirm} />
+      </FormField>
+
+      <FormField label={t('general.keepAwake')} hint={t('general.keepAwakeHint')} horizontal>
+        <Toggle checked={keepAwakeWhileAgentsRun} onChange={setKeepAwakeWhileAgentsRun} />
       </FormField>
 
       <FormField label={t('general.replayTour')} hint={t('general.replayTourHint')} horizontal>

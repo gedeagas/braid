@@ -12,7 +12,7 @@ import {
   WifiOff,
   XCircle,
 } from 'lucide-react-native';
-import { useCallback, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { startDiagnosticFetchTimeout, type DiagnosticFetchTimeout } from '@/diagnostics/diagnostic-fetch-timeout';
@@ -65,6 +65,20 @@ export default function TroubleshootScreen() {
   // id lets a stale in-flight run detect it's no longer current and bail.
   const runIdRef = useRef(0);
   const activeFetchRef = useRef<DiagnosticFetchTimeout | null>(null);
+
+  // Diagnostics can outlive the screen. On unmount, bump the run id so any
+  // in-flight run sees it's no longer current and bails (no setState on an
+  // unmounted component), and dispose the active fetch so its timeout doesn't leak.
+  useEffect(() => {
+    return () => {
+      // Reading the latest ref values at unmount is the whole point here - these
+      // are mutable "current run" containers, not rendered nodes - so the
+      // exhaustive-deps stale-ref warning doesn't apply.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      runIdRef.current++;
+      activeFetchRef.current?.dispose();
+    };
+  }, []);
 
   const issues: CommonIssue[] = [
     {
