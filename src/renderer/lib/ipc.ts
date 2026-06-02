@@ -354,9 +354,22 @@ export const mobile = {
   getStatus: () => api().mobile.getStatus(),
   start: () => api().mobile.start(),
   stop: () => api().mobile.stop(),
-  generatePairingOffer: () => api().mobile.generatePairingOffer(),
+  generatePairingOffer: (options?: { transport?: 'lan' | 'ngrok' }) => api().mobile.generatePairingOffer(options),
+  getNgrokTunnelStatus: () => api().mobile.getNgrokTunnelStatus(),
+  startNgrokTunnel: () => api().mobile.startNgrokTunnel(),
+  stopNgrokTunnel: () => api().mobile.stopNgrokTunnel(),
   getDevices: () => api().mobile.getDevices(),
   removeDevice: (deviceId: string) => api().mobile.removeDevice(deviceId),
+  onRemoveWorktreeRequest: (
+    callback: (req: { requestId: string; repoPath: string; worktreePath: string }) => void
+  ) => api().mobile.onRemoveWorktreeRequest(callback),
+  sendRemoveWorktreeResult: (result: { requestId: string; ok: boolean; reason?: string }) =>
+    api().mobile.sendRemoveWorktreeResult(result),
+  onCreateWorktreeRequest: (
+    callback: (req: { requestId: string; repoPath: string; branch: string; baseBranch?: string }) => void
+  ) => api().mobile.onCreateWorktreeRequest(callback),
+  sendCreateWorktreeResult: (result: { requestId: string; ok: boolean; reason?: string; worktreePath?: string; worktreeId?: string }) =>
+    api().mobile.sendCreateWorktreeResult(result),
 }
 
 export const notes = {

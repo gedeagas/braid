@@ -2,6 +2,7 @@ import { useReducer } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/store/ui'
 import { getAllPersistedBigTerminalIds } from '@/store/ui/terminals'
+import { getAllPersistedRightTerminalIds } from '@/components/Right/terminalCache'
 import * as ipc from '@/lib/ipc'
 import { Toggle } from '@/components/shared/Toggle'
 import { SegmentedControl } from '@/components/shared/SegmentedControl'
@@ -24,6 +25,8 @@ export function SettingsGeneral() {
   const setToolMessageStyle = useUIStore((s) => s.setToolMessageStyle)
   const skipDeleteWorktreeConfirm = useUIStore((s) => s.skipDeleteWorktreeConfirm)
   const setSkipDeleteWorktreeConfirm = useUIStore((s) => s.setSkipDeleteWorktreeConfirm)
+  const keepAwakeWhileAgentsRun = useUIStore((s) => s.keepAwakeWhileAgentsRun)
+  const setKeepAwakeWhileAgentsRun = useUIStore((s) => s.setKeepAwakeWhileAgentsRun)
   const setFeatureTourComplete = useUIStore((s) => s.setFeatureTourComplete)
   const closeSettings = useUIStore((s) => s.closeSettings)
 
@@ -56,6 +59,10 @@ export function SettingsGeneral() {
 
       <FormField label={t('general.skipDeleteConfirm')} horizontal>
         <Toggle checked={skipDeleteWorktreeConfirm} onChange={setSkipDeleteWorktreeConfirm} />
+      </FormField>
+
+      <FormField label={t('general.keepAwake')} hint={t('general.keepAwakeHint')} horizontal>
+        <Toggle checked={keepAwakeWhileAgentsRun} onChange={setKeepAwakeWhileAgentsRun} />
       </FormField>
 
       <FormField label={t('general.replayTour')} hint={t('general.replayTourHint')} horizontal>
@@ -134,7 +141,8 @@ function OrphanedTerminalsCard() {
   const scan = async () => {
     dispatch({ type: 'scan' })
     try {
-      const orphans = await ipc.pty.listOrphanedBigTerminals(getAllPersistedBigTerminalIds())
+      const knownIds = [...getAllPersistedBigTerminalIds(), ...getAllPersistedRightTerminalIds()]
+      const orphans = await ipc.pty.listOrphanedBigTerminals(knownIds)
       dispatch({ type: 'scanned', orphans })
     } catch {
       dispatch({ type: 'error' })

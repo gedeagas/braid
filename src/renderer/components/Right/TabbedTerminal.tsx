@@ -9,7 +9,7 @@ import { RunPanel } from './RunPanel'
 import { TerminalTabRow } from './TerminalTabRow'
 import {
   SETUP_TAB_ID, RUN_TAB_ID,
-  terminalCache, nextTabId, createTerminal, activateWebgl,
+  terminalCache, nextTabId, createTerminal, activateWebgl, saveRightTerminalTabs,
   type TermTab, type RenameState,
 } from './terminalCache'
 import { useTerminalLifecycle } from './useTerminalLifecycle'
@@ -165,6 +165,7 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
       tabsRef.current = next
       const cached = terminalCache.get(worktreePathRef.current)
       if (cached) cached.tabs = next
+      saveRightTerminalTabs(worktreePathRef.current, next)
       return next
     }})
   }, [])
@@ -285,9 +286,13 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
     dispatch({ type: 'SET_ACTIVE', id: tabId })
     activeTabIdRef.current = tabId
     const cached = terminalCache.get(worktreePathRef.current)
-    if (cached) { cached.tabs = [...cached.tabs, newTab]; cached.activeTabId = tabId }
-    else { terminalCache.set(worktreePathRef.current, { tabs: [newTab], activeTabId: tabId }) }
+    const nextTabs = cached ? [...cached.tabs, newTab] : [newTab]
+    if (cached) { cached.tabs = nextTabs; cached.activeTabId = tabId }
+    else { terminalCache.set(worktreePathRef.current, { tabs: nextTabs, activeTabId: tabId }) }
     pendingAttach.current.set(tabId, newTab)
+    // Persist immediately so a daemon session can be reattached after restart -
+    // unmount/worktree-switch saves don't run on app quit. (mirrors big terminals)
+    saveRightTerminalTabs(worktreePathRef.current, nextTabs)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps — spawning happens via pendingAttach ref callback
 
   const closeTab = useCallback((tabId: string) => {
@@ -299,6 +304,7 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
       tabsRef.current = next
       const cached = terminalCache.get(worktreePathRef.current)
       if (cached) cached.tabs = next
+      saveRightTerminalTabs(worktreePathRef.current, next)
       if (activeTabIdRef.current === tabId) {
         const newActive = next[Math.min(idx, next.length - 1)]?.id ?? null
         dispatch({ type: 'SET_ACTIVE', id: newActive }); activeTabIdRef.current = newActive
@@ -328,7 +334,7 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
   const commitRename = useCallback(() => {
     if (!renaming) return
     const trimmed = renaming.draft.trim()
-    if (trimmed) { dispatch({ type: 'UPDATE_TABS', fn: (prev) => { const next = prev.map((t) => t.id === renaming.tabId ? { ...t, label: trimmed } : t); const cached = terminalCache.get(worktreePathRef.current); if (cached) cached.tabs = next; return next } }) }
+    if (trimmed) { dispatch({ type: 'UPDATE_TABS', fn: (prev) => { const next = prev.map((t) => t.id === renaming.tabId ? { ...t, label: trimmed } : t); const cached = terminalCache.get(worktreePathRef.current); if (cached) cached.tabs = next; saveRightTerminalTabs(worktreePathRef.current, next); return next } }) }
     dispatch({ type: 'SET_RENAMING', state: null })
   }, [renaming])
 

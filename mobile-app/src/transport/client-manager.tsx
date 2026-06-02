@@ -4,19 +4,29 @@
 // single shared BraidRpcClient per host. This provider owns that client's
 // lifecycle: it connects lazily, keeps the socket alive while the app is
 // foregrounded, subscribes to desktop notifications, and reconnects on drop.
-import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 
 import { loadHosts } from '@/transport/host-store';
-import { BraidRpcClient } from '@/transport/rpc-client';
+import { BraidAuthError, BraidRpcClient } from '@/transport/rpc-client';
+import type { ConnectionLogEntry, ConnectionLogLevel, ConnectionState } from '@/transport/connection-health';
 import type { PairedHost, RpcNotification } from '@/transport/types';
 import { scheduleDesktopNotification } from '@/notifications/mobile-notifications';
 import type { DesktopNotificationParams } from '@/notifications/notification-routing';
 
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
+// Why: stop auto-retrying once the host is clearly unreachable for a long time
+// (wrong IP, port closed, host moved) so a phone on the home screen doesn't burn
+// a socket open forever. MUST stay aligned with connection-health.ts
+// UNREACHABLE_ATTEMPTS so the "Can't reach desktop" verdict appears exactly when
+// the loop parks. The UI then offers Reconnect (resets the counter) or Re-pair.
+const GIVE_UP_AFTER_ATTEMPTS = 12;
+// Bounded ring buffer of recent connection events per host, shown in the host
+// screen / troubleshooter so a user can see why connecting is stuck.
+const CONNECTION_LOG_LIMIT = 40;
 
-export type HostConnectionState = 'disconnected' | 'connecting' | 'connected';
+export type HostConnectionState = ConnectionState;
 
 interface Entry {
   host: PairedHost;
@@ -27,10 +37,17 @@ interface Entry {
   notifSubId: string | null;
   offNotification: (() => void) | null;
   offClose: (() => void) | null;
+  offOpen: (() => void) | null;
   reconnectTimer: ReturnType<typeof setTimeout> | null;
   disposed: boolean;
   /** True once the first successful connect has happened (drives replay vs initial subscribe). */
   everConnected: boolean;
+  /** Epoch ms of the last successful connect; null until first connect. Drives the stale verdict. */
+  lastConnectedAt: number | null;
+  /** Wall-clock of the in-flight connect attempt, for "connected after Ns" log detail. */
+  connectStartedAt: number | null;
+  /** Bounded ring buffer of recent connection events (newest last). */
+  log: ConnectionLogEntry[];
 }
 
 export interface ClientManager {
@@ -42,6 +59,16 @@ export interface ClientManager {
   getState: (hostId: string) => HostConnectionState;
   /** Consecutive failed reconnect attempts (0 when connected/idle). */
   getReconnectAttempt: (hostId: string) => number;
+  /** Epoch ms of the last successful connect, or null if never connected this session. */
+  getLastConnectedAt: (hostId: string) => number | null;
+  /** Recent connection events for a host (oldest first), for the troubleshooter. */
+  getConnectionLog: (hostId: string) => ConnectionLogEntry[];
+  /**
+   * Force an immediate fresh connect: clears any auth-failed/give-up state and
+   * resets the retry counter. Used by the "Reconnect" affordance after the loop
+   * has parked or the pairing was rejected.
+   */
+  forceReconnect: (hostId: string) => void;
   /** Subscribe to connection-state changes (for UI re-renders). */
   subscribe: (listener: () => void) => () => void;
   /**
@@ -61,6 +88,7 @@ function createManager(): ClientManager & {
   const listeners = new Set<() => void>();
   const activityListeners = new Set<(hostId: string) => void>();
   let foregrounded = true;
+  let logSeq = 0;
 
   const emit = () => {
     for (const listener of listeners) listener();
@@ -69,6 +97,16 @@ function createManager(): ClientManager & {
   const emitActivity = (hostId: string) => {
     for (const listener of activityListeners) listener(hostId);
   };
+
+  // Append a bounded connection-log entry. Newest entries live at the end; the
+  // ring buffer is trimmed from the front so the log can't grow unbounded over a
+  // long-lived session of reconnect churn.
+  const pushLog = (entry: Entry, level: ConnectionLogLevel, message: string, detail?: string): void => {
+    entry.log.push({ id: `clog-${++logSeq}`, ts: Date.now(), level, message, detail });
+    if (entry.log.length > CONNECTION_LOG_LIMIT) entry.log.splice(0, entry.log.length - CONNECTION_LOG_LIMIT);
+  };
+
+  const endpointDetail = (entry: Entry): string => entry.host.endpoint;
 
   // The notification-routing listener is registered once per entry (it survives
   // close()/reconnect since the client doesn't clear notificationListeners).
@@ -98,11 +136,20 @@ function createManager(): ClientManager & {
 
   function scheduleReconnect(entry: Entry): void {
     if (entry.disposed || !foregrounded || entry.reconnectTimer) return;
+    // Give up after a long unreachable streak. The state stays 'reconnecting' so
+    // classifyConnection() reports "Can't reach desktop" (attempt >= cap) and the
+    // UI surfaces Reconnect / Re-pair; forceReconnect() resets the counter.
+    if (entry.attempt >= GIVE_UP_AFTER_ATTEMPTS) {
+      pushLog(entry, 'error', 'Stopped reconnecting', `Unreachable after ${entry.attempt} attempts`);
+      emit();
+      return;
+    }
     entry.attempt += 1;
     // Exponential backoff with jitter, capped, so a genuinely-down host isn't
     // hammered and multiple hosts don't reconnect in lockstep.
     const backoff = Math.min(RECONNECT_MAX_MS, RECONNECT_BASE_MS * 2 ** (entry.attempt - 1));
     const delay = backoff + Math.floor(Math.random() * 250);
+    pushLog(entry, 'info', `Reconnect scheduled in ${Math.round(delay / 100) / 10}s`, `Attempt ${entry.attempt}`);
     entry.reconnectTimer = setTimeout(() => {
       entry.reconnectTimer = null;
       if (entry.disposed || !foregrounded) return;
@@ -110,30 +157,64 @@ function createManager(): ClientManager & {
     }, delay);
   }
 
+  // Single source of truth for "the socket just authenticated". Driven by the
+  // client's onOpen event so it fires no matter who called connect() - the
+  // manager's own connectEntry OR a screen's direct load()/pull-to-refresh.
+  // Idempotent: re-entry for an already-connected entry only refreshes the
+  // timestamp, so subscriptions aren't double-sent when connectEntry's promise
+  // resolves right after onOpen.
+  function markConnected(entry: Entry): void {
+    if (entry.disposed) return;
+    if (entry.state === 'connected') {
+      entry.lastConnectedAt = Date.now();
+      return;
+    }
+    const elapsed = entry.connectStartedAt ? Date.now() - entry.connectStartedAt : null;
+    entry.state = 'connected';
+    entry.attempt = 0;
+    entry.lastConnectedAt = Date.now();
+    entry.connectStartedAt = null;
+    pushLog(entry, 'success', 'Connected', elapsed != null ? `in ${Math.round(elapsed / 100) / 10}s` : undefined);
+    if (entry.everConnected) {
+      // Reconnect: replay every tracked subscription (terminals + notifications)
+      // so live streams resume without each screen re-subscribing itself.
+      entry.client.resendSubscriptions();
+    } else {
+      entry.everConnected = true;
+      subscribeNotifications(entry);
+    }
+    emit();
+  }
+
   function connectEntry(entry: Entry): void {
     // Reset transport state (nonce counter, listeners) before each (re)connect.
     entry.client.close();
-    entry.state = 'connecting';
+    // First attempt reads as 'connecting'; subsequent attempts as 'reconnecting'
+    // so classifyConnection() can escalate the verdict as the streak grows.
+    entry.state = entry.attempt > 0 ? 'reconnecting' : 'connecting';
+    entry.connectStartedAt = Date.now();
+    pushLog(entry, 'info', entry.attempt > 0 ? 'Reconnecting' : 'Opening connection', endpointDetail(entry));
     emit();
     entry.client
       .connect()
       .then(() => {
-        if (entry.disposed) return;
-        entry.state = 'connected';
-        entry.attempt = 0;
-        if (entry.everConnected) {
-          // Reconnect: replay every tracked subscription (terminals + notifications)
-          // so live streams resume without each screen re-subscribing itself.
-          entry.client.resendSubscriptions();
-        } else {
-          entry.everConnected = true;
-          subscribeNotifications(entry);
-        }
-        emit();
+        // onOpen has usually already run markConnected; this is a safety net for
+        // the case where the listener was somehow missed.
+        markConnected(entry);
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (entry.disposed) return;
-        entry.state = 'disconnected';
+        // A rejected/revoked pairing is terminal: park in 'auth-failed' and do
+        // NOT reconnect (retrying a dead token only churns). The UI shows a
+        // re-pair banner; forceReconnect() is the only way out.
+        if (error instanceof BraidAuthError) {
+          entry.state = 'auth-failed';
+          pushLog(entry, 'error', 'Pairing rejected', error.message);
+          emit();
+          return;
+        }
+        entry.state = 'reconnecting';
+        pushLog(entry, 'warn', 'Connect failed', error instanceof Error ? error.message : String(error));
         emit();
         scheduleReconnect(entry);
       });
@@ -149,17 +230,34 @@ function createManager(): ClientManager & {
       notifSubId: null,
       offNotification: null,
       offClose: null,
+      offOpen: null,
       reconnectTimer: null,
       disposed: false,
       everConnected: false,
+      lastConnectedAt: null,
+      connectStartedAt: null,
+      log: [],
     };
     // Register notification routing once; it survives reconnects (the client
     // keeps notificationListeners across close()), so we never tear it down
     // except when the host is permanently dropped.
     startNotificationRouting(entry);
-    entry.offClose = client.onClose(() => {
+    // Sync state from any successful handshake, even screen-initiated ones, so a
+    // direct load()/refresh that revives a parked socket clears the error verdict
+    // (and its connection-log panel) instead of leaving it stuck.
+    entry.offOpen = client.onOpen(() => markConnected(entry));
+    entry.offClose = client.onClose((reason) => {
       if (entry.disposed) return;
-      entry.state = 'disconnected';
+      // Token revoked mid-session: the desktop closed with 4001. Park in
+      // 'auth-failed' rather than reconnecting with the now-dead token.
+      if (reason.authFailed) {
+        entry.state = 'auth-failed';
+        pushLog(entry, 'error', 'Pairing rejected', 'Desktop closed the connection (4001)');
+        emit();
+        return;
+      }
+      entry.state = 'reconnecting';
+      pushLog(entry, 'warn', 'Connection dropped', 'Will attempt to reconnect');
       emit();
       scheduleReconnect(entry);
     });
@@ -185,6 +283,24 @@ function createManager(): ClientManager & {
 
   const getReconnectAttempt = (hostId: string): number => entries.get(hostId)?.attempt ?? 0;
 
+  const getLastConnectedAt = (hostId: string): number | null => entries.get(hostId)?.lastConnectedAt ?? null;
+
+  const getConnectionLog = (hostId: string): ConnectionLogEntry[] => entries.get(hostId)?.log ?? [];
+
+  const forceReconnect = (hostId: string): void => {
+    const entry = entries.get(hostId);
+    if (!entry || entry.disposed) return;
+    if (entry.reconnectTimer) {
+      clearTimeout(entry.reconnectTimer);
+      entry.reconnectTimer = null;
+    }
+    // Reset the streak so the verdict de-escalates from "Can't reach desktop"
+    // and the backoff starts fresh, then reconnect right away.
+    entry.attempt = 0;
+    pushLog(entry, 'info', 'Manual reconnect', endpointDetail(entry));
+    connectEntry(entry);
+  };
+
   const dropHost = (hostId: string): void => {
     const entry = entries.get(hostId);
     if (!entry) return;
@@ -193,6 +309,7 @@ function createManager(): ClientManager & {
     entry.offNotification?.();
     entry.offNotification = null;
     entry.offClose?.();
+    entry.offOpen?.();
     entry.client.clearSubscriptions();
     entry.client.close();
     entries.delete(hostId);
@@ -227,6 +344,9 @@ function createManager(): ClientManager & {
       if (foregrounded) return;
       foregrounded = true;
       for (const entry of entries.values()) {
+        // Don't silently retry a rejected pairing on resume - it would churn a
+        // dead token. The user must Reconnect / Re-pair explicitly.
+        if (entry.state === 'auth-failed') continue;
         if (entry.state !== 'connected' && !entry.reconnectTimer) {
           entry.attempt = 0; // returning to foreground: reconnect promptly
           connectEntry(entry);
@@ -244,8 +364,9 @@ function createManager(): ClientManager & {
         }
         // Keep the notification routing listener and tracked subscriptions in
         // place; close() preserves them and resendSubscriptions() replays on
-        // the next foreground connect.
-        entry.state = 'disconnected';
+        // the next foreground connect. Preserve 'auth-failed' so it stays sticky
+        // across a background/foreground cycle.
+        if (entry.state !== 'auth-failed') entry.state = 'disconnected';
         entry.client.close();
       }
       emit();
@@ -256,15 +377,15 @@ function createManager(): ClientManager & {
     for (const id of [...entries.keys()]) dropHost(id);
   };
 
-  return { acquireHost, getClient, getState, getReconnectAttempt, dropHost, subscribe, subscribeActivity, init, onAppState, disposeAll };
+  return { acquireHost, getClient, getState, getReconnectAttempt, getLastConnectedAt, getConnectionLog, forceReconnect, dropHost, subscribe, subscribeActivity, init, onAppState, disposeAll };
 }
 
 const Ctx = createContext<ClientManager | null>(null);
 
 export function ClientManagerProvider({ children }: { children: ReactNode }) {
-  const ref = useRef<ReturnType<typeof createManager> | null>(null);
-  if (!ref.current) ref.current = createManager();
-  const manager = ref.current;
+  // Lazy `useState` initializer creates the manager exactly once and keeps a
+  // stable reference, without reading/writing a ref during render.
+  const [manager] = useState(createManager);
 
   useEffect(() => {
     void manager.init();
@@ -281,6 +402,9 @@ export function ClientManagerProvider({ children }: { children: ReactNode }) {
       getClient: manager.getClient,
       getState: manager.getState,
       getReconnectAttempt: manager.getReconnectAttempt,
+      getLastConnectedAt: manager.getLastConnectedAt,
+      getConnectionLog: manager.getConnectionLog,
+      forceReconnect: manager.forceReconnect,
       dropHost: manager.dropHost,
       subscribe: manager.subscribe,
       subscribeActivity: manager.subscribeActivity,

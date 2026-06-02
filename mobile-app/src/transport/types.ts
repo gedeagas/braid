@@ -2,6 +2,7 @@ export interface PairingOffer {
   endpoint: string;
   token: string;
   serverPublicKey: string;
+  transport?: 'lan' | 'ngrok';
 }
 
 export interface PairedHost {
@@ -35,7 +36,11 @@ export interface BraidStatus {
   instanceName: string;
   version: string;
   protocolVersion: number;
-  projects: Array<{ id: string; name: string; path: string }>;
+  /** Desktop's kill switch: oldest mobile protocol it accepts. Absent on older desktops. */
+  minCompatibleMobileVersion?: number;
+  /** Feature ids the desktop advertises (e.g. 'terminal.binary-stream.v1'). Absent on older desktops. */
+  capabilities?: string[];
+  projects: { id: string; name: string; path: string }[];
   uptime: number;
 }
 
@@ -59,7 +64,7 @@ export interface BraidMessage {
   content: string;
   timestamp?: number;
   isPartial?: boolean;
-  toolCalls?: Array<{ id: string; name: string; input?: string; result?: string; error?: string }>;
+  toolCalls?: { id: string; name: string; input?: string; result?: string; error?: string }[];
 }
 
 export interface BraidSession {
@@ -95,6 +100,18 @@ export interface BraidTerminal {
   status?: string;
   /** Accumulated wall-clock time (ms) the agent has spent in the "working" state. */
   totalRunDurationMs?: number;
+}
+
+/** Per-worktree pull-request status from the desktop's `github.prStatus` RPC
+ *  (gh CLI-backed). Mirrors the fields the mobile worktree list renders. The RPC
+ *  resolves `null` when the worktree has no PR or gh is unavailable. */
+export interface PrStatus {
+  number: number;
+  title: string;
+  /** "OPEN" | "MERGED" | "CLOSED" (gh CLI casing). */
+  state: string;
+  url: string;
+  isDraft?: boolean;
 }
 
 export interface GitChange {

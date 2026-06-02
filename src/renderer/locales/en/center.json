@@ -194,6 +194,8 @@
   "createPrHidePrompt": "Hide prompt",
   "closeActiveSessionTitle": "Close active session?",
   "closeActiveSessionMessage": "This session is still {{status}}. Are you sure you want to close it?",
+  "closeTerminalOpenOnMobileTitle": "Close terminal open on mobile?",
+  "closeTerminalOpenOnMobileMessage": "This terminal is also open on a paired mobile device. Closing it will end the session there too.",
   "contextWarning": "Context {{percent}}% full",
   "contextWarningAction": "→ /compact",
   "contextWarningTooltip": "Context window is getting full. Click to run /compact and free up space.",

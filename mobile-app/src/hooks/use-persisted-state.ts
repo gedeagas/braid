@@ -12,8 +12,13 @@ export function usePersistedState<T extends string>(
   isValid: (value: string) => boolean,
 ): [T, (next: T) => void] {
   const [value, setValue] = useState<T>(initial);
+  // Keep the latest validator in a ref so the load effect (keyed on `key`)
+  // always sees it without re-running when the caller passes a fresh function.
+  // Updated in an effect, not during render, per the hooks linter.
   const isValidRef = useRef(isValid);
-  isValidRef.current = isValid;
+  useEffect(() => {
+    isValidRef.current = isValid;
+  });
 
   useEffect(() => {
     let active = true;

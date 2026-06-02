@@ -269,6 +269,84 @@
   font-weight: var(--weight-medium);
 }
 
+.mobile-transport-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-12);
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--bg-primary) 64%, transparent);
+}
+
+.mobile-transport-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: var(--space-3);
+}
+
+.mobile-transport-label {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.mobile-transport-desc {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+}
+
+.mobile-ngrok-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-10);
+  align-items: center;
+  padding: var(--space-12);
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 9%, transparent), transparent 68%),
+    color-mix(in srgb, var(--bg-primary) 76%, transparent);
+}
+
+.mobile-ngrok-status {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: var(--space-6);
+}
+
+.mobile-ngrok-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
+.mobile-ngrok-status code {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.mobile-ngrok-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-8);
+}
+
 .mobile-error {
   padding: var(--space-8) var(--space-12);
   border: 1px solid color-mix(in srgb, var(--red) 28%, transparent);
@@ -952,6 +1030,15 @@
 
   .mobile-server-chip {
     display: none;
+  }
+
+  .mobile-transport-row,
+  .mobile-ngrok-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .mobile-ngrok-actions {
+    justify-content: flex-start;
   }
 
   .mobile-steps {

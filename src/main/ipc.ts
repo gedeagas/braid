@@ -23,9 +23,12 @@ import { windowCaptureService } from './services/windowCapture'
 import { claudeConfigService, ClaudePermissions, ClaudeHookConfig, SkillDetail, McpServerEntry, McpServerConfig } from './services/claudeConfig'
 import { notesService } from './services/notes'
 import { mobileServer, deviceStore } from './services/mobileServer'
+import { setAgentAwakeEnabled } from './services/agentAwake'
+import { mobileNgrokTunnel } from './services/mobileServer/ngrokTunnel'
+import type { MobilePairingTransport } from './services/mobileServer/types'
 import { broadcastMobileNotification } from './services/mobileServer/broadcast'
 import { hasKnownBigTerminals, setKnownBigTerminals, type KnownBigTerminal } from './services/mobileServer/knownBigTerminals'
-import { isMobileTerminalActive } from './services/mobileServer/mobileTerminalPresence'
+import { isMobileTerminalActive, setDesktopActiveTerminal } from './services/mobileServer/mobileTerminalPresence'
 import { setMobileDisplayMode, type MobileDisplayMode } from './services/mobileServer/mobileTerminalDisplay'
 import { lspService, LspServerConfig } from './services/lsp'
 import { jiraService } from './services/jira'
@@ -87,6 +90,8 @@ export const mainSettings = {
   bypassPermissions: true,
   /** When true, the mobile companion WebSocket server is running. */
   mobileServerEnabled: false,
+  /** When true, prevent the computer from sleeping while an agent is working. */
+  keepAwakeWhileAgentsRun: false,
 }
 
 export function registerIpcHandlers(): void {
@@ -262,6 +267,8 @@ export function registerIpcHandlers(): void {
   })
   ipcMain.handle('pty:readScrollback', (_e, terminalId: string) => ptyService.readScrollback(terminalId))
   ipcMain.handle('pty:isMobileTerminalActive', (_e, terminalId: string) => isMobileTerminalActive(terminalId))
+  ipcMain.on('pty:setDesktopActiveTerminal', (e, terminalId: string | null) =>
+    setDesktopActiveTerminal(e.sender.id, terminalId))
   ipcMain.on('pty:setMobileDisplayMode', (_e, terminalId: string, mode: MobileDisplayMode) =>
     setMobileDisplayMode(terminalId, mode))
   ipcMain.on('pty:deleteScrollback', (_e, terminalId: string) => ptyService.deleteScrollback(terminalId))
@@ -618,6 +625,9 @@ export function registerIpcHandlers(): void {
         getTerminalScrollbackBufferMaxLength(mainSettings.terminalScrollback),
       )
     }
+    if ('keepAwakeWhileAgentsRun' in values) {
+      setAgentAwakeEnabled(mainSettings.keepAwakeWhileAgentsRun)
+    }
   })
   ipcMain.handle('settings:getApiKey', () => mainSettings.apiKey)
   ipcMain.handle('settings:getTerminalShell', () => mainSettings.terminalShell)
@@ -684,10 +694,31 @@ export function registerIpcHandlers(): void {
     return result
   })
   ipcMain.handle('mobile:stop', () => {
+    mobileNgrokTunnel.stop()
     mobileServer.stop()
     mainSettings.mobileServerEnabled = false
   })
-  ipcMain.handle('mobile:generatePairingOffer', () => mobileServer.generatePairingOffer())
+  ipcMain.handle('mobile:generatePairingOffer', async (_e, options?: { transport?: MobilePairingTransport }) => {
+    const transport = options?.transport ?? 'lan'
+    if (transport === 'ngrok') {
+      const status = mobileServer.getStatus()
+      if (!status.port) return null
+      const tunnel = await mobileNgrokTunnel.start(status.port)
+      if (!tunnel.endpoint) throw new Error('ngrok tunnel did not provide a public endpoint')
+      return mobileServer.generatePairingOffer({ endpoint: tunnel.endpoint, transport })
+    }
+    return mobileServer.generatePairingOffer({ transport })
+  })
+  ipcMain.handle('mobile:getNgrokTunnelStatus', () => mobileNgrokTunnel.getStatus())
+  ipcMain.handle('mobile:startNgrokTunnel', async () => {
+    const status = mobileServer.getStatus()
+    if (!status.port) throw new Error('Start the mobile companion server before starting ngrok.')
+    return mobileNgrokTunnel.start(status.port)
+  })
+  ipcMain.handle('mobile:stopNgrokTunnel', () => {
+    mobileNgrokTunnel.stop()
+    return mobileNgrokTunnel.getStatus()
+  })
   ipcMain.handle('mobile:getDevices', () => deviceStore.load())
   ipcMain.handle('mobile:removeDevice', (_e, deviceId: string) => deviceStore.removeDevice(deviceId))
 

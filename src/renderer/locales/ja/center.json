@@ -195,6 +195,8 @@
   "createPrHidePrompt": "プロンプトを非表示",
   "closeActiveSessionTitle": "アクティブなセッションを閉じますか？",
   "closeActiveSessionMessage": "このセッションはまだ{{status}}中です。本当に閉じますか？",
+  "closeTerminalOpenOnMobileTitle": "モバイルで開いているターミナルを閉じますか？",
+  "closeTerminalOpenOnMobileMessage": "このターミナルはペアリング済みのモバイル端末でも開いています。閉じるとそちらのセッションも終了します。",
   "contextWarning": "コンテキスト {{percent}}% 使用中",
   "contextWarningAction": "→ /compact",
   "contextWarningTooltip": "コンテキストウィンドウが残り少なくなっています。クリックして /compact を実行してください。",

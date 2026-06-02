@@ -7,7 +7,7 @@ import { RightPanel } from '@/components/Right/RightPanel'
 import { ResizeHandle } from '@/components/shared/ResizeHandle'
 import { useProjectsStore } from '@/store/projects'
 import { initAgentEventListener, useSessionsStore } from '@/store/sessions'
-import { useUIStore } from '@/store/ui'
+import { useUIStore, selectActiveCenterView } from '@/store/ui'
 import { syncAllPersistedBigTerminalMetadata } from '@/store/ui/terminals'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { applyTheme } from '@/themes/apply'
@@ -138,6 +138,7 @@ export default function App() {
         notifyOnWaitingInput: state.notifyOnWaitingInput,
         notificationSound: state.notificationSound,
         bypassPermissions: state.bypassPermissions,
+        keepAwakeWhileAgentsRun: state.keepAwakeWhileAgentsRun,
       }).catch((e: unknown) => console.error('[Braid] Failed to sync settings:', e))
     }
     syncSettings()
@@ -195,6 +196,60 @@ export default function App() {
       useUIStore.getState().removeRemoteBigTerminal(worktreeId, tab.terminalId)
     })
 
+    // A paired mobile device requested a worktree removal. Run the SAME teardown
+    // the desktop "Remove" button does (archive script, terminal/PTY disposal,
+    // session cascade-delete, UI/localStorage cleanup, git remove) so a mobile
+    // removal isn't a bare git op that leaves orphaned state behind. Resolve the
+    // project + worktree from the paths and ack the result so main can fall back
+    // to a direct git remove if we don't know the worktree.
+    const unsubMobileRemoveWorktree = mobile.onRemoveWorktreeRequest(async ({ requestId, repoPath, worktreePath }) => {
+      try {
+        const projects = useProjectsStore.getState().projects
+        const project =
+          projects.find((p) => p.path === repoPath) ??
+          projects.find((p) => p.worktrees.some((w) => w.path === worktreePath))
+        const worktree = project?.worktrees.find((w) => w.path === worktreePath)
+        if (!project || !worktree) {
+          mobile.sendRemoveWorktreeResult({ requestId, ok: false, reason: 'not_found' })
+          return
+        }
+        await useProjectsStore.getState().removeWorktree(project.id, worktree.id)
+        mobile.sendRemoveWorktreeResult({ requestId, ok: true })
+      } catch (err) {
+        console.error('[Braid] mobile removeWorktree failed:', err)
+        mobile.sendRemoveWorktreeResult({
+          requestId,
+          ok: false,
+          reason: err instanceof Error ? err.message : 'renderer_removal_failed',
+        })
+      }
+    })
+
+    const unsubMobileCreateWorktree = mobile.onCreateWorktreeRequest(async ({ requestId, repoPath, branch, baseBranch }) => {
+      try {
+        const project = useProjectsStore.getState().projects.find((p) => p.path === repoPath)
+        if (!project) {
+          mobile.sendCreateWorktreeResult({ requestId, ok: false, reason: 'not_found' })
+          return
+        }
+        // Run the desktop's full add flow (mints the stable worktree id, honors
+        // the configured storage path via the git IPC handler, refreshes the
+        // sidebar). select:false so a remote create never steals the desktop's
+        // current worktree selection.
+        const newWt = await useProjectsStore.getState().addWorktree(project.id, branch, baseBranch, undefined, { select: false })
+        // Hand the new worktree's path/id back so the device can navigate
+        // straight into it and auto-launch its chosen agent.
+        mobile.sendCreateWorktreeResult({ requestId, ok: true, worktreePath: newWt?.path, worktreeId: newWt?.id })
+      } catch (err) {
+        console.error('[Braid] mobile addWorktree failed:', err)
+        mobile.sendCreateWorktreeResult({
+          requestId,
+          ok: false,
+          reason: err instanceof Error ? err.message : 'renderer_creation_failed',
+        })
+      }
+    })
+
     // Keep dock badge in sync with sessions + big terminal agents needing attention
     const computeBadge = () => {
       const sessionCount = Object.values(useSessionsStore.getState().sessions)
@@ -213,6 +268,20 @@ export default function App() {
       if (next !== lastBadge) { lastBadge = next; dock.setBadgeCount(next) }
     })
 
+    // Tell the main process which big terminal this window is currently viewing,
+    // so a paired phone can warn before closing a terminal that's open here.
+    // Only the terminalId transitions matter; ignore unrelated store churn.
+    let lastDesktopTerminalId: string | null = null
+    const reportDesktopActiveTerminal = () => {
+      const view = selectActiveCenterView(useUIStore.getState())
+      const terminalId = view?.type === 'terminal' ? view.terminalId : null
+      if (terminalId === lastDesktopTerminalId) return
+      lastDesktopTerminalId = terminalId
+      window.api.pty.setDesktopActiveTerminal(terminalId)
+    }
+    reportDesktopActiveTerminal()
+    const unsubDesktopActiveTerminal = useUIStore.subscribe(reportDesktopActiveTerminal)
+
     return () => {
       cleanup()
       unsubSettings()
@@ -221,8 +290,11 @@ export default function App() {
       unsubRemoteBigTerminal()
       unsubBigTerminalRenamed()
       unsubBigTerminalClosed()
+      unsubMobileRemoveWorktree()
+      unsubMobileCreateWorktree()
       unsubBadge()
       unsubTerminalBadge()
+      unsubDesktopActiveTerminal()
     }
   }, [loadProjects, loadPersistedSessions])
 

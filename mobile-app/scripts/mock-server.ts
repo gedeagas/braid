@@ -80,7 +80,7 @@ server.on('connection', (ws) => {
   let sharedKey: Uint8Array | null = null;
   let counter = 0;
   let authed = false;
-  let eventTimer: NodeJS.Timeout | null = null;
+  let eventTimer: ReturnType<typeof setInterval> | null = null;
 
   ws.on('message', (raw) => {
     try {

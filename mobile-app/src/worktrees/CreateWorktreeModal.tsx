@@ -60,7 +60,7 @@ export function CreateWorktreeModal({
   onClose: () => void;
   client: BraidRpcClient | null;
   projects: BraidProject[];
-  onCreated: (project: BraidProject, branch: string) => void;
+  onCreated: (project: BraidProject, branch: string, agentId: string, worktreePath?: string) => void;
 }) {
   const { palette: c } = useTheme();
   const shared = useShared();
@@ -112,7 +112,7 @@ export function CreateWorktreeModal({
     if (!client || !selectedProject || !state.branch.trim() || state.busy) return;
     patch({ busy: true, error: null });
     try {
-      await client.request('worktrees.create', {
+      const result = await client.request<{ worktreePath?: string }>('worktrees.create', {
         repoPath: selectedProject.path,
         projectName: selectedProject.name,
         branch: state.branch.trim(),
@@ -120,9 +120,10 @@ export function CreateWorktreeModal({
       });
       await SecureStore.setItemAsync(DEFAULT_AGENT_STORAGE_KEY, state.agentId).catch(() => undefined);
       const branch = state.branch.trim();
+      const agentId = state.agentId;
       patch(INITIAL);
       onClose();
-      onCreated(selectedProject, branch);
+      onCreated(selectedProject, branch, agentId, result?.worktreePath);
     } catch (err) {
       patch({ busy: false, error: err instanceof Error ? err.message : String(err) });
     }

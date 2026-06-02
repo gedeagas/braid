@@ -37,4 +37,15 @@ export function decryptJson<T>(payload: string, sharedKey: Uint8Array, counter: 
   return JSON.parse(new TextDecoder().decode(plaintext)) as T;
 }
 
+/**
+ * Decrypt a raw binary frame (protocol v3 terminal-output channel). Shares the
+ * session's nonce-counter sequence with the JSON channel, so the caller must
+ * advance the same receive counter it uses for text frames, in arrival order.
+ */
+export function decryptBinary(payload: Uint8Array, sharedKey: Uint8Array, counter: number, senderIsServer: boolean): Uint8Array {
+  const plaintext = nacl.box.open.after(payload, nonceFor(counter, senderIsServer), sharedKey);
+  if (!plaintext) throw new Error('Unable to decrypt server binary frame');
+  return plaintext;
+}
+
 export { fromBase64, toBase64 };

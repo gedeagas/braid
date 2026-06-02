@@ -1,7 +1,8 @@
-import { useEffect, useReducer, useState } from 'react';
+import { useCallback, useEffect, useReducer, useState } from 'react';
 
 import { getHost } from '@/transport/host-store';
 import { useClientManager } from '@/transport/client-manager';
+import { classifyConnection, type ConnectionVerdict } from '@/transport/connection-health';
 import { BraidRpcClient } from '@/transport/rpc-client';
 import type { PairedHost } from '@/transport/types';
 
@@ -14,19 +15,19 @@ export function useHostClient(hostId?: string | string[]) {
   const id = Array.isArray(hostId) ? hostId[0] : hostId;
   const manager = useClientManager();
   const [host, setHost] = useState<PairedHost | null>(null);
-  const [loadingHost, setLoadingHost] = useState(true);
+  // Which id the resolved `host` corresponds to. `loadingHost` is derived from
+  // it rather than set synchronously in the effect (which the hooks linter
+  // flags): we're loading whenever there's an id we haven't resolved yet.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const [, forceUpdate] = useReducer((n: number) => n + 1, 0);
 
   useEffect(() => {
+    if (!id) return;
     let active = true;
-    if (!id) {
-      setLoadingHost(false);
-      return;
-    }
     getHost(id).then((next) => {
       if (!active) return;
       setHost(next);
-      setLoadingHost(false);
+      setLoadedFor(id);
       if (next) manager.acquireHost(next);
     });
     return () => {
@@ -34,12 +35,21 @@ export function useHostClient(hostId?: string | string[]) {
     };
   }, [id, manager]);
 
+  const loadingHost = id ? loadedFor !== id : false;
+
   // Re-render when the shared connection state changes so the screen can pick
   // up the client once it finishes connecting.
   useEffect(() => manager.subscribe(forceUpdate), [manager]);
 
   const client: BraidRpcClient | null = host ? manager.getClient(host.id) : null;
   const state = host ? manager.getState(host.id) : 'disconnected';
+  const reconnectAttempts = host ? manager.getReconnectAttempt(host.id) : 0;
+  const lastConnectedAt = host ? manager.getLastConnectedAt(host.id) : null;
+  const verdict: ConnectionVerdict = classifyConnection({ state, reconnectAttempts, lastConnectedAt });
 
-  return { host, client, loadingHost, state };
+  const reconnect = useCallback(() => {
+    if (host) manager.forceReconnect(host.id);
+  }, [host, manager]);
+
+  return { host, client, loadingHost, state, verdict, reconnectAttempts, lastConnectedAt, reconnect };
 }

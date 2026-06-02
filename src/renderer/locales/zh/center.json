@@ -194,6 +194,8 @@
   "createPrHidePrompt": "隐藏提示词",
   "closeActiveSessionTitle": "关闭活跃会话？",
   "closeActiveSessionMessage": "此会话仍在{{status}}。确定要关闭吗？",
+  "closeTerminalOpenOnMobileTitle": "关闭在移动端打开的终端？",
+  "closeTerminalOpenOnMobileMessage": "此终端同时在已配对的移动设备上打开。关闭它会同时结束那边的会话。",
   "contextWarning": "上下文已使用 {{percent}}%",
   "contextWarningAction": "→ /compact",
   "contextWarningTooltip": "上下文窗口快满了。点击运行 /compact 来释放空间。",

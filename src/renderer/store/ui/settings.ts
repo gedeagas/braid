@@ -91,6 +91,10 @@ export interface SettingsSlice {
   bigTerminalEnabled: boolean
   rollbackHistory: boolean
 
+  // Power
+  keepAwakeWhileAgentsRun: boolean
+  setKeepAwakeWhileAgentsRun: (v: boolean) => void
+
   // Mobile Companion
   mobileServerEnabled: boolean
   setMobileServerEnabled: (v: boolean) => void
@@ -222,6 +226,8 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   bigTerminalEnabled: loadBool(SK.bigTerminalEnabled, true),
   rollbackHistory: loadBool(SK.rollbackHistory, false),
 
+  keepAwakeWhileAgentsRun: loadBool(SK.keepAwakeWhileAgentsRun, false),
+
   mobileServerEnabled: loadBool(SK.mobileServerEnabled, false),
 
   onboardingComplete: loadBool(SK.onboardingComplete, false),
@@ -329,6 +335,7 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   setMagicTrackpad: (v) => { localStorage.setItem(SK.magicTrackpad, String(v)); set({ magicTrackpad: v }) },
   setBigTerminalEnabled: (v) => { localStorage.setItem(SK.bigTerminalEnabled, String(v)); set({ bigTerminalEnabled: v }) },
   setRollbackHistory: (v) => { localStorage.setItem(SK.rollbackHistory, String(v)); set({ rollbackHistory: v }) },
+  setKeepAwakeWhileAgentsRun: (v) => { localStorage.setItem(SK.keepAwakeWhileAgentsRun, String(v)); set({ keepAwakeWhileAgentsRun: v }) },
   setMobileServerEnabled: (v) => { localStorage.setItem(SK.mobileServerEnabled, String(v)); set({ mobileServerEnabled: v }) },
   setOnboardingComplete: (v) => { localStorage.setItem(SK.onboardingComplete, String(v)); set({ onboardingComplete: v }) },
   setFeatureTourComplete: (v) => { localStorage.setItem(SK.featureTourComplete, String(v)); set({ featureTourComplete: v }) },

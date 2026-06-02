@@ -35,6 +35,13 @@ export interface MobileConnection {
   subscriptions: Map<string, () => void>  // subscriptionId -> unsubscribe fn
   connectedAt: number
   sendQueue: Promise<void>
+  // Negotiated in e2ee_auth (protocol v3+). When true, PTY output streams as
+  // raw bytes in encrypted binary WS frames instead of base64'd JSON.
+  binaryTerminalData: boolean
+  // When true, terminal.subscribe returns the scrollback snapshot in its result
+  // (and the device skips the separate readScrollback), so the snapshot can't
+  // race behind live output. See the terminal.subscribe-snapshot.v1 capability.
+  subscribeSnapshot: boolean
 }
 
 // ── Pairing ───────────────────────────────────────────────────────────────────
@@ -43,6 +50,14 @@ export interface PairingOffer {
   endpoint: string                // "ws://<lanIp>:6839"
   token: string                   // One-time pairing token
   serverPublicKey: string         // Base64-encoded identity public key
+  transport?: MobilePairingTransport
+}
+
+export type MobilePairingTransport = 'lan' | 'ngrok'
+
+export interface GeneratePairingOfferOptions {
+  endpoint?: string
+  transport?: MobilePairingTransport
 }
 
 // ── E2EE Handshake Messages (plaintext phase) ────────────────────────────────
@@ -50,7 +65,7 @@ export interface PairingOffer {
 export interface E2EEHello {
   type: 'e2ee_hello'
   ephemeralPublicKey: string      // Base64-encoded
-  deviceToken: string             // One-time pairing token or existing device token
+  deviceToken?: string            // Legacy plaintext token; new clients send it in encrypted auth
 }
 
 export interface E2EEReady {
@@ -61,8 +76,19 @@ export interface E2EEReady {
 export interface E2EEAuth {
   type: 'e2ee_auth'
   deviceId?: string               // Present for returning devices
+  deviceToken?: string            // One-time pairing token or existing device token
   deviceName: string              // User-facing name for this mobile device
   devicePublicKey: string         // Base64-encoded permanent Curve25519 key
+  capabilities?: MobileClientCapabilities  // Optional feature negotiation (v3+)
+}
+
+/** Optional features a mobile client advertises during the auth handshake. */
+export interface MobileClientCapabilities {
+  // Client can decode the binary terminal-output channel (protocol v3+).
+  binaryTerminalData?: boolean
+  // Client wants the scrollback snapshot delivered in the terminal.subscribe
+  // result rather than fetching it via a separate readScrollback round-trip.
+  subscribeSnapshot?: boolean
 }
 
 export interface E2EEAuthenticated {
@@ -128,4 +154,13 @@ export interface MobileServerStatus {
     name: string
     connectedAt: number
   }>
+}
+
+export interface MobileNgrokTunnelStatus {
+  running: boolean
+  port: number | null
+  url: string | null
+  endpoint: string | null
+  startedAt: number | null
+  error: string | null
 }
