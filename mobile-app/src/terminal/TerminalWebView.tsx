@@ -2056,7 +2056,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
       } else if (msg.type === 'log') {
         // Surface fit-scale diagnostics in the RN/Metro console.
         const tag = typeof msg.tag === 'string' ? msg.tag : '[fit]'
-        // eslint-disable-next-line no-console
+         
         console.log(tag, msg.payload)
       } else if (msg.type === 'set-select-mode') {
         onSelectionMode?.(!!msg.enabled)
@@ -2104,7 +2104,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
           onHaptic?.(kind)
         }
       } else if (msg.type === 'mobile-clip-cancel-by-pinch') {
-        // eslint-disable-next-line no-console
+         
         console.warn('[mobile-clip] selection cancelled by pinch')
       }
     },

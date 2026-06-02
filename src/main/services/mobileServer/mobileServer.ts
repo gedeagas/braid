@@ -8,6 +8,7 @@ import { dispatch } from './rpc'
 import { setMobileBroadcaster } from './broadcast'
 import * as discovery from './discovery'
 import * as e2ee from './e2ee'
+import { encodeTerminalFrame } from './terminalFrame'
 import { getMobileInstanceName } from './instanceName'
 import type {
   MobileConnection,
@@ -247,6 +248,8 @@ class MobileServer {
             subscriptions: new Map(),
             connectedAt: Date.now(),
             sendQueue: Promise.resolve(),
+            binaryTerminalData: authMsg.capabilities?.binaryTerminalData === true,
+            subscribeSnapshot: authMsg.capabilities?.subscribeSnapshot === true,
           }
 
           // Close existing connection from same device
@@ -318,6 +321,16 @@ class MobileServer {
           logger.error('[MobileServer] Failed to send notification:', err)
         })
     })
+    // Raw PTY output, streamed as an encrypted binary WS frame for clients that
+    // negotiated `binaryTerminalData`. Queued on the same sendQueue as JSON so
+    // the lockstep nonce counter stays monotonic across both channels.
+    connection.ws.on('rpc:binary', (payload: { ptyId: string; data: string }) => {
+      connection.sendQueue = connection.sendQueue
+        .then(() => this.sendEncryptedBinaryTerminal(connection, payload.ptyId, payload.data))
+        .catch((err) => {
+          logger.error('[MobileServer] Failed to send terminal frame:', err)
+        })
+    })
   }
 
   private async sendEncrypted(
@@ -333,6 +346,26 @@ class MobileServer {
     connection.e2ee.sendCounter = nextCounter
     if (connection.ws.readyState === WebSocket.OPEN) {
       connection.ws.send(encrypted)
+    }
+  }
+
+  /**
+   * Encrypt raw PTY output as a binary frame and send it as a binary WS frame.
+   * Shares the session's send-counter sequence with {@link sendEncrypted} (both
+   * run on the per-connection sendQueue), so the client can decrypt binary and
+   * text frames against one in-order receive counter.
+   */
+  private async sendEncryptedBinaryTerminal(
+    connection: MobileConnection,
+    ptyId: string,
+    data: string,
+  ): Promise<void> {
+    const plaintext = encodeTerminalFrame(ptyId, data)
+    const nonce = e2ee.generateNonce(connection.e2ee.sendCounter, true)
+    const ciphertext = e2ee.encrypt(plaintext, connection.e2ee.sharedKey, nonce)
+    connection.e2ee.sendCounter += 1
+    if (connection.ws.readyState === WebSocket.OPEN) {
+      connection.ws.send(ciphertext, { binary: true })
     }
   }
 

@@ -5,7 +5,7 @@ import {
   SETUP_TAB_ID,
   terminalCache, nextTabId, createTerminal, initGlobalPtyRouting, reThemeAllTerminals,
   updateScrollbackAllTerminals,
-  saveRightTerminalTabs, loadRightTerminalTabs,
+  saveRightTerminalTabs, loadRightTerminalTabs, persistAllRightTerminals,
   type TermTab,
 } from './terminalCache'
 
@@ -35,6 +35,16 @@ export function useTerminalLifecycle({
 
   // ── Initialize global PTY routing once ────────────────────────────────────
   useEffect(() => { initGlobalPtyRouting() }, [])
+
+  // ── Persist all right-terminal tab ids on app quit ───────────────────────
+  // React unmount effects don't fire when the Electron window is torn down, so
+  // the active worktree's tabs would otherwise never be saved - their daemon
+  // sessions could never be reattached on next launch and would leak as orphans.
+  useEffect(() => {
+    const flush = () => persistAllRightTerminals()
+    window.addEventListener('beforeunload', flush)
+    return () => window.removeEventListener('beforeunload', flush)
+  }, [])
 
   // ── Re-theme terminals when app theme changes ────────────────────────────
   useEffect(() => {
@@ -105,12 +115,15 @@ export function useTerminalLifecycle({
           activeTabIdRef.current = tabId
 
           const cached = terminalCache.get(worktreePathRef.current)
+          const nextTabs = cached ? [...cached.tabs, newTab] : [newTab]
           if (cached) {
-            cached.tabs = [...cached.tabs, newTab]
+            cached.tabs = nextTabs
             cached.activeTabId = tabId
           } else {
-            terminalCache.set(worktreePathRef.current, { tabs: [newTab], activeTabId: tabId })
+            terminalCache.set(worktreePathRef.current, { tabs: nextTabs, activeTabId: tabId })
           }
+          // Persist immediately so this run terminal can be reattached after restart.
+          saveRightTerminalTabs(worktreePathRef.current, nextTabs)
 
           pendingAttach.current.set(tabId, newTab)
           useUIStore.getState().setPendingTerminalCommand(null)

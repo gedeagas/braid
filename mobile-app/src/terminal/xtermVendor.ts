@@ -3,7 +3,7 @@
 // strings so the mobile terminal WebView renders fully offline / on a LAN-only
 // E2EE link. Previously loaded from cdn.jsdelivr.net, which fails with no internet.
 // Regenerate after bumping @xterm/xterm: see scripts/gen-xterm-vendor.mjs.
-/* eslint-disable */
+ 
 
 export const XTERM_VERSION = "6.1.0-beta.198"
 

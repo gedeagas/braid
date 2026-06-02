@@ -61,7 +61,13 @@
           "barcodeScannerEnabled": true
         }
       ],
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/android-icon-monochrome.png",
+          "color": "#3D8BFF"
+        }
+      ],
       [
         "expo-splash-screen",
         {

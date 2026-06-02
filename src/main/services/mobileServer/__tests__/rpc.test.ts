@@ -117,6 +117,8 @@ function makeConnection(): MobileConnection {
     subscriptions: new Map(),
     connectedAt: Date.now(),
     sendQueue: Promise.resolve(),
+    binaryTerminalData: false,
+    subscribeSnapshot: false,
   }
 }
 
@@ -145,7 +147,9 @@ describe('RPC Dispatch', () => {
     expect(res.result).toBeDefined()
     const result = res.result as Record<string, unknown>
     expect(result.version).toBe('1.0.0')
-    expect(result.protocolVersion).toBe(2)
+    expect(result.protocolVersion).toBe(3)
+    expect(result.minCompatibleMobileVersion).toBe(1)
+    expect(result.capabilities).toContain('terminal.binary-stream.v1')
     expect(result.projects).toHaveLength(1)
   })
 
@@ -216,6 +220,38 @@ describe('RPC Dispatch', () => {
     const req: JsonRpcRequest = { jsonrpc: '2.0', id: 32, method: 'terminal.close', params: {} }
     const res = await dispatch(req, conn)
     expect(res.error).toBeDefined()
+  })
+
+  it('terminal.presence excludes the requesting device and reports open-elsewhere', async () => {
+    const presence = await import('../mobileTerminalPresence')
+    // The requesting device (d1) plus another device both have the terminal open.
+    presence.markMobileTerminalActive('bt-100-1', conn.device.id)
+    presence.markMobileTerminalActive('bt-100-1', 'other-device')
+    const req: JsonRpcRequest = {
+      jsonrpc: '2.0', id: 33, method: 'terminal.presence',
+      params: { terminalId: 'bt-100-1', ptyId: 'pty-1' },
+    }
+    const res = await dispatch(req, conn)
+    expect(res.error).toBeUndefined()
+    const result = res.result as Record<string, unknown>
+    // Only the other device counts - the asker already knows it has it open.
+    expect(result.otherDeviceCount).toBe(1)
+    expect(result.openOnDesktop).toBe(false)
+    expect(result.openElsewhere).toBe(true)
+    // Reset the singleton so later tests start clean.
+    presence.markMobileTerminalInactive('bt-100-1', conn.device.id)
+    presence.markMobileTerminalInactive('bt-100-1', 'other-device')
+  })
+
+  it('terminal.presence reports not-open when nobody else is viewing', async () => {
+    const req: JsonRpcRequest = {
+      jsonrpc: '2.0', id: 34, method: 'terminal.presence', params: { terminalId: 'bt-100-1' },
+    }
+    const res = await dispatch(req, conn)
+    expect(res.error).toBeUndefined()
+    const result = res.result as Record<string, unknown>
+    expect(result.openElsewhere).toBe(false)
+    expect(result.otherDeviceCount).toBe(0)
   })
 
   it('dispatches sessions.list without full messages', async () => {
@@ -291,6 +327,7 @@ describe('RPC Dispatch', () => {
     expect(names).toContain('git.status')
     expect(names).toContain('github.prStatus')
     expect(names).toContain('terminal.list')
+    expect(names).toContain('terminal.presence')
     expect(names).toContain('agent.subscribe')
     expect(names).toContain('terminal.setDisplayMode')
   })
@@ -337,5 +374,63 @@ describe('RPC Dispatch', () => {
       method: 'terminal.resized',
       params: expect.objectContaining({ ptyId: 'pty-1', cols: 120, rows: 40 }),
     }))
+  })
+
+  it('terminal.subscribe omits the snapshot when the client did not negotiate it', async () => {
+    const req: JsonRpcRequest = {
+      jsonrpc: '2.0', id: 23, method: 'terminal.subscribe', params: { ptyId: 'pty-1' },
+    }
+    // conn.subscribeSnapshot defaults to false (legacy client).
+    const res = await dispatch(req, conn)
+    expect((res.result as Record<string, unknown>).snapshot).toBeUndefined()
+  })
+
+  it('terminal.subscribe returns the budgeted scrollback snapshot for capable clients', async () => {
+    const { ptyService } = await import('../../pty')
+    const history = Array.from({ length: 200 }, (_, i) => `line-${i}`).join('\n')
+    vi.mocked(ptyService.readTerminalOutput).mockReturnValueOnce([{ ptyId: 'pty-1', output: history }])
+    conn.subscribeSnapshot = true
+    const req: JsonRpcRequest = {
+      jsonrpc: '2.0', id: 24, method: 'terminal.subscribe',
+      params: { ptyId: 'pty-1', maxBytes: 40 },
+    }
+    const res = await dispatch(req, conn)
+    const snapshot = (res.result as Record<string, unknown>).snapshot as string
+    expect(typeof snapshot).toBe('string')
+    // Budgeted to the tail at a clean line boundary, so it's a strict suffix of
+    // the full history that begins on a whole line (never mid-line).
+    expect(snapshot.length).toBeLessThanOrEqual(40)
+    expect(history.endsWith(snapshot)).toBe(true)
+    expect(snapshot.startsWith('line-')).toBe(true)
+  })
+
+  it('terminal.subscribe pre-fits the PTY and claims the viewport actor for the latest device', async () => {
+    const { ptyService } = await import('../../pty')
+    const { getMobileTerminalActor, clearMobileTerminalActor } = await import('../mobileTerminalActor')
+    clearMobileTerminalActor('bt-100-1')
+    vi.mocked(ptyService.resize).mockClear()
+    const req: JsonRpcRequest = {
+      jsonrpc: '2.0', id: 25, method: 'terminal.subscribe',
+      params: { ptyId: 'pty-1', viewport: { cols: 50, rows: 30 } },
+    }
+    const res = await dispatch(req, conn)
+    expect(res.error).toBeUndefined()
+    // Sizes the shared PTY to this device's viewport up front (no measure->resize
+    // round-trip) ...
+    expect(ptyService.resize).toHaveBeenCalledWith('pty-1', 50, 30)
+    // ... and marks this device the viewport owner so a later opener wins and
+    // earlier subscribers yield (multi-phone "most recent open wins").
+    expect(getMobileTerminalActor('bt-100-1')).toBe('d1')
+  })
+
+  it('terminal.subscribe ignores a non-positive or non-integer viewport', async () => {
+    const { ptyService } = await import('../../pty')
+    vi.mocked(ptyService.resize).mockClear()
+    const req: JsonRpcRequest = {
+      jsonrpc: '2.0', id: 26, method: 'terminal.subscribe',
+      params: { ptyId: 'pty-1', viewport: { cols: 0, rows: 30 } },
+    }
+    await dispatch(req, conn)
+    expect(ptyService.resize).not.toHaveBeenCalled()
   })
 })

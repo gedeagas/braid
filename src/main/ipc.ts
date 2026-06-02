@@ -25,7 +25,7 @@ import { notesService } from './services/notes'
 import { mobileServer, deviceStore } from './services/mobileServer'
 import { broadcastMobileNotification } from './services/mobileServer/broadcast'
 import { hasKnownBigTerminals, setKnownBigTerminals, type KnownBigTerminal } from './services/mobileServer/knownBigTerminals'
-import { isMobileTerminalActive } from './services/mobileServer/mobileTerminalPresence'
+import { isMobileTerminalActive, setDesktopActiveTerminal } from './services/mobileServer/mobileTerminalPresence'
 import { setMobileDisplayMode, type MobileDisplayMode } from './services/mobileServer/mobileTerminalDisplay'
 import { lspService, LspServerConfig } from './services/lsp'
 import { jiraService } from './services/jira'
@@ -262,6 +262,8 @@ export function registerIpcHandlers(): void {
   })
   ipcMain.handle('pty:readScrollback', (_e, terminalId: string) => ptyService.readScrollback(terminalId))
   ipcMain.handle('pty:isMobileTerminalActive', (_e, terminalId: string) => isMobileTerminalActive(terminalId))
+  ipcMain.on('pty:setDesktopActiveTerminal', (e, terminalId: string | null) =>
+    setDesktopActiveTerminal(e.sender.id, terminalId))
   ipcMain.on('pty:setMobileDisplayMode', (_e, terminalId: string, mode: MobileDisplayMode) =>
     setMobileDisplayMode(terminalId, mode))
   ipcMain.on('pty:deleteScrollback', (_e, terminalId: string) => ptyService.deleteScrollback(terminalId))

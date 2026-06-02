@@ -75,6 +75,45 @@ Prefer these over re-rolling styled views: `Screen` (themed safe-area container 
 `Card`, `SegmentedControl`, `Dropdown` (themed select / bottom-sheet picker). All consume
 `useTheme()` and switch with light/dark for free.
 
+# Protocol compatibility
+
+Mobile and desktop talk over a **versioned protocol**. Because the App Store lags desktop
+releases, both sides exchange version numbers on `status.get` so a genuinely incompatible
+combo can hard-block instead of silently misbehaving.
+
+## Two numbers per side, exchanged on `status.get`
+
+- **Desktop** advertises `protocolVersion` + `minCompatibleMobileVersion` (its kill switch).
+- **Mobile** holds `MOBILE_PROTOCOL_VERSION` + `MIN_COMPATIBLE_DESKTOP_VERSION`.
+
+The verdict is computed by `evaluateCompat` in `src/transport/protocol-compat.ts` (a mirror of
+the CI-tested canonical `src/shared/mobile-compat.ts` on the desktop side - keep them in sync;
+Metro can't resolve outside `mobile-app/`). Precedence: the desktop's **kill switch wins**
+(`mobile-too-old` over `desktop-too-old`). A newer desktop **never blocks on version alone** -
+that's the whole point, so additive desktop changes don't strand older phones.
+
+## Version bumps gate BREAKING changes only
+
+The constants live in two mirrored files (`src/shared/mobile-protocol.ts` on desktop,
+`src/transport/protocol-version.ts` on mobile).
+
+- **Bump `MOBILE_PROTOCOL_VERSION`** when you: remove an RPC method or required param; change
+  the meaning (units, nullability) of a field the other side reads; or change encryption,
+  framing, or the auth handshake.
+- **Do NOT bump** for additive changes: a new RPC method, a new optional field, a new
+  ignorable event - or a new **capability-gated** feature. (The v3 binary-terminal channel
+  was capability-gated and should never have bumped the version; a missed mobile-constant
+  sync then false-triggered `mobile-too-old`. Don't repeat that.)
+- **Bump the kill switch** (`MIN_COMPATIBLE_MOBILE_VERSION` desktop-side, or
+  `MIN_COMPATIBLE_DESKTOP_VERSION` mobile-side) only to deliberately hard-block an old build.
+
+## Features are gated by capabilities, not the version
+
+The desktop advertises a `capabilities: string[]` array in `status.get`
+(`MOBILE_CAPABILITIES`, mirrored as `MOBILE_CAPABILITY` ids on mobile). Gate any negotiable
+feature with `desktopSupports(status, MOBILE_CAPABILITY.x)` instead of comparing protocol
+versions. Add a new capability id (never reuse/renumber one) when you ship such a feature.
+
 # Worktrees
 
 Creating a worktree is a **modal** (`src/worktrees/CreateWorktreeModal.tsx`), opened from the

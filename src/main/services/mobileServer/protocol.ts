@@ -1,6 +1,6 @@
-import { MOBILE_PROTOCOL_VERSION, MIN_COMPATIBLE_MOBILE_VERSION } from '../../../shared/mobile-protocol'
+import { MOBILE_PROTOCOL_VERSION, MIN_COMPATIBLE_MOBILE_VERSION, MOBILE_CAPABILITIES } from '../../../shared/mobile-protocol'
 
-export { MOBILE_PROTOCOL_VERSION, MIN_COMPATIBLE_MOBILE_VERSION }
+export { MOBILE_PROTOCOL_VERSION, MIN_COMPATIBLE_MOBILE_VERSION, MOBILE_CAPABILITIES }
 
 /** Check if a mobile client's protocol version is compatible with this server. */
 export function isCompatible(clientVersion: number): boolean {

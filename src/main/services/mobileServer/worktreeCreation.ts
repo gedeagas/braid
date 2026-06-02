@@ -17,8 +17,14 @@ import { gitService } from '../git'
 //
 // This mirrors worktreeRemoval.ts (the worktrees.remove counterpart).
 
+/** The new worktree's location, when the renderer flow could report it. */
+export interface CreatedWorktree {
+  worktreePath?: string
+  worktreeId?: string
+}
+
 interface PendingCreation {
-  resolve: () => void
+  resolve: (result: CreatedWorktree) => void
   reject: (err: Error) => void
   timer: ReturnType<typeof setTimeout>
 }
@@ -37,12 +43,12 @@ function ensureListener(): void {
   listenerRegistered = true
   ipcMain.on(
     'mobile:createWorktreeResult',
-    (_event, result: { requestId: string; ok: boolean; reason?: string }) => {
+    (_event, result: { requestId: string; ok: boolean; reason?: string; worktreePath?: string; worktreeId?: string }) => {
       const entry = pending.get(result.requestId)
       if (!entry) return
       pending.delete(result.requestId)
       clearTimeout(entry.timer)
-      if (result.ok) entry.resolve()
+      if (result.ok) entry.resolve({ worktreePath: result.worktreePath, worktreeId: result.worktreeId })
       else entry.reject(new Error(result.reason ?? 'renderer_creation_failed'))
     }
   )
@@ -63,18 +69,19 @@ export async function createWorktreeViaDesktop(
   branch: string,
   projectName: string,
   baseBranch?: string,
-): Promise<void> {
+): Promise<CreatedWorktree> {
   ensureListener()
   const win = firstLiveWindow()
   if (!win) {
     // Headless / no renderer: do the bare git add so the op never no-ops.
     // The renderer reconciles its own state on next launch via refreshWorktrees.
+    // The path isn't surfaced here, so the device falls back to a list refresh.
     await gitService.addWorktree(repoPath, branch, projectName, baseBranch)
-    return
+    return {}
   }
 
   const requestId = crypto.randomUUID()
-  const ack = new Promise<void>((resolve, reject) => {
+  const ack = new Promise<CreatedWorktree>((resolve, reject) => {
     const timer = setTimeout(() => {
       pending.delete(requestId)
       reject(new Error('renderer_creation_timeout'))
@@ -85,7 +92,7 @@ export async function createWorktreeViaDesktop(
   win.webContents.send('mobile:createWorktreeRequest', { requestId, repoPath, branch, baseBranch })
 
   try {
-    await ack
+    return await ack
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err)
     // The renderer couldn't locate the project (e.g. its state is stale or the
@@ -93,7 +100,7 @@ export async function createWorktreeViaDesktop(
     // request still takes effect.
     if (reason === 'not_found') {
       await gitService.addWorktree(repoPath, branch, projectName, baseBranch)
-      return
+      return {}
     }
     throw err
   }

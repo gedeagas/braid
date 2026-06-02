@@ -1,7 +1,7 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { router } from 'expo-router';
-import { ChevronRight, Monitor, Plus, QrCode, RefreshCw, Settings, TerminalSquare, Wifi, X } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { ChevronRight, LifeBuoy, Monitor, Plus, QrCode, RefreshCw, Settings, TerminalSquare, Wifi, X } from 'lucide-react-native';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import {
   Alert,
   Image,
@@ -18,6 +18,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { getNotificationNavigationPath } from '@/notifications/notification-routing';
 import { useClientManager } from '@/transport/client-manager';
+import { classifyConnection, isErrorVerdict, type ConnectionVerdict } from '@/transport/connection-health';
 import { loadHosts, removeHost, saveHosts, upsertHost } from '@/transport/host-store';
 import { type BonjourHost, matchesDiscoveredHost, mergeDiscoveredEndpoint, startBonjourBrowser } from '@/transport/bonjour';
 import { createHostFromOffer, parsePairingPayload } from '@/transport/rpc-client';
@@ -62,6 +63,13 @@ export default function HomeScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const scannedRef = useRef(false);
   const manager = useClientManager();
+  const { pair: pairParam } = useLocalSearchParams<{ pair?: string }>();
+  const pairHandledRef = useRef(false);
+  const [, bump] = useReducer((n: number) => n + 1, 0);
+  // Re-render on manager connection-state changes so each desktop's verdict
+  // (reconnecting / unreachable / pairing-rejected) stays live without a manual
+  // pull-to-refresh.
+  useEffect(() => manager.subscribe(bump), [manager]);
 
   const refreshHost = useCallback(async (host: PairedHost) => {
     setSnapshots((current) => ({
@@ -210,6 +218,19 @@ export default function HomeScreen() {
     setScannerOpen(true);
   };
 
+  // Re-pair deep link: the host screen's "Re-pair" button routes here with
+  // ?pair=1 so the scanner opens straight away. Guarded so it fires once.
+  useEffect(() => {
+    if (pairParam === '1' && !pairHandledRef.current) {
+      pairHandledRef.current = true;
+      void openScanner();
+    }
+    // openScanner is intentionally omitted: this is a one-shot deep-link handler
+    // guarded by pairHandledRef, not something that should re-fire when the
+    // (unmemoized) opener identity changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pairParam]);
+
   const removeDesktop = useCallback((host: PairedHost) => {
     Alert.alert('Remove desktop', `Unpair "${host.instanceName ?? host.endpoint}"?`, [
       { text: 'Cancel', style: 'cancel' },
@@ -287,6 +308,19 @@ export default function HomeScreen() {
     if (path) router.navigate(path as Parameters<typeof router.navigate>[0]);
   }, [knownHostIds]);
 
+  // Acknowledge every currently-shown attention item at once. Each is stamped
+  // with its exact signature, so the section clears now but any item re-surfaces
+  // the moment a genuinely newer event changes its signature.
+  const clearAllAttention = useCallback(() => {
+    setAcknowledged((current) => {
+      const next = { ...current };
+      for (const { hostId, terminal } of attention) {
+        next[attentionKey(hostId, terminal)] = attentionSignature(terminal);
+      }
+      return next;
+    });
+  }, [attention]);
+
   const unpairedNearby = useMemo(
     () => discoveredHosts.filter((found) => !hosts.some((host) => matchesDiscoveredHost(host, found))),
     [discoveredHosts, hosts],
@@ -297,6 +331,19 @@ export default function HomeScreen() {
   const usageHosts = useMemo(
     () => sortedSnapshots.filter((item) => item.rateLimits && (item.rateLimits.claude || item.rateLimits.codex)),
     [sortedSnapshots],
+  );
+
+  // Surface the troubleshooter entry only when at least one desktop is in a
+  // problem state, so the link stays out of the happy path. Recomputed each
+  // render (the manager.subscribe bump above drives re-renders on state change).
+  const hasConnectionTrouble = sortedSnapshots.some((snapshot) =>
+    isErrorVerdict(
+      classifyConnection({
+        state: manager.getState(snapshot.host.id),
+        reconnectAttempts: manager.getReconnectAttempt(snapshot.host.id),
+        lastConnectedAt: manager.getLastConnectedAt(snapshot.host.id),
+      }),
+    ),
   );
 
   return (
@@ -351,7 +398,12 @@ export default function HomeScreen() {
 
         {attention.length > 0 && (
           <>
-            <Text style={styles.sectionLabel}>Needs attention</Text>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionLabel, styles.sectionLabelFlush]}>Needs attention</Text>
+              <Pressable onPress={clearAllAttention} hitSlop={8} accessibilityLabel="Clear all">
+                <Text style={styles.clearAll}>Clear all</Text>
+              </Pressable>
+            </View>
             {attention.map(({ hostId, terminal }) => (
               <RowCard
                 key={`${hostId}:${terminal.terminalId ?? terminal.id}`}
@@ -379,17 +431,35 @@ export default function HomeScreen() {
             </View>
           </Pressable>
         ) : (
-          sortedSnapshots.map((snapshot) => (
-            <RowCard
-              key={snapshot.host.id}
-              icon={<Monitor color={COLORS.muted} size={22} />}
-              title={snapshot.status?.instanceName ?? snapshot.host.instanceName ?? 'Braid desktop'}
-              dotColor={stateDotColor(snapshot.state, COLORS)}
-              subtitle={desktopSubtitle(snapshot)}
-              onPress={() => router.push(`/host/${encodeURIComponent(snapshot.host.id)}`)}
-              onLongPress={() => removeDesktop(snapshot.host)}
-            />
-          ))
+          sortedSnapshots.map((snapshot) => {
+            // The manager verdict (reconnect streak / revoked pairing) escalates
+            // beyond what the snapshot's online/offline can express, so it wins
+            // for the dot + label whenever it signals a problem.
+            const verdict = classifyConnection({
+              state: manager.getState(snapshot.host.id),
+              reconnectAttempts: manager.getReconnectAttempt(snapshot.host.id),
+              lastConnectedAt: manager.getLastConnectedAt(snapshot.host.id),
+            });
+            const verdictError = isErrorVerdict(verdict);
+            return (
+              <RowCard
+                key={snapshot.host.id}
+                icon={<Monitor color={COLORS.muted} size={22} />}
+                title={snapshot.status?.instanceName ?? snapshot.host.instanceName ?? 'Braid desktop'}
+                dotColor={verdictError ? verdictColor(verdict, COLORS) : stateDotColor(snapshot.state, COLORS)}
+                subtitle={verdictError ? verdict.label : desktopSubtitle(snapshot)}
+                onPress={() => router.push(`/host/${encodeURIComponent(snapshot.host.id)}`)}
+                onLongPress={() => removeDesktop(snapshot.host)}
+              />
+            );
+          })
+        )}
+
+        {hasConnectionTrouble && (
+          <Pressable style={styles.troubleshootLink} onPress={() => router.push('/troubleshoot' as Parameters<typeof router.push>[0])}>
+            <LifeBuoy color={COLORS.muted} size={16} />
+            <Text style={styles.troubleshootText}>Connection trouble? Troubleshoot</Text>
+          </Pressable>
         )}
 
         {usageHosts.length > 0 && (
@@ -580,6 +650,11 @@ function stateDotColor(state: ConnectionState, c: Palette): string {
   return c.subtle;
 }
 
+/** Dot color for an escalated connection verdict (warning -> amber, the rest -> red). */
+function verdictColor(verdict: ConnectionVerdict, c: Palette): string {
+  return verdict.kind === 'warning' ? c.warning : c.danger;
+}
+
 function desktopSubtitle(snapshot: HostSnapshot): string {
   if (snapshot.state === 'connecting') return 'Connecting...';
   if (snapshot.state === 'offline') return snapshot.error ?? 'Offline';
@@ -635,6 +710,15 @@ function makeStyles(COLORS: Palette) {
       marginTop: 28,
       marginBottom: 11,
     },
+    sectionHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: 28,
+      marginBottom: 11,
+    },
+    sectionLabelFlush: { marginTop: 0, marginBottom: 0 },
+    clearAll: { color: COLORS.accent, fontSize: 13, fontWeight: '700' },
     rowCard: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -688,6 +772,15 @@ function makeStyles(COLORS: Palette) {
     },
     quickText: { color: COLORS.text, fontSize: 14, fontWeight: '700' },
     footnote: { color: COLORS.subtle, fontSize: 12, marginTop: 18, textAlign: 'center' },
+    troubleshootLink: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      marginTop: 4,
+      paddingVertical: 12,
+    },
+    troubleshootText: { color: COLORS.muted, fontSize: 13, fontWeight: '700' },
     scanner: { flex: 1, backgroundColor: COLORS.bg },
     scannerOverlay: { flex: 1, justifyContent: 'space-between', padding: 18 },
     scannerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

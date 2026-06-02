@@ -142,6 +142,8 @@ const api = {
       ipcRenderer.invoke('pty:readScrollback', terminalId) as Promise<string>,
     isMobileTerminalActive: (terminalId: string) =>
       ipcRenderer.invoke('pty:isMobileTerminalActive', terminalId) as Promise<boolean>,
+    setDesktopActiveTerminal: (terminalId: string | null) =>
+      ipcRenderer.send('pty:setDesktopActiveTerminal', terminalId),
     setMobileDisplayMode: (terminalId: string, mode: 'phone' | 'desktop') =>
       ipcRenderer.send('pty:setMobileDisplayMode', terminalId, mode),
     deleteScrollback: (terminalId: string) =>
@@ -553,7 +555,7 @@ const api = {
       ipcRenderer.on('mobile:createWorktreeRequest', handler)
       return () => ipcRenderer.removeListener('mobile:createWorktreeRequest', handler)
     },
-    sendCreateWorktreeResult: (result: { requestId: string; ok: boolean; reason?: string }) =>
+    sendCreateWorktreeResult: (result: { requestId: string; ok: boolean; reason?: string; worktreePath?: string; worktreeId?: string }) =>
       ipcRenderer.send('mobile:createWorktreeResult', result),
   },
   // Claude Usage Analytics

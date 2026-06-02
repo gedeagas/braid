@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Check, ChevronLeft, ChevronsRight, Command, GitBranch, Keyboard as KeyboardIcon, Monitor, Pencil, Plus, RefreshCw, Send, Smartphone, TerminalSquare, Trash2, X } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,6 +22,17 @@ import { useHostClient } from '@/ui/use-host-client';
 
 const DEFAULT_COLS = 80;
 const DEFAULT_ROWS = 24;
+// Cap the scrollback snapshot replayed on open/reconnect. The desktop keeps a
+// multi-megabyte ring buffer per terminal; shipping all of it stalls first
+// paint and the device only renders the tail anyway. 256 KB is plenty of
+// history for a phone viewport. The desktop trims to a clean line boundary.
+const SCROLLBACK_SNAPSHOT_BYTES = 256 * 1024;
+// Debounce window for re-fitting the PTY after a live layout change. iPad Split
+// View / Stage Manager (and rotation) fire onLayout continuously while dragging;
+// the WebView already rescales its canvas on every viewport change (a cheap CSS
+// transform), so we only reflow the PTY (cols/rows + resize RPC + SIGWINCH) once
+// the drag settles instead of on every intermediate frame.
+const REFIT_DEBOUNCE_MS = 150;
 const DEFAULT_AGENT_STORAGE_KEY = 'braid.mobile.terminal.defaultAgentId';
 // Gap between writing the command text and the Enter byte. TUIs (e.g. Claude
 // Code) treat a CR that arrives in the same PTY chunk as the pasted text as a
@@ -33,8 +44,24 @@ function terminalLabel(terminal: BraidTerminal) {
   return terminal.label || terminal.title || terminal.name || terminal.terminalId || terminal.cwd?.split('/').pop() || terminal.id.slice(0, 6);
 }
 
+// Promise-wrapped native confirm. Resolves true only when the user taps the
+// destructive action; Cancel (or dismissing the alert) resolves false.
+function confirmAsync(title: string, message: string, confirmLabel: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    Alert.alert(
+      title,
+      message,
+      [
+        { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+        { text: confirmLabel, style: 'destructive', onPress: () => resolve(true) },
+      ],
+      { cancelable: true, onDismiss: () => resolve(false) },
+    );
+  });
+}
+
 export default function TerminalScreen() {
-  const { hostId, worktreePath, worktreeName, terminalId } = useLocalSearchParams<{ hostId: string; worktreePath?: string; worktreeName?: string; terminalId?: string }>();
+  const { hostId, worktreePath, worktreeName, terminalId, autoAgentId } = useLocalSearchParams<{ hostId: string; worktreePath?: string; worktreeName?: string; terminalId?: string; autoAgentId?: string }>();
   const { client, state } = useHostClient(hostId);
   const { palette: colors, scheme } = useTheme();
   const shared = useShared();
@@ -77,8 +104,17 @@ export default function TerminalScreen() {
   // notification target is honored once (when it first appears in the list) and
   // doesn't yank the user back when the terminal list later changes.
   const honoredTerminalIdRef = useRef<string | null>(null);
+  // Agent chosen at worktree-creation time (autoAgentId route param) to launch
+  // once, automatically, when this screen first loads that worktree with no
+  // existing terminals. Consumed in loadTerminals so it runs after the list
+  // load instead of racing it.
+  const pendingAutoAgentRef = useRef<{ worktreePath: string; agentId: string } | null>(null);
+  // Stable handle to the latest createTerminal so loadTerminals can call it
+  // without a forward reference (createTerminal is defined below) or a dep cycle.
+  const createTerminalRef = useRef<((agentId?: string, targetWorktree?: BraidWorktree) => Promise<void>) | null>(null);
   const initializedKeyRef = useRef<string | null>(null);
   const terminalFrameHeightRef = useRef<number | undefined>(undefined);
+  const refitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const subscriptionRef = useRef<{ terminalId: string; subscriptionId: string } | null>(null);
   const openSeqRef = useRef(0);
   const sendingRef = useRef(false);
@@ -89,6 +125,9 @@ export default function TerminalScreen() {
   const desktopModeRef = useRef<Set<string>>(new Set());
   useEffect(() => { desktopModeRef.current = desktopModeHandles; }, [desktopModeHandles]);
   useEffect(() => { activeTerminalRef.current = active; }, [active]);
+  useEffect(() => () => {
+    if (refitTimerRef.current) clearTimeout(refitTimerRef.current);
+  }, []);
   useEffect(() => { terminalsRef.current = terminals; }, [terminals]);
   // Mirror of the active worktree so the notification handler can re-fetch the
   // tab strip for the right worktree without re-subscribing on every change.
@@ -150,14 +189,40 @@ export default function TerminalScreen() {
     setActive(terminal);
     console.log('[BraidMobile] terminal.open.start', { terminal });
     terminalRef.current?.init(DEFAULT_COLS, DEFAULT_ROWS, '');
+    // The desktop returns the scrollback snapshot inline in the subscribe result
+    // (terminal.subscribe-snapshot.v1), ordered ahead of any live output, so it
+    // can't race behind live bytes. Captured here via the initial-result hook.
+    //
+    // Send our last-known phone fit as the subscribe viewport so the desktop
+    // pre-sizes the PTY (and marks us the viewport actor) before serializing the
+    // snapshot. This sizes the terminal in one round-trip instead of waiting for
+    // the measure -> resize cycle, and makes the most-recently-opened phone win
+    // the shared PTY size immediately. Safe now that the snapshot rides this
+    // response ahead of the resize repaint. On the very first open of a session
+    // fitDims is null; fitActiveTerminal then measures and resizes authoritatively.
+    const fitDims = phoneFitDimsRef.current;
+    let snapshot: string | undefined;
     try {
-      const subscriptionId = await client.subscribe('terminal.subscribe', { ptyId: terminal.id });
+      const subscriptionId = await client.subscribe<{ subscriptionId: string; snapshot?: string }>(
+        'terminal.subscribe',
+        {
+          ptyId: terminal.id,
+          maxBytes: SCROLLBACK_SNAPSHOT_BYTES,
+          ...(fitDims ? { viewport: { cols: fitDims.cols, rows: fitDims.rows } } : {}),
+        },
+        (result) => { snapshot = result.snapshot; },
+      );
       if (openSeqRef.current !== seq) {
         await client.unsubscribe(subscriptionId).catch(() => undefined);
         return;
       }
-      console.log('[BraidMobile] terminal.subscribed', { terminalId: terminal.id, subscriptionId });
+      console.log('[BraidMobile] terminal.subscribed', { terminalId: terminal.id, subscriptionId, snapshotLength: snapshot?.length });
       subscriptionRef.current = { terminalId: terminal.id, subscriptionId };
+      // Write the inline snapshot now - synchronously after the response resolves
+      // and before the next live frame is processed - so history lands first.
+      if (snapshot && activeIdRef.current === terminal.id) {
+        terminalRef.current?.write(snapshot);
+      }
       if (activeIdRef.current === terminal.id) {
         setInputReadyTerminalId(terminal.id);
       }
@@ -172,15 +237,20 @@ export default function TerminalScreen() {
       return;
     }
 
-    client.request<string>('terminal.readScrollback', { ptyId: terminal.id })
-      .then((scrollback) => {
-        if (openSeqRef.current !== seq || activeIdRef.current !== terminal.id || !scrollback) return;
-        console.log('[BraidMobile] terminal.scrollback', { terminalId: terminal.id, scrollbackLength: scrollback.length });
-        terminalRef.current?.write(scrollback);
-      })
-      .catch((err) => {
-        console.log('[BraidMobile] terminal.scrollback.error', { terminalId: terminal.id, error: err instanceof Error ? err.message : String(err) });
-      });
+    // Fallback for desktops without the subscribe-snapshot capability (no inline
+    // snapshot field): fetch the scrollback separately. This is the pre-existing
+    // path and keeps the ordering race only for older servers.
+    if (snapshot === undefined) {
+      client.request<string>('terminal.readScrollback', { ptyId: terminal.id, maxBytes: SCROLLBACK_SNAPSHOT_BYTES })
+        .then((scrollback) => {
+          if (openSeqRef.current !== seq || activeIdRef.current !== terminal.id || !scrollback) return;
+          console.log('[BraidMobile] terminal.scrollback', { terminalId: terminal.id, scrollbackLength: scrollback.length });
+          terminalRef.current?.write(scrollback);
+        })
+        .catch((err) => {
+          console.log('[BraidMobile] terminal.scrollback.error', { terminalId: terminal.id, error: err instanceof Error ? err.message : String(err) });
+        });
+    }
     void fitActiveTerminal(terminal);
   }, [client, fitActiveTerminal]);
 
@@ -232,7 +302,7 @@ export default function TerminalScreen() {
     if (!client || !targetWorktree) return;
     setError(null);
     try {
-      const raw = await client.request<Array<BraidTerminal & { ptyId?: string }>>('terminal.list', { worktreePath: targetWorktree.path });
+      const raw = await client.request<(BraidTerminal & { ptyId?: string })[]>('terminal.list', { worktreePath: targetWorktree.path });
       console.log('[BraidMobile] terminal.rawList', { worktree: targetWorktree, raw });
       const list = raw.map((terminal) => ({
         ...terminal,
@@ -249,6 +319,14 @@ export default function TerminalScreen() {
         await openTerminal(next);
       } else {
         setInputReadyTerminalId(null);
+        // Fresh worktree with no terminals: auto-launch the agent picked at
+        // creation time. Done here (after the list load) so it can't race the
+        // setTerminals([]) above and get wiped from the tab strip.
+        const pendingAuto = pendingAutoAgentRef.current;
+        if (pendingAuto && pendingAuto.worktreePath === targetWorktree.path) {
+          pendingAutoAgentRef.current = null;
+          await createTerminalRef.current?.(pendingAuto.agentId, targetWorktree);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -264,7 +342,7 @@ export default function TerminalScreen() {
   const refreshTerminalList = useCallback(async (targetWorktree: BraidWorktree | null) => {
     if (!client || !targetWorktree) return;
     try {
-      const raw = await client.request<Array<BraidTerminal & { ptyId?: string }>>('terminal.list', { worktreePath: targetWorktree.path });
+      const raw = await client.request<(BraidTerminal & { ptyId?: string })[]>('terminal.list', { worktreePath: targetWorktree.path });
       const list = raw.map((terminal) => ({
         ...terminal,
         id: terminal.id ?? terminal.ptyId ?? '',
@@ -293,15 +371,19 @@ export default function TerminalScreen() {
     }
   }, [client, openTerminal]);
 
-  const createTerminal = useCallback(async (agentId?: string) => {
-    if (!client || !worktree || creatingTerminal) return;
+  const createTerminal = useCallback(async (agentId?: string, targetWorktree?: BraidWorktree) => {
+    // `targetWorktree` lets callers (e.g. auto-launch right after a worktree is
+    // created) act on a specific worktree without waiting for the `worktree`
+    // state to catch up.
+    const wt = targetWorktree ?? worktree;
+    if (!client || !wt || creatingTerminal) return;
     const agent = getAgentEntry(agentId ?? selectedAgentId) ?? selectedAgent ?? AGENT_CATALOG[0];
     setCreatingTerminal(true);
     setError(null);
     try {
       const created = await client.request<BraidTerminal & { ptyId?: string }>('terminal.create', {
-        worktreePath: worktree.path,
-        worktreeId: worktree.id,
+        worktreePath: wt.path,
+        worktreeId: wt.id,
         label: agent?.label ?? 'Terminal',
         command: agent?.launchCmd ?? agent?.detectCmd ?? 'claude',
         agentId: agent?.id ?? 'claude',
@@ -311,7 +393,7 @@ export default function TerminalScreen() {
       const terminal = {
         ...created,
         id: created.id ?? created.ptyId ?? '',
-        worktreePath: worktree.path,
+        worktreePath: wt.path,
       };
       if (!terminal.id) throw new Error('Desktop did not return a terminal id');
       setTerminals((current) => [...current.filter((item) => item.id !== terminal.id), terminal]);
@@ -324,10 +406,39 @@ export default function TerminalScreen() {
     }
   }, [client, creatingTerminal, openTerminal, selectedAgent, selectedAgentId, worktree]);
 
+  // Keep loadTerminals' stable handle pointed at the latest createTerminal.
+  useEffect(() => { createTerminalRef.current = createTerminal; });
+
+  // Arm the one-shot agent auto-launch when arriving from "create worktree"
+  // (the host screen passes the chosen agent via the autoAgentId route param).
+  useEffect(() => {
+    if (autoAgentId && worktreePath) pendingAutoAgentRef.current = { worktreePath, agentId: autoAgentId };
+  }, [autoAgentId, worktreePath]);
+
   // Close a terminal tab: kill it on the desktop, drop it from the tab strip,
   // and - if it was the active tab - fall back to the next tab (or empty state).
   const closeTerminal = useCallback(async (terminal: BraidTerminal) => {
     if (!client) return;
+    // Warn before killing a session that's also open elsewhere (the desktop or
+    // another paired device). Best-effort: an older desktop without the
+    // terminal.presence RPC just errors here and we close without the prompt.
+    try {
+      const presence = await client.request<{ openElsewhere?: boolean; openOnDesktop?: boolean }>(
+        'terminal.presence',
+        { terminalId: terminal.terminalId, ptyId: terminal.id },
+      );
+      if (presence?.openElsewhere) {
+        const where = presence.openOnDesktop ? 'the desktop' : 'another device';
+        const confirmed = await confirmAsync(
+          'Close terminal?',
+          `This session is also open on ${where}. Closing it will end the session everywhere.`,
+          'Close anyway',
+        );
+        if (!confirmed) return;
+      }
+    } catch {
+      // No presence info available - proceed with the close.
+    }
     const wasActive = activeIdRef.current === terminal.id;
     try {
       await client.request('terminal.close', {
@@ -354,6 +465,9 @@ export default function TerminalScreen() {
         setActive(null);
         setInputReadyTerminalId(null);
         setSelectorsExpanded(true);
+        // No terminals left: tear down the HTML terminal so it doesn't linger
+        // with stale content, mirroring selectProject/selectWorktree.
+        terminalRef.current?.clear();
       }
     }
   }, [client, openTerminal, terminals]);
@@ -387,10 +501,15 @@ export default function TerminalScreen() {
 
   useEffect(() => () => clearTerminalLiveInputFocusTimer(liveInputFocusTimerRef), []);
 
+  // Load-on-mount / load-on-worktree-change data fetches. The loaders setState
+  // only after awaiting the RPC, but the hooks linter still flags the call as a
+  // setState-in-effect; this is the intended data-fetching pattern here.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void loadProjects(); }, [loadProjects]);
   // On first load for a worktree, prefer the tab the notification deep-linked to
   // (terminalId matches either the pty id or the Braid big-terminal id).
-  useEffect(() => { void loadTerminals(worktree, active?.id ?? terminalId); }, [worktree]); // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
+  useEffect(() => { void loadTerminals(worktree, active?.id ?? terminalId); }, [worktree]);
 
   // Honor a notification deep-link to a specific terminal. The param can change
   // while this screen is already mounted (a warm tap reuses it), and the target
@@ -466,7 +585,7 @@ export default function TerminalScreen() {
         return;
       }
       if (notification.method === 'terminal.resized') {
-        const params = notification.params as { ptyId?: string; cols?: number; rows?: number; displayMode?: 'phone' | 'desktop' };
+        const params = notification.params as { ptyId?: string; cols?: number; rows?: number; displayMode?: 'phone' | 'desktop'; selfDriven?: boolean };
         if (params.ptyId !== activeIdRef.current) return;
         // The server is authoritative for display mode (it resets to phone on
         // disconnect), so reconcile local state - this keeps the toggle correct
@@ -490,14 +609,24 @@ export default function TerminalScreen() {
           terminalRef.current?.resize(params.cols, params.rows);
           return;
         }
-        // Phone mode: we own the PTY size and the desktop is meant to yield. If
-        // the shared PTY was resized away from our phone viewport (e.g. the
-        // desktop's active tab momentarily un-held and fit the PTY to its own
-        // pane during the connect race), re-assert the phone fit so xterm and
-        // the PTY stay in sync instead of wrapping desktop-width output into our
-        // narrow grid. Compared against the dims we last applied so our own
-        // resize echo doesn't loop; the desktop holds once it learns we're
-        // attached, so this converges in a single round.
+        // Phone mode but another paired phone currently owns the PTY viewport
+        // (the server marks resizes it didn't drive for us as selfDriven=false).
+        // A single PTY can't satisfy two phone sizes at once, so yield: match
+        // xterm to the shared dims and let TerminalWebView CSS-scale, exactly
+        // like desktop mode. Re-asserting our own fit here would ping-pong the
+        // PTY forever between the two devices.
+        if (params.selfDriven === false) {
+          terminalRef.current?.resize(params.cols, params.rows);
+          return;
+        }
+        // Phone mode and we own the size: the desktop is meant to yield. If the
+        // shared PTY was resized away from our phone viewport (e.g. the desktop's
+        // active tab momentarily un-held and fit the PTY to its own pane during
+        // the connect race), re-assert the phone fit so xterm and the PTY stay in
+        // sync instead of wrapping desktop-width output into our narrow grid.
+        // Compared against the dims we last applied so our own resize echo
+        // doesn't loop; the desktop holds once it learns we're attached, so this
+        // converges in a single round.
         const fit = phoneFitDimsRef.current;
         const diverged = !fit || fit.cols !== params.cols || fit.rows !== params.rows;
         const term = activeTerminalRef.current;
@@ -533,7 +662,7 @@ export default function TerminalScreen() {
     const terminal = active;
     console.log('[BraidMobile] terminal.resume', { ptyId: terminal.id });
     client
-      .request<string>('terminal.readScrollback', { ptyId: terminal.id })
+      .request<string>('terminal.readScrollback', { ptyId: terminal.id, maxBytes: SCROLLBACK_SNAPSHOT_BYTES })
       .then((scrollback) => {
         if (activeIdRef.current !== terminal.id) return;
         terminalRef.current?.init(DEFAULT_COLS, DEFAULT_ROWS, '');
@@ -937,6 +1066,13 @@ export default function TerminalScreen() {
     color: colors.text,
   };
 
+  const terminalTabIconStyle = {
+    width: 16,
+    height: 16,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  };
+
   return (
     // Safe-area insets are panel-colored (not the darker app bg) so the panel
     // header and bottom key/input bars extend seamlessly into the notch and
@@ -996,7 +1132,13 @@ export default function TerminalScreen() {
                 return (
                   <Pressable key={terminal.id} style={[terminalTabStyle, isActive && terminalTabActiveStyle]} onPress={() => openTerminal(terminal)} onLongPress={() => showTerminalActions(terminal)}>
                     <View style={{ maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <TerminalSquare color={isActive ? colors.text : colors.muted} size={14} />
+                      <View style={[terminalTabIconStyle, !isActive && { opacity: 0.65 }]}>
+                        {terminal.agentId ? (
+                          <AgentIcon agentId={terminal.agentId} size={14} />
+                        ) : (
+                          <TerminalSquare color={isActive ? colors.text : colors.muted} size={14} />
+                        )}
+                      </View>
                       <Text style={[terminalTabTextStyle, isActive && terminalTabTextActiveStyle]} numberOfLines={1}>{terminalLabel(terminal)}</Text>
                     </View>
                   </Pressable>
@@ -1201,7 +1343,16 @@ export default function TerminalScreen() {
           style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' }}
           onLayout={(event) => {
             terminalFrameHeightRef.current = event.nativeEvent.layout.height;
-            if (active) void fitActiveTerminal(active);
+            if (!active) return;
+            // Coalesce continuous resizes (iPad Split View / Stage Manager drag,
+            // rotation) into a single PTY reflow once the drag settles. The
+            // WebView keeps the canvas visually fitted in the meantime.
+            if (refitTimerRef.current) clearTimeout(refitTimerRef.current);
+            refitTimerRef.current = setTimeout(() => {
+              refitTimerRef.current = null;
+              const term = activeTerminalRef.current;
+              if (term) void fitActiveTerminal(term);
+            }, REFIT_DEBOUNCE_MS);
           }}
         >
           <TerminalWebView
@@ -1303,4 +1454,3 @@ function Key({ label, onPress, disabled = false }: { label: string; onPress: () 
     </Pressable>
   );
 }
-

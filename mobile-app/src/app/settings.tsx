@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Bell, ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { Bell, ChevronLeft, ChevronRight, LifeBuoy } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useShared, useTheme, useThemedStyles, type Palette, type ThemeMode } from '@/ui/theme';
@@ -43,6 +43,15 @@ export default function SettingsScreen() {
           <Text style={styles.navLabel}>Notifications</Text>
           <ChevronRight color={c.subtle} size={20} />
         </Pressable>
+        <Pressable
+          style={[styles.navRow, styles.navRowSpacing]}
+          onPress={() => router.push('/troubleshoot' as Parameters<typeof router.push>[0])}
+          accessibilityLabel="Troubleshoot connection"
+        >
+          <LifeBuoy color={c.muted} size={20} />
+          <Text style={styles.navLabel}>Troubleshoot connection</Text>
+          <ChevronRight color={c.subtle} size={20} />
+        </Pressable>
       </View>
     </Screen>
   );
@@ -67,5 +76,6 @@ function makeStyles(c: Palette) {
       paddingHorizontal: 14,
     },
     navLabel: { flex: 1, color: c.text, fontSize: 16, fontWeight: '700' },
+    navRowSpacing: { marginTop: 10 },
   });
 }

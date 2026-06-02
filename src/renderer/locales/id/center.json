@@ -194,6 +194,8 @@
   "createPrHidePrompt": "Sembunyikan prompt",
   "closeActiveSessionTitle": "Tutup sesi aktif?",
   "closeActiveSessionMessage": "Sesi ini masih {{status}}. Apakah Anda yakin ingin menutupnya?",
+  "closeTerminalOpenOnMobileTitle": "Tutup terminal yang terbuka di ponsel?",
+  "closeTerminalOpenOnMobileMessage": "Terminal ini juga terbuka di perangkat seluler yang dipasangkan. Menutupnya akan mengakhiri sesi di sana juga.",
   "contextWarning": "Konteks {{percent}}% penuh",
   "contextWarningAction": "→ /compact",
   "contextWarningTooltip": "Jendela konteks hampir penuh. Klik untuk menjalankan /compact dan membebaskan ruang.",

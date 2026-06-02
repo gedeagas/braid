@@ -13,6 +13,7 @@ import { fork, execFileSync } from 'child_process'
 import { mainSettings } from '../../ipc'
 import { getHookServerPort, getHookServerToken } from '../agentHookServer'
 import { DaemonClient } from './client'
+import { isReapableTerminalId } from './orphan'
 import { isDaemonRunning, removeSocketFile } from './lifecycle'
 import { SOCKET_PATH } from './protocol'
 import { RingBuffer } from './sessionHost'
@@ -579,7 +580,11 @@ export class PtyDaemonAdapter implements IPtyService {
     const sessions = await this.listSessions()
     return sessions
       .filter((session) =>
-        session.sessionId.startsWith('bt-') &&
+        // Both desktop terminal kinds key their daemon session by the renderer's
+        // stable id: big terminals "bt-" and right-panel terminals "rt-". The
+        // caller passes the known ids for both, so an unreferenced session of
+        // either kind is an orphan the desktop no longer tracks.
+        isReapableTerminalId(session.sessionId) &&
         !known.has(session.sessionId) &&
         // Safety interlock: never treat a session anyone is actively attached to
         // as an orphan, even if the renderer's persisted-id set is incomplete.
@@ -608,7 +613,7 @@ export class PtyDaemonAdapter implements IPtyService {
     const attachedById = new Map((await this.listSessions()).map((s) => [s.sessionId, s.attachedClients]))
     let killed = 0
     for (const terminalId of terminalIds) {
-      if (!terminalId.startsWith('bt-')) continue
+      if (!isReapableTerminalId(terminalId)) continue
       if ((attachedById.get(terminalId) ?? 0) > 0) continue
       try {
         await this.client.kill(terminalId)

@@ -10,7 +10,12 @@ import { SK } from '@/lib/storageKeys'
 // record is enough.
 // ---------------------------------------------------------------------------
 
-type SliceState = { bigTerminalsByWorktree: TerminalsSlice['bigTerminalsByWorktree'] }
+type SliceState = {
+  bigTerminalsByWorktree: TerminalsSlice['bigTerminalsByWorktree']
+  // Closing a terminal reconciles the active center view; the harness tracks it
+  // so tests can assert the "jump to next / empty" behavior.
+  activeCenterViewByWorktree?: Record<string, { type: string; terminalId?: string } | null>
+}
 
 function makeSlice() {
   let state: SliceState
@@ -21,10 +26,14 @@ function makeSlice() {
   }
   // Zustand `api` arg is not used inside the slice factory.
   const slice = createTerminalsSlice(set as never, get as never, {} as never)
-  state = { bigTerminalsByWorktree: slice.bigTerminalsByWorktree }
+  state = { bigTerminalsByWorktree: slice.bigTerminalsByWorktree, activeCenterViewByWorktree: {} }
   return {
     slice,
     read: () => state.bigTerminalsByWorktree,
+    readActiveView: () => state.activeCenterViewByWorktree?.[WT],
+    setActiveView: (view: { type: string; terminalId?: string } | null) => {
+      state = { ...state, activeCenterViewByWorktree: { ...state.activeCenterViewByWorktree, [WT]: view } }
+    },
     // Convenience to invoke actions; ensures get() sees latest state.
     actions: slice as TerminalsSlice,
   }
@@ -182,6 +191,24 @@ describe('terminalsSlice', () => {
       actions.removeRemoteBigTerminal(WT, 'bt-missing')
       expect(read()[WT]!.map((t) => t.id)).toEqual([id])
     })
+
+    it('switches the active view to the adjacent terminal when the viewed tab is removed remotely', () => {
+      const { actions, readActiveView, setActiveView } = makeSlice()
+      const a = actions.createBigTerminal(WT)
+      const b = actions.createBigTerminal(WT)
+      setActiveView({ type: 'terminal', terminalId: a })
+      actions.removeRemoteBigTerminal(WT, a)
+      expect(readActiveView()).toEqual({ type: 'terminal', terminalId: b })
+    })
+
+    it('leaves the active view untouched when a non-viewed tab is removed remotely', () => {
+      const { actions, readActiveView, setActiveView } = makeSlice()
+      const a = actions.createBigTerminal(WT)
+      const b = actions.createBigTerminal(WT)
+      setActiveView({ type: 'terminal', terminalId: a })
+      actions.removeRemoteBigTerminal(WT, b)
+      expect(readActiveView()).toEqual({ type: 'terminal', terminalId: a })
+    })
   })
 
   describe('closeBigTerminal', () => {
@@ -201,6 +228,43 @@ describe('terminalsSlice', () => {
       actions.closeBigTerminal(WT, id)
       expect(read()[WT]).toEqual([])
       expect(localStorage.getItem(SK.bigTerminalTabsPrefix + WT)).toBe('[]')
+    })
+
+    it('jumps to the next terminal when closing the active one', () => {
+      const { actions, readActiveView, setActiveView } = makeSlice()
+      actions.createBigTerminal(WT)
+      const b = actions.createBigTerminal(WT)
+      const c = actions.createBigTerminal(WT)
+      setActiveView({ type: 'terminal', terminalId: b })
+      actions.closeBigTerminal(WT, b)
+      // Closed index 1 clamps into the post-close list [a, c] → index 1 = c.
+      expect(readActiveView()).toEqual({ type: 'terminal', terminalId: c })
+    })
+
+    it('clamps to the last terminal when closing the active trailing tab', () => {
+      const { actions, readActiveView, setActiveView } = makeSlice()
+      const a = actions.createBigTerminal(WT)
+      const b = actions.createBigTerminal(WT)
+      setActiveView({ type: 'terminal', terminalId: b })
+      actions.closeBigTerminal(WT, b)
+      expect(readActiveView()).toEqual({ type: 'terminal', terminalId: a })
+    })
+
+    it('clears the active view to null when the last terminal closes', () => {
+      const { actions, readActiveView, setActiveView } = makeSlice()
+      const id = actions.createBigTerminal(WT)
+      setActiveView({ type: 'terminal', terminalId: id })
+      actions.closeBigTerminal(WT, id)
+      expect(readActiveView()).toBeNull()
+    })
+
+    it('does not touch the active view when closing a non-active terminal', () => {
+      const { actions, readActiveView, setActiveView } = makeSlice()
+      const a = actions.createBigTerminal(WT)
+      const b = actions.createBigTerminal(WT)
+      setActiveView({ type: 'terminal', terminalId: a })
+      actions.closeBigTerminal(WT, b)
+      expect(readActiveView()).toEqual({ type: 'terminal', terminalId: a })
     })
   })
 

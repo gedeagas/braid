@@ -2,6 +2,7 @@ import { useReducer } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/store/ui'
 import { getAllPersistedBigTerminalIds } from '@/store/ui/terminals'
+import { getAllPersistedRightTerminalIds } from '@/components/Right/terminalCache'
 import * as ipc from '@/lib/ipc'
 import { Toggle } from '@/components/shared/Toggle'
 import { SegmentedControl } from '@/components/shared/SegmentedControl'
@@ -134,7 +135,8 @@ function OrphanedTerminalsCard() {
   const scan = async () => {
     dispatch({ type: 'scan' })
     try {
-      const orphans = await ipc.pty.listOrphanedBigTerminals(getAllPersistedBigTerminalIds())
+      const knownIds = [...getAllPersistedBigTerminalIds(), ...getAllPersistedRightTerminalIds()]
+      const orphans = await ipc.pty.listOrphanedBigTerminals(knownIds)
       dispatch({ type: 'scanned', orphans })
     } catch {
       dispatch({ type: 'error' })

@@ -197,6 +197,47 @@ export function loadRightTerminalTabs(worktreePath: string): PersistedTabInfo[] 
   }
 }
 
+/**
+ * Every right-panel tab id we track across ALL worktrees - the desktop's
+ * authoritative "what should exist" set for right terminals. Scans every
+ * localStorage key under the prefix (so a worktree the user hasn't reopened this
+ * session still counts) and unions the live in-memory cache (so a tab not yet
+ * flushed to localStorage is never mistaken for an orphan). Used by the orphan
+ * reaper to avoid reaping a right terminal that's legitimately in use.
+ */
+export function getAllPersistedRightTerminalIds(): string[] {
+  const ids = new Set<string>()
+  try {
+    const prefix = SK.rightTerminalTabsPrefix
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (!key?.startsWith(prefix)) continue
+      const worktreePath = key.slice(prefix.length)
+      for (const tab of loadRightTerminalTabs(worktreePath)) ids.add(tab.id)
+    }
+  } catch {
+    // Best effort - the manual review step guards against an incomplete set.
+  }
+  for (const cached of terminalCache.values()) {
+    for (const tab of cached.tabs) {
+      if (tab.id !== SETUP_TAB_ID && tab.id !== RUN_TAB_ID) ids.add(tab.id)
+    }
+  }
+  return [...ids]
+}
+
+/**
+ * Flush every cached worktree's right-panel tab ids to localStorage. Safety net
+ * for app quit: React unmount effects don't run when the Electron window is torn
+ * down, so without a beforeunload flush the active worktree's tabs would never
+ * persist and their daemon sessions could never be reattached on next launch.
+ */
+export function persistAllRightTerminals(): void {
+  for (const [worktreePath, cached] of terminalCache.entries()) {
+    saveRightTerminalTabs(worktreePath, cached.tabs)
+  }
+}
+
 /** Re-theme all cached terminals when the app theme changes */
 export function reThemeAllTerminals(): void {
   const theme = getTerminalTheme()

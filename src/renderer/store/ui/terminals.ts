@@ -1,5 +1,6 @@
 import { type StateCreator } from 'zustand'
 import type { UIState } from './types'
+import type { CenterView } from './layout'
 import type { AgentStatusEntry, AgentStatusPayload } from '@/lib/agentStatus'
 import { createAgentStatusEntry, updateAgentStatusEntry } from '@/lib/agentStatus'
 import * as ipc from '@/lib/ipc'
@@ -186,6 +187,30 @@ function loadInitial(): Record<string, BigTerminalTab[]> {
   return {}
 }
 
+// Persist the active center view for a worktree, mirroring layout.setActiveCenterView's
+// localStorage write. Used when closing a terminal reconciles the active view so the
+// change survives a reload even for a worktree that isn't currently selected.
+function persistActiveView(worktreeId: string, view: CenterView | null): void {
+  if (!worktreeId) return
+  try { localStorage.setItem(SK.activeCenterViewPrefix + worktreeId, JSON.stringify(view)) } catch {}
+}
+
+// When the closed terminal was the active center view, pick its replacement: the
+// adjacent remaining terminal (same "clamp to last" rule as TabbedTerminal.closeTab),
+// or null when none remain (CenterPanel then falls back to the active session / empty).
+// Returns undefined when the closed terminal wasn't the active view (no change needed).
+function nextViewAfterClose(
+  view: CenterView | null | undefined,
+  closedId: string,
+  remaining: BigTerminalTab[],
+  closedIndex: number,
+): CenterView | null | undefined {
+  if (!(view?.type === 'terminal' && view.terminalId === closedId)) return undefined
+  if (remaining.length === 0) return null
+  const idx = Math.min(Math.max(closedIndex, 0), remaining.length - 1)
+  return { type: 'terminal', terminalId: remaining[idx].id }
+}
+
 export interface TerminalsSlice {
   bigTerminalsByWorktree: Record<string, BigTerminalTab[]>
   /** In-memory agent status map with full entry (not persisted). Keyed by terminalId. */
@@ -281,14 +306,23 @@ export const createTerminalsSlice: StateCreator<UIState, [], [], TerminalsSlice>
     // whoever initiated the close (another window or a mobile device).
     set((s) => {
       const existing = s.bigTerminalsByWorktree[worktreeId] ?? loadBigTerminalsFor(worktreeId)
-      if (!existing.some((t) => t.id === id)) return s
+      const closedIndex = existing.findIndex((t) => t.id === id)
+      if (closedIndex === -1) return s
       const next = existing.filter((t) => t.id !== id)
       saveBigTerminalsFor(worktreeId, next)
       const statusNext = { ...s.bigTerminalStatusById }
       delete statusNext[id]
+      // If the desktop was viewing this exact terminal (same worktree), switch to
+      // the next tab so the close is instant instead of leaving a dead pane.
+      const nextView = nextViewAfterClose(s.activeCenterViewByWorktree?.[worktreeId], id, next, closedIndex)
+      const viewUpdate = nextView === undefined ? {} : (() => {
+        persistActiveView(worktreeId, nextView)
+        return { activeCenterViewByWorktree: { ...s.activeCenterViewByWorktree, [worktreeId]: nextView } }
+      })()
       return {
         bigTerminalsByWorktree: { ...s.bigTerminalsByWorktree, [worktreeId]: next },
         bigTerminalStatusById: statusNext,
+        ...viewUpdate,
       }
     })
   },
@@ -297,14 +331,22 @@ export const createTerminalsSlice: StateCreator<UIState, [], [], TerminalsSlice>
     killAndForgetBigTerminal(id)
     set((s) => {
       const existing = s.bigTerminalsByWorktree[worktreeId] ?? []
+      const closedIndex = existing.findIndex((t) => t.id === id)
       const next = existing.filter((t) => t.id !== id)
       saveBigTerminalsFor(worktreeId, next)
       // Clean up ephemeral agent status
       const statusNext = { ...s.bigTerminalStatusById }
       delete statusNext[id]
+      // Jump to the next terminal (or empty) when the closed tab was the active one.
+      const nextView = nextViewAfterClose(s.activeCenterViewByWorktree?.[worktreeId], id, next, closedIndex)
+      const viewUpdate = nextView === undefined ? {} : (() => {
+        persistActiveView(worktreeId, nextView)
+        return { activeCenterViewByWorktree: { ...s.activeCenterViewByWorktree, [worktreeId]: nextView } }
+      })()
       return {
         bigTerminalsByWorktree: { ...s.bigTerminalsByWorktree, [worktreeId]: next },
-        bigTerminalStatusById: statusNext
+        bigTerminalStatusById: statusNext,
+        ...viewUpdate,
       }
     })
   },

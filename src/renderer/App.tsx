@@ -7,7 +7,7 @@ import { RightPanel } from '@/components/Right/RightPanel'
 import { ResizeHandle } from '@/components/shared/ResizeHandle'
 import { useProjectsStore } from '@/store/projects'
 import { initAgentEventListener, useSessionsStore } from '@/store/sessions'
-import { useUIStore } from '@/store/ui'
+import { useUIStore, selectActiveCenterView } from '@/store/ui'
 import { syncAllPersistedBigTerminalMetadata } from '@/store/ui/terminals'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { applyTheme } from '@/themes/apply'
@@ -235,8 +235,10 @@ export default function App() {
         // the configured storage path via the git IPC handler, refreshes the
         // sidebar). select:false so a remote create never steals the desktop's
         // current worktree selection.
-        await useProjectsStore.getState().addWorktree(project.id, branch, baseBranch, undefined, { select: false })
-        mobile.sendCreateWorktreeResult({ requestId, ok: true })
+        const newWt = await useProjectsStore.getState().addWorktree(project.id, branch, baseBranch, undefined, { select: false })
+        // Hand the new worktree's path/id back so the device can navigate
+        // straight into it and auto-launch its chosen agent.
+        mobile.sendCreateWorktreeResult({ requestId, ok: true, worktreePath: newWt?.path, worktreeId: newWt?.id })
       } catch (err) {
         console.error('[Braid] mobile addWorktree failed:', err)
         mobile.sendCreateWorktreeResult({
@@ -265,6 +267,20 @@ export default function App() {
       if (next !== lastBadge) { lastBadge = next; dock.setBadgeCount(next) }
     })
 
+    // Tell the main process which big terminal this window is currently viewing,
+    // so a paired phone can warn before closing a terminal that's open here.
+    // Only the terminalId transitions matter; ignore unrelated store churn.
+    let lastDesktopTerminalId: string | null = null
+    const reportDesktopActiveTerminal = () => {
+      const view = selectActiveCenterView(useUIStore.getState())
+      const terminalId = view?.type === 'terminal' ? view.terminalId : null
+      if (terminalId === lastDesktopTerminalId) return
+      lastDesktopTerminalId = terminalId
+      window.api.pty.setDesktopActiveTerminal(terminalId)
+    }
+    reportDesktopActiveTerminal()
+    const unsubDesktopActiveTerminal = useUIStore.subscribe(reportDesktopActiveTerminal)
+
     return () => {
       cleanup()
       unsubSettings()
@@ -277,6 +293,7 @@ export default function App() {
       unsubMobileCreateWorktree()
       unsubBadge()
       unsubTerminalBadge()
+      unsubDesktopActiveTerminal()
     }
   }, [loadProjects, loadPersistedSessions])
 

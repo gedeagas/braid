@@ -9,13 +9,15 @@ import { githubService } from '../github'
 import { sessionStorageService } from '../sessionStorage'
 import { rateLimitService } from '../rateLimits/service'
 import { enrichedEnv } from '../../lib/enrichedEnv'
-import { MOBILE_PROTOCOL_VERSION } from './protocol'
+import { MOBILE_PROTOCOL_VERSION, MIN_COMPATIBLE_MOBILE_VERSION, MOBILE_CAPABILITIES } from './protocol'
 import { getMobileInstanceName } from './instanceName'
-import { markMobileTerminalActive, markMobileTerminalInactive } from './mobileTerminalPresence'
+import { markMobileTerminalActive, markMobileTerminalInactive, getTerminalPresence } from './mobileTerminalPresence'
 import { getMobileDisplayMode, resetMobileDisplayMode, setMobileDisplayMode, type MobileDisplayMode } from './mobileTerminalDisplay'
+import { clearMobileTerminalActor, isMobileTerminalActor, setMobileTerminalActor } from './mobileTerminalActor'
 import { getTerminalActivity } from './terminalActivity'
 import { getKnownBigTerminals, hasKnownBigTerminals } from './knownBigTerminals'
 import { broadcastMobileNotification } from './broadcast'
+import { budgetScrollback } from './scrollbackBudget'
 import { createWorktreeViaDesktop } from './worktreeCreation'
 import { removeWorktreeViaDesktop } from './worktreeRemoval'
 import type {
@@ -29,12 +31,13 @@ import type {
 // ── Terminal output coalescing ──────────────────────────────────────────────
 //
 // Window over which PTY output chunks are batched into a single terminal.data
-// notification (see terminal.subscribe). Short enough to stay imperceptible for
+// frame (see terminal.subscribe). Short enough to stay imperceptible for
 // interactive echo, long enough to collapse bursty output into a few frames.
-const TERMINAL_COALESCE_MS = 8
+const TERMINAL_COALESCE_MS = 5
 // Flush immediately once the buffer reaches this size so a firehose of output
 // streams promptly instead of accumulating latency while it waits for the timer.
 const TERMINAL_COALESCE_MAX_BYTES = 32 * 1024
+
 
 // ── Error helpers ─────────────────────────────────────────────────────────────
 
@@ -67,6 +70,12 @@ register('status.get', async () => {
     instanceName: getMobileInstanceName(),
     version: app.getVersion(),
     protocolVersion: MOBILE_PROTOCOL_VERSION,
+    // Desktop-side kill switch: the oldest mobile build this server accepts. The
+    // mobile compat verdict blocks anything below it. Paired with `capabilities`,
+    // this lets a newer desktop stay compatible with older mobile builds unless a
+    // genuinely breaking change forces the floor up.
+    minCompatibleMobileVersion: MIN_COMPATIBLE_MOBILE_VERSION,
+    capabilities: MOBILE_CAPABILITIES,
     projects: data.projects.map((p) => ({ id: p.id, name: p.name, path: p.path })),
     uptime: process.uptime(),
   }
@@ -127,7 +136,9 @@ register('worktrees.create', async (params) => {
   // Route through the desktop renderer's full add flow (stable worktree-id
   // minting, configured storage path, sidebar refresh) rather than calling git
   // directly — see worktreeCreation.ts.
-  await createWorktreeViaDesktop(
+  // Returns { worktreePath?, worktreeId? } so the device can navigate straight
+  // into the new worktree and auto-launch its chosen agent.
+  return await createWorktreeViaDesktop(
     params.repoPath as string,
     params.branch as string,
     params.projectName as string,
@@ -497,6 +508,25 @@ register('terminal.close', async (params, connection) => {
   return { closed: true }
 })
 
+// Report whether a terminal is currently open anywhere other than the asking
+// device - the desktop (any window viewing that big terminal) or another paired
+// device subscribed to it. Drives the mobile "this session is also open on the
+// desktop / another device" close warning. Capability: terminal.presence.v1.
+register('terminal.presence', async (params, connection) => {
+  const terminalId = (params.terminalId as string | undefined)
+    ?? resolveTerminalContext(undefined, params.ptyId as string | undefined).terminalId
+  if (!terminalId) return { openElsewhere: false, openOnDesktop: false, otherDeviceCount: 0 }
+  const { openOnDesktop, otherMobileDeviceCount } = getTerminalPresence(terminalId, {
+    excludeDeviceId: connection.device.id,
+  })
+  return {
+    terminalId,
+    openOnDesktop,
+    otherDeviceCount: otherMobileDeviceCount,
+    openElsewhere: openOnDesktop || otherMobileDeviceCount > 0,
+  }
+})
+
 // Rename a big terminal's tab from a device. Updates the persisted metadata,
 // reflects the new label on the desktop, and fans it out to other devices.
 register('terminal.rename', async (params, connection) => {
@@ -526,13 +556,18 @@ register('terminal.write', async (params) => {
   ptyService.write(params.ptyId as string, params.data as string)
 })
 
-register('terminal.resize', async (params) => {
-  ptyService.resize(params.ptyId as string, params.cols as number, params.rows as number)
+register('terminal.resize', async (params, connection) => {
+  const ptyId = params.ptyId as string
+  // A device fitting the PTY to its own viewport claims the floor: its size
+  // wins and other subscribers yield (see mobileTerminalActor).
+  const terminalId = ptyService.listInstances().find((item) => item.ptyId === ptyId)?.terminalId
+  if (terminalId) setMobileTerminalActor(terminalId, connection.device.id)
+  ptyService.resize(ptyId, params.cols as number, params.rows as number)
 })
 
 // Switch a terminal between 'phone' (desktop yields, PTY fit to the phone's
 // viewport) and 'desktop' (desktop drives its native dims, phone scales to fit).
-register('terminal.setDisplayMode', async (params) => {
+register('terminal.setDisplayMode', async (params, connection) => {
   const ptyId = params.ptyId as string
   const mode: MobileDisplayMode = params.mode === 'desktop' ? 'desktop' : 'phone'
   const instance = ptyService.listInstances().find((item) => item.ptyId === ptyId)
@@ -541,8 +576,10 @@ register('terminal.setDisplayMode', async (params) => {
 
   if (mode === 'phone') {
     // Re-engage phone fit: resize the PTY to the viewport the device measured.
+    // Doing so claims the floor - this device's size now wins over other phones.
     const viewport = params.viewport as { cols?: number; rows?: number } | undefined
     if (viewport?.cols && viewport?.rows) {
+      if (terminalId) setMobileTerminalActor(terminalId, connection.device.id)
       ptyService.resize(ptyId, viewport.cols, viewport.rows)
     }
   }
@@ -556,19 +593,23 @@ register('terminal.setDisplayMode', async (params) => {
 register('terminal.readScrollback', async (params) => {
   const ptyId = params.ptyId as string | undefined
   const worktreePath = params.worktreePath as string | undefined
-  console.log('[MobileRPC] terminal.readScrollback request', { ptyId, worktreePath })
+  // Clients on protocol v3+ pass a byte budget so a huge ring buffer doesn't
+  // ship as one giant frame and stall first paint. Absent/zero => full buffer
+  // (older clients, unchanged behaviour).
+  const maxBytes = typeof params.maxBytes === 'number' ? params.maxBytes : undefined
+  console.log('[MobileRPC] terminal.readScrollback request', { ptyId, worktreePath, maxBytes })
   if (ptyId) {
     const instance = ptyService.listInstances().find((item) => item.ptyId === ptyId)
     console.log('[MobileRPC] terminal.readScrollback instance', { ptyId, instance })
     if (!instance) return ''
     const results = ptyService.readTerminalOutput(instance.cwd)
-    const output = results.find((item) => item.ptyId === ptyId)?.output ?? ''
+    const output = budgetScrollback(results.find((item) => item.ptyId === ptyId)?.output ?? '', maxBytes)
     console.log('[MobileRPC] terminal.readScrollback result', { ptyId, length: output.length })
     return output
   }
   if (worktreePath) {
     const results = ptyService.readTerminalOutput(worktreePath)
-    const output = results.length > 0 ? results[0].output : ''
+    const output = budgetScrollback(results.length > 0 ? results[0].output : '', maxBytes)
     console.log('[MobileRPC] terminal.readScrollback result', { worktreePath, length: output.length })
     return output
   }
@@ -610,7 +651,7 @@ register('terminal.subscribe', async (params, connection) => {
   const instance = ptyService.listInstances().find((item) => item.ptyId === ptyId)
   const terminalId = instance?.terminalId
   console.log('[MobileRPC] terminal.subscribe', { subscriptionId, ptyId, terminalId })
-  if (terminalId) markMobileTerminalActive(terminalId)
+  if (terminalId) markMobileTerminalActive(terminalId, connection.device.id)
 
   // Ensure this process is attached to the daemon session so its live output
   // streams to onData below. After a cold start a restored big terminal is
@@ -618,6 +659,27 @@ register('terminal.subscribe', async (params, connection) => {
   // lazily, per worktree), so without this onData never fires and the device
   // sees a frozen, blank terminal for any session the desktop hasn't opened.
   await ptyService.reattach?.(ptyId)
+
+  // Pre-fit the PTY to the device's viewport now, before the snapshot is
+  // captured below - so the snapshot is serialized at the phone's width (no
+  // mis-sized flash on open) and this device immediately claims the viewport
+  // actor (multi-phone "most recent open wins": an earlier subscriber yields and
+  // CSS-scales instead of fighting over the shared PTY size). This is safe even
+  // though the resize's SIGWINCH makes a TUI repaint: snapshot-on-subscribe
+  // captures + returns the snapshot *in this response*, ahead of any live frame,
+  // so the repaint can't race in front of it. Skipped in 'desktop' display mode,
+  // where the desktop drives its native dims and the phone scales to fit. The
+  // device still issues its authoritative terminal.resize after measuring.
+  const subscribeViewport = params.viewport as { cols?: number; rows?: number } | undefined
+  const subscribeDisplayMode = terminalId ? getMobileDisplayMode(terminalId) : 'phone'
+  if (
+    subscribeDisplayMode !== 'desktop' &&
+    Number.isInteger(subscribeViewport?.cols) && (subscribeViewport!.cols as number) > 0 &&
+    Number.isInteger(subscribeViewport?.rows) && (subscribeViewport!.rows as number) > 0
+  ) {
+    if (terminalId) setMobileTerminalActor(terminalId, connection.device.id)
+    ptyService.resize(ptyId, subscribeViewport!.cols as number, subscribeViewport!.rows as number)
+  }
 
   // Coalesce PTY output. Bursty programs (build logs, `cat`, `yarn install`)
   // emit many tiny chunks; sending one notification each pays full
@@ -636,6 +698,13 @@ register('terminal.subscribe', async (params, connection) => {
     if (!pending) return
     const data = pending
     pending = ''
+    if (connection.binaryTerminalData) {
+      // Fast path: raw bytes in an encrypted binary frame (no JSON escape, no
+      // base64). The mobile client routes terminal output by ptyId, so the
+      // subscriptionId is not needed on the wire here.
+      connection.ws.emit('rpc:binary', { ptyId, data })
+      return
+    }
     connection.ws.emit('rpc:notification', {
       jsonrpc: '2.0' as const,
       method: 'terminal.data',
@@ -667,10 +736,14 @@ register('terminal.subscribe', async (params, connection) => {
   // xterm to match — this is how 'desktop' display mode shows the terminal at
   // the desktop's native size.
   const emitResized = (cols: number, rows: number) => {
+    // `selfDriven` tells this device whether it currently owns the viewport. A
+    // non-actor phone uses it to yield (CSS-scale to the shared dims) instead of
+    // re-asserting its own fit, which would ping-pong the PTY between two phones.
+    const selfDriven = terminalId ? isMobileTerminalActor(terminalId, connection.device.id) : true
     connection.ws.emit('rpc:notification', {
       jsonrpc: '2.0' as const,
       method: 'terminal.resized',
-      params: { subscriptionId, ptyId, cols, rows, displayMode: terminalId ? getMobileDisplayMode(terminalId) : 'phone' },
+      params: { subscriptionId, ptyId, cols, rows, displayMode: terminalId ? getMobileDisplayMode(terminalId) : 'phone', selfDriven },
     })
   }
   const unsubResize = ptyService.onResize?.(ptyId, (_id: string, cols: number, rows: number) => emitResized(cols, rows))
@@ -689,10 +762,37 @@ register('terminal.subscribe', async (params, connection) => {
     unsubExit()
     unsubResize?.()
     if (terminalId) resetMobileDisplayMode(terminalId)
-    if (terminalId) markMobileTerminalInactive(terminalId)
+    if (terminalId) markMobileTerminalInactive(terminalId, connection.device.id)
+    // Release the floor only if this device held it, so a remaining phone can
+    // reclaim its own fit on its next resize instead of staying yielded forever.
+    if (terminalId) clearMobileTerminalActor(terminalId, connection.device.id)
   }
   connection.subscriptions.set(subscriptionId, unsubscribe)
-  return { subscriptionId }
+
+  // Snapshot-on-subscribe (capability: terminal.subscribe-snapshot.v1). Return
+  // the scrollback in this result instead of letting the device fetch it via a
+  // separate readScrollback *after* subscribe - that ordering lets live output
+  // (and a resize-driven TUI repaint) get written ahead of the historical
+  // snapshot. Captured synchronously here: onData is already wired (so nothing
+  // is missed) and no flush has run, so the snapshot is a clean prefix and live
+  // deltas start exactly where it ends. `pending` is empty at this point (no
+  // PTY data can arrive during this synchronous block) but we clear it
+  // defensively so no pre-snapshot byte is ever resent on the live channel.
+  let snapshot: string | undefined
+  if (connection.subscribeSnapshot) {
+    const maxBytes = typeof params.maxBytes === 'number' ? params.maxBytes : undefined
+    // Re-resolve cwd post-reattach: a cold-restored terminal may not have been
+    // in listInstances() when `instance` was captured at the top, but is now -
+    // matching what a separate readScrollback would have found.
+    const cwd = instance?.cwd ?? ptyService.listInstances().find((item) => item.ptyId === ptyId)?.cwd
+    const raw = cwd
+      ? ptyService.readTerminalOutput(cwd).find((item) => item.ptyId === ptyId)?.output ?? ''
+      : ''
+    snapshot = budgetScrollback(raw, maxBytes)
+    pending = ''
+  }
+
+  return { subscriptionId, snapshot }
 })
 
 register('terminal.unsubscribe', async (params, connection) => {

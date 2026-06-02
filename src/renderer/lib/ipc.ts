@@ -365,7 +365,7 @@ export const mobile = {
   onCreateWorktreeRequest: (
     callback: (req: { requestId: string; repoPath: string; branch: string; baseBranch?: string }) => void
   ) => api().mobile.onCreateWorktreeRequest(callback),
-  sendCreateWorktreeResult: (result: { requestId: string; ok: boolean; reason?: string }) =>
+  sendCreateWorktreeResult: (result: { requestId: string; ok: boolean; reason?: string; worktreePath?: string; worktreeId?: string }) =>
     api().mobile.sendCreateWorktreeResult(result),
 }
 

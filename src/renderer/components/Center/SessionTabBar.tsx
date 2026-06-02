@@ -7,12 +7,13 @@ import { useDragScroll } from '@/hooks/useDragScroll'
 import { useTabReorder } from '@/hooks/useTabReorder'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { ContextMenu, type ContextMenuItem } from '@/components/shared/ContextMenu'
-import { IconMessageBubble, IconTerminal, IconClaude, AgentIcon } from '@/components/shared/icons'
+import { IconMessageBubble, IconTerminal, AgentIcon } from '@/components/shared/icons'
 import { useDetectedAgents } from '@/lib/agentDetection'
 import type { AgentCatalogEntry } from '@/lib/agentCatalog'
 import type { AgentSession } from '@/types'
 import { getSessionTitle } from '@/lib/sessionTitle'
 import { agentStatusToTabClass } from '@/lib/agentStatus'
+import { pty } from '@/lib/ipc'
 import { disposeBigTerminal } from './bigTerminalCache'
 import { SessionTab } from './SessionTab'
 import { TerminalTab } from './TerminalTab'
@@ -65,13 +66,29 @@ export function SessionTabBar() {
   const lastNewTabAction = useUIStore((s) => s.lastNewTabAction)
   const setLastNewTabAction = useUIStore((s) => s.setLastNewTabAction)
 
-  const closeTerminalFully = useCallback(
+  // Kill the PTY + drop the tab (store reconciles the active view). No prompt -
+  // used by batch closes ("Close others/all") so they don't pop a dialog per tab.
+  const closeTerminalRaw = useCallback(
     (terminalId: string) => {
       if (!selectedWorktreeId) return
       disposeBigTerminal(terminalId)
       closeBigTerminalAction(selectedWorktreeId, terminalId)
     },
     [selectedWorktreeId, closeBigTerminalAction]
+  )
+
+  const closeTerminalFully = useCallback(
+    async (terminalId: string) => {
+      if (!selectedWorktreeId) return
+      // Warn before killing a terminal a paired phone is currently viewing - the
+      // PTY (and any running agent) is shared, so closing it ends the session there too.
+      let openOnMobile = false
+      try { openOnMobile = await pty.isMobileTerminalActive(terminalId) } catch { /* best effort */ }
+      if (openOnMobile && !window.confirm(
+        `${t('closeTerminalOpenOnMobileTitle')}\n\n${t('closeTerminalOpenOnMobileMessage')}`)) return
+      closeTerminalRaw(terminalId)
+    },
+    [selectedWorktreeId, closeTerminalRaw, t]
   )
 
   const [local, setLocal] = useReducer(
@@ -214,10 +231,10 @@ export function SessionTabBar() {
         else if (key.startsWith('f:')) closeFile(key.slice(2))
         else if (key === 'changes') closeChanges()
         else if (key === 'codeReview') closeCodeReview()
-        else if (key.startsWith('t:')) closeTerminalFully(key.slice(2))
+        else if (key.startsWith('t:')) closeTerminalRaw(key.slice(2))
       }
     },
-    [sessions, closeSession, closeFile, closeChanges, closeCodeReview, closeTerminalFully, t]
+    [sessions, closeSession, closeFile, closeChanges, closeCodeReview, closeTerminalRaw, t]
   )
 
   // Keyboard-accessible tab close — Delete key closes the focused tab.
