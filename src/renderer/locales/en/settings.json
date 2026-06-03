@@ -497,6 +497,7 @@
     "pairedTitle": "Connected!",
     "pairedDesc": "{{name}} is now paired with this desktop.",
     "pairAnother": "Pair another device",
+    "pairedDone": "Done",
     "copyCode": "Copy Code",
     "copiedCode": "Copied",
     "pairingHint": "Scan this QR code with the Braid mobile app. Each code is single-use.",

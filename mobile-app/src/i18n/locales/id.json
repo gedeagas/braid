@@ -113,7 +113,9 @@
     "pushLabel": "Notifikasi push",
     "hint": "Dapatkan notifikasi saat tugas agen selesai, memerlukan masukan, atau mengalami error di desktop Anda.",
     "hintBlocked": "Notifikasi dimatikan di pengaturan sistem. Buka Pengaturan untuk mengizinkannya.",
-    "openSettings": "Buka Pengaturan"
+    "openSettings": "Buka Pengaturan",
+    "backgroundLabel": "Notifikasi latar belakang",
+    "backgroundHint": "Terima juga peringatan saat aplikasi tertutup. Ini dikirim melalui layanan push Apple/Google dan tidak dienkripsi end-to-end, berbeda dengan peringatan yang muncul saat aplikasi terbuka."
   },
   "troubleshoot": {
     "title": "Pemecahan Masalah",
@@ -276,12 +278,21 @@
     "detectedOnHost": "Terdeteksi di host ini",
     "otherAgents": "Agen lainnya",
     "allAgents": "Semua agen",
+    "plainShell": "Shell biasa",
+    "shellLabel": "Terminal",
+    "shellSubtitle": "Shell polos, tanpa agen",
     "switchToPhoneSize": "Beralih ke ukuran ponsel",
     "switchToDesktopSize": "Beralih ke ukuran desktop",
     "switchToBufferedInput": "Beralih ke input perintah buffer",
     "switchToLiveInput": "Beralih ke input terminal langsung",
     "focusLiveInput": "Fokuskan input terminal langsung",
-    "liveInputHint": "Input keyboard langsung ke terminal"
+    "liveInputHint": "Input keyboard langsung ke terminal",
+    "moreKeys": "Tombol lainnya",
+    "paste": "Tempel",
+    "modeCommand": "Perintah",
+    "modeLive": "Langsung",
+    "displayPhone": "Sesuaikan ponsel",
+    "displayDesktop": "Ukuran desktop"
   },
   "sourceControl": {
     "title": "Kontrol Sumber",

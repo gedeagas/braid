@@ -38,6 +38,12 @@ export const AGENT_CATALOG: AgentCatalogEntry[] = [
   { id: 'openclaw', label: 'OpenClaw', detectCmd: 'openclaw', launchCmd: 'openclaw', faviconDomain: 'openclaw.ai' },
 ];
 
+// Sentinel id for a bare terminal: spawn the PTY with no agent launch command,
+// leaving a plain shell prompt. Not part of AGENT_CATALOG (it isn't a detected
+// CLI); the terminal screen renders it as its own picker row and gates it on the
+// desktop's `terminal.bare.v1` capability. Mirrors SHELL_AGENT_ID on the desktop.
+export const SHELL_AGENT_ID = 'shell';
+
 export function getAgentEntry(agentId: string): AgentCatalogEntry | undefined {
   return AGENT_CATALOG.find((agent) => agent.id === agentId);
 }

@@ -497,6 +497,7 @@
     "pairedTitle": "Terhubung!",
     "pairedDesc": "{{name}} kini terpasang dengan desktop ini.",
     "pairAnother": "Pasangkan perangkat lain",
+    "pairedDone": "Selesai",
     "copyCode": "Salin Kode",
     "copiedCode": "Disalin",
     "pairingHint": "Pindai kode QR ini dengan aplikasi Braid mobile. Setiap kode hanya dapat digunakan sekali.",

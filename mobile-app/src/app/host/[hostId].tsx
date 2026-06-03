@@ -13,6 +13,7 @@ import { useClientManager } from '@/transport/client-manager';
 import { isErrorVerdict } from '@/transport/connection-health';
 import { desktopSupports, evaluateCompatFromStatus } from '@/transport/protocol-compat';
 import { MOBILE_CAPABILITY } from '@/transport/protocol-version';
+import { unregisterFromPushAsync } from '@/notifications/mobile-notifications';
 import { removeHost } from '@/transport/host-store';
 import type { BraidProject, BraidStatus, BraidTerminal, BraidWorktree, PrStatus } from '@/transport/types';
 import { ConnectionLog } from '@/ui/ConnectionLog';
@@ -425,8 +426,18 @@ export default function HostScreen() {
         text: t('common.remove'),
         style: 'destructive',
         onPress: async () => {
-          manager.dropHost(host.id);
-          await removeHost(host.id);
+          // Tear down push + connection in the background so the UI transitions
+          // instantly: unregisterPush can wait up to 4s for a socket when the
+          // desktop is offline, and we don't want "Remove" to feel frozen.
+          void (async () => {
+            await manager.unregisterPush(host.id);
+            manager.dropHost(host.id);
+          })();
+          const remaining = await removeHost(host.id);
+          // No desktops left: kill push registration entirely so a desktop that
+          // was offline at removal self-cleans via DeviceNotRegistered on its next
+          // push, rather than waiting out the token TTL.
+          if (remaining.length === 0) void unregisterFromPushAsync();
           router.replace('/');
         },
       },

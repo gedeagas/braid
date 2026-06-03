@@ -113,7 +113,9 @@
     "pushLabel": "Push notifications",
     "hint": "Get a notification when an agent task finishes, needs input, or errors on your desktop.",
     "hintBlocked": "Notifications are turned off in system settings. Open Settings to allow them.",
-    "openSettings": "Open Settings"
+    "openSettings": "Open Settings",
+    "backgroundLabel": "Background notifications",
+    "backgroundHint": "Also receive alerts when the app is closed. These are delivered via Apple/Google push services and aren't end-to-end encrypted, unlike alerts shown while the app is open."
   },
   "troubleshoot": {
     "title": "Troubleshooting",
@@ -276,12 +278,21 @@
     "detectedOnHost": "Detected on this host",
     "otherAgents": "Other agents",
     "allAgents": "All agents",
+    "plainShell": "Plain shell",
+    "shellLabel": "Terminal",
+    "shellSubtitle": "Bare shell, no agent",
     "switchToPhoneSize": "Switch to phone size",
     "switchToDesktopSize": "Switch to desktop size",
     "switchToBufferedInput": "Switch to buffered command input",
     "switchToLiveInput": "Switch to live terminal input",
     "focusLiveInput": "Focus live terminal input",
-    "liveInputHint": "Keyboard input goes directly to terminal"
+    "liveInputHint": "Keyboard input goes directly to terminal",
+    "moreKeys": "More keys",
+    "paste": "Paste",
+    "modeCommand": "Command",
+    "modeLive": "Live",
+    "displayPhone": "Phone fit",
+    "displayDesktop": "Desktop size"
   },
   "sourceControl": {
     "title": "Source Control",

@@ -29,4 +29,6 @@ export const MOBILE_CAPABILITY = {
   githubPrStatus: 'github.pr-status.v1',
   jira: 'jira.lookup.v1',
   copyFiles: 'worktree.copy-files.v1',
+  bareTerminal: 'terminal.bare.v1',
+  pushNotifications: 'notifications.push.v1',
 } as const;

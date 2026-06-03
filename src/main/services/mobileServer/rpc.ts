@@ -13,6 +13,7 @@ import { rateLimitService } from '../rateLimits/service'
 import { enrichedEnv } from '../../lib/enrichedEnv'
 import { MOBILE_PROTOCOL_VERSION, MIN_COMPATIBLE_MOBILE_VERSION, MOBILE_CAPABILITIES } from './protocol'
 import { getMobileInstanceName } from './instanceName'
+import { deviceStore } from './deviceStore'
 import { markMobileTerminalActive, markMobileTerminalInactive, getTerminalPresence } from './mobileTerminalPresence'
 import { getMobileDisplayMode, resetMobileDisplayMode, setMobileDisplayMode, type MobileDisplayMode } from './mobileTerminalDisplay'
 import { clearMobileTerminalActor, isMobileTerminalActor, setMobileTerminalActor } from './mobileTerminalActor'
@@ -62,6 +63,11 @@ const MOBILE_AGENT_CATALOG = [
   { id: 'codex', label: 'Codex', launchCmd: 'codex' },
   { id: 'gemini', label: 'Gemini CLI', launchCmd: 'gemini' },
 ]
+// Sentinel agentId for a bare terminal: spawn the PTY but write no launch
+// command, so the tab is just a shell prompt with no agent attached. Gated on
+// the desktop side by the `terminal.bare.v1` capability (mobile only offers it
+// when this desktop advertises it). Older mobile builds never send it.
+const SHELL_AGENT_ID = 'shell'
 
 function register(name: string, handler: RpcHandler): void {
   methods.set(name, handler)
@@ -505,11 +511,16 @@ function resolveTerminalContext(terminalId?: string, ptyId?: string): {
 register('terminal.create', async (params) => {
   const worktreePath = params.worktreePath as string
   if (!worktreePath) throw new Error('worktreePath is required')
+  // A bare terminal is requested with agentId 'shell': spawn the PTY but launch
+  // nothing, leaving a plain shell prompt. Distinct from the legacy no-agent
+  // path below, which still defaults to Claude so older mobile builds (that omit
+  // agentId entirely) keep their existing behavior.
+  const isBareTerminal = (params.agentId as string | undefined)?.trim() === SHELL_AGENT_ID
   const requestedAgentId = (params.agentId as string | undefined)?.trim() || MOBILE_AGENT_CATALOG[0]?.id || 'claude'
-  const agent = MOBILE_AGENT_CATALOG.find((item) => item.id === requestedAgentId)
+  const agent = isBareTerminal ? undefined : MOBILE_AGENT_CATALOG.find((item) => item.id === requestedAgentId)
   const label = (params.label as string | undefined)?.trim() || agent?.label || 'Terminal'
-  const command = (params.command as string | undefined)?.trim() || agent?.launchCmd || 'claude'
-  const agentId = agent?.id || requestedAgentId
+  const command = isBareTerminal ? '' : (params.command as string | undefined)?.trim() || agent?.launchCmd || 'claude'
+  const agentId = isBareTerminal ? undefined : agent?.id || requestedAgentId
   const terminalId = `bt-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`
   // Prefer the id the client sent, but fall back to the registry keyed by path.
   // The registry covers worktrees reachable via deep links that the client
@@ -914,6 +925,24 @@ register('notifications.unsubscribe', async (params, connection) => {
     unsub()
     connection.subscriptions.delete(subId)
   }
+})
+
+// Register this device's Expo push token so the desktop can alert it while it is
+// backgrounded (its socket is closed). The token is persisted on the trusted
+// device; the push notifier (pushNotifier.ts) sends only to devices that are NOT
+// currently connected, so a foregrounded device still gets its alert over the
+// E2EE WS and never a duplicate push.
+register('notifications.registerPush', async (params, connection) => {
+  const token = (params.token as string | undefined)?.trim()
+  if (!token) throw new Error('token is required')
+  const platform = params.platform === 'ios' || params.platform === 'android' ? params.platform : undefined
+  deviceStore.setPushToken(connection.device.id, token, platform)
+  return { ok: true }
+})
+
+register('notifications.unregisterPush', async (_params, connection) => {
+  deviceStore.clearPushToken(connection.device.id)
+  return { ok: true }
 })
 
 // ── Dispatch ──────────────────────────────────────────────────────────────────

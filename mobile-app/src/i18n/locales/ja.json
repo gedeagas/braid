@@ -106,7 +106,9 @@
     "pushLabel": "プッシュ通知",
     "hint": "デスクトップでエージェントのタスクが完了したとき、入力が必要なとき、またはエラーが発生したときに通知を受け取ります。",
     "hintBlocked": "システム設定で通知がオフになっています。許可するには設定を開いてください。",
-    "openSettings": "設定を開く"
+    "openSettings": "設定を開く",
+    "backgroundLabel": "バックグラウンド通知",
+    "backgroundHint": "アプリを閉じているときも通知を受け取ります。これらはApple/Googleのプッシュサービス経由で配信され、アプリを開いているときの通知とは異なり、エンドツーエンドで暗号化されません。"
   },
   "troubleshoot": {
     "title": "トラブルシューティング",
@@ -263,12 +265,21 @@
     "detectedOnHost": "このホストで検出",
     "otherAgents": "その他のエージェント",
     "allAgents": "すべてのエージェント",
+    "plainShell": "プレーンシェル",
+    "shellLabel": "ターミナル",
+    "shellSubtitle": "エージェントなしの素のシェル",
     "switchToPhoneSize": "スマートフォンサイズに切り替え",
     "switchToDesktopSize": "デスクトップサイズに切り替え",
     "switchToBufferedInput": "バッファ入力に切り替え",
     "switchToLiveInput": "ライブターミナル入力に切り替え",
     "focusLiveInput": "ライブターミナル入力にフォーカス",
-    "liveInputHint": "キーボード入力はターミナルに直接送られます"
+    "liveInputHint": "キーボード入力はターミナルに直接送られます",
+    "moreKeys": "その他のキー",
+    "paste": "ペースト",
+    "modeCommand": "コマンド",
+    "modeLive": "ライブ",
+    "displayPhone": "スマホに合わせる",
+    "displayDesktop": "デスクトップサイズ"
   },
   "sourceControl": {
     "title": "ソース管理",

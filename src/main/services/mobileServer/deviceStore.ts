@@ -69,6 +69,30 @@ class DeviceStore {
     }
   }
 
+  /** Store (or refresh) a device's Expo push token so the desktop can alert it
+   *  while it is backgrounded. No-op if the device is unknown. */
+  setPushToken(deviceId: string, token: string, platform?: 'ios' | 'android'): void {
+    const devices = this.load()
+    const device = devices.find((d) => d.id === deviceId)
+    if (!device) return
+    device.pushToken = token
+    device.pushPlatform = platform
+    device.pushTokenUpdatedAt = Date.now()
+    this.save(devices)
+  }
+
+  /** Drop a device's push token (user disabled notifications, or the token went
+   *  stale / DeviceNotRegistered). No-op if unknown or already absent. */
+  clearPushToken(deviceId: string): void {
+    const devices = this.load()
+    const device = devices.find((d) => d.id === deviceId)
+    if (!device || device.pushToken === undefined) return
+    delete device.pushToken
+    delete device.pushPlatform
+    delete device.pushTokenUpdatedAt
+    this.save(devices)
+  }
+
   /** Create a one-time pairing token (not yet associated with a device). */
   createPairingToken(transport: MobilePairingTransport = 'lan'): string {
     const token = crypto.randomBytes(32).toString('hex')

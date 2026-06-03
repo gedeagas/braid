@@ -113,7 +113,9 @@
     "pushLabel": "推送通知",
     "hint": "当代理任务在桌面端完成、需要输入或出错时接收通知。",
     "hintBlocked": "系统设置中已关闭通知。请打开设置以允许通知。",
-    "openSettings": "打开设置"
+    "openSettings": "打开设置",
+    "backgroundLabel": "后台通知",
+    "backgroundHint": "在应用关闭时也接收提醒。这些提醒通过 Apple/Google 推送服务发送，不像应用打开时显示的提醒那样进行端到端加密。"
   },
   "troubleshoot": {
     "title": "故障排除",
@@ -276,12 +278,21 @@
     "detectedOnHost": "在此主机上检测到",
     "otherAgents": "其他智能体",
     "allAgents": "所有智能体",
+    "plainShell": "纯 Shell",
+    "shellLabel": "终端",
+    "shellSubtitle": "纯 Shell，无智能体",
     "switchToPhoneSize": "切换到手机尺寸",
     "switchToDesktopSize": "切换到桌面尺寸",
     "switchToBufferedInput": "切换到缓冲命令输入",
     "switchToLiveInput": "切换到实时终端输入",
     "focusLiveInput": "聚焦实时终端输入",
-    "liveInputHint": "键盘输入直接发送到终端"
+    "liveInputHint": "键盘输入直接发送到终端",
+    "moreKeys": "更多按键",
+    "paste": "粘贴",
+    "modeCommand": "命令",
+    "modeLive": "实时",
+    "displayPhone": "适配手机",
+    "displayDesktop": "桌面尺寸"
   },
   "sourceControl": {
     "title": "源代码管理",

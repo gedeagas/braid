@@ -10,6 +10,9 @@ export interface TrustedDevice {
   pairedAt: number              // Date.now()
   lastSeenAt: number            // Updated on each successful connection
   pairingTransport?: MobilePairingTransport // Transport used by the pairing offer that created this device
+  pushToken?: string            // Expo push token, for delivering alerts while the device is backgrounded (disconnected). Absent until the device registers one.
+  pushPlatform?: 'ios' | 'android' // Platform behind the token, for channel/priority shaping when sending
+  pushTokenUpdatedAt?: number   // Date.now() of the last register (a heartbeat the device refreshes on every connect - the Expo token itself doesn't expire). The push notifier ignores registrations not refreshed within MAX_PUSH_REGISTRATION_AGE_MS, so a device that's gone for good (removed while offline, uninstalled) stops getting pushes without an explicit unregister.
 }
 
 // ── E2EE Session ──────────────────────────────────────────────────────────────

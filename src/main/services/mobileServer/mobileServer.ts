@@ -436,6 +436,30 @@ class MobileServer {
     }
   }
 
+  /**
+   * Forcibly drop a device's live connection. Removing/forgetting a device on
+   * the desktop only deletes it from the trusted store, which does NOT tear down
+   * an already-open socket: the notification subscription registered at
+   * `notifications.subscribe` keeps firing `agentService.onNotify` and pushing
+   * over the stale connection, so the phone kept receiving notifications after
+   * being "disconnected". Closing the socket here stops that immediately (and any
+   * reconnect re-auth fails now that the device is untrusted). We unsubscribe and
+   * drop the connection synchronously rather than relying on the async ws 'close'
+   * event so the leak is closed the moment the device is removed.
+   */
+  disconnectDevice(deviceId: string): void {
+    const conn = this.connections.get(deviceId)
+    if (!conn) return
+    for (const unsub of conn.subscriptions.values()) unsub()
+    conn.subscriptions.clear()
+    this.connections.delete(deviceId)
+    if (conn.ws.readyState === WebSocket.OPEN || conn.ws.readyState === WebSocket.CONNECTING) {
+      conn.ws.close(4001, 'Device removed')
+    }
+    logger.info(`[MobileServer] Device "${conn.device.name}" (${deviceId}) disconnected (removed)`)
+    this.notifyDesktopWindows('mobile:deviceDisconnected', { deviceId })
+  }
+
   // ── Pairing ───────────────────────────────────────────────────────────
 
   /** Generate a pairing offer for display as QR code. */
@@ -472,6 +496,21 @@ class MobileServer {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────
+
+  /** Whether a device has a live authenticated socket right now. The push
+   *  notifier uses this to alert only backgrounded (disconnected) devices, so a
+   *  connected device gets its notification over the WS and never a duplicate
+   *  push. */
+  isDeviceConnected(deviceId: string): boolean {
+    return this.connections.has(deviceId)
+  }
+
+  /** This desktop's stable instance id (== the `serverPublicKey` mobile stores
+   *  per paired host). Embedded in push payloads so a tapped push resolves back
+   *  to the right host on the device. */
+  getInstanceId(): string {
+    return this.instanceId
+  }
 
   private findConnectionByWs(ws: WebSocket): MobileConnection | null {
     for (const conn of this.connections.values()) {
