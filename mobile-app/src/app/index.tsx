@@ -275,11 +275,13 @@ function FreshHomeScreen() {
               : terminal.status === 'working'
                 ? 'Running'
                 : 'Finished';
+            const title = terminalLabel(terminal);
+            const worktree = worktreeName(terminal);
             return {
               id: `${snapshot.host.id}:${terminal.terminalId ?? terminal.id}:activity`,
               hostId: snapshot.host.id,
-              title: terminalLabel(terminal),
-              meta: [hostName, state, formatActivityTime(terminal.lastOutputAt)].filter(Boolean).join(' · '),
+              title,
+              meta: [hostName, worktree === title ? undefined : worktree, state, formatActivityTime(terminal.lastOutputAt)].filter(Boolean).join(' · '),
               tone,
               terminal,
               rank: terminal.lastOutputAt ?? 0,
@@ -1511,6 +1513,11 @@ function terminalLabel(terminal: BraidTerminal): string {
     terminal.id ||
     i18n.t('home.agent')
   );
+}
+
+/** The worktree (branch) name for a terminal, derived from its worktree path. */
+function worktreeName(terminal: BraidTerminal): string | undefined {
+  return (terminal.worktreePath ?? terminal.cwd)?.split('/').filter(Boolean).pop();
 }
 
 /** Stable identity for a terminal within a host, for acknowledgement tracking. */
