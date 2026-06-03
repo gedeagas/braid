@@ -708,6 +708,29 @@ export default function TerminalScreen() {
       .catch(() => undefined);
   }, [state, active, client, fitActiveTerminal, refreshTerminalList, loadProjects]);
 
+  // While this screen is foreground and the socket has dropped into
+  // 'reconnecting', the manager may be parked in a backoff wait (up to 30s)
+  // before its next attempt - so a deep-link from a push (or a cold radio right
+  // after resume) can leave the user staring at "Connecting…" even though the
+  // desktop is reachable. Kick one immediate reconnect (what the manual refresh
+  // button does via connect()), bypassing the backoff. Guarded by a ref so it
+  // fires once per disconnected episode (reset on reconnect), never in a loop;
+  // if it fails, the manager's normal backoff takes over.
+  const kickedReconnectRef = useRef(false);
+  useEffect(() => {
+    if (state === 'connected') {
+      kickedReconnectRef.current = false;
+      return;
+    }
+    // Only nudge once we're in 'reconnecting' (a prior attempt already failed).
+    // 'connecting' is a healthy first attempt in flight - don't interrupt it;
+    // 'disconnected' is handled by the manager's reconcile; 'auth-failed' is
+    // terminal and needs an explicit user action.
+    if (state !== 'reconnecting' || !client || kickedReconnectRef.current) return;
+    kickedReconnectRef.current = true;
+    reconnect();
+  }, [state, client, reconnect]);
+
   const activeInputReady = active != null && inputReadyTerminalId === active.id;
   const canSend = state === 'connected' && activeInputReady;
   const liveInputEnabled = !!active && liveInputHandles.has(active.id);

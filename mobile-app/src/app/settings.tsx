@@ -1,4 +1,6 @@
+import Constants from 'expo-constants';
 import { router } from 'expo-router';
+import * as Updates from 'expo-updates';
 import { Bell, ChevronRight, LifeBuoy } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -25,6 +27,18 @@ export default function SettingsScreen() {
     { value: 'system', label: t('settings.languageSystem') },
     ...SUPPORTED_LANGUAGES.map((lang) => ({ value: lang, label: LANGUAGE_LABELS[lang] })),
   ];
+
+  // App version is the bundled native version; EAS Update info comes from the
+  // running update. In dev / before any OTA the update fields are empty, so we
+  // surface a friendly "Development" / "Embedded" label instead of a blank id.
+  const appVersion = Constants.expoConfig?.version ?? '—';
+  const updateChannel = Updates.channel ?? (Updates.isEnabled ? '—' : t('settings.updateDevelopment'));
+  const updateLabel = !Updates.isEnabled
+    ? t('settings.updateDevelopment')
+    : Updates.isEmbeddedLaunch
+      ? t('settings.updateEmbedded')
+      : Updates.updateId?.slice(0, 8) ?? '—';
+  const updatePublished = Updates.createdAt ? Updates.createdAt.toLocaleString() : null;
 
   return (
     <Screen edges={['top', 'left', 'right']}>
@@ -63,6 +77,25 @@ export default function SettingsScreen() {
           <Text style={styles.navLabel}>{t('settings.troubleshoot')}</Text>
           <ChevronRight color={c.subtle} size={20} />
         </Pressable>
+
+        <Text style={[shared.section, styles.sectionSpacing]}>{t('settings.about')}</Text>
+        <Card style={styles.card}>
+          <View style={styles.kvRow}>
+            <Text style={styles.kvLabel}>{t('settings.version')}</Text>
+            <Text style={styles.kvValue} numberOfLines={1}>{appVersion}</Text>
+          </View>
+          <View style={styles.cardDivider} />
+          <View style={styles.kvRow}>
+            <Text style={styles.kvLabel}>{t('settings.updateChannel')}</Text>
+            <Text style={styles.kvValue} numberOfLines={1}>{updateChannel}</Text>
+          </View>
+          <View style={styles.cardDivider} />
+          <View style={styles.kvRow}>
+            <Text style={styles.kvLabel}>{t('settings.updateId')}</Text>
+            <Text style={styles.kvValue} numberOfLines={1}>{updateLabel}</Text>
+          </View>
+          {updatePublished && <Text style={shared.muted}>{t('settings.updatePublished', { date: updatePublished })}</Text>}
+        </Card>
       </View>
     </Screen>
   );
@@ -88,5 +121,14 @@ function makeStyles(c: Palette) {
     },
     navLabel: { flex: 1, color: c.text, fontSize: 16, fontWeight: '700' },
     navRowSpacing: { marginTop: 10 },
+    kvRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+      minHeight: 28,
+    },
+    kvLabel: { color: c.text, fontSize: 15, fontWeight: '600' },
+    kvValue: { flexShrink: 1, color: c.muted, fontSize: 14, fontFamily: 'Menlo', textAlign: 'right' },
   });
 }

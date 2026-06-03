@@ -104,7 +104,11 @@ function setup() {
   return { fake, manager };
 }
 
-const flush = () => Promise.resolve();
+// Drain several microtask checkpoints so a connect().then().catch() chain (and
+// the scheduleReconnect it triggers) fully settles before assertions.
+const flush = async () => {
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+};
 
 describe('client-manager reconnect/liveness', () => {
   beforeEach(() => {
@@ -161,6 +165,32 @@ describe('client-manager reconnect/liveness', () => {
     await flush();
 
     expect(fake.connectCount).toBe(2);
+    expect(manager.getState(HOST.id)).toBe('connected');
+    manager.disposeAll();
+  });
+
+  it('cancels a backoff wait and reconnects immediately on foreground resume', async () => {
+    const { fake, manager } = setup();
+    manager.acquireHost(HOST);
+    await flush();
+
+    // Background, then make the next connect fail so the resume parks in backoff.
+    manager.onAppState('background');
+    await flush();
+    fake.connectMode = 'reject';
+    manager.onAppState('active');
+    await flush();
+    // First resume attempt failed -> a backoff timer is now pending, state reconnecting.
+    expect(manager.getState(HOST.id)).toBe('reconnecting');
+    const connectsAfterFail = fake.connectCount;
+
+    // Network is ready now. A second foreground (or the screen nudging) must NOT
+    // wait out the backoff timer: resume cancels it and connects immediately.
+    fake.connectMode = 'resolve';
+    manager.onAppState('active');
+    await flush();
+
+    expect(fake.connectCount).toBe(connectsAfterFail + 1); // immediate, no timer advance
     expect(manager.getState(HOST.id)).toBe('connected');
     manager.disposeAll();
   });

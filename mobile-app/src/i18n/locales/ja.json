@@ -99,7 +99,14 @@
     "languageHint": "言語を選択するか、デバイスの設定に従います。",
     "notifications": "通知",
     "notificationsA11y": "通知設定",
-    "troubleshoot": "接続のトラブルシューティング"
+    "troubleshoot": "接続のトラブルシューティング",
+    "about": "情報",
+    "version": "バージョン",
+    "updateChannel": "更新チャンネル",
+    "updateId": "更新",
+    "updateEmbedded": "組み込み（OTA未適用）",
+    "updateDevelopment": "開発",
+    "updatePublished": "公開日 {{date}}"
   },
   "notifications": {
     "title": "通知",

@@ -187,6 +187,20 @@ export function createManager(deps: ManagerDeps = {}): InternalManager {
       // can't strand a dead socket. 'auth-failed' is preserved by reconcile.
       self.desiredConnected = true;
       startHeartbeat(self);
+      // Returning to the foreground is a strong "retry now" signal. If a prior
+      // attempt failed and parked in a backoff wait, reconcile would otherwise
+      // see the pending timer and do nothing - leaving the user staring at
+      // "Connecting…" until the timer (up to 30s) fires. Cancel any backoff and
+      // reset the streak so reconcile issues an immediate connect, matching what
+      // the manual refresh button does. (auth-failed stays sticky.)
+      for (const entry of entries.values()) {
+        if (entry.disposed || entry.state === 'auth-failed') continue;
+        if (entry.reconnectTimer) {
+          clearTimeout(entry.reconnectTimer);
+          entry.reconnectTimer = null;
+        }
+        if (entry.state !== 'connected') entry.attempt = 0;
+      }
       reconcileAll(self);
       // Probe immediately too: the 20s heartbeat tick would otherwise leave a
       // brief window where a just-resumed half-open socket reads connected.

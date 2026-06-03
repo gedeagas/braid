@@ -4,7 +4,12 @@ import type { ConnectionLogEntry, ConnectionState } from '@/transport/connection
 import type { PairedHost } from '@/transport/types';
 
 export const RECONNECT_BASE_MS = 1_000;
-export const RECONNECT_MAX_MS = 30_000;
+// Backoff cap. Reconnects only run while foregrounded (we close sockets on
+// background and gate scheduleReconnect on desiredConnected), so this is a
+// user-facing wait - the person is watching the screen. Keep it short: 10s is
+// long enough to avoid hammering a genuinely-down host but short enough that a
+// connection that recovers isn't left waiting. Backoff: 1, 2, 4, 8, 10, 10…
+export const RECONNECT_MAX_MS = 10_000;
 // Heartbeat cadence while foregrounded. Each tick probes every connected entry
 // with diagnostics.ping; a probe that doesn't answer within the client's ping
 // timeout means the socket is half-open (TCP dead, no close event) and the entry

@@ -106,7 +106,14 @@
     "languageHint": "Choose your language, or follow the device setting.",
     "notifications": "Notifications",
     "notificationsA11y": "Notification settings",
-    "troubleshoot": "Troubleshoot connection"
+    "troubleshoot": "Troubleshoot connection",
+    "about": "About",
+    "version": "Version",
+    "updateChannel": "Update channel",
+    "updateId": "Update",
+    "updateEmbedded": "Embedded (no OTA yet)",
+    "updateDevelopment": "Development",
+    "updatePublished": "Published {{date}}"
   },
   "notifications": {
     "title": "Notifications",
