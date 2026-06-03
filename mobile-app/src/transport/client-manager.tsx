@@ -10,6 +10,7 @@ import { AppState, type AppStateStatus } from 'react-native';
 import { loadHosts } from '@/transport/host-store';
 import { BraidAuthError, BraidRpcClient } from '@/transport/rpc-client';
 import type { ConnectionLogEntry, ConnectionLogLevel, ConnectionState } from '@/transport/connection-health';
+import { MOBILE_CAPABILITY } from '@/transport/protocol-version';
 import type { PairedHost, RpcNotification } from '@/transport/types';
 import { registerForPushTokenAsync, scheduleDesktopNotification } from '@/notifications/mobile-notifications';
 import type { DesktopNotificationParams } from '@/notifications/notification-routing';
@@ -47,6 +48,10 @@ interface Entry {
   connectStartedAt: number | null;
   /** Bounded ring buffer of recent connection events (newest last). */
   log: ConnectionLogEntry[];
+  /** Desktop capabilities from status.get, fetched once per connection (null
+   *  until fetched, reset on each reconnect). Gates capability-negotiated calls
+   *  like push registration so we don't fire RPCs an older desktop lacks. */
+  capabilities: string[] | null;
 }
 
 export interface ClientManager {
@@ -148,13 +153,31 @@ function createManager(): ClientManager & {
     });
   }
 
+  // Fetch (and cache for this connection) the desktop's advertised capabilities,
+  // so we can gate capability-negotiated calls instead of firing RPCs an older
+  // desktop lacks (which the desktop answers with method-not-found - logged as an
+  // error even when the caller catches it). status.get is a core method present
+  // on every desktop; one that predates the capabilities field returns none, so
+  // the feature reads as unsupported.
+  async function desktopSupports(entry: Entry, capability: string): Promise<boolean> {
+    if (entry.capabilities == null) {
+      const status = await entry.client.request<{ capabilities?: string[] }>('status.get').catch(() => null);
+      if (entry.disposed) return false;
+      entry.capabilities = status?.capabilities ?? [];
+    }
+    return entry.capabilities.includes(capability);
+  }
+
   // Hand the desktop this device's Expo push token so it can alert us while
   // backgrounded (the socket is closed then). Fire-and-forget and best-effort:
-  // a desktop too old to support push answers method-not-found (ignored), and a
-  // device without push provisioned gets a null token (skipped). The desktop
-  // persists the token, so we only register on first connect, not every reconnect.
+  // gated on the desktop advertising push support (so we never call a method an
+  // older desktop lacks), and skipped when the device has no token (push disabled
+  // or not provisioned). Called on every connect so the desktop's freshness
+  // heartbeat stays current.
   function registerPush(entry: Entry): void {
     void (async () => {
+      if (entry.disposed) return;
+      if (!(await desktopSupports(entry, MOBILE_CAPABILITY.pushNotifications))) return;
       const reg = await registerForPushTokenAsync();
       if (!reg || entry.disposed) return;
       await entry.client.request('notifications.registerPush', { token: reg.token, platform: reg.platform }).catch(() => undefined);
@@ -222,6 +245,9 @@ function createManager(): ClientManager & {
   function connectEntry(entry: Entry): void {
     // Reset transport state (nonce counter, listeners) before each (re)connect.
     entry.client.close();
+    // Capabilities are per-connection; refetch after this (re)connect in case the
+    // desktop was upgraded since we last saw it.
+    entry.capabilities = null;
     // First attempt reads as 'connecting'; subsequent attempts as 'reconnecting'
     // so classifyConnection() can escalate the verdict as the streak grows.
     entry.state = entry.attempt > 0 ? 'reconnecting' : 'connecting';
@@ -269,6 +295,7 @@ function createManager(): ClientManager & {
       lastConnectedAt: null,
       connectStartedAt: null,
       log: [],
+      capabilities: null,
     };
     // Register notification routing once; it survives reconnects (the client
     // keeps notificationListeners across close()), so we never tear it down
@@ -392,12 +419,14 @@ function createManager(): ClientManager & {
         }
       });
     }
+    if (!(await desktopSupports(entry, MOBILE_CAPABILITY.pushNotifications))) return;
     await entry.client.request('notifications.unregisterPush').catch(() => undefined);
   };
 
   const syncPushRegistration = async (enabled: boolean): Promise<void> => {
     for (const entry of entries.values()) {
       if (entry.state !== 'connected') continue;
+      if (!(await desktopSupports(entry, MOBILE_CAPABILITY.pushNotifications))) continue;
       if (enabled) {
         registerPush(entry);
       } else {

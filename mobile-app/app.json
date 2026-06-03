@@ -15,8 +15,6 @@
         "NSLocalNetworkUsageDescription": "Braid connects to your desktop app on your local network.",
         "NSBonjourServices": [
           "_braid._tcp",
-          "_braid._tcp.",
-          "_braid._tcp",
           "_braid._tcp."
         ],
         "NSAppTransportSecurity": {
@@ -24,10 +22,6 @@
         },
         "ITSAppUsesNonExemptEncryption": false,
         "UISupportedInterfaceOrientations~ipad": [
-          "UIInterfaceOrientationPortrait",
-          "UIInterfaceOrientationPortraitUpsideDown",
-          "UIInterfaceOrientationLandscapeLeft",
-          "UIInterfaceOrientationLandscapeRight",
           "UIInterfaceOrientationPortrait",
           "UIInterfaceOrientationPortraitUpsideDown",
           "UIInterfaceOrientationLandscapeLeft",
@@ -47,11 +41,6 @@
       "usesCleartextTraffic": true,
       "package": "com.agas.braid.mobile",
       "permissions": [
-        "android.permission.ACCESS_NETWORK_STATE",
-        "android.permission.ACCESS_WIFI_STATE",
-        "android.permission.CHANGE_WIFI_MULTICAST_STATE",
-        "android.permission.INTERNET",
-        "android.permission.CAMERA",
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.ACCESS_WIFI_STATE",
         "android.permission.CHANGE_WIFI_MULTICAST_STATE",
