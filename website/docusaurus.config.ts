@@ -136,6 +136,11 @@ const config: Config = {
           position: 'left',
         },
         {
+          to: '/support',
+          label: 'Support',
+          position: 'left',
+        },
+        {
           href: 'https://github.com/gedeagas/braid',
           label: 'GitHub',
           position: 'right',
@@ -167,6 +172,7 @@ const config: Config = {
         {
           title: 'More',
           items: [
+            { label: 'Support', to: '/support' },
             { label: 'GitHub', href: 'https://github.com/gedeagas/braid' },
           ],
         },
