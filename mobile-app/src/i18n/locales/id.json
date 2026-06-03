@@ -292,7 +292,13 @@
     "modeCommand": "Perintah",
     "modeLive": "Langsung",
     "displayPhone": "Sesuaikan ponsel",
-    "displayDesktop": "Ukuran desktop"
+    "displayDesktop": "Ukuran desktop",
+    "connectingOverlay": "Menghubungkan ke desktop…",
+    "cantReachDesktop": "Tidak dapat menjangkau desktop",
+    "pairingRejected": "Penyandingan ditolak",
+    "connectHint": "Pastikan Braid berjalan di desktop dan berada di jaringan yang sama.",
+    "pairingHint": "Sandingkan ulang perangkat ini dari aplikasi Braid desktop.",
+    "reconnect": "Hubungkan ulang"
   },
   "sourceControl": {
     "title": "Kontrol Sumber",

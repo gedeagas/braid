@@ -1,8 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { Check, ChevronsRight, Command, GitBranch, Keyboard as KeyboardIcon, Monitor, MoreHorizontal, Pencil, Plus, RefreshCw, Send, Smartphone, TerminalSquare, Trash2, X } from 'lucide-react-native';
+import { Check, ChevronsRight, Command, GitBranch, Keyboard as KeyboardIcon, Monitor, MoreHorizontal, Pencil, Plus, RefreshCw, Send, Smartphone, TerminalSquare, Trash2, WifiOff, X } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,6 +18,7 @@ import { AGENT_CATALOG, SHELL_AGENT_ID, getAgentEntry } from '@/terminal/agentCa
 import { AgentIcon } from '@/terminal/AgentIcon';
 import { useDetectedAgents } from '@/terminal/useDetectedAgents';
 import { useHostStatus } from '@/terminal/useHostStatus';
+import { isErrorVerdict } from '@/transport/connection-health';
 import { desktopSupports } from '@/transport/protocol-compat';
 import { MOBILE_CAPABILITY } from '@/transport/protocol-version';
 import type { BraidProject, BraidTerminal, BraidWorktree } from '@/transport/types';
@@ -68,7 +69,7 @@ function confirmAsync(title: string, message: string, confirmLabel: string, canc
 export default function TerminalScreen() {
   const { t } = useTranslation();
   const { hostId, worktreePath, worktreeName, terminalId, autoAgentId } = useLocalSearchParams<{ hostId: string; worktreePath?: string; worktreeName?: string; terminalId?: string; autoAgentId?: string }>();
-  const { client, state } = useHostClient(hostId);
+  const { client, state, verdict, reconnect } = useHostClient(hostId);
   const { palette: colors, scheme } = useTheme();
   const shared = useShared();
   const terminalRef = useRef<TerminalWebViewHandle>(null);
@@ -148,6 +149,12 @@ export default function TerminalScreen() {
   // Tracks the previous connection state so we can detect a reconnect (the app
   // backgrounding closes the socket, which drops the server-side subscription).
   const prevStateRef = useRef(state);
+  // Mirror of the loaded project list so the connect effect can tell whether the
+  // initial load ever succeeded (a deep-link can mount this screen while still
+  // disconnected; if that first projects.list races a failed connect, the list
+  // stays empty and must be re-fetched once the socket finally connects).
+  const projectsRef = useRef(projects);
+  useEffect(() => { projectsRef.current = projects; }, [projects]);
 
   const selectedProject = projects.find((project) => project.id === projectId) ?? projects[0] ?? null;
   const isSessionScoped = typeof worktreePath === 'string' && worktreePath.length > 0;
@@ -672,6 +679,16 @@ export default function TerminalScreen() {
     prevStateRef.current = state;
     // Only on a real transition back into 'connected' (a reconnect).
     if (state !== 'connected' || prev === 'connected' || !client) return;
+    // If the initial load never landed (the screen was deep-linked from a
+    // notification while still disconnected, and the first projects.list raced a
+    // connect that failed/timed out), the list is empty and worktreeRef is null -
+    // refreshTerminalList would no-op. Re-run the full load now that the socket
+    // is finally up; loadProjects -> worktree -> loadTerminals takes over from
+    // here, so there's nothing more to do this pass.
+    if (projectsRef.current.length === 0) {
+      void loadProjects();
+      return;
+    }
     // listChanged notifications are dropped while the socket is closed (app
     // backgrounded), so re-sync the tab strip on reconnect to pick up terminals
     // the desktop created or restored in the meantime.
@@ -689,7 +706,7 @@ export default function TerminalScreen() {
         void fitActiveTerminal(terminal);
       })
       .catch(() => undefined);
-  }, [state, active, client, fitActiveTerminal, refreshTerminalList]);
+  }, [state, active, client, fitActiveTerminal, refreshTerminalList, loadProjects]);
 
   const activeInputReady = active != null && inputReadyTerminalId === active.id;
   const canSend = state === 'connected' && activeInputReady;
@@ -1472,6 +1489,78 @@ export default function TerminalScreen() {
             onTerminalInput={writeBytes}
             onSelectionCopy={handleSelectionCopy}
           />
+          {/* Connection overlay: a notification deep-link can mount this screen
+              while the socket is still (re)connecting after a long background.
+              Without feedback the empty WebView reads as "stuck". While the
+              connection is genuinely in progress we show a spinner; once the
+              retry loop has given up (unreachable) or the pairing was rejected we
+              swap to an actionable error with a Reconnect button so the user is
+              never stranded on an endless spinner. */}
+          {state !== 'connected' && (
+            <View
+              // Only the error state needs taps (the Reconnect button); the
+              // spinner stays pass-through so it never blocks the WebView.
+              pointerEvents={isErrorVerdict(verdict) ? 'auto' : 'none'}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingHorizontal: 32,
+                gap: 14,
+                backgroundColor: colors.bg,
+              }}
+            >
+              {isErrorVerdict(verdict) ? (
+                <>
+                  <View
+                    style={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: 28,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: colors.panelStrong,
+                    }}
+                  >
+                    <WifiOff color={colors.danger} size={26} />
+                  </View>
+                  <View style={{ gap: 6, alignItems: 'center' }}>
+                    <Text style={{ color: colors.text, fontSize: 16, fontWeight: '700', textAlign: 'center' }}>
+                      {verdict.kind === 'auth-failed' ? t('terminal.pairingRejected') : t('terminal.cantReachDesktop')}
+                    </Text>
+                    <Text style={{ color: colors.muted, fontSize: 13, lineHeight: 18, textAlign: 'center' }}>
+                      {verdict.kind === 'auth-failed' ? t('terminal.pairingHint') : t('terminal.connectHint')}
+                    </Text>
+                  </View>
+                  <Pressable
+                    onPress={reconnect}
+                    style={({ pressed }) => ({
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 8,
+                      minHeight: 44,
+                      paddingHorizontal: 20,
+                      borderRadius: 10,
+                      backgroundColor: colors.accent,
+                      opacity: pressed ? 0.85 : 1,
+                    })}
+                  >
+                    <RefreshCw color={colors.bg} size={16} />
+                    <Text style={{ color: colors.bg, fontSize: 14, fontWeight: '700' }}>{t('terminal.reconnect')}</Text>
+                  </Pressable>
+                </>
+              ) : (
+                <>
+                  <ActivityIndicator color={colors.accent} />
+                  <Text style={{ color: colors.muted, fontSize: 13 }}>{t('terminal.connectingOverlay')}</Text>
+                </>
+              )}
+            </View>
+          )}
         </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 52, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.panel }}>

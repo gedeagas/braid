@@ -16,6 +16,18 @@ export interface ConnectionMetrics {
   authenticatedAt: number;
 }
 const REQUEST_TIMEOUT_MS = 12_000;
+// Hard ceiling on the WebSocket open + E2EE handshake. Without it a socket that
+// iOS hands back stalled after a long background (no open, no error, no close -
+// the JS thread was frozen while the OS tore the TCP connection down) would leave
+// connect() pending forever, parking the manager in 'connecting' with no retry.
+// Bounding it guarantees connect() always settles, so connectEntry's catch fires
+// and the reconnect backoff takes over. Generous enough to absorb a slow LAN
+// handshake on a cold radio.
+const CONNECT_TIMEOUT_MS = 15_000;
+// Default per-heartbeat deadline. Shorter than REQUEST_TIMEOUT_MS so a half-open
+// socket (TCP dead, but the OS never delivered a close) is detected in seconds
+// rather than the 12s a normal RPC waits before giving up.
+const PING_TIMEOUT_MS = 6_000;
 // The desktop closes the socket with this code (mobileServer.ts) when the device
 // token is missing/invalid/revoked or the encrypted auth fails. It is terminal:
 // retrying with the same rejected token only churns, so the manager surfaces a
@@ -34,6 +46,20 @@ export class BraidAuthError extends Error {
   constructor(message = 'Pairing rejected by desktop') {
     super(message);
     this.name = 'BraidAuthError';
+  }
+}
+
+/**
+ * Raised when a request gets no answer within its deadline. Distinct from a
+ * normal RPC error response: a timeout means the link is dead (nothing came
+ * back), whereas an error response proves the desktop is alive and answering.
+ * The heartbeat relies on this distinction so an older desktop that lacks a
+ * method (answering "method not found") isn't mistaken for a dead socket.
+ */
+export class RequestTimeoutError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RequestTimeoutError';
   }
 }
 
@@ -126,6 +152,10 @@ export class BraidRpcClient {
     const handshakePromise = new Promise<{ deviceId: string; instanceName: string }>((resolve, reject) => {
       let handshakeKey: Uint8Array | null = null;
       let settled = false;
+      // Bound the whole open+handshake. If it neither authenticates nor errors
+      // within the deadline (a stalled socket after a long background), fail it
+      // so connect() rejects and the manager schedules a reconnect.
+      const timeout = setTimeout(() => fail(new Error('Connection timed out')), CONNECT_TIMEOUT_MS);
 
       const fail = (error: Error) => {
         if (settled) return;
@@ -141,6 +171,7 @@ export class BraidRpcClient {
       };
 
       const cleanup = () => {
+        clearTimeout(timeout);
         ws.removeEventListener('open', onOpen);
         ws.removeEventListener('message', onHandshakeMessage);
         ws.removeEventListener('error', onError);
@@ -268,6 +299,36 @@ export class BraidRpcClient {
     return this.sendRequest<T>(method, params);
   }
 
+  /**
+   * True only when the underlying socket is actually OPEN. The manager checks
+   * this on resume instead of trusting its cached connection state: iOS can kill
+   * the TCP connection while the app is suspended without ever delivering a
+   * `close` event, leaving a half-open socket the manager still believes is
+   * 'connected'. Reading readyState is the only ground truth.
+   */
+  isOpen(): boolean {
+    return this.ws?.readyState === WebSocket.OPEN;
+  }
+
+  /**
+   * Round-trip liveness probe. Resolves when the desktop answers diagnostics.ping
+   * within `timeoutMs`, rejects otherwise. Sent unordered so a slow interactive
+   * RPC ahead of it in the queue can't delay the probe and trip a false-positive
+   * "dead socket" verdict. The manager's heartbeat uses this to detect a half-open
+   * socket that emitted no close event.
+   */
+  async ping(timeoutMs = PING_TIMEOUT_MS): Promise<void> {
+    try {
+      await this.sendRequest('diagnostics.ping', { clientSentAt: Date.now() }, timeoutMs);
+    } catch (error) {
+      // Only a timeout (no answer at all) means the socket is dead. Any RPC
+      // error response - e.g. an older desktop that lacks diagnostics.ping and
+      // replies "method not found" - proves the link is alive, so it is NOT a
+      // heartbeat failure. Re-throw timeouts; swallow error responses.
+      if (error instanceof RequestTimeoutError) throw error;
+    }
+  }
+
   onNotification(listener: (notification: RpcNotification) => void): () => void {
     this.notificationListeners.add(listener);
     return () => {
@@ -360,7 +421,7 @@ export class BraidRpcClient {
     this.subscriptions.clear();
   }
 
-  private async sendRequest<T>(method: string, params: Record<string, unknown>): Promise<T> {
+  private async sendRequest<T>(method: string, params: Record<string, unknown>, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
     await this.connect();
     const ws = this.ws;
     if (!ws || ws.readyState !== WebSocket.OPEN) throw new Error('Not connected to Braid desktop');
@@ -371,8 +432,8 @@ export class BraidRpcClient {
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
         if (!this.pending.delete(id)) return;
-        reject(new Error(`Timed out waiting for ${method}`));
-      }, REQUEST_TIMEOUT_MS);
+        reject(new RequestTimeoutError(`Timed out waiting for ${method}`));
+      }, timeoutMs);
       this.pending.set(id, {
         resolve: (value) => {
           clearTimeout(timer);

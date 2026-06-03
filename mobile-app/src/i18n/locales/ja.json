@@ -279,7 +279,13 @@
     "modeCommand": "コマンド",
     "modeLive": "ライブ",
     "displayPhone": "スマホに合わせる",
-    "displayDesktop": "デスクトップサイズ"
+    "displayDesktop": "デスクトップサイズ",
+    "connectingOverlay": "デスクトップに接続中…",
+    "cantReachDesktop": "デスクトップに接続できません",
+    "pairingRejected": "ペアリングが拒否されました",
+    "connectHint": "デスクトップでBraidが起動し、同じネットワークにあることを確認してください。",
+    "pairingHint": "Braidデスクトップアプリからこのデバイスを再ペアリングしてください。",
+    "reconnect": "再接続"
   },
   "sourceControl": {
     "title": "ソース管理",

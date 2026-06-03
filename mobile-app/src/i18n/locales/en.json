@@ -292,7 +292,13 @@
     "modeCommand": "Command",
     "modeLive": "Live",
     "displayPhone": "Phone fit",
-    "displayDesktop": "Desktop size"
+    "displayDesktop": "Desktop size",
+    "connectingOverlay": "Connecting to desktop…",
+    "cantReachDesktop": "Can't reach desktop",
+    "pairingRejected": "Pairing rejected",
+    "connectHint": "Make sure Braid is running on your desktop and on the same network.",
+    "pairingHint": "Re-pair this device from the Braid desktop app.",
+    "reconnect": "Reconnect"
   },
   "sourceControl": {
     "title": "Source Control",
