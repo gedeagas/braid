@@ -1,4 +1,4 @@
-import { getWorktrees, addWorktree, removeWorktree, cloneRepo, parseRepoName } from './worktrees'
+import { getWorktrees, addWorktree, removeWorktree, cloneRepo, parseRepoName, invalidateWorktrees } from './worktrees'
 export type { CloneErrorCode } from './worktrees'
 export { CloneError } from './worktrees'
 import { getBranches, getRemoteBranches, setUpstream, renameBranch, getTrackingBranch, isBranchProtected } from './branches'
@@ -8,7 +8,7 @@ import { getRemoteUrl, getRemotes, getGitUserConfig, setGitUserConfig, clearGitU
 import { createSnapshot, restoreSnapshot } from './snapshots'
 
 export type { WorktreeInfo, FileEntry, GitChangeInfo, BranchStatusInfo } from './types'
-export { getWorktrees, addWorktree, removeWorktree, cloneRepo, parseRepoName }
+export { getWorktrees, addWorktree, removeWorktree, cloneRepo, parseRepoName, invalidateWorktrees }
 export { getBranches, getRemoteBranches, setUpstream, renameBranch, getTrackingBranch, isBranchProtected }
 export { getStatus, getBranchStatus, getDiff, getFileDiff, getStagedDiff, getStagedFiles, getFileTree, getTrackedFiles, readFile, writeFile, readFileAsBase64, getFileSize, invalidateFileTree, invalidateTrackedFiles }
 export { initRepo, push, pull, stageFiles, unstageFiles, discardChanges, commit }
@@ -19,6 +19,7 @@ class GitService {
   getWorktrees = getWorktrees
   addWorktree = addWorktree
   removeWorktree = removeWorktree
+  invalidateWorktrees = invalidateWorktrees
   cloneRepo = cloneRepo
 
   getBranches = getBranches

@@ -13,6 +13,7 @@ import { SocketServer } from './socketServer'
 import { writePidFile, removePidFile } from './lifecycle'
 import { startCheckpointing, stopCheckpointing, loadCheckpoints } from './checkpoint'
 import { IDLE_SHUTDOWN_MS, SOCKET_PATH, DAEMON_DIR } from './protocol'
+import { defaultShellPath } from '../../lib/shell'
 
 let shuttingDown = false
 
@@ -21,10 +22,17 @@ mkdirSync(DAEMON_DIR, { recursive: true, mode: 0o700 })
 const logStream = createWriteStream(join(DAEMON_DIR, 'daemon.log'), { flags: 'a', mode: 0o600 })
 
 function logSystemInfo(): void {
-  try {
-    const fdLimit = execSync('ulimit -n', { encoding: 'utf8' }).trim()
-    log(`System info: fd-limit=${fdLimit}, pid=${process.pid}, shell=${process.env.SHELL ?? 'unset'}`)
-  } catch { /* ignore */ }
+  // `ulimit` is a POSIX shell builtin; there is no Windows equivalent.
+  const fdLimit = process.platform === 'win32'
+    ? 'n/a'
+    : (() => {
+        try {
+          return execSync('ulimit -n', { encoding: 'utf8' }).trim()
+        } catch {
+          return 'unknown'
+        }
+      })()
+  log(`System info: fd-limit=${fdLimit}, pid=${process.pid}, shell=${process.env.SHELL ?? 'unset'}`)
 }
 
 async function main(): Promise<void> {
@@ -82,7 +90,7 @@ async function main(): Promise<void> {
   writePidFile()
 
   // Restore sessions from checkpoints (cold restore)
-  const shell = process.env.SHELL || '/bin/zsh'
+  const shell = process.env.SHELL || defaultShellPath()
   const checkpoints = loadCheckpoints()
   for (const cp of checkpoints) {
     try {
@@ -103,10 +111,13 @@ async function main(): Promise<void> {
   // Start idle timer (will be cancelled on first client connect)
   resetIdleTimer()
 
-  // Signal handlers
+  // Signal handlers. SIGTERM/SIGINT are emulated on Windows; SIGHUP does not
+  // exist there, so only register it on POSIX.
   process.on('SIGTERM', shutdown)
   process.on('SIGINT', shutdown)
-  process.on('SIGHUP', shutdown)
+  if (process.platform !== 'win32') {
+    process.on('SIGHUP', shutdown)
+  }
 }
 
 function log(msg: string): void {

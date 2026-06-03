@@ -2,10 +2,10 @@
  * Binary wire format for PTY output streamed from the desktop (protocol v3+).
  *
  * Mirror of `src/main/services/mobileServer/terminalFrame.ts` on the desktop.
- * The desktop encodes raw terminal bytes into this frame, encrypts it with the
- * session's NaCl box key + lockstep nonce counter, and sends it as a *binary*
- * WebSocket frame - avoiding the JSON-escape + base64 overhead of the legacy
- * `terminal.data` notification on the output hot path.
+ * The desktop encodes raw terminal bytes into this frame, seals it with the
+ * session's NaCl box key and its own random nonce (see e2ee.sealBytes), and
+ * sends it as a *binary* WebSocket frame - avoiding the JSON-escape + base64
+ * overhead of the legacy `terminal.data` notification on the output hot path.
  *
  * Plaintext layout (before encryption):
  *   byte  0       : frame kind (TERMINAL_FRAME_DATA = 0x01)

@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
 import crypto from 'crypto'
-import type { TrustedDevice } from './types'
+import type { MobilePairingTransport, TrustedDevice } from './types'
 
 const DATA_DIR = join(homedir(), 'Braid')
 const DEVICES_PATH = join(DATA_DIR, 'devices.json')
@@ -70,7 +70,7 @@ class DeviceStore {
   }
 
   /** Create a one-time pairing token (not yet associated with a device). */
-  createPairingToken(): string {
+  createPairingToken(transport: MobilePairingTransport = 'lan'): string {
     const token = crypto.randomBytes(32).toString('hex')
     // Store a placeholder device that will be filled in during handshake
     const devices = this.load()
@@ -81,6 +81,7 @@ class DeviceStore {
       token,
       pairedAt: Date.now(),
       lastSeenAt: 0,
+      pairingTransport: transport,
     }
     devices.push(placeholder)
     this.save(devices)

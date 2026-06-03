@@ -6,6 +6,7 @@
  */
 import { accessSync, existsSync, constants as fsConstants } from 'fs'
 import { BUFFER_MAX_LENGTH } from './protocol'
+import { resolveShellLaunchArgs } from '../../lib/shell'
 import type { DaemonSession, CheckpointData, SessionInfo, DaemonSessionMetadata } from './types'
 
 // ── RingBuffer ───────────────────────────────────────────────────────────────
@@ -59,6 +60,7 @@ interface SessionEntry {
   cols: number
   rows: number
   createdAt: number
+  lastOutputAt?: number
   pty: import('node-pty').IPty
   buffer: RingBuffer
   attachedClients: number
@@ -135,9 +137,10 @@ export class SessionHost {
   private collectSpawnDiagnostics(shell: string, cwd: string): string {
     const parts: string[] = []
     // Only check shell executability for absolute/relative paths.
-    // Bare command names (e.g. 'zsh') are resolved via PATH by node-pty,
-    // so accessSync would incorrectly report them as not-executable.
-    if (shell.includes('/')) {
+    // Bare command names (e.g. 'zsh', 'powershell.exe') are resolved via PATH by
+    // node-pty, so accessSync would incorrectly report them as not-executable.
+    // Match either separator so Windows paths (C:\...) are recognized too.
+    if (/[\\/]/.test(shell)) {
       if (!existsSync(shell)) {
         parts.push('shell-check: not-found')
       } else {
@@ -168,7 +171,7 @@ export class SessionHost {
       throw new Error(`Session already exists: ${sessionId}`)
     }
 
-    const ptyProcess = await this.spawnPty(shell, ['-l'], {
+    const ptyProcess = await this.spawnPty(shell, resolveShellLaunchArgs(shell).args, {
       cols,
       rows,
       cwd,
@@ -192,6 +195,7 @@ export class SessionHost {
     }
 
     ptyProcess.onData((data: string) => {
+      entry.lastOutputAt = Date.now()
       buffer.push(data)
       this.emit('data', sessionId, data)
     })
@@ -211,7 +215,7 @@ export class SessionHost {
   async restore(checkpoint: CheckpointData, shell: string): Promise<void> {
     if (this.sessions.has(checkpoint.sessionId)) return
 
-    const ptyProcess = await this.spawnPty(shell, ['-l'], {
+    const ptyProcess = await this.spawnPty(shell, resolveShellLaunchArgs(shell).args, {
       cols: checkpoint.cols,
       rows: checkpoint.rows,
       cwd: checkpoint.cwd,
@@ -230,6 +234,7 @@ export class SessionHost {
       cols: checkpoint.cols,
       rows: checkpoint.rows,
       createdAt: checkpoint.createdAt,
+      lastOutputAt: checkpoint.lastOutputAt,
       pty: ptyProcess,
       buffer,
       attachedClients: 0,
@@ -237,6 +242,7 @@ export class SessionHost {
     }
 
     ptyProcess.onData((data: string) => {
+      entry.lastOutputAt = Date.now()
       buffer.push(data)
       this.emit('data', checkpoint.sessionId, data)
     })
@@ -331,6 +337,7 @@ export class SessionHost {
         cols: entry.cols,
         rows: entry.rows,
         createdAt: entry.createdAt,
+        lastOutputAt: entry.lastOutputAt,
         metadata: entry.metadata,
         attachedClients: entry.attachedClients,
       })
@@ -350,6 +357,7 @@ export class SessionHost {
         rows: entry.rows,
         scrollback: entry.buffer.read(),
         createdAt: entry.createdAt,
+        lastOutputAt: entry.lastOutputAt,
         checkpointedAt: now,
         metadata: entry.metadata,
       })

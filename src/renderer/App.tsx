@@ -138,6 +138,7 @@ export default function App() {
         notifyOnWaitingInput: state.notifyOnWaitingInput,
         notificationSound: state.notificationSound,
         bypassPermissions: state.bypassPermissions,
+        mobileNgrokRegion: state.mobileNgrokRegion,
         keepAwakeWhileAgentsRun: state.keepAwakeWhileAgentsRun,
       }).catch((e: unknown) => console.error('[Braid] Failed to sync settings:', e))
     }
@@ -225,7 +226,7 @@ export default function App() {
       }
     })
 
-    const unsubMobileCreateWorktree = mobile.onCreateWorktreeRequest(async ({ requestId, repoPath, branch, baseBranch }) => {
+    const unsubMobileCreateWorktree = mobile.onCreateWorktreeRequest(async ({ requestId, repoPath, branch, baseBranch, filesToCopy }) => {
       try {
         const project = useProjectsStore.getState().projects.find((p) => p.path === repoPath)
         if (!project) {
@@ -233,10 +234,10 @@ export default function App() {
           return
         }
         // Run the desktop's full add flow (mints the stable worktree id, honors
-        // the configured storage path via the git IPC handler, refreshes the
-        // sidebar). select:false so a remote create never steals the desktop's
-        // current worktree selection.
-        const newWt = await useProjectsStore.getState().addWorktree(project.id, branch, baseBranch, undefined, { select: false })
+        // the configured storage path via the git IPC handler, copies any chosen
+        // env/secret files, refreshes the sidebar). select:false so a remote
+        // create never steals the desktop's current worktree selection.
+        const newWt = await useProjectsStore.getState().addWorktree(project.id, branch, baseBranch, filesToCopy, { select: false })
         // Hand the new worktree's path/id back so the device can navigate
         // straight into it and auto-launch its chosen agent.
         mobile.sendCreateWorktreeResult({ requestId, ok: true, worktreePath: newWt?.path, worktreeId: newWt?.id })

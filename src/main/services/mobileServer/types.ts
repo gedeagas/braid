@@ -9,6 +9,7 @@ export interface TrustedDevice {
   token: string                 // Random 32-byte hex token for auth handshake
   pairedAt: number              // Date.now()
   lastSeenAt: number            // Updated on each successful connection
+  pairingTransport?: MobilePairingTransport // Transport used by the pairing offer that created this device
 }
 
 // ── E2EE Session ──────────────────────────────────────────────────────────────
@@ -20,8 +21,6 @@ export interface E2EESession {
     secretKey: Uint8Array
   }
   remotePublicKey: Uint8Array    // Mobile's ephemeral public key
-  sendCounter: number            // Server -> mobile nonce counter
-  receiveCounter: number         // Mobile -> server nonce counter
   deviceId: string               // Bound during hello phase to prevent session hijacking
   deviceToken: string            // Bound during hello phase for secure pairing finalization
 }
@@ -42,6 +41,7 @@ export interface MobileConnection {
   // (and the device skips the separate readScrollback), so the snapshot can't
   // race behind live output. See the terminal.subscribe-snapshot.v1 capability.
   subscribeSnapshot: boolean
+  transport?: MobilePairingTransport
 }
 
 // ── Pairing ───────────────────────────────────────────────────────────────────
@@ -54,6 +54,8 @@ export interface PairingOffer {
 }
 
 export type MobilePairingTransport = 'lan' | 'ngrok'
+
+export type MobileNgrokRegion = 'auto' | 'us' | 'eu' | 'au' | 'ap' | 'sa' | 'jp' | 'in' | 'us-cal-1' | 'eu-lon-1'
 
 export interface GeneratePairingOfferOptions {
   endpoint?: string

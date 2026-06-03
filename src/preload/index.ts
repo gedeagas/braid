@@ -547,6 +547,20 @@ const api = {
       id: string; name: string; publicKey: string; pairedAt: number; lastSeenAt: number
     }>>,
     removeDevice: (deviceId: string) => ipcRenderer.invoke('mobile:removeDevice', deviceId) as Promise<void>,
+    // A device authenticated (isNewPairing=true when it just consumed the
+    // one-time pairing QR). Lets the pairing UI update live.
+    onDeviceConnected: (
+      callback: (info: { deviceId: string; name: string; isNewPairing: boolean }) => void
+    ) => {
+      const handler = (_e: Electron.IpcRendererEvent, info: { deviceId: string; name: string; isNewPairing: boolean }) => callback(info)
+      ipcRenderer.on('mobile:deviceConnected', handler)
+      return () => ipcRenderer.removeListener('mobile:deviceConnected', handler)
+    },
+    onDeviceDisconnected: (callback: (info: { deviceId: string }) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, info: { deviceId: string }) => callback(info)
+      ipcRenderer.on('mobile:deviceDisconnected', handler)
+      return () => ipcRenderer.removeListener('mobile:deviceDisconnected', handler)
+    },
     // A paired device asked to remove a worktree. The main process forwards it
     // here so the renderer runs its full teardown flow; reply via
     // sendRemoveWorktreeResult so main knows it succeeded (or must fall back).
@@ -564,9 +578,9 @@ const api = {
     // sidebar refresh); reply via sendCreateWorktreeResult so main knows it
     // succeeded (or must fall back).
     onCreateWorktreeRequest: (
-      callback: (req: { requestId: string; repoPath: string; branch: string; baseBranch?: string }) => void
+      callback: (req: { requestId: string; repoPath: string; branch: string; baseBranch?: string; filesToCopy?: string[] }) => void
     ) => {
-      const handler = (_e: Electron.IpcRendererEvent, req: { requestId: string; repoPath: string; branch: string; baseBranch?: string }) => callback(req)
+      const handler = (_e: Electron.IpcRendererEvent, req: { requestId: string; repoPath: string; branch: string; baseBranch?: string; filesToCopy?: string[] }) => callback(req)
       ipcRenderer.on('mobile:createWorktreeRequest', handler)
       return () => ipcRenderer.removeListener('mobile:createWorktreeRequest', handler)
     },

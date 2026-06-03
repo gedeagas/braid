@@ -6,16 +6,16 @@
  * IPC protocol (pty:spawn, pty:write, pty:data, etc.).
  */
 import { BrowserWindow } from 'electron'
-import { existsSync, lstatSync, accessSync, constants as fsConstants, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
-import { fork, execFileSync } from 'child_process'
+import { fork } from 'child_process'
 import { mainSettings } from '../../ipc'
+import { resolveShellPath, resolveShellLaunchArgs } from '../../lib/shell'
 import { getHookServerPort, getHookServerToken } from '../agentHookServer'
 import { DaemonClient } from './client'
 import { isReapableTerminalId } from './orphan'
-import { isDaemonRunning, removeSocketFile } from './lifecycle'
-import { SOCKET_PATH } from './protocol'
+import { isDaemonRunning, removeSocketFile, waitForDaemonListening } from './lifecycle'
 import { RingBuffer } from './sessionHost'
 import type { BigTerminalMetadata, IPtyService, OrphanedTerminal, PtyInstanceInfo, TerminalOutput } from '../pty'
 import type { ReattachResult, SessionInfo } from './types'
@@ -34,31 +34,10 @@ function scrollbackPath(terminalId: string): string {
   return join(scrollbackDir(), `${terminalId}.scrollback`)
 }
 
-// ── Shell resolution (same as PtyService) ────────────────────────────────────
-
-function isExecutable(path: string): boolean {
-  try {
-    const stat = lstatSync(path)
-    if (stat.isSymbolicLink()) {
-      if (!existsSync(path)) return false
-    }
-    accessSync(path, fsConstants.X_OK)
-    return true
-  } catch {
-    return false
-  }
-}
+// ── Shell resolution ──────────────────────────────────────────────────────────
 
 function resolveShell(): string {
-  const configured = mainSettings.terminalShell
-  if (configured && isExecutable(configured)) return configured
-  if (process.env.SHELL && isExecutable(process.env.SHELL)) return process.env.SHELL
-  try {
-    const result = execFileSync('dscl', ['.', '-read', `/Users/${process.env.USER ?? 'root'}`, 'UserShell'], { encoding: 'utf8', timeout: 2000 })
-    const match = result.match(/UserShell:\s*(\S+)/)
-    if (match && isExecutable(match[1])) return match[1]
-  } catch { /* ignore */ }
-  return '/bin/zsh'
+  return resolveShellPath(mainSettings.terminalShell)
 }
 
 // ── Adapter ──────────────────────────────────────────────────────────────────
@@ -209,26 +188,8 @@ export class PtyDaemonAdapter implements IPtyService {
     })
     child.unref()
 
-    // Wait for the socket to appear (daemon needs a moment to start)
-    await this.waitForSocket(5_000)
-  }
-
-  private waitForSocket(timeoutMs: number): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-      const start = Date.now()
-      const check = (): void => {
-        if (existsSync(SOCKET_PATH)) {
-          resolve()
-          return
-        }
-        if (Date.now() - start > timeoutMs) {
-          reject(new Error('Timed out waiting for daemon socket'))
-          return
-        }
-        setTimeout(check, 100)
-      }
-      check()
-    })
+    // Wait until the daemon is accepting connections (it needs a moment to bind).
+    await waitForDaemonListening(5_000)
   }
 
   /** Disconnect from the daemon (don't kill it). Called on app quit. */
@@ -495,7 +456,7 @@ export class PtyDaemonAdapter implements IPtyService {
     return new Promise((resolve, reject) => {
       let ptyProcess: import('node-pty').IPty
       try {
-        ptyProcess = nodePty.spawn(shell, ['-l', '-c', command], {
+        ptyProcess = nodePty.spawn(shell, resolveShellLaunchArgs(shell, { command }).args, {
           name: 'xterm-256color',
           cols: 80,
           rows: 24,

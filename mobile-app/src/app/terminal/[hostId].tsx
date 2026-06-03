@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { Check, ChevronLeft, ChevronsRight, Command, GitBranch, Keyboard as KeyboardIcon, Monitor, Pencil, Plus, RefreshCw, Send, Smartphone, TerminalSquare, Trash2, X } from 'lucide-react-native';
+import { Check, ChevronsRight, Command, GitBranch, Keyboard as KeyboardIcon, Monitor, Pencil, Plus, RefreshCw, Send, Smartphone, TerminalSquare, Trash2, X } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as Clipboard from 'expo-clipboard';
@@ -17,7 +18,7 @@ import { AGENT_CATALOG, getAgentEntry } from '@/terminal/agentCatalog';
 import { AgentIcon } from '@/terminal/AgentIcon';
 import { useDetectedAgents } from '@/terminal/useDetectedAgents';
 import type { BraidProject, BraidTerminal, BraidWorktree } from '@/transport/types';
-import { CornerInset } from '@/ui/kit';
+import { HeaderBackButton } from '@/ui/kit';
 import { useShared, useTheme } from '@/ui/theme';
 import { useHostClient } from '@/ui/use-host-client';
 
@@ -47,13 +48,13 @@ function terminalLabel(terminal: BraidTerminal) {
 
 // Promise-wrapped native confirm. Resolves true only when the user taps the
 // destructive action; Cancel (or dismissing the alert) resolves false.
-function confirmAsync(title: string, message: string, confirmLabel: string): Promise<boolean> {
+function confirmAsync(title: string, message: string, confirmLabel: string, cancelLabel: string): Promise<boolean> {
   return new Promise((resolve) => {
     Alert.alert(
       title,
       message,
       [
-        { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+        { text: cancelLabel, style: 'cancel', onPress: () => resolve(false) },
         { text: confirmLabel, style: 'destructive', onPress: () => resolve(true) },
       ],
       { cancelable: true, onDismiss: () => resolve(false) },
@@ -62,6 +63,7 @@ function confirmAsync(title: string, message: string, confirmLabel: string): Pro
 }
 
 export default function TerminalScreen() {
+  const { t } = useTranslation();
   const { hostId, worktreePath, worktreeName, terminalId, autoAgentId } = useLocalSearchParams<{ hostId: string; worktreePath?: string; worktreeName?: string; terminalId?: string; autoAgentId?: string }>();
   const { client, state } = useHostClient(hostId);
   const { palette: colors, scheme } = useTheme();
@@ -189,29 +191,33 @@ export default function TerminalScreen() {
     initializedKeyRef.current = terminal.id;
     setActive(terminal);
     console.log('[BraidMobile] terminal.open.start', { terminal });
+    // Clear the previous tab's content immediately on switch.
     terminalRef.current?.init(DEFAULT_COLS, DEFAULT_ROWS, '');
-    // The desktop returns the scrollback snapshot inline in the subscribe result
-    // (terminal.subscribe-snapshot.v1), ordered ahead of any live output, so it
-    // can't race behind live bytes. Captured here via the initial-result hook.
-    //
-    // Send our last-known phone fit as the subscribe viewport so the desktop
+    // The desktop returns the scrollback snapshot AND the PTY's current size in
+    // the subscribe result (terminal.subscribe-snapshot.v1), ordered ahead of any
+    // live output. We send our last-known phone fit as the viewport so the desktop
     // pre-sizes the PTY (and marks us the viewport actor) before serializing the
-    // snapshot. This sizes the terminal in one round-trip instead of waiting for
-    // the measure -> resize cycle, and makes the most-recently-opened phone win
-    // the shared PTY size immediately. Safe now that the snapshot rides this
-    // response ahead of the resize repaint. On the very first open of a session
-    // fitDims is null; fitActiveTerminal then measures and resizes authoritatively.
+    // snapshot, and we init xterm at the size it reports back with the snapshot as
+    // the initial replay - so history is laid out at the exact width it was
+    // serialized at and an alt-screen TUI (Claude Code) never wraps wrong. On the
+    // first open fitDims is null; fitActiveTerminal then measures + resizes
+    // authoritatively after.
     const fitDims = phoneFitDimsRef.current;
     let snapshot: string | undefined;
     try {
-      const subscriptionId = await client.subscribe<{ subscriptionId: string; snapshot?: string }>(
+      const subscriptionId = await client.subscribe<{ subscriptionId: string; snapshot?: string; cols?: number; rows?: number }>(
         'terminal.subscribe',
         {
           ptyId: terminal.id,
           maxBytes: SCROLLBACK_SNAPSHOT_BYTES,
           ...(fitDims ? { viewport: { cols: fitDims.cols, rows: fitDims.rows } } : {}),
         },
-        (result) => { snapshot = result.snapshot; },
+        (result) => {
+          snapshot = result.snapshot;
+          if (activeIdRef.current !== terminal.id) return;
+          // Atomic init at the serialized size with history as the initial replay.
+          terminalRef.current?.init(result.cols ?? DEFAULT_COLS, result.rows ?? DEFAULT_ROWS, snapshot ?? '');
+        },
       );
       if (openSeqRef.current !== seq) {
         await client.unsubscribe(subscriptionId).catch(() => undefined);
@@ -219,11 +225,6 @@ export default function TerminalScreen() {
       }
       console.log('[BraidMobile] terminal.subscribed', { terminalId: terminal.id, subscriptionId, snapshotLength: snapshot?.length });
       subscriptionRef.current = { terminalId: terminal.id, subscriptionId };
-      // Write the inline snapshot now - synchronously after the response resolves
-      // and before the next live frame is processed - so history lands first.
-      if (snapshot && activeIdRef.current === terminal.id) {
-        terminalRef.current?.write(snapshot);
-      }
       if (activeIdRef.current === terminal.id) {
         setInputReadyTerminalId(terminal.id);
       }
@@ -278,7 +279,7 @@ export default function TerminalScreen() {
         const foundProject = loaded.find((project) => project.worktrees?.some((item) => item.path === worktreePath));
         const foundWorktree = foundProject?.worktrees?.find((item) => item.path === worktreePath) ?? {
           path: worktreePath,
-          branch: typeof worktreeName === 'string' && worktreeName ? worktreeName : worktreePath.split('/').pop() ?? 'Worktree',
+          branch: typeof worktreeName === 'string' && worktreeName ? worktreeName : worktreePath.split('/').pop() ?? t('terminal.worktreeFallback'),
         };
         console.log('[BraidMobile] terminal.sessionScope', {
           foundProject: foundProject?.name,
@@ -297,7 +298,7 @@ export default function TerminalScreen() {
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
-  }, [client, isSessionScoped, worktreeName, worktreePath]);
+  }, [client, isSessionScoped, t, worktreeName, worktreePath]);
 
   const loadTerminals = useCallback(async (targetWorktree: BraidWorktree | null, preferredId?: string) => {
     if (!client || !targetWorktree) return;
@@ -385,7 +386,7 @@ export default function TerminalScreen() {
       const created = await client.request<BraidTerminal & { ptyId?: string }>('terminal.create', {
         worktreePath: wt.path,
         worktreeId: wt.id,
-        label: agent?.label ?? 'Terminal',
+        label: agent?.label ?? t('terminal.defaultLabel'),
         command: agent?.launchCmd ?? agent?.detectCmd ?? 'claude',
         agentId: agent?.id ?? 'claude',
       });
@@ -396,7 +397,7 @@ export default function TerminalScreen() {
         id: created.id ?? created.ptyId ?? '',
         worktreePath: wt.path,
       };
-      if (!terminal.id) throw new Error('Desktop did not return a terminal id');
+      if (!terminal.id) throw new Error(t('terminal.errorNoTerminalId'));
       setTerminals((current) => [...current.filter((item) => item.id !== terminal.id), terminal]);
       setSelectorsExpanded(false);
       await openTerminal(terminal);
@@ -405,7 +406,7 @@ export default function TerminalScreen() {
     } finally {
       setCreatingTerminal(false);
     }
-  }, [client, creatingTerminal, openTerminal, selectedAgent, selectedAgentId, worktree]);
+  }, [client, creatingTerminal, openTerminal, selectedAgent, selectedAgentId, t, worktree]);
 
   // Keep loadTerminals' stable handle pointed at the latest createTerminal.
   useEffect(() => { createTerminalRef.current = createTerminal; });
@@ -429,11 +430,12 @@ export default function TerminalScreen() {
         { terminalId: terminal.terminalId, ptyId: terminal.id },
       );
       if (presence?.openElsewhere) {
-        const where = presence.openOnDesktop ? 'the desktop' : 'another device';
+        const where = presence.openOnDesktop ? t('terminal.closeWhereDesktop') : t('terminal.closeWhereDevice');
         const confirmed = await confirmAsync(
-          'Close terminal?',
-          `This session is also open on ${where}. Closing it will end the session everywhere.`,
-          'Close anyway',
+          t('terminal.closeConfirmTitle'),
+          t('terminal.closeConfirmMessage', { where }),
+          t('terminal.closeAnyway'),
+          t('common.cancel'),
         );
         if (!confirmed) return;
       }
@@ -471,7 +473,7 @@ export default function TerminalScreen() {
         terminalRef.current?.clear();
       }
     }
-  }, [client, openTerminal, terminals]);
+  }, [client, openTerminal, t, terminals]);
 
   // Rename a terminal tab: optimistically relabel locally, then tell the
   // desktop (which fans the new label out to every other paired device and the
@@ -679,12 +681,12 @@ export default function TerminalScreen() {
   const inputPlaceholder = active
     ? state === 'connected'
       ? canSend
-        ? 'Command'
-        : 'Loading terminal...'
-      : 'Connecting...'
+        ? t('terminal.placeholderCommand')
+        : t('terminal.placeholderLoading')
+      : t('terminal.placeholderConnecting')
     : state === 'connected'
-      ? 'Select a terminal'
-      : 'Connecting...';
+      ? t('terminal.placeholderSelect')
+      : t('terminal.placeholderConnecting');
 
   const writeBytes = async (data: string) => {
     if (!client || !active || !data || !canSend) return;
@@ -728,7 +730,7 @@ export default function TerminalScreen() {
   const sendLiveTerminalInput = (bytes: string) => {
     if (!bytes || !client || !active || !canSend) return;
     if (!isTerminalLiveInputWithinByteLimit(bytes)) {
-      setError('Input too large (max 256 KiB)');
+      setError(t('terminal.errorInputTooLarge'));
       return;
     }
     client.request('terminal.write', { ptyId: active.id, data: bytes }).catch(() => undefined);
@@ -839,15 +841,15 @@ export default function TerminalScreen() {
     terminalRef.current?.clear();
   };
 
-  const chromeTitle = typeof worktreeName === 'string' && worktreeName ? worktreeName : worktree?.branch ?? selectedProject?.name ?? 'Session';
-  const chromeMeta = selectedProject && worktree ? `${selectedProject.name} / ${worktree.branch}` : worktree?.path ?? 'Select a worktree';
+  const chromeTitle = typeof worktreeName === 'string' && worktreeName ? worktreeName : worktree?.branch ?? selectedProject?.name ?? t('terminal.sessionFallback');
+  const chromeMeta = selectedProject && worktree ? `${selectedProject.name} / ${worktree.branch}` : worktree?.path ?? t('terminal.selectWorktree');
 
   // Themed style objects, scoped to the component so they track the active
   // palette (light/dark) instead of capturing a static color at module load.
   const chromeIconButton = {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 10,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   };
@@ -1082,22 +1084,21 @@ export default function TerminalScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={{ backgroundColor: colors.panel, borderBottomWidth: 1, borderBottomColor: colors.border }}>
           <View style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 4 }}>
-            <CornerInset />
-            <Pressable style={chromeIconButton} onPress={() => router.back()}><ChevronLeft color={colors.text} size={21} /></Pressable>
+            <HeaderBackButton onPress={() => router.back()} />
             <View style={{ flex: 1, minWidth: 0, paddingHorizontal: 4 }}>
               <Text style={chromeTitleStyle} numberOfLines={1}>{chromeTitle}</Text>
               <Text style={chromeMetaStyle} numberOfLines={1}>{chromeMeta}</Text>
             </View>
             {!isSessionScoped && worktree && (
               <Pressable style={chromeTextButton} onPress={() => setSelectorsExpanded((value) => !value)}>
-                <Text style={chromeTextButtonLabel}>{selectorsExpanded ? 'Hide' : 'Change'}</Text>
+                <Text style={chromeTextButtonLabel}>{selectorsExpanded ? t('terminal.hide') : t('terminal.change')}</Text>
               </Pressable>
             )}
             <Pressable
               style={[chromeIconButton, !worktree && { opacity: 0.35 }]}
               disabled={!worktree}
               onPress={() => worktree && router.push({ pathname: '/git/[hostId]', params: { hostId, worktreePath: worktree.path, worktreeName: worktree.branch } })}
-              accessibilityLabel="Open source control"
+              accessibilityLabel={t('terminal.openSourceControl')}
             >
               <GitBranch color={colors.text} size={18} />
             </Pressable>
@@ -1128,7 +1129,7 @@ export default function TerminalScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.border }}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingLeft: 10, paddingRight: 4 }}>
               {terminals.length === 0 ? (
-                <Text style={[chromeMetaStyle, { paddingVertical: 10 }]}>No live terminals</Text>
+                <Text style={[chromeMetaStyle, { paddingVertical: 10 }]}>{t('terminal.noLiveTerminals')}</Text>
               ) : terminals.map((terminal) => {
                 const isActive = active?.id === terminal.id;
                 return (
@@ -1151,7 +1152,7 @@ export default function TerminalScreen() {
               style={{ width: 40, height: 36, alignItems: 'center', justifyContent: 'center', opacity: worktree && !creatingTerminal ? 1 : 0.35 }}
               disabled={!worktree || creatingTerminal}
               onPress={() => setAgentPickerOpen(true)}
-              accessibilityLabel="Choose terminal agent"
+              accessibilityLabel={t('terminal.chooseTerminalAgent')}
             >
               <Plus color={worktree && !creatingTerminal ? colors.text : colors.subtle} size={17} />
             </Pressable>
@@ -1168,10 +1169,10 @@ export default function TerminalScreen() {
             <Pressable style={pickerPanel} onPress={() => undefined}>
               <View style={pickerHeader}>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={pickerTitle}>Rename terminal</Text>
+                  <Text style={pickerTitle}>{t('terminal.renameTitle')}</Text>
                   <Text style={pickerSubtitle} numberOfLines={1}>{renameTarget ? terminalLabel(renameTarget.terminal) : ''}</Text>
                 </View>
-                <Pressable style={pickerCloseButton} onPress={() => setRenameTarget(null)} accessibilityLabel="Cancel rename">
+                <Pressable style={pickerCloseButton} onPress={() => setRenameTarget(null)} accessibilityLabel={t('terminal.cancelRename')}>
                   <X color={colors.text} size={18} />
                 </Pressable>
               </View>
@@ -1179,7 +1180,7 @@ export default function TerminalScreen() {
                 <TextInput
                   value={renameTarget?.draft ?? ''}
                   onChangeText={(text) => setRenameTarget((current) => (current ? { ...current, draft: text } : current))}
-                  placeholder="Terminal name"
+                  placeholder={t('terminal.terminalNamePlaceholder')}
                   placeholderTextColor={colors.subtle}
                   autoFocus
                   autoCapitalize="none"
@@ -1199,7 +1200,7 @@ export default function TerminalScreen() {
                     setRenameTarget(null);
                   }}
                 >
-                  <Text style={{ color: colors.bg, fontSize: 14, fontWeight: '700' }}>Rename</Text>
+                  <Text style={{ color: colors.bg, fontSize: 14, fontWeight: '700' }}>{t('terminal.rename')}</Text>
                 </Pressable>
               </View>
             </Pressable>
@@ -1213,10 +1214,10 @@ export default function TerminalScreen() {
             <Pressable style={pickerPanel} onPress={() => undefined}>
               <View style={pickerHeader}>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={pickerTitle}>Terminal actions</Text>
+                  <Text style={pickerTitle}>{t('terminal.actionsTitle')}</Text>
                   <Text style={pickerSubtitle} numberOfLines={1}>{actionTarget ? terminalLabel(actionTarget) : ''}</Text>
                 </View>
-                <Pressable style={pickerCloseButton} onPress={() => setActionTarget(null)} accessibilityLabel="Cancel">
+                <Pressable style={pickerCloseButton} onPress={() => setActionTarget(null)} accessibilityLabel={t('common.cancel')}>
                   <X color={colors.text} size={18} />
                 </Pressable>
               </View>
@@ -1230,7 +1231,7 @@ export default function TerminalScreen() {
                   }}
                 >
                   <Pencil color={colors.text} size={18} />
-                  <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600' }}>Rename</Text>
+                  <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600' }}>{t('terminal.rename')}</Text>
                 </Pressable>
                 <Pressable
                   style={({ pressed }) => [actionRow, pressed && { backgroundColor: colors.panelStrong }]}
@@ -1241,7 +1242,7 @@ export default function TerminalScreen() {
                   }}
                 >
                   <Trash2 color={colors.danger} size={18} />
-                  <Text style={{ color: colors.danger, fontSize: 15, fontWeight: '600' }}>Close terminal</Text>
+                  <Text style={{ color: colors.danger, fontSize: 15, fontWeight: '600' }}>{t('terminal.closeTerminal')}</Text>
                 </Pressable>
               </View>
             </Pressable>
@@ -1253,15 +1254,15 @@ export default function TerminalScreen() {
             <View style={pickerPanel}>
               <View style={pickerHeader}>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={pickerTitle}>New terminal</Text>
+                  <Text style={pickerTitle}>{t('terminal.newTerminal')}</Text>
                   <Text style={pickerSubtitle} numberOfLines={1}>
-                    {selectedAgent?.label ?? 'Terminal'} {selectedAgent?.detectCmd ? `· ${selectedAgent.detectCmd}` : ''}
+                    {selectedAgent?.label ?? t('terminal.defaultLabel')} {selectedAgent?.detectCmd ? `· ${selectedAgent.detectCmd}` : ''}
                   </Text>
                 </View>
                 <Pressable
                   style={pickerCloseButton}
                   onPress={() => setAgentPickerOpen(false)}
-                  accessibilityLabel="Close agent picker"
+                  accessibilityLabel={t('terminal.closeAgentPicker')}
                 >
                   <X color={colors.text} size={18} />
                 </Pressable>
@@ -1269,7 +1270,7 @@ export default function TerminalScreen() {
               <ScrollView style={pickerList} contentContainerStyle={pickerListContent}>
                 {detectedSorted.length > 0 && (
                   <View style={{ gap: 8 }}>
-                    <Text style={pickerSectionLabel}>Detected on this host</Text>
+                    <Text style={pickerSectionLabel}>{t('terminal.detectedOnHost')}</Text>
                     {detectedSorted.map((agent) => {
                       const selected = agent.id === selectedAgentId;
                       return (
@@ -1304,7 +1305,7 @@ export default function TerminalScreen() {
                 )}
 
                 <View style={{ gap: 8 }}>
-                  <Text style={pickerSectionLabel}>{detectedSorted.length > 0 ? 'Other agents' : 'All agents'}</Text>
+                  <Text style={pickerSectionLabel}>{detectedSorted.length > 0 ? t('terminal.otherAgents') : t('terminal.allAgents')}</Text>
                   {undetectedSorted.map((agent) => {
                     const selected = agent.id === selectedAgentId;
                     return (
@@ -1388,7 +1389,7 @@ export default function TerminalScreen() {
             style={[liveToggleButton, desktopMode && liveToggleButtonActive, !canSend && { opacity: 0.35 }]}
             disabled={!canSend}
             onPress={() => void toggleDisplayMode()}
-            accessibilityLabel={desktopMode ? 'Switch to phone size' : 'Switch to desktop size'}
+            accessibilityLabel={desktopMode ? t('terminal.switchToPhoneSize') : t('terminal.switchToDesktopSize')}
           >
             {desktopMode ? (
               <Smartphone color={colors.bg} size={16} />
@@ -1400,7 +1401,7 @@ export default function TerminalScreen() {
             style={[liveToggleButton, liveInputEnabled && liveToggleButtonActive, !canSend && { opacity: 0.35 }]}
             disabled={!canSend}
             onPress={toggleLiveInput}
-            accessibilityLabel={liveInputEnabled ? 'Switch to buffered command input' : 'Switch to live terminal input'}
+            accessibilityLabel={liveInputEnabled ? t('terminal.switchToBufferedInput') : t('terminal.switchToLiveInput')}
           >
             <ChevronsRight color={liveInputEnabled ? colors.bg : canSend ? colors.muted : colors.subtle} size={16} />
           </Pressable>
@@ -1411,11 +1412,11 @@ export default function TerminalScreen() {
             style={{ flexDirection: 'row', alignItems: 'center', minHeight: 46, gap: 8, paddingHorizontal: 12, paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.panel }}
             onPress={focusLiveInput}
             disabled={!canSend}
-            accessibilityLabel="Focus live terminal input"
+            accessibilityLabel={t('terminal.focusLiveInput')}
           >
             <KeyboardIcon color={colors.muted} size={16} />
             <Text style={{ flex: 1, color: colors.muted, fontSize: 12, fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) }} numberOfLines={1}>
-              Keyboard input goes directly to terminal
+              {t('terminal.liveInputHint')}
             </Text>
             <TextInput
               ref={liveInputRef}

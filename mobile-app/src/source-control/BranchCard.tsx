@@ -1,4 +1,5 @@
 import { GitBranch, Minus, MoreHorizontal, Plus } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
 import { useTheme } from '@/ui/theme';
@@ -29,6 +30,7 @@ export function BranchCard({
   onUnstageAll: () => void;
   onMore: () => void;
 }) {
+  const { t } = useTranslation();
   const c = useTheme().palette;
   const canStageAll = changedCount > 0 && !busy;
   const canUnstageAll = stagedCount > 0 && !busy;
@@ -59,27 +61,27 @@ export function BranchCard({
           <ActivityIndicator color={c.muted} size="small" />
         ) : (
           <Text style={{ color: c.muted, fontSize: 12, fontWeight: '600' }}>
-            {ahead} ahead, {behind} behind
+            {t('sourceControl.aheadBehind', { ahead, behind })}
           </Text>
         )}
       </View>
       <Text style={{ color: c.muted, fontSize: 12, fontWeight: '700' }}>
-        {changedCount} changed   {stagedCount} staged
+        {t('sourceControl.countsSummary', { changed: changedCount, staged: stagedCount })}
       </Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <Pressable style={[action, !canStageAll && { opacity: 0.4 }]} disabled={!canStageAll} onPress={onStageAll}>
           <Plus color={c.text} size={16} />
-          <Text style={{ color: c.text, fontSize: 13, fontWeight: '800' }}>Stage All</Text>
+          <Text style={{ color: c.text, fontSize: 13, fontWeight: '800' }}>{t('sourceControl.stageAll')}</Text>
         </Pressable>
         <Pressable style={[action, !canUnstageAll && { opacity: 0.4 }]} disabled={!canUnstageAll} onPress={onUnstageAll}>
           <Minus color={c.text} size={16} />
-          <Text style={{ color: c.text, fontSize: 13, fontWeight: '800' }}>Unstage All</Text>
+          <Text style={{ color: c.text, fontSize: 13, fontWeight: '800' }}>{t('sourceControl.unstageAll')}</Text>
         </Pressable>
         <Pressable
           style={{ width: 44, minHeight: 40, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: c.panelStrong, borderWidth: 1, borderColor: c.border, opacity: busy ? 0.4 : 1 }}
           disabled={busy}
           onPress={onMore}
-          accessibilityLabel="More source control actions"
+          accessibilityLabel={t('sourceControl.moreActions')}
         >
           <MoreHorizontal color={c.text} size={18} />
         </Pressable>

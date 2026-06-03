@@ -16,36 +16,48 @@ export function deriveSharedKey(localSecretKey: Uint8Array, remotePublicKey: Uin
   return nacl.box.before(remotePublicKey, localSecretKey);
 }
 
-function nonceFor(counter: number, senderIsServer: boolean): Uint8Array {
-  const nonce = new Uint8Array(nacl.box.nonceLength);
-  const value = counter * 2 + (senderIsServer ? 0 : 1);
-  const view = new DataView(nonce.buffer);
-  view.setUint32(16, Math.floor(value / 0x100000000));
-  view.setUint32(20, value >>> 0);
-  return nonce;
+// Framing: every message is a self-describing `[24-byte random nonce][ciphertext]`
+// bundle. A fresh random nonce per message means decryption is stateless and
+// order-independent - there is no counter both sides must keep in lockstep, so a
+// dropped, reordered, or out-of-order frame can never desync the stream (the
+// failure mode that silently froze the terminal). The JSON text channel and the
+// binary terminal channel are fully independent. Mirror of the desktop's
+// `src/main/services/mobileServer/e2ee.ts`.
+
+const NONCE_BYTES = nacl.box.nonceLength; // 24
+
+/** Seal bytes into a self-describing `[nonce][ciphertext]` bundle. */
+export function sealBytes(plaintext: Uint8Array, sharedKey: Uint8Array): Uint8Array {
+  const nonce = nacl.randomBytes(NONCE_BYTES);
+  const ciphertext = nacl.box.after(plaintext, nonce, sharedKey);
+  const bundle = new Uint8Array(NONCE_BYTES + ciphertext.length);
+  bundle.set(nonce, 0);
+  bundle.set(ciphertext, NONCE_BYTES);
+  return bundle;
 }
 
-export function encryptJson(data: unknown, sharedKey: Uint8Array, counter: number, senderIsServer: boolean): string {
-  const plaintext = new TextEncoder().encode(JSON.stringify(data));
-  const encrypted = nacl.box.after(plaintext, nonceFor(counter, senderIsServer), sharedKey);
-  return toBase64(encrypted);
+/** Open a `[nonce][ciphertext]` bundle; returns null on truncation / bad MAC. */
+export function openBytes(bundle: Uint8Array, sharedKey: Uint8Array): Uint8Array | null {
+  if (bundle.length < NONCE_BYTES + nacl.box.overheadLength) return null;
+  const nonce = bundle.subarray(0, NONCE_BYTES);
+  const ciphertext = bundle.subarray(NONCE_BYTES);
+  return nacl.box.open.after(ciphertext, nonce, sharedKey);
 }
 
-export function decryptJson<T>(payload: string, sharedKey: Uint8Array, counter: number, senderIsServer: boolean): T {
-  const plaintext = nacl.box.open.after(fromBase64(payload), nonceFor(counter, senderIsServer), sharedKey);
-  if (!plaintext) throw new Error('Unable to decrypt server message');
-  return JSON.parse(new TextDecoder().decode(plaintext)) as T;
+/** Seal a JSON value into a base64 string for a WebSocket text frame. */
+export function sealJson(data: unknown, sharedKey: Uint8Array): string {
+  return toBase64(sealBytes(new TextEncoder().encode(JSON.stringify(data)), sharedKey));
 }
 
-/**
- * Decrypt a raw binary frame (protocol v3 terminal-output channel). Shares the
- * session's nonce-counter sequence with the JSON channel, so the caller must
- * advance the same receive counter it uses for text frames, in arrival order.
- */
-export function decryptBinary(payload: Uint8Array, sharedKey: Uint8Array, counter: number, senderIsServer: boolean): Uint8Array {
-  const plaintext = nacl.box.open.after(payload, nonceFor(counter, senderIsServer), sharedKey);
-  if (!plaintext) throw new Error('Unable to decrypt server binary frame');
-  return plaintext;
+/** Open a base64 bundle from sealJson back to a JSON value, or null. */
+export function openJson<T>(payload: string, sharedKey: Uint8Array): T | null {
+  try {
+    const opened = openBytes(fromBase64(payload), sharedKey);
+    if (!opened) return null;
+    return JSON.parse(new TextDecoder().decode(opened)) as T;
+  } catch {
+    return null;
+  }
 }
 
 export { fromBase64, toBase64 };

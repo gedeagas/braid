@@ -83,12 +83,24 @@ class CornerInsetView: ExpoView {
     // adapted for the corner (UIViewLayoutRegion). `.horizontal` adaptation
     // pushes a header's leading content inward (not down) to clear the controls,
     // which is what a back button in a top bar wants.
+    //
+    // The corner-adapted region is the NORMAL safe area PLUS whatever margin the
+    // window controls reserve - so on an iPhone (no controls) or a full-screen
+    // iPad it equals the plain safe area, which is already applied by the JS
+    // header's SafeAreaView. Reporting the raw value there double-counts the
+    // device safe area (stray padding before the back button, worst on notched
+    // iPhones / landscape). We report only the DELTA over the window's existing
+    // safe area, so it's exactly 0 unless the controls are actually present.
     if #available(iOS 26.0, *), let win = window {
       let region = UIView.LayoutRegion.safeArea(cornerAdaptation: .horizontal)
-      let insets = win.directionalEdgeInsets(for: region)
-      leading = insets.leading
-      trailing = insets.trailing
-      top = insets.top
+      let adapted = win.directionalEdgeInsets(for: region)
+      let base = win.safeAreaInsets
+      let isRTL = effectiveUserInterfaceLayoutDirection == .rightToLeft
+      let baseLeading = isRTL ? base.right : base.left
+      let baseTrailing = isRTL ? base.left : base.right
+      leading = max(0, adapted.leading - baseLeading)
+      trailing = max(0, adapted.trailing - baseTrailing)
+      top = max(0, adapted.top - base.top)
     }
 
     // Values are already in points (what React Native lays out in); no scaling.

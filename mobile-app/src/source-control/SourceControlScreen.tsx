@@ -1,12 +1,13 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, RefreshCw } from 'lucide-react-native';
+import { useLocalSearchParams } from 'expo-router';
+import { RefreshCw } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActionSheetIOS, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useListRefresh } from '@/hooks/use-list-refresh';
 import type { BraidProject, GitBranchStatus, GitChange } from '@/transport/types';
-import { CornerInset } from '@/ui/kit';
+import { IconButton, ScreenHeader } from '@/ui/kit';
 import { useTheme } from '@/ui/theme';
 import { useHostClient } from '@/ui/use-host-client';
 
@@ -22,6 +23,7 @@ interface DiffState {
 }
 
 export default function SourceControlScreen() {
+  const { t } = useTranslation();
   const { hostId, worktreePath, worktreeName } = useLocalSearchParams<{ hostId: string; worktreePath?: string; worktreeName?: string }>();
   const { client } = useHostClient(hostId);
   const c = useTheme().palette;
@@ -80,7 +82,7 @@ export default function SourceControlScreen() {
   const groups = useMemo(() => groupChanges(changes), [changes]);
   const stagedCount = useMemo(() => changes.filter((change) => change.staged).length, [changes]);
   const changedCount = useMemo(() => changes.filter((change) => !change.staged).length, [changes]);
-  const branch = summary?.current ?? paramBranch ?? 'Working tree';
+  const branch = summary?.current ?? paramBranch ?? t('sourceControl.workingTree');
   const canCommit = stagedCount > 0 && commitMsg.trim().length > 0 && !busy;
 
   // Wrap a global op (commit / bulk action / push / pull) so the card shows a
@@ -123,12 +125,14 @@ export default function SourceControlScreen() {
   }, [client, path, refreshNow]);
 
   const confirmDiscard = useCallback((change: GitChange) => {
-    const verb = change.status === '?' ? 'Delete' : 'Discard';
-    Alert.alert(`${verb} changes?`, change.file, [
-      { text: 'Cancel', style: 'cancel' },
+    const isDelete = change.status === '?';
+    const verb = isDelete ? t('sourceControl.delete') : t('sourceControl.discard');
+    const title = isDelete ? t('sourceControl.deleteChangesTitle') : t('sourceControl.discardChangesTitle');
+    Alert.alert(title, change.file, [
+      { text: t('common.cancel'), style: 'cancel' },
       { text: verb, style: 'destructive', onPress: () => void mutateFile(change, 'discard') },
     ]);
-  }, [mutateFile]);
+  }, [mutateFile, t]);
 
   const openDiff = useCallback(async (change: GitChange) => {
     if (!client || !path) return;
@@ -151,10 +155,10 @@ export default function SourceControlScreen() {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         if (msg === 'DIVERGENT_BRANCHES') {
-          Alert.alert('Branches have diverged', 'Choose how to reconcile your local and remote commits.', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Rebase', onPress: () => pull('rebase') },
-            { text: 'Merge', onPress: () => pull('merge') },
+          Alert.alert(t('sourceControl.divergedTitle'), t('sourceControl.divergedMessage'), [
+            { text: t('common.cancel'), style: 'cancel' },
+            { text: t('sourceControl.rebase'), onPress: () => pull('rebase') },
+            { text: t('sourceControl.merge'), onPress: () => pull('merge') },
           ]);
           return;
         }
@@ -170,10 +174,10 @@ export default function SourceControlScreen() {
       else if (index === 2) {
         const targets = discardTargets(changes);
         if (targets.length === 0) return;
-        Alert.alert('Discard all changes?', `This reverts ${targets.length} file(s) and cannot be undone.`, [
-          { text: 'Cancel', style: 'cancel' },
+        Alert.alert(t('sourceControl.discardAllTitle'), t('sourceControl.discardAllMessage', { count: targets.length }), [
+          { text: t('common.cancel'), style: 'cancel' },
           {
-            text: 'Discard all',
+            text: t('sourceControl.discardAll'),
             style: 'destructive',
             onPress: () => void runGlobal(async () => {
               for (const change of targets) {
@@ -186,15 +190,15 @@ export default function SourceControlScreen() {
     };
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
-        { options: ['Push', 'Pull', 'Discard all changes', 'Cancel'], destructiveButtonIndex: 2, cancelButtonIndex: 3 },
+        { options: [t('sourceControl.push'), t('sourceControl.pull'), t('sourceControl.discardAllChanges'), t('common.cancel')], destructiveButtonIndex: 2, cancelButtonIndex: 3 },
         (index) => run(index),
       );
     } else {
-      Alert.alert('Source control', undefined, [
-        { text: 'Push', onPress: () => run(0) },
-        { text: 'Pull', onPress: () => run(1) },
-        { text: 'Discard all changes', style: 'destructive', onPress: () => run(2) },
-        { text: 'Cancel', style: 'cancel' },
+      Alert.alert(t('sourceControl.title'), undefined, [
+        { text: t('sourceControl.push'), onPress: () => run(0) },
+        { text: t('sourceControl.pull'), onPress: () => run(1) },
+        { text: t('sourceControl.discardAllChanges'), style: 'destructive', onPress: () => run(2) },
+        { text: t('common.cancel'), style: 'cancel' },
       ]);
     }
   }
@@ -211,19 +215,21 @@ export default function SourceControlScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: c.bg }} edges={['top', 'left', 'right', 'bottom']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: c.border, backgroundColor: c.bg }}>
-          <CornerInset />
-          <Pressable style={{ width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }} onPress={() => router.back()} accessibilityLabel="Go back">
-            <ChevronLeft color={c.text} size={22} />
-          </Pressable>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={{ color: c.text, fontSize: 20, fontWeight: '800' }} numberOfLines={1}>Source Control</Text>
-            <Text style={{ color: c.muted, fontSize: 13 }} numberOfLines={1}>{branch}</Text>
-          </View>
-          <Pressable style={{ width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }} onPress={() => void refreshNow()} accessibilityLabel="Refresh">
-            <RefreshCw color={c.text} size={19} />
-          </Pressable>
-        </View>
+        <ScreenHeader
+          title={t('sourceControl.title')}
+          subtitle={branch}
+          back
+          compact
+          style={{ paddingHorizontal: 8, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: c.border, backgroundColor: c.bg }}
+          trailing={
+            <IconButton
+              icon={<RefreshCw color={c.text} size={19} />}
+              onPress={() => void refreshNow()}
+              accessibilityLabel={t('common.refresh')}
+              size="sm"
+            />
+          }
+        />
 
         {error ? <Text style={{ color: c.danger, fontSize: 12, paddingHorizontal: 16, paddingTop: 8 }}>{error}</Text> : null}
 
@@ -247,12 +253,12 @@ export default function SourceControlScreen() {
           />
 
           {groups.length === 0 ? (
-            <Text style={{ color: c.muted, fontSize: 14, textAlign: 'center', paddingTop: 32 }}>No changes</Text>
+            <Text style={{ color: c.muted, fontSize: 14, textAlign: 'center', paddingTop: 32 }}>{t('sourceControl.noChanges')}</Text>
           ) : (
             groups.map((group) => (
               <View key={group.key} style={{ marginTop: 8 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8 }}>
-                  <Text style={{ flex: 1, color: c.subtle, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 }}>{group.title}</Text>
+                  <Text style={{ flex: 1, color: c.subtle, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 }}>{t(`sourceControl.group.${group.key}`)}</Text>
                   <Text style={{ color: c.subtle, fontSize: 12, fontWeight: '800' }}>{group.changes.length}</Text>
                 </View>
                 {group.changes.map((change, index) => (
@@ -274,12 +280,12 @@ export default function SourceControlScreen() {
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 10, borderTopWidth: 1, borderTopColor: c.border, backgroundColor: c.panel }}>
           {stagedCount === 0 ? (
-            <Text style={{ flex: 1, color: c.subtle, fontSize: 13, textAlign: 'center' }}>No staged files</Text>
+            <Text style={{ flex: 1, color: c.subtle, fontSize: 13, textAlign: 'center' }}>{t('sourceControl.noStagedFiles')}</Text>
           ) : (
             <TextInput
               value={commitMsg}
               onChangeText={setCommitMsg}
-              placeholder={`Message (commit ${stagedCount} file${stagedCount === 1 ? '' : 's'})`}
+              placeholder={t('sourceControl.commitPlaceholder', { count: stagedCount })}
               placeholderTextColor={c.subtle}
               autoCapitalize="sentences"
               style={{ flex: 1, minHeight: 38, borderRadius: 8, backgroundColor: c.panelStrong, color: c.text, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14 }}
@@ -289,9 +295,9 @@ export default function SourceControlScreen() {
             style={{ minHeight: 38, borderRadius: 8, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18, backgroundColor: canCommit ? c.accent : c.panelStrong, opacity: canCommit ? 1 : 0.6 }}
             disabled={!canCommit}
             onPress={commit}
-            accessibilityLabel="Commit staged files"
+            accessibilityLabel={t('sourceControl.commitStagedFiles')}
           >
-            {busy ? <ActivityIndicator color={canCommit ? '#FFFFFF' : c.muted} size="small" /> : <Text style={{ color: canCommit ? '#FFFFFF' : c.muted, fontSize: 14, fontWeight: '800' }}>Commit</Text>}
+            {busy ? <ActivityIndicator color={canCommit ? '#FFFFFF' : c.muted} size="small" /> : <Text style={{ color: canCommit ? '#FFFFFF' : c.muted, fontSize: 14, fontWeight: '800' }}>{t('sourceControl.commit')}</Text>}
           </Pressable>
         </View>
       </KeyboardAvoidingView>

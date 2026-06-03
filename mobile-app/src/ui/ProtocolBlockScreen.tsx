@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { AlertTriangle } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { CompatVerdict } from '@/transport/protocol-compat';
@@ -13,6 +14,7 @@ import { useTheme, useThemedStyles, type Palette } from '@/ui/theme';
  * because operating against an incompatible peer silently misbehaves.
  */
 export function ProtocolBlockScreen({ verdict }: { verdict: Extract<CompatVerdict, { kind: 'blocked' }> }) {
+  const { t } = useTranslation();
   const { palette: c } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const mobileTooOld = verdict.reason === 'mobile-too-old';
@@ -23,20 +25,20 @@ export function ProtocolBlockScreen({ verdict }: { verdict: Extract<CompatVerdic
         <View style={styles.iconCircle}>
           <AlertTriangle color={c.warning} size={28} />
         </View>
-        <Text style={styles.title}>{mobileTooOld ? 'Update Braid Mobile' : 'Update Braid desktop'}</Text>
+        <Text style={styles.title}>
+          {mobileTooOld ? t('connection.updateMobileTitle') : t('connection.updateDesktopTitle')}
+        </Text>
         <Text style={styles.message}>
-          {mobileTooOld
-            ? 'This desktop requires a newer version of Braid Mobile. Update the app from the App Store, then reconnect.'
-            : 'This desktop is too old for this version of Braid Mobile. Update Braid on your desktop, then reconnect.'}
+          {mobileTooOld ? t('connection.updateMobileMessage') : t('connection.updateDesktopMessage')}
         </Text>
         <Text style={styles.detail}>
-          Desktop protocol v{verdict.desktopVersion}
+          {t('connection.desktopProtocol', { version: verdict.desktopVersion })}
           {mobileTooOld
-            ? ` · requires mobile v${verdict.requiredMobileVersion ?? '?'}`
-            : ` · needs v${verdict.requiredDesktopVersion ?? '?'}`}
+            ? t('connection.requiresMobile', { version: verdict.requiredMobileVersion ?? '?' })
+            : t('connection.needsDesktop', { version: verdict.requiredDesktopVersion ?? '?' })}
         </Text>
         <View style={styles.actions}>
-          <Button label="Back to desktops" variant="secondary" onPress={() => router.back()} />
+          <Button label={t('connection.backToDesktops')} variant="secondary" onPress={() => router.back()} />
         </View>
       </View>
     </Screen>

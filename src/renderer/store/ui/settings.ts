@@ -9,6 +9,8 @@ const VALID_MODEL_IDS: readonly string[] = ['claude-opus-4-7', 'claude-sonnet-4-
 const VALID_EFFORT_LEVELS = new Set<string>(EFFORT_LEVELS.map((l) => l.id))
 const DEFAULT_MODEL: ModelId = 'claude-sonnet-4-6'
 const DEFAULT_AGENT_ID = 'claude'
+export type MobileNgrokRegion = 'auto' | 'us' | 'eu' | 'au' | 'ap' | 'sa' | 'jp' | 'in' | 'us-cal-1' | 'eu-lon-1'
+const VALID_MOBILE_NGROK_REGIONS = new Set<string>(['auto', 'us', 'eu', 'au', 'ap', 'sa', 'jp', 'in', 'us-cal-1', 'eu-lon-1'])
 function isValidNewTabAction(v: string): boolean {
   if (v === 'chat' || v === 'claudeCode' || v === 'terminal') return true
   return /^agent:[a-zA-Z0-9-]+$/.test(v)
@@ -36,6 +38,11 @@ function loadDiscoveryPatterns(): string[] {
     if (raw) return JSON.parse(raw) as string[]
   } catch {}
   return DEFAULT_DISCOVERY_PATTERNS
+}
+
+function loadMobileNgrokRegion(): MobileNgrokRegion {
+  const raw = loadStr(SK.mobileNgrokRegion, 'auto')
+  return VALID_MOBILE_NGROK_REGIONS.has(raw) ? raw as MobileNgrokRegion : 'auto'
 }
 
 export interface SettingsSlice {
@@ -97,7 +104,9 @@ export interface SettingsSlice {
 
   // Mobile Companion
   mobileServerEnabled: boolean
+  mobileNgrokRegion: MobileNgrokRegion
   setMobileServerEnabled: (v: boolean) => void
+  setMobileNgrokRegion: (v: MobileNgrokRegion) => void
 
   // Onboarding
   onboardingComplete: boolean
@@ -229,6 +238,7 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   keepAwakeWhileAgentsRun: loadBool(SK.keepAwakeWhileAgentsRun, false),
 
   mobileServerEnabled: loadBool(SK.mobileServerEnabled, false),
+  mobileNgrokRegion: loadMobileNgrokRegion(),
 
   onboardingComplete: loadBool(SK.onboardingComplete, false),
   featureTourComplete: loadBool(SK.featureTourComplete, false),
@@ -337,6 +347,7 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   setRollbackHistory: (v) => { localStorage.setItem(SK.rollbackHistory, String(v)); set({ rollbackHistory: v }) },
   setKeepAwakeWhileAgentsRun: (v) => { localStorage.setItem(SK.keepAwakeWhileAgentsRun, String(v)); set({ keepAwakeWhileAgentsRun: v }) },
   setMobileServerEnabled: (v) => { localStorage.setItem(SK.mobileServerEnabled, String(v)); set({ mobileServerEnabled: v }) },
+  setMobileNgrokRegion: (v) => { localStorage.setItem(SK.mobileNgrokRegion, v); set({ mobileNgrokRegion: v }) },
   setOnboardingComplete: (v) => { localStorage.setItem(SK.onboardingComplete, String(v)); set({ onboardingComplete: v }) },
   setFeatureTourComplete: (v) => { localStorage.setItem(SK.featureTourComplete, String(v)); set({ featureTourComplete: v }) },
   setSimulatorTourComplete: (v) => { localStorage.setItem(SK.simulatorTourComplete, String(v)); set({ simulatorTourComplete: v }) },

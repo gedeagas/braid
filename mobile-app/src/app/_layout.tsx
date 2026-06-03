@@ -2,10 +2,13 @@ import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 import { useCallback, useEffect, useRef } from 'react';
+import { Platform, StatusBar as NativeStatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ClientManagerProvider } from '@/transport/client-manager';
 import { loadHosts } from '@/transport/host-store';
+import '@/i18n';
+import { LanguageProvider } from '@/i18n/LanguageProvider';
 import { configureNotificationHandler } from '@/notifications/mobile-notifications';
 import { getNotificationNavigationPath } from '@/notifications/notification-routing';
 import { ThemeProvider, useTheme } from '@/ui/theme';
@@ -74,9 +77,19 @@ function useNotificationTapRouting(): void {
 // before each screen's own SafeAreaView renders.
 function RootNavigator() {
   const { palette, scheme } = useTheme();
+  const statusBarStyle = scheme === 'dark' ? 'light' : 'dark';
+
+  useEffect(() => {
+    NativeStatusBar.setBarStyle(scheme === 'dark' ? 'light-content' : 'dark-content', true);
+    if (Platform.OS === 'android') {
+      NativeStatusBar.setBackgroundColor(palette.bg, true);
+      NativeStatusBar.setTranslucent(false);
+    }
+  }, [palette.bg, scheme]);
+
   return (
     <>
-      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+      <StatusBar key={`${scheme}:${palette.bg}`} style={statusBarStyle} />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: palette.bg } }} />
     </>
   );
@@ -87,11 +100,13 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
-      <SafeAreaProvider>
-        <ClientManagerProvider>
-          <RootNavigator />
-        </ClientManagerProvider>
-      </SafeAreaProvider>
+      <LanguageProvider>
+        <SafeAreaProvider>
+          <ClientManagerProvider>
+            <RootNavigator />
+          </ClientManagerProvider>
+        </SafeAreaProvider>
+      </LanguageProvider>
     </ThemeProvider>
   );
 }

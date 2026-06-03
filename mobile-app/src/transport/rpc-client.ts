@@ -1,19 +1,33 @@
 import * as Device from 'expo-device';
 
 import { decodeJsonBase64 } from './encoding';
-import { decryptBinary, decryptJson, deriveSharedKey, encryptJson, fromBase64, generateKeyPair, toBase64 } from './e2ee';
+import { deriveSharedKey, fromBase64, generateKeyPair, openBytes, openJson, sealJson, toBase64 } from './e2ee';
 import { decodeTerminalFrame } from './terminal-frame';
 import type { JsonRpcResponse, PairedHost, PairingOffer, RpcNotification } from './types';
 
 type AuthenticatedMessage = { type: 'e2ee_authenticated'; deviceId: string; instanceName: string; deviceToken?: string };
 type ReadyMessage = { type: 'e2ee_ready'; serverEphemeralPublicKey: string };
 type HandshakeMode = 'secure' | 'legacy';
+export interface ConnectionMetrics {
+  connectMs: number;
+  authMs: number;
+  totalMs: number;
+  openedAt: number;
+  authenticatedAt: number;
+}
 const REQUEST_TIMEOUT_MS = 12_000;
 // The desktop closes the socket with this code (mobileServer.ts) when the device
 // token is missing/invalid/revoked or the encrypted auth fails. It is terminal:
 // retrying with the same rejected token only churns, so the manager surfaces a
 // re-pair affordance instead of reconnecting. See `BraidAuthError`.
 const AUTH_CLOSE_CODE = 4001;
+// The desktop closes the OLD socket with this code (mobileServer.ts: "Replaced
+// by new connection") when a newer connection from the same device authenticates
+// - it allows only one connection per device. This is NOT a dropped link: a
+// newer socket is already live, so the evicted socket must NOT reconnect.
+// Reconnecting here is what creates the infinite connect loop when two clients
+// briefly exist for one device (e.g. on first pair, before the host id settles).
+const SUPERSEDED_CLOSE_CODE = 4000;
 
 /** Raised when the desktop rejects this device's pairing (close code 4001). */
 export class BraidAuthError extends Error {
@@ -26,6 +40,11 @@ export class BraidAuthError extends Error {
 /** True for a WebSocket close event that signals a terminal auth rejection. */
 function isAuthCloseEvent(event: unknown): boolean {
   return (event as { code?: number } | undefined)?.code === AUTH_CLOSE_CODE;
+}
+
+/** True when the desktop replaced this socket with a newer one (do not reconnect). */
+function isSupersededCloseEvent(event: unknown): boolean {
+  return (event as { code?: number } | undefined)?.code === SUPERSEDED_CLOSE_CODE;
 }
 // Per-message RPC tracing. Off by default: these fire on every request and
 // response (i.e. every keystroke and every terminal.data ack), so logging them
@@ -41,15 +60,14 @@ export function parsePairingPayload(payload: string): PairingOffer {
 export class BraidRpcClient {
   private ws: WebSocket | null = null;
   private sharedKey: Uint8Array | null = null;
-  private sendCounter = 0;
-  private receiveCounter = 0;
   private connectPromise: Promise<{ deviceId: string; instanceName: string }> | null = null;
   private nextId = 1;
   private queue: Promise<unknown> = Promise.resolve();
   private pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void }>();
   private notificationListeners = new Set<(notification: RpcNotification) => void>();
-  private closeListeners = new Set<(reason: { authFailed: boolean }) => void>();
+  private closeListeners = new Set<(reason: { authFailed: boolean; superseded: boolean }) => void>();
   private openListeners = new Set<() => void>();
+  private lastConnectionMetrics: ConnectionMetrics | null = null;
   // Active stream subscriptions, tracked so they can be auto-replayed after a
   // reconnect (the desktop drops all subscriptions when the socket closes, and
   // assigns fresh server ids on re-subscribe). Keyed by a stable client-local
@@ -82,20 +100,24 @@ export class BraidRpcClient {
     return this.connectPromise;
   }
 
+  getLastConnectionMetrics(): ConnectionMetrics | null {
+    return this.lastConnectionMetrics;
+  }
+
   private shouldRetryLegacyHello(error: unknown): boolean {
     return error instanceof BraidAuthError && this.host.endpoint.startsWith('ws://');
   }
 
   private async connectWithHandshake(mode: HandshakeMode): Promise<{ deviceId: string; instanceName: string }> {
     this.sharedKey = null;
-    this.sendCounter = 0;
-    this.receiveCounter = 0;
     console.log('[BraidMobile] rpc.connect.start', { endpoint: this.host.endpoint, hostId: this.host.id, mode });
+    const connectStartedAt = Date.now();
+    let openedAt: number | null = null;
     const ws = new WebSocket(this.host.endpoint);
-    // Deliver binary terminal-output frames (protocol v3) as ArrayBuffers
-    // rather than the RN default Blob, so handleRpcMessage can decode them
-    // synchronously in arrival order (Blobs would force an async read and
-    // desync the lockstep nonce counter against interleaved text frames).
+    // Deliver binary terminal-output frames as ArrayBuffers rather than the RN
+    // default Blob, so handleRpcMessage can decode them synchronously without an
+    // async Blob read. Each frame self-describes its nonce, so ordering no longer
+    // affects correctness - this is purely to keep decoding off the microtask queue.
     ws.binaryType = 'arraybuffer';
     this.ws = ws;
 
@@ -103,8 +125,6 @@ export class BraidRpcClient {
 
     const handshakePromise = new Promise<{ deviceId: string; instanceName: string }>((resolve, reject) => {
       let handshakeKey: Uint8Array | null = null;
-      let handshakeSendCounter = 0;
-      let handshakeReceiveCounter = 0;
       let settled = false;
 
       const fail = (error: Error) => {
@@ -117,8 +137,6 @@ export class BraidRpcClient {
         } catch {}
         if (this.ws === ws) this.ws = null;
         this.sharedKey = null;
-        this.sendCounter = 0;
-        this.receiveCounter = 0;
         reject(error);
       };
 
@@ -131,6 +149,7 @@ export class BraidRpcClient {
 
       const onOpen = () => {
         if (this.ws !== ws) return;
+        openedAt = Date.now();
         console.log('[BraidMobile] rpc.ws.open', { endpoint: this.host.endpoint, mode });
         const hello: { type: 'e2ee_hello'; ephemeralPublicKey: string; deviceToken?: string } = {
           type: 'e2ee_hello',
@@ -171,7 +190,7 @@ export class BraidRpcClient {
             if (ready.type !== 'e2ee_ready') throw new Error('Unexpected handshake response');
             handshakeKey = deriveSharedKey(ephemeral.secretKey, fromBase64(ready.serverEphemeralPublicKey));
             console.log('[BraidMobile] rpc.e2ee.ready');
-            const payload = encryptJson({
+            const payload = sealJson({
               type: 'e2ee_auth',
               deviceToken: this.host.token,
               deviceName: this.host.deviceName,
@@ -183,26 +202,30 @@ export class BraidRpcClient {
               //  - subscribeSnapshot: deliver the scrollback in the subscribe
               //    result so it can't race behind live output.
               capabilities: { binaryTerminalData: true, subscribeSnapshot: true },
-            }, handshakeKey, handshakeSendCounter, false);
-            handshakeSendCounter += 1;
+            }, handshakeKey);
             ws.send(payload);
             return;
           }
 
-          const auth = decryptJson<AuthenticatedMessage>(data, handshakeKey, handshakeReceiveCounter, true);
-          handshakeReceiveCounter += 1;
-          if (auth.type !== 'e2ee_authenticated') throw new Error('Authentication failed');
+          const auth = openJson<AuthenticatedMessage>(data, handshakeKey);
+          if (!auth || auth.type !== 'e2ee_authenticated') throw new Error('Authentication failed');
           settled = true;
           cleanup();
           ws.addEventListener('message', this.handleRpcMessage);
           ws.addEventListener('close', this.rejectPending);
           this.sharedKey = handshakeKey;
-          this.sendCounter = handshakeSendCounter;
-          this.receiveCounter = handshakeReceiveCounter;
           if (auth.deviceToken) this.host.token = auth.deviceToken;
           this.host.id = auth.deviceId;
           this.host.instanceName = auth.instanceName;
           this.host.lastConnectedAt = Date.now();
+          const authenticatedAt = Date.now();
+          this.lastConnectionMetrics = {
+            connectMs: (openedAt ?? authenticatedAt) - connectStartedAt,
+            authMs: authenticatedAt - (openedAt ?? connectStartedAt),
+            totalMs: authenticatedAt - connectStartedAt,
+            openedAt: openedAt ?? authenticatedAt,
+            authenticatedAt,
+          };
           console.log('[BraidMobile] rpc.authenticated', { deviceId: auth.deviceId, instanceName: auth.instanceName });
           // Notify listeners (the ClientManager) that a handshake completed -
           // regardless of who triggered connect(). A screen calling connect()
@@ -258,7 +281,7 @@ export class BraidRpcClient {
    * (close code 4001), letting the manager surface a re-pair affordance instead
    * of reconnecting; otherwise it schedules a normal reconnect.
    */
-  onClose(listener: (reason: { authFailed: boolean }) => void): () => void {
+  onClose(listener: (reason: { authFailed: boolean; superseded: boolean }) => void): () => void {
     this.closeListeners.add(listener);
     return () => {
       this.closeListeners.delete(listener);
@@ -342,7 +365,7 @@ export class BraidRpcClient {
     const ws = this.ws;
     if (!ws || ws.readyState !== WebSocket.OPEN) throw new Error('Not connected to Braid desktop');
     const id = this.nextId++;
-    const payload = this.encrypt({ jsonrpc: '2.0', id, method, params }, false);
+    const payload = this.encrypt({ jsonrpc: '2.0', id, method, params });
     if (VERBOSE_RPC_LOGS) console.log('[BraidMobile] rpc.request.send', { id, method, params });
     ws.send(payload);
     return new Promise<T>((resolve, reject) => {
@@ -371,102 +394,75 @@ export class BraidRpcClient {
     this.connectPromise = null;
     this.sharedKey = null;
     this.pending.clear();
-    this.sendCounter = 0;
-    this.receiveCounter = 0;
   }
 
-  private encrypt(data: unknown, senderIsServer: boolean): string {
+  private encrypt(data: unknown): string {
     if (!this.sharedKey) throw new Error('Encryption session is not ready');
-    const payload = encryptJson(data, this.sharedKey, this.sendCounter, senderIsServer);
-    this.sendCounter += 1;
-    return payload;
-  }
-
-  private decrypt<T>(payload: string, senderIsServer: boolean): T {
-    if (!this.sharedKey) throw new Error('Encryption session is not ready');
-    const data = decryptJson<T>(payload, this.sharedKey, this.receiveCounter, senderIsServer);
-    this.receiveCounter += 1;
-    return data;
+    return sealJson(data, this.sharedKey);
   }
 
   private handleRpcMessage = (event: WebSocketMessageEvent) => {
-    // Binary frames carry raw PTY output (protocol v3). They share the session's
-    // receive-counter sequence with text frames and arrive in order on the same
-    // socket, so decoding them here keeps the counter aligned.
+    // Binary frames carry raw PTY output. Each frame self-describes its nonce
+    // (see e2ee.sealBytes), so it decodes independently of text frames - no
+    // shared counter, no ordering dependency between the two channels.
     if (typeof event.data !== 'string') {
       this.handleBinaryMessage(event.data as ArrayBuffer);
       return;
     }
-    try {
-      const response = this.decrypt<JsonRpcResponse | RpcNotification>(String(event.data), true);
-      if ('method' in response && !('id' in response)) {
-        for (const listener of this.notificationListeners) listener(response);
-        return;
-      }
-      if ('method' in response) return;
-      if (typeof response.id !== 'number') return;
-      const pending = this.pending.get(response.id);
-      if (!pending) return;
-      this.pending.delete(response.id);
-      if (response.error) {
-        console.error('[BraidMobile] rpc.response.error', { id: response.id, error: response.error.message });
-        pending.reject(new Error(response.error.message));
-      } else {
-        if (VERBOSE_RPC_LOGS) console.log('[BraidMobile] rpc.response.ok', { id: response.id });
-        pending.resolve(response.result);
-      }
-    } catch (error) {
-      console.error('[BraidMobile] rpc.message.error', {
-        error: error instanceof Error ? error.message : String(error),
-        sendCounter: this.sendCounter,
-        receiveCounter: this.receiveCounter,
-        pendingIds: [...this.pending.keys()],
-      });
-      for (const pending of this.pending.values()) {
-        pending.reject(error instanceof Error ? error : new Error(String(error)));
-      }
-      this.pending.clear();
+    if (!this.sharedKey) return;
+    const response = openJson<JsonRpcResponse | RpcNotification>(String(event.data), this.sharedKey);
+    if (!response) {
+      // A single undecryptable text frame is isolated under the random-nonce
+      // scheme: drop it and keep the session alive instead of tearing down.
+      console.warn('[BraidMobile] rpc.message.dropped');
+      return;
+    }
+    if ('method' in response && !('id' in response)) {
+      for (const listener of this.notificationListeners) listener(response);
+      return;
+    }
+    if ('method' in response) return;
+    if (typeof response.id !== 'number') return;
+    const pending = this.pending.get(response.id);
+    if (!pending) return;
+    this.pending.delete(response.id);
+    if (response.error) {
+      console.error('[BraidMobile] rpc.response.error', { id: response.id, error: response.error.message });
+      pending.reject(new Error(response.error.message));
+    } else {
+      if (VERBOSE_RPC_LOGS) console.log('[BraidMobile] rpc.response.ok', { id: response.id });
+      pending.resolve(response.result);
     }
   };
 
   private handleBinaryMessage(raw: ArrayBuffer) {
-    try {
-      if (!this.sharedKey) return;
-      const plaintext = decryptBinary(new Uint8Array(raw), this.sharedKey, this.receiveCounter, true);
-      // Only advance the counter once decryption succeeds, matching the text
-      // path (decryptJson throws before its caller increments) so a failure
-      // doesn't silently desync the stream.
-      this.receiveCounter += 1;
-      const frame = decodeTerminalFrame(plaintext);
-      if (!frame) return;
-      // Re-emit as the same terminal.data notification the JSON channel
-      // produces, so screen-side routing is unchanged.
-      const notification: RpcNotification = {
-        jsonrpc: '2.0',
-        method: 'terminal.data',
-        params: { ptyId: frame.ptyId, data: frame.data },
-      };
-      for (const listener of this.notificationListeners) listener(notification);
-    } catch (error) {
-      // A binary decrypt failure means the nonce counter has desynced and the
-      // session is unrecoverable; tear down pending work as the text path does.
-      console.error('[BraidMobile] rpc.binary.error', {
-        error: error instanceof Error ? error.message : String(error),
-        receiveCounter: this.receiveCounter,
-      });
-      for (const pending of this.pending.values()) {
-        pending.reject(error instanceof Error ? error : new Error(String(error)));
-      }
-      this.pending.clear();
+    if (!this.sharedKey) return;
+    const plaintext = openBytes(new Uint8Array(raw), this.sharedKey);
+    // A single bad binary frame is isolated (its own nonce travels with it), so
+    // drop it and keep streaming rather than freezing the terminal.
+    if (!plaintext) {
+      console.warn('[BraidMobile] rpc.binary.dropped');
+      return;
     }
+    const frame = decodeTerminalFrame(plaintext);
+    if (!frame) return;
+    // Re-emit as the same terminal.data notification the JSON channel produces,
+    // so screen-side routing is unchanged.
+    const notification: RpcNotification = {
+      jsonrpc: '2.0',
+      method: 'terminal.data',
+      params: { ptyId: frame.ptyId, data: frame.data },
+    };
+    for (const listener of this.notificationListeners) listener(notification);
   }
 
   private rejectPending = (event?: WebSocketCloseEvent) => {
     const authFailed = isAuthCloseEvent(event);
-    const message = authFailed ? 'Pairing rejected by desktop' : 'Connection closed';
+    const superseded = isSupersededCloseEvent(event);
+    const message = authFailed ? 'Pairing rejected by desktop' : superseded ? 'Replaced by a newer connection' : 'Connection closed';
     for (const pending of this.pending.values()) pending.reject(authFailed ? new BraidAuthError(message) : new Error(message));
     this.pending.clear();
-    for (const listener of this.closeListeners) listener({ authFailed });
+    for (const listener of this.closeListeners) listener({ authFailed, superseded });
   };
 }
 

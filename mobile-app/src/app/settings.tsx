@@ -1,56 +1,66 @@
 import { router } from 'expo-router';
-import { Bell, ChevronLeft, ChevronRight, LifeBuoy } from 'lucide-react-native';
+import { Bell, ChevronRight, LifeBuoy } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { useLanguage } from '@/i18n/LanguageProvider';
+import { LANGUAGE_LABELS, SUPPORTED_LANGUAGES, type LanguagePref } from '@/i18n';
 import { useShared, useTheme, useThemedStyles, type Palette, type ThemeMode } from '@/ui/theme';
-import { Card, CornerInset, Screen, SegmentedControl } from '@/ui/kit';
-
-const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
-  { value: 'system', label: 'System' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-];
+import { Card, Dropdown, Screen, ScreenHeader, SegmentedControl, type DropdownOption } from '@/ui/kit';
 
 export default function SettingsScreen() {
+  const { t } = useTranslation();
   const { palette: c, mode, setMode } = useTheme();
+  const { pref: langPref, setLanguage } = useLanguage();
   const shared = useShared();
   const styles = useThemedStyles(makeStyles);
+
+  const themeOptions: { value: ThemeMode; label: string }[] = [
+    { value: 'system', label: t('settings.themeSystem') },
+    { value: 'light', label: t('settings.themeLight') },
+    { value: 'dark', label: t('settings.themeDark') },
+  ];
+
+  const languageOptions: DropdownOption<LanguagePref>[] = [
+    { value: 'system', label: t('settings.languageSystem') },
+    ...SUPPORTED_LANGUAGES.map((lang) => ({ value: lang, label: LANGUAGE_LABELS[lang] })),
+  ];
 
   return (
     <Screen edges={['top', 'left', 'right']}>
       <View style={shared.shell}>
-        <View style={styles.topRow}>
-          <CornerInset />
-          <Pressable style={styles.back} onPress={() => router.back()} accessibilityLabel="Back">
-            <ChevronLeft color={c.text} size={22} />
-          </Pressable>
-          <Text style={shared.title}>Settings</Text>
-        </View>
+        <ScreenHeader title={t('settings.title')} back style={styles.topRow} />
 
-        <Text style={shared.section}>Appearance</Text>
+        <Text style={shared.section}>{t('settings.appearance')}</Text>
         <Card style={styles.card}>
-          <Text style={styles.rowLabel}>Theme</Text>
-          <SegmentedControl options={THEME_OPTIONS} value={mode} onChange={setMode} />
-          <Text style={shared.muted}>Follow the system setting, or force light or dark.</Text>
+          <Text style={styles.rowLabel}>{t('settings.theme')}</Text>
+          <SegmentedControl options={themeOptions} value={mode} onChange={setMode} />
+          <Text style={shared.muted}>{t('settings.themeHint')}</Text>
+
+          <View style={styles.cardDivider} />
+
+          <Text style={styles.rowLabel}>{t('settings.language')}</Text>
+          <Dropdown value={langPref} options={languageOptions} onChange={setLanguage} />
+          <Text style={shared.muted}>{t('settings.languageHint')}</Text>
         </Card>
 
-        <Text style={[shared.section, styles.sectionSpacing]}>General</Text>
+        <Text style={[shared.section, styles.sectionSpacing]}>{t('settings.general')}</Text>
         <Pressable
           style={styles.navRow}
           onPress={() => router.push('/notifications' as Parameters<typeof router.push>[0])}
-          accessibilityLabel="Notification settings"
+          accessibilityLabel={t('settings.notificationsA11y')}
         >
           <Bell color={c.muted} size={20} />
-          <Text style={styles.navLabel}>Notifications</Text>
+          <Text style={styles.navLabel}>{t('settings.notifications')}</Text>
           <ChevronRight color={c.subtle} size={20} />
         </Pressable>
         <Pressable
           style={[styles.navRow, styles.navRowSpacing]}
           onPress={() => router.push('/troubleshoot' as Parameters<typeof router.push>[0])}
-          accessibilityLabel="Troubleshoot connection"
+          accessibilityLabel={t('settings.troubleshoot')}
         >
           <LifeBuoy color={c.muted} size={20} />
-          <Text style={styles.navLabel}>Troubleshoot connection</Text>
+          <Text style={styles.navLabel}>{t('settings.troubleshoot')}</Text>
           <ChevronRight color={c.subtle} size={20} />
         </Pressable>
       </View>
@@ -60,9 +70,9 @@ export default function SettingsScreen() {
 
 function makeStyles(c: Palette) {
   return StyleSheet.create({
-    topRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 20 },
-    back: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+    topRow: { marginBottom: 20 },
     card: { gap: 12 },
+    cardDivider: { height: 1, backgroundColor: c.border, marginVertical: 4 },
     sectionSpacing: { marginTop: 24 },
     rowLabel: { color: c.text, fontSize: 16, fontWeight: '700' },
     navRow: {

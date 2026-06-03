@@ -119,6 +119,11 @@ versions. Add a new capability id (never reuse/renumber one) when you ship such 
 Creating a worktree is a **modal** (`src/worktrees/CreateWorktreeModal.tsx`), opened from the
 host screen's add (+) button - there is no dedicated worktree route. It mirrors the desktop
 AddWorktreeDialog (project + base-branch `Dropdown`s, branch-name input, optional agent
-picker; **no Jira** yet) and calls `worktrees.create`. The chosen agent is persisted as the
-terminal screen's default. Removing a worktree is a **long-press** on its row in the host
+picker) and calls `worktrees.create`. When the desktop advertises the `jira.lookup.v1`
+capability and its acli CLI is installed, a **Jira** field resolves a ticket key (via the
+`jira.isAvailable` / `jira.getIssueByKey` RPCs) and prefills the branch name. When the desktop
+advertises `worktree.copy-files.v1`, a **Copy files from main** checklist surfaces the same
+env/secret files the desktop auto-detects (saved `copyFiles` + discovered `.env*`/`.envrc`/etc.
+via `worktrees.copyCandidates`); the selected paths ride along on `worktrees.create`'s
+`filesToCopy`. The chosen agent is persisted as the terminal screen's default. Removing a worktree is a **long-press** on its row in the host
 screen (`worktrees.remove`); the main worktree is never removable.

@@ -7,12 +7,20 @@ import nacl from 'tweetnacl'
  * 1. Mobile sends plaintext: { type: "e2ee_hello", ephemeralPublicKey }
  * 2. Server generates ephemeral keypair, derives shared key
  *    Sends plaintext: { type: "e2ee_ready", serverEphemeralPublicKey }
- * 3. Mobile sends encrypted auth, including its deviceToken.
- * 4. All subsequent messages are NaCl box encrypted.
+ * 3. Mobile sends a sealed auth (see sealJson), including its deviceToken.
+ * 4. All subsequent messages are sealed NaCl boxes (see below).
  *
- * Nonce space is partitioned: server uses even counters, client uses odd,
- * preventing nonce reuse from both sides.
+ * Framing: every message is a self-describing `[24-byte random nonce][ciphertext]`
+ * bundle. A fresh random nonce per message means decryption is stateless and
+ * order-independent - there is no counter both sides must keep in lockstep, so a
+ * dropped, reordered, or send-skipped frame can never desync the stream (the
+ * failure mode that silently froze the mobile terminal). The JSON text channel
+ * and the binary terminal channel are fully independent: a hiccup on one cannot
+ * corrupt the other. XSalsa20's 24-byte nonce is wide enough that random
+ * collisions are negligible. Keep in sync with `mobile-app/src/transport/e2ee.ts`.
  */
+
+const NONCE_BYTES = nacl.box.nonceLength // 24
 
 export function generateKeyPair(): nacl.BoxKeyPair {
   return nacl.box.keyPair()
@@ -30,83 +38,42 @@ export function deriveSharedKey(
 }
 
 /**
- * Generate a 24-byte nonce from a counter value.
- * Server uses even counters (counter * 2), mobile uses odd (counter * 2 + 1).
- * This prevents nonce collision between the two sides.
+ * Encrypt bytes into a self-describing `[nonce][ciphertext]` bundle using a
+ * fresh random nonce. The bundle carries everything {@link openBytes} needs.
  */
-export function generateNonce(counter: number, isServer: boolean): Uint8Array {
-  const nonce = new Uint8Array(nacl.box.nonceLength) // 24 bytes
-  // Write the partitioned counter as a big-endian 64-bit value at the end of the nonce
-  const value = counter * 2 + (isServer ? 0 : 1)
-  const view = new DataView(nonce.buffer)
-  // Use two 32-bit writes for the 64-bit value (high bits at offset 16, low bits at offset 20)
-  view.setUint32(16, Math.floor(value / 0x100000000))
-  view.setUint32(20, value >>> 0)
-  return nonce
+export function sealBytes(plaintext: Uint8Array, sharedKey: Uint8Array): Uint8Array {
+  const nonce = nacl.randomBytes(NONCE_BYTES)
+  const ciphertext = nacl.box.after(plaintext, nonce, sharedKey)
+  const bundle = new Uint8Array(NONCE_BYTES + ciphertext.length)
+  bundle.set(nonce, 0)
+  bundle.set(ciphertext, NONCE_BYTES)
+  return bundle
 }
 
 /**
- * Encrypt a plaintext message using the precomputed shared key.
- * Returns the ciphertext (includes the Poly1305 MAC tag).
+ * Open a `[nonce][ciphertext]` bundle produced by {@link sealBytes}. Returns
+ * null on a truncated bundle or failed authentication, so callers can drop a
+ * single bad frame without tearing down the session.
  */
-export function encrypt(
-  plaintext: Uint8Array,
-  sharedKey: Uint8Array,
-  nonce: Uint8Array
-): Uint8Array {
-  return nacl.box.after(plaintext, nonce, sharedKey)
-}
-
-/**
- * Decrypt a ciphertext message using the precomputed shared key.
- * Returns null if authentication fails (tampered or wrong key).
- */
-export function decrypt(
-  ciphertext: Uint8Array,
-  sharedKey: Uint8Array,
-  nonce: Uint8Array
-): Uint8Array | null {
+export function openBytes(bundle: Uint8Array, sharedKey: Uint8Array): Uint8Array | null {
+  if (bundle.length < NONCE_BYTES + nacl.box.overheadLength) return null
+  const nonce = bundle.subarray(0, NONCE_BYTES)
+  const ciphertext = bundle.subarray(NONCE_BYTES)
   return nacl.box.open.after(ciphertext, nonce, sharedKey)
 }
 
-/**
- * Encrypt a JSON object, returning a base64-encoded string ready for WebSocket.
- * @param isServer - true if the server is encrypting, false if the client is encrypting
- */
-export function encryptJson(
-  data: unknown,
-  sharedKey: Uint8Array,
-  counter: number,
-  isServer = true
-): { encrypted: string; nextCounter: number } {
+/** Seal a JSON value into a base64 string ready for a WebSocket text frame. */
+export function sealJson(data: unknown, sharedKey: Uint8Array): string {
   const plaintext = new TextEncoder().encode(JSON.stringify(data))
-  const nonce = generateNonce(counter, isServer)
-  const ciphertext = encrypt(plaintext, sharedKey, nonce)
-  return {
-    encrypted: Buffer.from(ciphertext).toString('base64'),
-    nextCounter: counter + 1,
-  }
+  return Buffer.from(sealBytes(plaintext, sharedKey)).toString('base64')
 }
 
-/**
- * Decrypt a base64-encoded encrypted message back to a JSON object.
- * Returns null if decryption or JSON parse fails.
- * @param senderIsServer - true if the message was encrypted by the server, false if by the client
- */
-export function decryptJson<T = unknown>(
-  encrypted: string,
-  sharedKey: Uint8Array,
-  counter: number,
-  senderIsServer = true
-): { data: T; nextCounter: number } | null {
+/** Open a base64 bundle from {@link sealJson} back to a JSON value, or null. */
+export function openJson<T = unknown>(payload: string, sharedKey: Uint8Array): T | null {
   try {
-    const ciphertext = Buffer.from(encrypted, 'base64')
-    // Use the same nonce the sender used to encrypt
-    const nonce = generateNonce(counter, senderIsServer)
-    const plaintext = decrypt(new Uint8Array(ciphertext), sharedKey, nonce)
-    if (!plaintext) return null
-    const data = JSON.parse(new TextDecoder().decode(plaintext)) as T
-    return { data, nextCounter: counter + 1 }
+    const opened = openBytes(new Uint8Array(Buffer.from(payload, 'base64')), sharedKey)
+    if (!opened) return null
+    return JSON.parse(new TextDecoder().decode(opened)) as T
   } catch {
     return null
   }

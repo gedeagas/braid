@@ -16,8 +16,13 @@
 // Bump MIN_COMPATIBLE_MOBILE_VERSION (the desktop-side kill switch) only when an
 // old mobile build can no longer talk to this desktop safely - it hard-blocks
 // those clients via the compatibility verdict.
-export const MOBILE_PROTOCOL_VERSION = 4
-export const MIN_COMPATIBLE_MOBILE_VERSION = 1
+// v5: e2ee framing switched from a shared lockstep nonce counter to a
+// self-describing `[random nonce][ciphertext]` bundle per message. This is a
+// breaking change to the encrypted wire format, and v4 (and older) clients
+// cannot complete the handshake against a v5 desktop, so the kill switch moves
+// in lockstep to hard-block them with a clear "update required" verdict.
+export const MOBILE_PROTOCOL_VERSION = 5
+export const MIN_COMPATIBLE_MOBILE_VERSION = 5
 export const DEFAULT_MOBILE_PORT = 6839
 
 // Capability ids advertised by the desktop in `status.get`. Each is an additive,
@@ -30,6 +35,8 @@ export const MOBILE_CAPABILITIES = [
   'terminal.subscribe-snapshot.v1', // scrollback snapshot returned in terminal.subscribe result
   'terminal.presence.v1', // terminal.presence RPC: is a terminal open on the desktop / another device
   'github.pr-status.v1', // github.prStatus RPC: per-worktree PR state (open/merged/closed) when gh CLI is available
+  'jira.lookup.v1', // jira.isAvailable / jira.getIssueByKey RPCs: resolve a Jira ticket for worktree creation when the acli CLI is available
+  'worktree.copy-files.v1', // worktrees.copyCandidates RPC + worktrees.create filesToCopy param: copy env/secret files from the main worktree into a new one
 ] as const
 
 export type MobileCapability = (typeof MOBILE_CAPABILITIES)[number] | (string & {})

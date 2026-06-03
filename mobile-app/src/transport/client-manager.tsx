@@ -256,6 +256,16 @@ function createManager(): ClientManager & {
         emit();
         return;
       }
+      // Superseded (4000): a newer connection from this device took over (the
+      // desktop allows one per device). Do NOT reconnect - reconnecting here is
+      // what creates the infinite connect loop when a duplicate client briefly
+      // exists. The newer connection is the live one.
+      if (reason.superseded) {
+        entry.state = 'disconnected';
+        pushLog(entry, 'info', 'Connection superseded', 'Replaced by a newer connection (4000)');
+        emit();
+        return;
+      }
       entry.state = 'reconnecting';
       pushLog(entry, 'warn', 'Connection dropped', 'Will attempt to reconnect');
       emit();
@@ -266,6 +276,24 @@ function createManager(): ClientManager & {
 
   const acquireHost = (host: PairedHost): BraidRpcClient => {
     let entry = entries.get(host.id);
+    // The client mutates host.id from the pairing-offer id to the real deviceId
+    // after the first auth (rpc-client.ts). The desktop allows one connection per
+    // device, so a *second* entry for the same desktop (same endpoint) would make
+    // the two sockets evict each other in an infinite loop - the classic
+    // first-pair connect loop. Before creating a new entry, reuse an existing one
+    // for this endpoint and re-key it under the (possibly new) id.
+    if (!entry) {
+      for (const [key, existing] of entries) {
+        if (existing.host.endpoint !== host.endpoint) continue;
+        entry = existing;
+        entry.host = host;
+        if (key !== host.id) {
+          entries.delete(key);
+          entries.set(host.id, entry);
+        }
+        break;
+      }
+    }
     if (!entry) {
       entry = makeEntry(host);
       entries.set(host.id, entry);

@@ -147,8 +147,8 @@ describe('RPC Dispatch', () => {
     expect(res.result).toBeDefined()
     const result = res.result as Record<string, unknown>
     expect(result.version).toBe('1.0.0')
-    expect(result.protocolVersion).toBe(4)
-    expect(result.minCompatibleMobileVersion).toBe(1)
+    expect(result.protocolVersion).toBe(5)
+    expect(result.minCompatibleMobileVersion).toBe(5)
     expect(result.capabilities).toContain('terminal.binary-stream.v1')
     expect(result.projects).toHaveLength(1)
   })
@@ -383,6 +383,18 @@ describe('RPC Dispatch', () => {
     // conn.subscribeSnapshot defaults to false (legacy client).
     const res = await dispatch(req, conn)
     expect((res.result as Record<string, unknown>).snapshot).toBeUndefined()
+  })
+
+  it('terminal.subscribe returns the PTY current size so the device inits xterm to match', async () => {
+    const req: JsonRpcRequest = {
+      jsonrpc: '2.0', id: 27, method: 'terminal.subscribe', params: { ptyId: 'pty-1' },
+    }
+    const res = await dispatch(req, conn)
+    const result = res.result as Record<string, unknown>
+    // Mocked getSize -> 120x40; the device inits its xterm at this width so the
+    // snapshot (serialized at the same size) is laid out without wrap garble.
+    expect(result.cols).toBe(120)
+    expect(result.rows).toBe(40)
   })
 
   it('terminal.subscribe returns the budgeted scrollback snapshot for capable clients', async () => {

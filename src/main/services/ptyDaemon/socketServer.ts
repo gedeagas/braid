@@ -8,7 +8,8 @@
 import { createServer, type Server, type Socket } from 'net'
 import { existsSync, unlinkSync, mkdirSync } from 'fs'
 import { dirname } from 'path'
-import { SOCKET_PATH, encode, decode, type DaemonRequest, type DaemonEvent } from './protocol'
+import { SOCKET_PATH, SOCKET_IS_FILE, encode, decode, type DaemonRequest, type DaemonEvent } from './protocol'
+import { defaultShellPath } from '../../lib/shell'
 import type { SessionHost } from './sessionHost'
 
 /** Maximum NDJSON line length (1 MB). Prevents memory exhaustion from malformed input. */
@@ -43,13 +44,16 @@ export class SocketServer {
     this.onClientDisconnect = onDisconnect
   }
 
-  /** Start listening on the Unix domain socket. */
+  /** Start listening on the local IPC endpoint (Unix socket or Windows pipe). */
   async start(): Promise<void> {
-    mkdirSync(dirname(SOCKET_PATH), { recursive: true, mode: 0o700 })
-
-    // Remove stale socket file if present
-    if (existsSync(SOCKET_PATH)) {
-      unlinkSync(SOCKET_PATH)
+    // Only POSIX Unix sockets are filesystem entries that need a parent dir and
+    // stale-file cleanup. Windows named pipes are kernel objects with no path on
+    // disk, and `dirname()` of a pipe ("\\.\pipe") is not a creatable directory.
+    if (SOCKET_IS_FILE) {
+      mkdirSync(dirname(SOCKET_PATH), { recursive: true, mode: 0o700 })
+      if (existsSync(SOCKET_PATH)) {
+        unlinkSync(SOCKET_PATH)
+      }
     }
 
     // Wire up session host events to broadcast to attached clients
@@ -148,7 +152,7 @@ export class SocketServer {
         case 'spawn':
           await this.host.spawn(
             req.sessionId, req.cwd, req.cols, req.rows,
-            req.shell || process.env.SHELL || '/bin/zsh',
+            req.shell || process.env.SHELL || defaultShellPath(),
             req.env,
             req.bufferMaxLength,
           )
