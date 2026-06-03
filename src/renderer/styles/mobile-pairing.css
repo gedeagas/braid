@@ -641,6 +641,136 @@
   line-height: var(--leading-relaxed);
 }
 
+/* Paired success state - the celebratory moment after a phone consumes the QR */
+
+.mobile-paired {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-12) 0 var(--space-4);
+  text-align: center;
+  animation: mobile-paired-in 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.mobile-paired-burst {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 132px;
+  height: 132px;
+}
+
+.mobile-paired-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border: 1px solid color-mix(in srgb, var(--green) 44%, transparent);
+  border-radius: var(--radius-full);
+  transform: translate(-50%, -50%);
+  animation: mobile-paired-pulse 2.6s ease-out infinite;
+}
+
+.mobile-paired-ring--one {
+  width: 86px;
+  height: 86px;
+}
+
+.mobile-paired-ring--two {
+  width: 122px;
+  height: 122px;
+  animation-delay: -1.3s;
+}
+
+.mobile-paired-badge {
+  position: relative;
+  z-index: var(--z-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 66px;
+  height: 66px;
+  border: 1px solid color-mix(in srgb, var(--green) 55%, transparent);
+  border-radius: var(--radius-full);
+  background:
+    linear-gradient(150deg, color-mix(in srgb, var(--green) 30%, var(--bg-secondary)), color-mix(in srgb, var(--green) 14%, var(--bg-secondary)));
+  color: var(--green);
+  box-shadow:
+    0 14px 36px color-mix(in srgb, var(--green) 34%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--green) 22%, transparent);
+  animation: mobile-paired-pop 520ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.mobile-paired-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+}
+
+.mobile-paired-device {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-height: 28px;
+  gap: var(--space-6);
+  padding: var(--space-4) var(--space-10);
+  border: 1px solid color-mix(in srgb, var(--green) 30%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--green) 10%, transparent);
+  color: var(--text-primary);
+}
+
+.mobile-paired-device-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.mobile-paired-e2ee {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding-left: var(--space-8);
+  border-left: 1px solid color-mix(in srgb, var(--green) 28%, transparent);
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+}
+
+.mobile-paired-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-8);
+  margin-top: var(--space-2);
+}
+
+.mobile-paired-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+@keyframes mobile-paired-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes mobile-paired-pop {
+  0% { opacity: 0; transform: scale(0.4); }
+  60% { opacity: 1; transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+@keyframes mobile-paired-pulse {
+  0% { opacity: 0.7; transform: translate(-50%, -50%) scale(0.66); }
+  70% { opacity: 0; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.16); }
+}
+
 .mobile-pair-disabled {
   padding: var(--space-14);
   border: 1px dashed color-mix(in srgb, var(--border) 88%, var(--accent));
@@ -1082,7 +1212,10 @@
   .mobile-cta-scan,
   .mobile-device-beam,
   .mobile-phone,
-  .mobile-phone-terminal-bars i {
+  .mobile-phone-terminal-bars i,
+  .mobile-paired,
+  .mobile-paired-badge,
+  .mobile-paired-ring {
     animation: none;
   }
 }

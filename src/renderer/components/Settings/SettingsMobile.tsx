@@ -14,6 +14,7 @@ import {
   IconSmartphone,
   IconLock,
   IconSparkle,
+  IconCheckmark,
   IconCopy,
   IconRefresh,
   IconGlobe,
@@ -135,17 +136,24 @@ export function SettingsMobile() {
   const { copied: copiedEndpoint, handleCopy: handleCopyEndpoint } = useCopyToClipboard(state.ngrokTunnel.endpoint ?? '')
 
   const loadData = useCallback(async () => {
-    try {
-      const [status, devices, tunnel] = await Promise.all([
-        ipc.mobile.getStatus(),
-        ipc.mobile.getDevices(),
-        ipc.mobile.getNgrokTunnelStatus(),
-      ])
-      dispatch({ type: 'SET_STATUS', running: status.running, port: status.port, connectedDevices: status.connectedDevices })
-      dispatch({ type: 'SET_DEVICES', devices: devices as MobileDevice[] })
-      dispatch({ type: 'SET_NGROK_TUNNEL', tunnel: tunnel as NgrokTunnelStatus })
-    } catch {
-      // Server may not be running
+    // Settle each call independently. A single failing IPC (e.g. ngrok status
+    // while a tunnel is mid-start) must NOT blank the device list / connected
+    // indicators - which is exactly what an all-or-nothing Promise.all in a
+    // swallowing try/catch did, leaving a freshly paired phone invisible on the
+    // desktop until a full reconnect.
+    const [status, devices, tunnel] = await Promise.allSettled([
+      ipc.mobile.getStatus(),
+      ipc.mobile.getDevices(),
+      ipc.mobile.getNgrokTunnelStatus(),
+    ])
+    if (status.status === 'fulfilled') {
+      dispatch({ type: 'SET_STATUS', running: status.value.running, port: status.value.port, connectedDevices: status.value.connectedDevices })
+    }
+    if (devices.status === 'fulfilled') {
+      dispatch({ type: 'SET_DEVICES', devices: devices.value as MobileDevice[] })
+    }
+    if (tunnel.status === 'fulfilled') {
+      dispatch({ type: 'SET_NGROK_TUNNEL', tunnel: tunnel.value as NgrokTunnelStatus })
     }
   }, [])
 
@@ -168,15 +176,18 @@ export function SettingsMobile() {
     }
   }, [loadData])
 
-  // Fallback to the push event above: while a QR is on screen, poll the device
-  // list. This catches the pairing even if the 'mobile:deviceConnected' event is
-  // missed (e.g. a stale preload after a hot-reload), using only the pre-existing
-  // getStatus/getDevices IPC. Stops as soon as the QR is gone.
+  // Reliable backbone behind the push 'mobile:deviceConnected' event: while the
+  // server is up, poll status/devices so the connected indicators and paired
+  // list self-heal even if that event is missed (a stale preload after a
+  // hot-reload, or a first-pair race). Previously this was gated on the QR being
+  // on screen, so a missed event left a freshly paired - and on the phone,
+  // solidly connected - device invisible on the desktop until a full reconnect.
+  // Only runs while this page is mounted; the cleanup clears it on unmount.
   useEffect(() => {
-    if (!state.qrDataUrl) return
-    const timer = setInterval(() => { void loadData() }, 2500)
+    if (!state.serverRunning) return
+    const timer = setInterval(() => { void loadData() }, 2000)
     return () => clearInterval(timer)
-  }, [state.qrDataUrl, loadData])
+  }, [state.serverRunning, loadData])
 
   // When the device list gains an entry that wasn't paired when this QR was
   // generated, that's the scan we were waiting for - swap the QR for success.
@@ -392,17 +403,31 @@ export function SettingsMobile() {
           {running ? (
             <div className="mobile-pair-body">
               {state.justPaired ? (
-                <div className="mobile-pair-cta">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)' }} aria-hidden="true">
-                    <StatusDot state="success" />
-                    <IconSmartphone size={20} />
+                <div className="mobile-paired">
+                  <div className="mobile-paired-burst" aria-hidden="true">
+                    <span className="mobile-paired-ring mobile-paired-ring--one" />
+                    <span className="mobile-paired-ring mobile-paired-ring--two" />
+                    <span className="mobile-paired-badge">
+                      <IconCheckmark size={32} />
+                    </span>
                   </div>
-                  <h4 className="mobile-pair-title" style={{ margin: 0 }}>{t('mobile.pairedTitle')}</h4>
+                  <h4 className="mobile-paired-title">{t('mobile.pairedTitle')}</h4>
+                  <span className="mobile-paired-device">
+                    <StatusDot state="success" />
+                    <IconSmartphone size={13} />
+                    <span className="mobile-paired-device-name">{state.justPaired.name || t('mobile.unnamed')}</span>
+                    <span className="mobile-paired-e2ee"><IconLock size={10} />E2EE</span>
+                  </span>
                   <p className="mobile-pair-cta-text">{t('mobile.pairedDesc', { name: state.justPaired.name || t('mobile.unnamed') })}</p>
-                  <Button onClick={() => { dispatch({ type: 'SET_JUST_PAIRED', device: null }); void handleGeneratePairing() }} disabled={state.loading}>
-                    <IconSparkle size={14} />
-                    {t('mobile.pairAnother')}
-                  </Button>
+                  <div className="mobile-paired-actions">
+                    <Button variant="primary" onClick={() => { dispatch({ type: 'SET_JUST_PAIRED', device: null }); void handleGeneratePairing() }} disabled={state.loading}>
+                      <IconSparkle size={14} />
+                      {t('mobile.pairAnother')}
+                    </Button>
+                    <Button onClick={() => dispatch({ type: 'SET_JUST_PAIRED', device: null })}>
+                      {t('mobile.pairedDone')}
+                    </Button>
+                  </div>
                 </div>
               ) : state.qrDataUrl ? (
                 <>

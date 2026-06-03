@@ -26,6 +26,13 @@ export interface LocalNotificationData {
 
 export interface NotificationNavigationOptions {
   knownHostIds?: ReadonlySet<string>;
+  /**
+   * Maps a desktop instance id (`serverPublicKey`) to the local paired-host id.
+   * Remote push payloads carry `desktopId` instead of `hostId` (the desktop
+   * doesn't know our local host id), so this resolves them back to a routable
+   * host. Local (WS) notifications already embed `hostId` and skip this.
+   */
+  hostIdByDesktopId?: ReadonlyMap<string, string>;
 }
 
 function readNonEmptyString(value: unknown): string | null {
@@ -54,7 +61,12 @@ export function getNotificationNavigationPath(
   if (!data || typeof data !== 'object') return null;
 
   const record = data as Record<string, unknown>;
-  const hostId = readNonEmptyString(record.hostId);
+  // Local notifications embed `hostId`; remote push embeds `desktopId` (the
+  // desktop's instance id), which we resolve to a local host id.
+  const desktopId = readNonEmptyString(record.desktopId);
+  const hostId =
+    readNonEmptyString(record.hostId) ??
+    (desktopId ? options.hostIdByDesktopId?.get(desktopId) ?? null : null);
   if (!hostId) return null;
   if (options.knownHostIds && !options.knownHostIds.has(hostId)) return null;
 

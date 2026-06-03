@@ -28,12 +28,13 @@ import Animated, {
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import i18n from '@/i18n';
+import { unregisterFromPushAsync } from '@/notifications/mobile-notifications';
 import { getNotificationNavigationPath } from '@/notifications/notification-routing';
 import { useClientManager } from '@/transport/client-manager';
 import { classifyConnection, isErrorVerdict, type ConnectionVerdict } from '@/transport/connection-health';
 import { loadHosts, removeHost, saveHosts, upsertHost } from '@/transport/host-store';
 import { type BonjourHost, matchesDiscoveredHost, mergeDiscoveredEndpoint, startBonjourBrowser } from '@/transport/bonjour';
-import { createHostFromOffer, parsePairingPayload } from '@/transport/rpc-client';
+import { createHostFromOffer, parsePairingPayload, type BraidRpcClient } from '@/transport/rpc-client';
 import type { BraidStatus, BraidTerminal, PairedHost, ProviderRateLimits, RateLimitState } from '@/transport/types';
 import { AgentIcon } from '@/terminal/AgentIcon';
 import { RateLimitSection } from '@/usage/RateLimitSection';
@@ -52,6 +53,23 @@ interface HostSnapshot {
   terminals: BraidTerminal[];
   agentTimeMs: number;
   rateLimits?: RateLimitState | null;
+}
+
+// Fetch a host's Claude/Codex usage. `fresh` (user-initiated pull-to-refresh or
+// the refresh button) asks the desktop to re-poll the providers via
+// `rateLimits.refresh` so the numbers actually move; otherwise we take the cheap
+// cached `rateLimits.get` (used by initial load and activity-driven refreshes, so
+// a terminal event doesn't re-poll the CLIs every time). Both paths are
+// best-effort: a desktop too old to expose either RPC (or a transient failure)
+// returns undefined, and the caller keeps the last known value. On a forced
+// refresh we fall back to `.get` so an old desktop without `.refresh` still shows
+// cached usage instead of nothing - so this needs no protocol bump or capability.
+async function fetchUsage(client: BraidRpcClient, fresh: boolean): Promise<RateLimitState | undefined> {
+  if (fresh) {
+    const refreshed = await client.request<RateLimitState>('rateLimits.refresh').catch(() => undefined);
+    if (refreshed) return refreshed;
+  }
+  return client.request<RateLimitState>('rateLimits.get').catch(() => undefined);
 }
 
 /** An agent that needs the user: waiting for input, or just finished. */
@@ -104,7 +122,7 @@ function FreshHomeScreen() {
 
   useEffect(() => manager.subscribe(bump), [manager]);
 
-  const refreshHost = useCallback(async (host: PairedHost) => {
+  const refreshHost = useCallback(async (host: PairedHost, opts?: { freshUsage?: boolean }) => {
     setSnapshots((current) => ({
       ...current,
       [host.id]: {
@@ -121,7 +139,7 @@ function FreshHomeScreen() {
       const status = await client.request<BraidStatus>('status.get');
       const terminals = await client.request<BraidTerminal[]>('terminal.list');
       const agentTimeMs = terminals.reduce((sum, terminal) => sum + (terminal.totalRunDurationMs ?? 0), 0);
-      const rateLimits = await client.request<RateLimitState>('rateLimits.get').catch(() => undefined);
+      const rateLimits = await fetchUsage(client, opts?.freshUsage === true);
       const saved = await upsertHost(host);
       setHosts(saved);
       setSnapshots((current) => ({
@@ -150,8 +168,8 @@ function FreshHomeScreen() {
     }
   }, [manager]);
 
-  const refreshAll = useCallback((items: PairedHost[]) => {
-    for (const host of items) void refreshHost(host);
+  const refreshAll = useCallback((items: PairedHost[], opts?: { freshUsage?: boolean }) => {
+    for (const host of items) void refreshHost(host, opts);
   }, [refreshHost]);
 
   useEffect(() => {
@@ -176,7 +194,7 @@ function FreshHomeScreen() {
   const onPullRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all(hosts.map((host) => refreshHost(host)));
+      await Promise.all(hosts.map((host) => refreshHost(host, { freshUsage: true })));
     } finally {
       setRefreshing(false);
     }
@@ -350,7 +368,19 @@ function FreshHomeScreen() {
         text: i18n.t('common.remove'),
         style: 'destructive',
         onPress: async () => {
+          // Tell the desktop to forget our push token (while still connected) so
+          // it stops sending background notifications, then drop the live
+          // connection: removing only from storage leaves the client-manager entry
+          // alive, so it keeps the socket open (and keeps reconnecting + presenting
+          // notifications) for a desktop the user just removed. dropHost closes the
+          // socket and tears down the listener.
+          await manager.unregisterPush(host.id);
+          manager.dropHost(host.id);
           const next = await removeHost(host.id);
+          // No desktops left: tear down push registration entirely so any desktop
+          // that was offline at removal self-cleans via DeviceNotRegistered on its
+          // next push, instead of waiting out the token TTL.
+          if (next.length === 0) await unregisterFromPushAsync();
           setHosts(next);
           setSnapshots((current) => {
             const copy = { ...current };
@@ -360,7 +390,7 @@ function FreshHomeScreen() {
         },
       },
     ]);
-  }, []);
+  }, [manager]);
 
   const statusLine = counts.needInput > 0
     ? t('home.statusNeedInput', { count: counts.needInput })
@@ -394,7 +424,7 @@ function FreshHomeScreen() {
           </View>
           <View style={styles.topActions}>
             <IconButton icon={<QrCode color={COLORS.text} size={19} />} onPress={() => void openScanner()} accessibilityLabel={t('home.pairDesktop')} variant="panel" size="sm" />
-            <IconButton icon={<RefreshCw color={COLORS.text} size={19} />} onPress={() => refreshAll(hosts)} accessibilityLabel={t('common.refresh')} variant="panel" size="sm" />
+            <IconButton icon={<RefreshCw color={COLORS.text} size={19} />} onPress={() => refreshAll(hosts, { freshUsage: true })} accessibilityLabel={t('common.refresh')} variant="panel" size="sm" />
             <IconButton icon={<Settings color={COLORS.text} size={19} />} onPress={() => router.push('/settings' as Parameters<typeof router.push>[0])} accessibilityLabel={t('home.settings')} variant="panel" size="sm" />
           </View>
         </View>
@@ -796,7 +826,7 @@ function LegacyHomeScreen() {
   // pull-to-refresh.
   useEffect(() => manager.subscribe(bump), [manager]);
 
-  const refreshHost = useCallback(async (host: PairedHost) => {
+  const refreshHost = useCallback(async (host: PairedHost, opts?: { freshUsage?: boolean }) => {
     setSnapshots((current) => ({
       ...current,
       [host.id]: {
@@ -818,7 +848,7 @@ function LegacyHomeScreen() {
       const agentTimeMs = terminals.reduce((sum, terminal) => sum + (terminal.totalRunDurationMs ?? 0), 0);
       // Best-effort: older desktops won't expose rateLimits.get, so a failure
       // here must not knock the host offline - fall back to the last value.
-      const rateLimits = await client.request<RateLimitState>('rateLimits.get').catch(() => undefined);
+      const rateLimits = await fetchUsage(client, opts?.freshUsage === true);
       const saved = await upsertHost(host);
       setHosts(saved);
       setSnapshots((current) => ({
@@ -847,8 +877,8 @@ function LegacyHomeScreen() {
     }
   }, [manager]);
 
-  const refreshAll = useCallback((items: PairedHost[]) => {
-    for (const host of items) void refreshHost(host);
+  const refreshAll = useCallback((items: PairedHost[], opts?: { freshUsage?: boolean }) => {
+    for (const host of items) void refreshHost(host, opts);
   }, [refreshHost]);
 
   // Pull-to-refresh: awaits every host so the spinner stays until the slowest
@@ -856,7 +886,7 @@ function LegacyHomeScreen() {
   const onPullRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all(hosts.map((host) => refreshHost(host)));
+      await Promise.all(hosts.map((host) => refreshHost(host, { freshUsage: true })));
     } finally {
       setRefreshing(false);
     }
@@ -977,7 +1007,19 @@ function LegacyHomeScreen() {
         text: i18n.t('common.remove'),
         style: 'destructive',
         onPress: async () => {
+          // Tell the desktop to forget our push token (while still connected) so
+          // it stops sending background notifications, then drop the live
+          // connection: removing only from storage leaves the client-manager entry
+          // alive, so it keeps the socket open (and keeps reconnecting + presenting
+          // notifications) for a desktop the user just removed. dropHost closes the
+          // socket and tears down the listener.
+          await manager.unregisterPush(host.id);
+          manager.dropHost(host.id);
           const next = await removeHost(host.id);
+          // No desktops left: tear down push registration entirely so any desktop
+          // that was offline at removal self-cleans via DeviceNotRegistered on its
+          // next push, instead of waiting out the token TTL.
+          if (next.length === 0) await unregisterFromPushAsync();
           setHosts(next);
           setSnapshots((current) => {
             const copy = { ...current };
@@ -987,7 +1029,7 @@ function LegacyHomeScreen() {
         },
       },
     ]);
-  }, []);
+  }, [manager]);
 
   const sortedSnapshots = useMemo(
     () => hosts.map((host) => snapshots[host.id] ?? { host, state: 'idle' as const, terminals: [], agentTimeMs: 0 }),
@@ -1146,7 +1188,7 @@ function LegacyHomeScreen() {
             <Pressable style={styles.iconButton} onPress={() => router.push('/settings' as Parameters<typeof router.push>[0])} accessibilityLabel={t('home.settings')}>
               <Settings color={COLORS.muted} size={18} />
             </Pressable>
-            <Pressable style={styles.iconButton} onPress={() => refreshAll(hosts)} accessibilityLabel={t('common.refresh')}>
+            <Pressable style={styles.iconButton} onPress={() => refreshAll(hosts, { freshUsage: true })} accessibilityLabel={t('common.refresh')}>
               <RefreshCw color={COLORS.muted} size={18} />
             </Pressable>
           </View>

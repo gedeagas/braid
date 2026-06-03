@@ -7,19 +7,24 @@ import {
   ensureNotificationPermissions,
   getNotificationPermissionState,
   loadPushNotificationsEnabled,
+  loadRemotePushEnabled,
   savePushNotificationsEnabled,
+  saveRemotePushEnabled,
   type NotificationPermissionState,
 } from '@/notifications/mobile-notifications';
+import { useClientManager } from '@/transport/client-manager';
 import { useShared, useTheme, useThemedStyles, type Palette } from '@/ui/theme';
 import { Button, Card, Screen, ScreenHeader } from '@/ui/kit';
 
 interface State {
   pushEnabled: boolean;
+  remotePushEnabled: boolean;
   permission: NotificationPermissionState;
 }
 
 const INITIAL: State = {
   pushEnabled: false,
+  remotePushEnabled: true,
   permission: { granted: false, status: 'undetermined', canAskAgain: true },
 };
 
@@ -28,14 +33,16 @@ export default function NotificationsScreen() {
   const { palette: c } = useTheme();
   const shared = useShared();
   const styles = useThemedStyles(makeStyles);
+  const manager = useClientManager();
   const [state, patch] = useReducer((prev: State, next: Partial<State>) => ({ ...prev, ...next }), INITIAL);
 
   const refresh = useCallback(async () => {
-    const [pushEnabled, permission] = await Promise.all([
+    const [pushEnabled, remotePushEnabled, permission] = await Promise.all([
       loadPushNotificationsEnabled(),
+      loadRemotePushEnabled(),
       getNotificationPermissionState(),
     ]);
-    patch({ pushEnabled, permission });
+    patch({ pushEnabled, remotePushEnabled, permission });
   }, []);
 
   // Re-check on focus and when returning from the system Settings app, so the
@@ -55,6 +62,8 @@ export default function NotificationsScreen() {
       if (!granted) {
         patch({ pushEnabled: false, permission });
         await savePushNotificationsEnabled(false);
+        // Nothing was registered, but stay defensive and clear any token.
+        void manager.syncPushRegistration(false);
         return;
       }
       patch({ pushEnabled: true, permission });
@@ -62,6 +71,18 @@ export default function NotificationsScreen() {
       patch({ pushEnabled: false });
     }
     await savePushNotificationsEnabled(value);
+    // Push the change to connected desktops: register the token only when the
+    // master AND the background sub-toggle are on; otherwise have every desktop
+    // forget it (remote pushes show via the OS regardless of in-app state, so
+    // disabling must reach the desktop).
+    void manager.syncPushRegistration(value && state.remotePushEnabled);
+  };
+
+  const toggleRemotePush = async (value: boolean) => {
+    patch({ remotePushEnabled: value });
+    await saveRemotePushEnabled(value);
+    // Only register when the master is also on and permission is granted.
+    void manager.syncPushRegistration(value && state.pushEnabled && state.permission.granted);
   };
 
   const blocked = state.permission.status === 'denied';
@@ -90,6 +111,20 @@ export default function NotificationsScreen() {
           {blocked && (
             <Button label={t('notifications.openSettings')} variant="secondary" onPress={() => void Linking.openSettings()} />
           )}
+        </Card>
+
+        <Card style={styles.card}>
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>{t('notifications.backgroundLabel')}</Text>
+            <Switch
+              value={switchOn && state.remotePushEnabled}
+              disabled={!switchOn}
+              onValueChange={(v) => void toggleRemotePush(v)}
+              trackColor={{ false: c.panelStrong, true: c.accent }}
+              thumbColor={c.text}
+            />
+          </View>
+          <Text style={shared.muted}>{t('notifications.backgroundHint')}</Text>
         </Card>
       </View>
     </Screen>

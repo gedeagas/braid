@@ -737,7 +737,13 @@ export function registerIpcHandlers(): void {
     return mobileNgrokTunnel.getStatus()
   })
   ipcMain.handle('mobile:getDevices', () => deviceStore.load())
-  ipcMain.handle('mobile:removeDevice', (_e, deviceId: string) => deviceStore.removeDevice(deviceId))
+  ipcMain.handle('mobile:removeDevice', (_e, deviceId: string) => {
+    // Drop the live socket first so its notification subscription stops firing,
+    // then forget the device. Order matters: removing from the store alone leaves
+    // an open connection that keeps pushing notifications to the phone.
+    mobileServer.disconnectDevice(deviceId)
+    deviceStore.removeDevice(deviceId)
+  })
 
   // LSP
   ipcMain.handle('lsp:detectServers', (_e, projectPath: string, userConfigs: LspServerConfig[]) =>

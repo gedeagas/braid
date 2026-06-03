@@ -497,6 +497,7 @@
     "pairedTitle": "已连接！",
     "pairedDesc": "{{name}} 已与此桌面配对。",
     "pairAnother": "配对其他设备",
+    "pairedDone": "完成",
     "copyCode": "复制代码",
     "copiedCode": "已复制",
     "pairingHint": "使用 Braid 移动应用扫描此二维码。每个代码仅限一次使用。",

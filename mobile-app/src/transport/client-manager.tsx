@@ -11,7 +11,7 @@ import { loadHosts } from '@/transport/host-store';
 import { BraidAuthError, BraidRpcClient } from '@/transport/rpc-client';
 import type { ConnectionLogEntry, ConnectionLogLevel, ConnectionState } from '@/transport/connection-health';
 import type { PairedHost, RpcNotification } from '@/transport/types';
-import { scheduleDesktopNotification } from '@/notifications/mobile-notifications';
+import { registerForPushTokenAsync, scheduleDesktopNotification } from '@/notifications/mobile-notifications';
 import type { DesktopNotificationParams } from '@/notifications/notification-routing';
 
 const RECONNECT_BASE_MS = 1_000;
@@ -34,7 +34,6 @@ interface Entry {
   state: HostConnectionState;
   /** Consecutive failed/dropped connect attempts; drives reconnect backoff. */
   attempt: number;
-  notifSubId: string | null;
   offNotification: (() => void) | null;
   offClose: (() => void) | null;
   offOpen: (() => void) | null;
@@ -55,6 +54,20 @@ export interface ClientManager {
   acquireHost: (host: PairedHost) => BraidRpcClient;
   getClient: (hostId: string) => BraidRpcClient | null;
   dropHost: (hostId: string) => void;
+  /**
+   * Tell the desktop to forget this device's push token so it stops sending
+   * background notifications. Best-effort and only effective while connected;
+   * call it before dropHost on host removal so a removed desktop goes quiet
+   * (otherwise the desktop keeps the token and keeps pushing to the phone).
+   */
+  unregisterPush: (hostId: string) => Promise<void>;
+  /**
+   * Apply the device-wide "desktop notifications" toggle to every connected
+   * desktop: register this device's push token everywhere when enabled, or tell
+   * every desktop to forget it when disabled. Disabling must reach the desktop
+   * because remote pushes are shown by the OS regardless of in-app state.
+   */
+  syncPushRegistration: (enabled: boolean) => Promise<void>;
   /** Current connection state for a host (for UI status). */
   getState: (hostId: string) => HostConnectionState;
   /** Consecutive failed reconnect attempts (0 when connected/idle). */
@@ -123,15 +136,29 @@ function createManager(): ClientManager & {
 
   // Subscribe to desktop notifications once. On later reconnects the client's
   // resendSubscriptions() replays this automatically, so we never re-subscribe.
+  //
+  // Fire-and-forget: the notification subscription lives for the whole
+  // connection, so we never unsubscribe it explicitly (and thus don't track the
+  // returned id). dropHost()'s clearSubscriptions() + close() tears it down, and
+  // the desktop drops every subscription when the socket closes - so an explicit
+  // notifications.unsubscribe RPC would only race that close, never beat it.
   function subscribeNotifications(entry: Entry): void {
-    entry.client
-      .subscribe('notifications.subscribe')
-      .then((id) => {
-        entry.notifSubId = id;
-      })
-      .catch(() => {
-        // Retried on the next reconnect via resendSubscriptions().
-      });
+    entry.client.subscribe('notifications.subscribe').catch(() => {
+      // Retried on the next reconnect via resendSubscriptions().
+    });
+  }
+
+  // Hand the desktop this device's Expo push token so it can alert us while
+  // backgrounded (the socket is closed then). Fire-and-forget and best-effort:
+  // a desktop too old to support push answers method-not-found (ignored), and a
+  // device without push provisioned gets a null token (skipped). The desktop
+  // persists the token, so we only register on first connect, not every reconnect.
+  function registerPush(entry: Entry): void {
+    void (async () => {
+      const reg = await registerForPushTokenAsync();
+      if (!reg || entry.disposed) return;
+      await entry.client.request('notifications.registerPush', { token: reg.token, platform: reg.platform }).catch(() => undefined);
+    })();
   }
 
   function scheduleReconnect(entry: Entry): void {
@@ -183,6 +210,12 @@ function createManager(): ClientManager & {
       entry.everConnected = true;
       subscribeNotifications(entry);
     }
+    // Re-register the push token on every connect (not just the first) so the
+    // desktop refreshes its freshness timestamp. The desktop expires tokens that
+    // haven't been seen within its TTL, so a device that's gone (removed while
+    // offline, uninstalled) stops getting pushes; an active one keeps them alive
+    // by reconnecting whenever the app is opened.
+    registerPush(entry);
     emit();
   }
 
@@ -227,7 +260,6 @@ function createManager(): ClientManager & {
       client,
       state: 'disconnected',
       attempt: 0,
-      notifSubId: null,
       offNotification: null,
       offClose: null,
       offOpen: null,
@@ -329,6 +361,51 @@ function createManager(): ClientManager & {
     connectEntry(entry);
   };
 
+  const unregisterPush = async (hostId: string): Promise<void> => {
+    const entry = entries.get(hostId);
+    if (!entry) return;
+    // The desktop only learns to drop our token over a live socket. On the
+    // homepage the app is foregrounded and usually already (re)connecting, so
+    // give it a brief window to finish before giving up - a "remove" right after
+    // opening the app still lands. If the desktop is genuinely unreachable we
+    // proceed anyway: it isn't pushing while offline, and its token TTL expires
+    // us if it never sees this device again.
+    if (entry.state !== 'connected') {
+      if (entry.reconnectTimer) {
+        clearTimeout(entry.reconnectTimer);
+        entry.reconnectTimer = null;
+      }
+      await new Promise<void>((resolve) => {
+        const off = entry.client.onOpen(() => {
+          off();
+          clearTimeout(timer);
+          resolve();
+        });
+        const timer = setTimeout(() => {
+          off();
+          resolve();
+        }, 4000);
+        // Kick a connect unless one is already in flight (don't reset it).
+        if (entry.state !== 'connecting') {
+          entry.attempt = 0;
+          connectEntry(entry);
+        }
+      });
+    }
+    await entry.client.request('notifications.unregisterPush').catch(() => undefined);
+  };
+
+  const syncPushRegistration = async (enabled: boolean): Promise<void> => {
+    for (const entry of entries.values()) {
+      if (entry.state !== 'connected') continue;
+      if (enabled) {
+        registerPush(entry);
+      } else {
+        await entry.client.request('notifications.unregisterPush').catch(() => undefined);
+      }
+    }
+  };
+
   const dropHost = (hostId: string): void => {
     const entry = entries.get(hostId);
     if (!entry) return;
@@ -405,7 +482,7 @@ function createManager(): ClientManager & {
     for (const id of [...entries.keys()]) dropHost(id);
   };
 
-  return { acquireHost, getClient, getState, getReconnectAttempt, getLastConnectedAt, getConnectionLog, forceReconnect, dropHost, subscribe, subscribeActivity, init, onAppState, disposeAll };
+  return { acquireHost, getClient, getState, getReconnectAttempt, getLastConnectedAt, getConnectionLog, forceReconnect, dropHost, unregisterPush, syncPushRegistration, subscribe, subscribeActivity, init, onAppState, disposeAll };
 }
 
 const Ctx = createContext<ClientManager | null>(null);
@@ -434,6 +511,8 @@ export function ClientManagerProvider({ children }: { children: ReactNode }) {
       getConnectionLog: manager.getConnectionLog,
       forceReconnect: manager.forceReconnect,
       dropHost: manager.dropHost,
+      unregisterPush: manager.unregisterPush,
+      syncPushRegistration: manager.syncPushRegistration,
       subscribe: manager.subscribe,
       subscribeActivity: manager.subscribeActivity,
     }),

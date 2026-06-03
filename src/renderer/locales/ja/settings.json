@@ -497,6 +497,7 @@
     "pairedTitle": "接続しました！",
     "pairedDesc": "{{name}} がこのデスクトップとペアリングされました。",
     "pairAnother": "別のデバイスをペアリング",
+    "pairedDone": "完了",
     "copyCode": "コードをコピー",
     "copiedCode": "コピーしました",
     "pairingHint": "BraidモバイルアプリでこのQRコードをスキャンしてください。各コードは1回限り有効です。",

@@ -37,6 +37,8 @@ export const MOBILE_CAPABILITIES = [
   'github.pr-status.v1', // github.prStatus RPC: per-worktree PR state (open/merged/closed) when gh CLI is available
   'jira.lookup.v1', // jira.isAvailable / jira.getIssueByKey RPCs: resolve a Jira ticket for worktree creation when the acli CLI is available
   'worktree.copy-files.v1', // worktrees.copyCandidates RPC + worktrees.create filesToCopy param: copy env/secret files from the main worktree into a new one
+  'terminal.bare.v1', // terminal.create with agentId 'shell': spawn a bare PTY (no agent launch command written), so a plain shell tab is possible
+  'notifications.push.v1', // notifications.registerPush / unregisterPush: desktop relays agent alerts to backgrounded devices via Expo push (content not E2EE - rides Expo/APNs/FCM)
 ] as const
 
 export type MobileCapability = (typeof MOBILE_CAPABILITIES)[number] | (string & {})

@@ -59,6 +59,16 @@ vi.mock('../../pty', () => ({
       // filtered out: it is a closed/zombie session the desktop no longer shows.
       { ptyId: 'pty-3', cwd: '/test', terminalId: 'bt-100-3' },
     ]),
+    // terminal.list sources the live terminal set from the daemon's full session
+    // list (keyed by the bt- terminalId), then intersects with the renderer's
+    // "known" set to drop orphans. Mirror that here: bt-100-1 is tracked, bt-100-3
+    // is an orphan the renderer no longer reports, and right-panel-1 is a non-bt
+    // session that must be excluded by the bt- prefix filter.
+    listSessions: vi.fn(async () => [
+      { sessionId: 'bt-100-1', cwd: '/test', cols: 80, rows: 24, createdAt: 0, attachedClients: 0 },
+      { sessionId: 'bt-100-3', cwd: '/test', cols: 80, rows: 24, createdAt: 0, attachedClients: 0 },
+      { sessionId: 'right-panel-1', cwd: '/test', cols: 80, rows: 24, createdAt: 0, attachedClients: 0 },
+    ]),
     write: vi.fn(),
     resize: vi.fn(),
     getSize: vi.fn(() => ({ cols: 120, rows: 40 })),
@@ -188,6 +198,42 @@ describe('RPC Dispatch', () => {
     expect(result.worktreeId).toBe('p1-wt-test/wt-1')
   })
 
+  it('terminal.create with agentId "shell" spawns a bare terminal (no agent, no launch command)', async () => {
+    const { ptyService } = await import('../../pty')
+    vi.mocked(ptyService.write).mockClear()
+    vi.mocked(ptyService.setBigTerminalMetadata!).mockClear()
+    const req: JsonRpcRequest = {
+      jsonrpc: '2.0', id: 100, method: 'terminal.create',
+      params: { worktreePath: '/test/wt', agentId: 'shell' },
+    }
+    const res = await dispatch(req, conn)
+    expect(res.error).toBeUndefined()
+    const result = res.result as Record<string, unknown>
+    expect(result.terminalId).toMatch(/^bt-/)
+    // No agent attached - the home screen shows no agent status for a bare shell.
+    expect(result.agentId).toBeUndefined()
+    // Nothing is written to the PTY, so the tab is just a shell prompt.
+    expect(ptyService.write).not.toHaveBeenCalled()
+    // Metadata is persisted without an agentId.
+    expect(ptyService.setBigTerminalMetadata).toHaveBeenCalledWith(
+      expect.objectContaining({ agentId: undefined }),
+    )
+  })
+
+  it('terminal.create without an agentId still defaults to Claude (legacy mobile builds)', async () => {
+    const { ptyService } = await import('../../pty')
+    vi.mocked(ptyService.write).mockClear()
+    const req: JsonRpcRequest = {
+      jsonrpc: '2.0', id: 101, method: 'terminal.create',
+      params: { worktreePath: '/test/wt' },
+    }
+    const res = await dispatch(req, conn)
+    expect(res.error).toBeUndefined()
+    const result = res.result as Record<string, unknown>
+    expect(result.agentId).toBe('claude')
+    expect(ptyService.write).toHaveBeenCalledWith('pty-new', 'claude\n')
+  })
+
   it('terminal.close kills the big terminal by its id (reaps PTY + metadata)', async () => {
     const { ptyService } = await import('../../pty')
     vi.mocked(ptyService.killBigTerminal!).mockClear()
@@ -272,14 +318,19 @@ describe('RPC Dispatch', () => {
   })
 
   it('dispatches terminal.list and excludes non big terminals and orphans', async () => {
+    // The renderer is authoritative for which big terminals exist. Seed its set
+    // with only bt-100-1 so the daemon's orphan (bt-100-3) is dropped.
+    const { setKnownBigTerminals } = await import('../knownBigTerminals')
+    setKnownBigTerminals([{ terminalId: 'bt-100-1', label: 'Claude', agentId: 'claude' }])
     const req: JsonRpcRequest = { jsonrpc: '2.0', id: 5, method: 'terminal.list', params: { worktreePath: '/test' } }
     const res = await dispatch(req, conn)
     expect(res.error).toBeUndefined()
     const terminals = res.result as Array<Record<string, unknown>>
-    // Only the labelled bt- big terminal is surfaced; the right-panel terminal
-    // (no terminalId) and the orphaned bt- terminal (no label) are filtered out.
+    // Only the tracked bt- big terminal is surfaced; the non-bt right-panel
+    // session and the orphaned bt- terminal (absent from the known set) are
+    // filtered out. In the daemon model the session id is the terminal/pty id.
     expect(terminals).toHaveLength(1)
-    expect(terminals[0].ptyId).toBe('pty-1')
+    expect(terminals[0].ptyId).toBe('bt-100-1')
     expect(terminals[0].terminalId).toBe('bt-100-1')
   })
 

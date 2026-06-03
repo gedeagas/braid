@@ -42,6 +42,8 @@ function useNotificationTapRouting(): void {
       const hosts = await loadHosts().catch(() => null);
       const path = getNotificationNavigationPath(response.notification.request.content.data, {
         knownHostIds: hosts ? new Set(hosts.map((host) => host.id)) : undefined,
+        // Remote push carries the desktop instance id; map it back to a host id.
+        hostIdByDesktopId: hosts ? new Map(hosts.map((host) => [host.serverPublicKey, host.id])) : undefined,
       });
       // navigate (not push): a warm tap reuses the already-mounted terminal
       // screen and just updates its params (worktreePath/terminalId), so the

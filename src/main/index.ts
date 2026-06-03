@@ -31,6 +31,7 @@ import { ensureAllAgentHooks } from './services/agentHooks'
 import { startAgentHookServer, stopAgentHookServer } from './services/agentHookServer'
 import { startAgentAwakeService, stopAgentAwakeService } from './services/agentAwake'
 import { startMobileTerminalNotifier } from './services/mobileServer/terminalNotifier'
+import { startMobilePushNotifier } from './services/mobileServer/pushNotifier'
 import { startTerminalActivityTracking } from './services/mobileServer/terminalActivity'
 import { startTerminalRunTimer } from './services/terminalRunTimer'
 import { ptyService } from './services/pty'
@@ -321,6 +322,11 @@ app.whenReady().then(async () => {
   // Bridge big-terminal agent status to paired mobile devices (main-process,
   // independent of the renderer observing the terminal).
   startMobileTerminalNotifier()
+
+  // Relay the same agent alerts to backgrounded (disconnected) devices via Expo
+  // push, so notifications arrive when the app isn't open. Connected devices are
+  // skipped (they get the alert over the WS), so there is no duplicate.
+  startMobilePushNotifier()
 
   // Track each big terminal's current agent state so terminal.list can report
   // which agents need attention on the mobile homepage.

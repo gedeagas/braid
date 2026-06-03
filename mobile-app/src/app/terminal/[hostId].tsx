@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { Check, ChevronsRight, Command, GitBranch, Keyboard as KeyboardIcon, Monitor, Pencil, Plus, RefreshCw, Send, Smartphone, TerminalSquare, Trash2, X } from 'lucide-react-native';
+import { Check, ChevronsRight, Command, GitBranch, Keyboard as KeyboardIcon, Monitor, MoreHorizontal, Pencil, Plus, RefreshCw, Send, Smartphone, TerminalSquare, Trash2, X } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -14,9 +14,12 @@ import {
   isTerminalLiveInputWithinByteLimit,
   scheduleTerminalLiveInputFocus,
 } from '@/terminal/terminal-live-input';
-import { AGENT_CATALOG, getAgentEntry } from '@/terminal/agentCatalog';
+import { AGENT_CATALOG, SHELL_AGENT_ID, getAgentEntry } from '@/terminal/agentCatalog';
 import { AgentIcon } from '@/terminal/AgentIcon';
 import { useDetectedAgents } from '@/terminal/useDetectedAgents';
+import { useHostStatus } from '@/terminal/useHostStatus';
+import { desktopSupports } from '@/transport/protocol-compat';
+import { MOBILE_CAPABILITY } from '@/transport/protocol-version';
 import type { BraidProject, BraidTerminal, BraidWorktree } from '@/transport/types';
 import { HeaderBackButton } from '@/ui/kit';
 import { useShared, useTheme } from '@/ui/theme';
@@ -70,6 +73,11 @@ export default function TerminalScreen() {
   const shared = useShared();
   const terminalRef = useRef<TerminalWebViewHandle>(null);
   const detectedAgents = useDetectedAgents(client);
+  const hostStatus = useHostStatus(client);
+  // Bare shell tabs are only offered when the paired desktop advertises the
+  // capability. Older desktops would silently launch Claude for an unknown
+  // agentId, so we hide the option instead of degrading to that surprise.
+  const bareTerminalSupported = desktopSupports(hostStatus, MOBILE_CAPABILITY.bareTerminal);
   const [projects, setProjects] = useState<BraidProject[]>([]);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [worktree, setWorktree] = useState<BraidWorktree | null>(null);
@@ -81,6 +89,7 @@ export default function TerminalScreen() {
   const [selectorsExpanded, setSelectorsExpanded] = useState(true);
   const [creatingTerminal, setCreatingTerminal] = useState(false);
   const [agentPickerOpen, setAgentPickerOpen] = useState(false);
+  const [terminalMoreOpen, setTerminalMoreOpen] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState<string>(AGENT_CATALOG[0]?.id ?? 'claude');
   // Terminal being renamed (null when the rename modal is closed) + its draft.
   const [renameTarget, setRenameTarget] = useState<{ terminal: BraidTerminal; draft: string } | null>(null);
@@ -379,19 +388,26 @@ export default function TerminalScreen() {
     // state to catch up.
     const wt = targetWorktree ?? worktree;
     if (!client || !wt || creatingTerminal) return;
-    const agent = getAgentEntry(agentId ?? selectedAgentId) ?? selectedAgent ?? AGENT_CATALOG[0];
+    // A bare shell tab: no agent, no launch command. The desktop (when it
+    // advertises terminal.bare.v1) spawns the PTY and writes nothing.
+    const isBare = (agentId ?? selectedAgentId) === SHELL_AGENT_ID;
+    const agent = isBare ? undefined : getAgentEntry(agentId ?? selectedAgentId) ?? selectedAgent ?? AGENT_CATALOG[0];
     setCreatingTerminal(true);
     setError(null);
     try {
       const created = await client.request<BraidTerminal & { ptyId?: string }>('terminal.create', {
         worktreePath: wt.path,
         worktreeId: wt.id,
-        label: agent?.label ?? t('terminal.defaultLabel'),
-        command: agent?.launchCmd ?? agent?.detectCmd ?? 'claude',
-        agentId: agent?.id ?? 'claude',
+        label: isBare ? t('terminal.shellLabel') : agent?.label ?? t('terminal.defaultLabel'),
+        // Bare terminals omit the command so the desktop leaves a plain prompt.
+        command: isBare ? '' : agent?.launchCmd ?? agent?.detectCmd ?? 'claude',
+        agentId: isBare ? SHELL_AGENT_ID : agent?.id ?? 'claude',
       });
-      setSelectedAgentId(agent?.id ?? 'claude');
-      void SecureStore.setItemAsync(DEFAULT_AGENT_STORAGE_KEY, agent?.id ?? 'claude').catch(() => undefined);
+      // Don't persist 'shell' as the default agent - keep the last real agent.
+      if (!isBare) {
+        setSelectedAgentId(agent?.id ?? 'claude');
+        void SecureStore.setItemAsync(DEFAULT_AGENT_STORAGE_KEY, agent?.id ?? 'claude').catch(() => undefined);
+      }
       const terminal = {
         ...created,
         id: created.id ?? created.ptyId ?? '',
@@ -693,6 +709,10 @@ export default function TerminalScreen() {
     await client.request('terminal.write', { ptyId: active.id, data });
   };
 
+  const writeKey = (data: string) => {
+    void writeBytes(data);
+  };
+
   // The terminal WebView emits the selected text when the user taps "Copy" in
   // the selection menu; push it to the system clipboard so it can be pasted
   // into other apps. Without this handler the extracted text goes nowhere.
@@ -734,6 +754,17 @@ export default function TerminalScreen() {
       return;
     }
     client.request('terminal.write', { ptyId: active.id, data: bytes }).catch(() => undefined);
+  };
+
+  const pasteClipboardToTerminal = async () => {
+    if (!canSend) return;
+    const text = await Clipboard.getStringAsync().catch(() => '');
+    if (!text) return;
+    if (!isTerminalLiveInputWithinByteLimit(text)) {
+      setError(t('terminal.errorInputTooLarge'));
+      return;
+    }
+    await writeBytes(text);
   };
 
   const focusLiveInput = () => {
@@ -786,6 +817,8 @@ export default function TerminalScreen() {
   };
 
   const desktopMode = !!active && desktopModeHandles.has(active.id);
+  const modeLabel = liveInputEnabled ? t('terminal.modeLive') : t('terminal.modeCommand');
+  const displayModeLabel = desktopMode ? t('terminal.displayDesktop') : t('terminal.displayPhone');
 
   // Toggle between phone-fit (the desktop yields, PTY sized to this phone) and
   // desktop size (the desktop drives its native dims, we scale to fit).
@@ -855,9 +888,9 @@ export default function TerminalScreen() {
   };
 
   const liveToggleButton = {
-    width: 36,
-    height: 30,
-    marginHorizontal: 6,
+    width: 40,
+    height: 38,
+    marginRight: 8,
     borderRadius: 8,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
@@ -1268,6 +1301,30 @@ export default function TerminalScreen() {
                 </Pressable>
               </View>
               <ScrollView style={pickerList} contentContainerStyle={pickerListContent}>
+                {bareTerminalSupported && (
+                  <View style={{ gap: 8 }}>
+                    <Text style={pickerSectionLabel}>{t('terminal.plainShell')}</Text>
+                    <Pressable
+                      style={({ pressed }) => [pickerRow, pressed && pickerRowPressed]}
+                      onPress={() => {
+                        setAgentPickerOpen(false);
+                        void createTerminal(SHELL_AGENT_ID);
+                      }}
+                    >
+                      <View style={pickerRowIcon}>
+                        <TerminalSquare color={colors.text} size={20} />
+                      </View>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={pickerRowTitle} numberOfLines={1}>
+                          {t('terminal.shellLabel')}
+                        </Text>
+                        <Text style={pickerRowSubtitle} numberOfLines={1}>
+                          {t('terminal.shellSubtitle')}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  </View>
+                )}
                 {detectedSorted.length > 0 && (
                   <View style={{ gap: 8 }}>
                     <Text style={pickerSectionLabel}>{t('terminal.detectedOnHost')}</Text>
@@ -1342,6 +1399,54 @@ export default function TerminalScreen() {
           </Pressable>
         </Modal>
 
+        <Modal visible={terminalMoreOpen} transparent animationType="fade" onRequestClose={() => setTerminalMoreOpen(false)}>
+          <Pressable style={pickerBackdrop} onPress={() => setTerminalMoreOpen(false)}>
+            <Pressable style={pickerPanel} onPress={() => undefined}>
+              <View style={pickerHeader}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={pickerTitle}>{t('terminal.moreKeys')}</Text>
+                  <Text style={pickerSubtitle} numberOfLines={1}>{active ? terminalLabel(active) : t('terminal.selectWorktree')}</Text>
+                </View>
+                <Pressable style={pickerCloseButton} onPress={() => setTerminalMoreOpen(false)} accessibilityLabel={t('common.close')}>
+                  <X color={colors.text} size={18} />
+                </Pressable>
+              </View>
+              <View style={{ padding: 12, gap: 10 }}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  <Key label="Ctrl+D" disabled={!canSend} onPress={() => { setTerminalMoreOpen(false); writeKey('\x04'); }} />
+                  <Key label="Ctrl+Z" disabled={!canSend} onPress={() => { setTerminalMoreOpen(false); writeKey('\x1a'); }} />
+                  <Key label="Ctrl+R" disabled={!canSend} onPress={() => { setTerminalMoreOpen(false); writeKey('\x12'); }} />
+                  <Key label="←" disabled={!canSend} onPress={() => { setTerminalMoreOpen(false); writeKey('\x1b[D'); }} />
+                  <Key label="→" disabled={!canSend} onPress={() => { setTerminalMoreOpen(false); writeKey('\x1b[C'); }} />
+                </View>
+                <Pressable
+                  style={({ pressed }) => [actionRow, pressed && { backgroundColor: colors.panelStrong }, !canSend && { opacity: 0.35 }]}
+                  disabled={!canSend}
+                  onPress={() => {
+                    setTerminalMoreOpen(false);
+                    void toggleDisplayMode();
+                  }}
+                >
+                  {desktopMode ? <Smartphone color={colors.text} size={18} /> : <Monitor color={colors.text} size={18} />}
+                  <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600' }}>
+                    {desktopMode ? t('terminal.switchToPhoneSize') : t('terminal.switchToDesktopSize')}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [actionRow, pressed && { backgroundColor: colors.panelStrong }, !canSend && { opacity: 0.35 }]}
+                  disabled={!canSend}
+                  onPress={() => {
+                    setTerminalMoreOpen(false);
+                    void pasteClipboardToTerminal();
+                  }}
+                >
+                  <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600' }}>{t('terminal.paste')}</Text>
+                </Pressable>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+
         <View
           style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' }}
           onLayout={(event) => {
@@ -1369,23 +1474,21 @@ export default function TerminalScreen() {
           />
         </View>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', height: 43, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.panel }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 52, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.panel }}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            style={{ flex: 1, height: 43, maxHeight: 43 }}
-            contentContainerStyle={{ height: 42, alignItems: 'center', gap: 6, paddingHorizontal: 10 }}
+            style={{ flex: 1, minHeight: 52, maxHeight: 52 }}
+            contentContainerStyle={{ minHeight: 52, alignItems: 'center', gap: 5, paddingLeft: 8, paddingRight: 6 }}
           >
-            <Key label="Esc" disabled={!canSend} onPress={() => void writeBytes('\x1b')} />
-            <Key label="Tab" disabled={!canSend} onPress={() => void writeBytes('\t')} />
-            <Key label="Ctrl+C" disabled={!canSend} onPress={() => void writeBytes('\x03')} />
-            <Key label="Ctrl+D" disabled={!canSend} onPress={() => void writeBytes('\x04')} />
-            <Key label="↑" disabled={!canSend} onPress={() => void writeBytes('\x1b[A')} />
-            <Key label="↓" disabled={!canSend} onPress={() => void writeBytes('\x1b[B')} />
-            <Key label="←" disabled={!canSend} onPress={() => void writeBytes('\x1b[D')} />
-            <Key label="→" disabled={!canSend} onPress={() => void writeBytes('\x1b[C')} />
+            <Key label="Esc" disabled={!canSend} onPress={() => writeKey('\x1b')} />
+            <Key label="Tab" disabled={!canSend} onPress={() => writeKey('\t')} />
+            <Key label="Ctrl+C" emphasized disabled={!canSend} onPress={() => writeKey('\x03')} />
+            <Key label="↑" disabled={!canSend} onPress={() => writeKey('\x1b[A')} />
+            <Key label="↓" disabled={!canSend} onPress={() => writeKey('\x1b[B')} />
           </ScrollView>
           <Pressable
+            hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
             style={[liveToggleButton, desktopMode && liveToggleButtonActive, !canSend && { opacity: 0.35 }]}
             disabled={!canSend}
             onPress={() => void toggleDisplayMode()}
@@ -1398,6 +1501,16 @@ export default function TerminalScreen() {
             )}
           </Pressable>
           <Pressable
+            hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
+            disabled={!canSend}
+            style={{ width: 40, height: 38, marginRight: 6, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.panelStrong, opacity: canSend ? 1 : 0.35 }}
+            onPress={() => setTerminalMoreOpen(true)}
+            accessibilityLabel={t('terminal.moreKeys')}
+          >
+            <MoreHorizontal color={colors.muted} size={18} />
+          </Pressable>
+          <Pressable
+            hitSlop={{ top: 4, bottom: 4, left: 2, right: 8 }}
             style={[liveToggleButton, liveInputEnabled && liveToggleButtonActive, !canSend && { opacity: 0.35 }]}
             disabled={!canSend}
             onPress={toggleLiveInput}
@@ -1409,14 +1522,19 @@ export default function TerminalScreen() {
 
         {liveInputEnabled ? (
           <Pressable
-            style={{ flexDirection: 'row', alignItems: 'center', minHeight: 46, gap: 8, paddingHorizontal: 12, paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.panel }}
+            style={{ flexDirection: 'row', alignItems: 'center', minHeight: 48, gap: 8, paddingHorizontal: 12, paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.panel }}
             onPress={focusLiveInput}
             disabled={!canSend}
             accessibilityLabel={t('terminal.focusLiveInput')}
           >
-            <KeyboardIcon color={colors.muted} size={16} />
+            <View style={{ minHeight: 36, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 10, backgroundColor: colors.panelStrong }}>
+              <KeyboardIcon color={colors.accent} size={15} />
+              <Text style={{ color: colors.text, fontSize: 12, fontWeight: '800' }}>
+                {modeLabel}
+              </Text>
+            </View>
             <Text style={{ flex: 1, color: colors.muted, fontSize: 12, fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) }} numberOfLines={1}>
-              {t('terminal.liveInputHint')}
+              {displayModeLabel}
             </Text>
             <TextInput
               ref={liveInputRef}
@@ -1438,9 +1556,9 @@ export default function TerminalScreen() {
             />
           </Pressable>
         ) : (
-          <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 46, gap: 8, paddingHorizontal: 12, paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.panel }}>
-            <TextInput value={input} onChangeText={setInput} placeholder={inputPlaceholder} placeholderTextColor={colors.subtle} autoCapitalize="none" autoCorrect={false} style={[shared.input, { flex: 1, minHeight: 34, height: 34, paddingVertical: 0, borderRadius: 8, backgroundColor: colors.panelStrong, fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) }]} onSubmitEditing={submit} editable={canSend} />
-            <Pressable style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.panelStrong, opacity: canSend ? 1 : 0.35 }} onPress={submit} disabled={!canSend}><Send color={colors.text} size={17} /></Pressable>
+          <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 48, gap: 8, paddingHorizontal: 12, paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.panel }}>
+            <TextInput value={input} onChangeText={setInput} placeholder={inputPlaceholder} placeholderTextColor={colors.subtle} autoCapitalize="none" autoCorrect={false} style={[shared.input, { flex: 1, minHeight: 38, height: 38, paddingVertical: 0, borderRadius: 8, backgroundColor: colors.panelStrong, fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) }]} onSubmitEditing={submit} editable={canSend} />
+            <Pressable hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }} style={{ width: 42, height: 38, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.panelStrong, opacity: canSend ? 1 : 0.35 }} onPress={submit} disabled={!canSend}><Send color={colors.text} size={17} /></Pressable>
           </View>
         )}
       </KeyboardAvoidingView>
@@ -1448,12 +1566,30 @@ export default function TerminalScreen() {
   );
 }
 
-function Key({ label, onPress, disabled = false }: { label: string; onPress: () => void; disabled?: boolean }) {
+function Key({ label, onPress, disabled = false, emphasized = false }: { label: string; onPress: () => void; disabled?: boolean; emphasized?: boolean }) {
   const colors = useTheme().palette;
   return (
-    <Pressable disabled={disabled} style={{ minWidth: 36, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 5, paddingHorizontal: 10, backgroundColor: colors.panelStrong, opacity: disabled ? 0.35 : 1 }} onPress={onPress}>
-      {label === 'Ctrl+C' ? <Command color={colors.muted} size={12} /> : null}
-      <Text style={{ color: colors.muted, fontSize: 12, fontWeight: '700', fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) }}>{label}</Text>
+    <Pressable
+      hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
+      disabled={disabled}
+      style={({ pressed }) => ({
+        minWidth: emphasized ? 68 : 40,
+        height: 38,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'row',
+        gap: 4,
+        paddingHorizontal: 8,
+        backgroundColor: emphasized ? colors.danger : pressed ? colors.panelStrong : colors.bg,
+        borderWidth: emphasized ? 0 : 1,
+        borderColor: colors.border,
+        opacity: disabled ? 0.35 : 1,
+      })}
+      onPress={onPress}
+    >
+      {label === 'Ctrl+C' ? <Command color={emphasized ? colors.bg : colors.subtle} size={12} /> : null}
+      <Text style={{ color: emphasized ? colors.bg : colors.subtle, fontSize: 12, fontWeight: '800', fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) }}>{label}</Text>
     </Pressable>
   );
 }
