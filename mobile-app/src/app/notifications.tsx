@@ -134,7 +134,7 @@ export default function NotificationsScreen() {
 function makeStyles(c: Palette) {
   return StyleSheet.create({
     topRow: { marginBottom: 20 },
-    card: { gap: 12 },
+    card: { gap: 12, marginBottom: 14 },
     row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     rowLabel: { color: c.text, fontSize: 16, fontWeight: '700' },
   });

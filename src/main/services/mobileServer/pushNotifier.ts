@@ -13,9 +13,9 @@
 // deliberate v1 trade-off for background delivery. A future revision can ship an
 // encrypted payload + on-device Notification Service Extension to close that gap.
 //
-// EXTERNAL SERVICE: this posts to https://exp.host (Expo). That is a third-party
-// dependency the desktop did not previously call; enabling it in a shipping
-// build is subject to the internal External Service Review.
+// EXTERNAL SERVICE: this posts to https://exp.host (Expo) to deliver background
+// pushes. That is a third-party dependency the desktop did not previously call;
+// it is enabled by default and can be force-disabled with BRAID_DISABLE_MOBILE_PUSH=1.
 
 import { agentService, type MobileNotification } from '../agent'
 import { deviceStore } from './deviceStore'
@@ -121,16 +121,17 @@ async function handleNotification(n: MobileNotification): Promise<void> {
  *  fn. Mirrors startMobileTerminalNotifier - both ride the same onNotify stream,
  *  so push content matches the WS notifications exactly.
  *
- *  KILL SWITCH: outbound push to exp.host is a third-party dependency pending
- *  the internal External Service Review, so it stays OFF unless explicitly
- *  enabled via BRAID_ENABLE_MOBILE_PUSH=1. When off we never subscribe, so the
- *  desktop never POSTs to Expo (it still accepts token registrations harmlessly;
- *  they just go unused). Flip the env var once the review clears. */
+ *  KILL SWITCH: background push is ON by default. Set BRAID_DISABLE_MOBILE_PUSH=1
+ *  to force it OFF (e.g. a build that must not call exp.host). When off we never
+ *  subscribe, so the desktop never POSTs to Expo (it still accepts token
+ *  registrations harmlessly; they just go unused). */
 export function startMobilePushNotifier(): () => void {
-  const enabled = process.env.BRAID_ENABLE_MOBILE_PUSH === '1' || process.env.BRAID_ENABLE_MOBILE_PUSH === 'true'
-  if (!enabled) {
-    logger.info('[MobilePush] disabled (set BRAID_ENABLE_MOBILE_PUSH=1 to enable; pending External Service Review)')
+  const disabled =
+    process.env.BRAID_DISABLE_MOBILE_PUSH === '1' || process.env.BRAID_DISABLE_MOBILE_PUSH === 'true'
+  if (disabled) {
+    logger.info('[MobilePush] disabled via BRAID_DISABLE_MOBILE_PUSH')
     return () => {}
   }
+  logger.info('[MobilePush] enabled')
   return agentService.onNotify((n) => { void handleNotification(n) })
 }
