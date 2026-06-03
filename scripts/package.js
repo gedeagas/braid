@@ -187,6 +187,9 @@ const IGNORE_PATTERNS = [
   /^\/scripts(\/|$)/,
   /^\/website(\/|$)/,
   /^\/docs(\/|$)/,
+  // mobile-app: standalone Expo companion shipped via its own channel, not
+  // bundled in the desktop app (its node_modules also carry fat .node binaries)
+  /^\/mobile-app(\/|$)/,
   /^\/\.claude(\/|$)/,
   /^\/\.env/,
   /^\/\.git(\/|$)/,
@@ -236,23 +239,39 @@ function fixNativePermissions(appPath) {
   if (!fs.existsSync(unpackedDir)) return
 
   step('perms', 'Restoring execute permissions on native binaries')
-  // Find Mach-O executables that lost +x during ASAR unpack
-  const result = execSync(
-    `find "${unpackedDir}" -type f -exec file {} + | grep "Mach-O" | grep -v "\\.node:" | grep -v "\\.dylib:" | cut -d: -f1`,
-    { encoding: 'utf8' }
-  ).trim()
+  // Find Mach-O executables that lost +x during ASAR unpack.
+  const raw = execSync(`find "${unpackedDir}" -type f -exec file {} +`, {
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  })
 
-  if (!result) {
+  const binaries = new Set()
+  for (const line of raw.split('\n')) {
+    if (!line.includes('Mach-O')) continue
+    // For universal (fat) binaries `file` emits one line per architecture and
+    // appends " (for architecture x86_64)" to the path, so the real path is
+    // everything before the LAST colon, minus that suffix.
+    const colon = line.lastIndexOf(':')
+    if (colon === -1) continue
+    const filePath = line
+      .slice(0, colon)
+      .replace(/ \(for architecture [^)]+\)$/, '')
+    // Only fix helper executables - skip loadable modules and shared libraries.
+    if (filePath.endsWith('.node') || filePath.endsWith('.dylib')) continue
+    if (!fs.existsSync(filePath)) continue
+    binaries.add(filePath)
+  }
+
+  if (binaries.size === 0) {
     log('No native helper binaries found')
     return
   }
 
-  const binaries = result.split('\n').filter(Boolean)
   for (const bin of binaries) {
     fs.chmodSync(bin, 0o755)
     log(`chmod +x ${path.relative(appPath, bin)}`)
   }
-  log(`Fixed permissions on ${binaries.length} native helper(s)`)
+  log(`Fixed permissions on ${binaries.size} native helper(s)`)
 }
 
 // ---------------------------------------------------------------------------
