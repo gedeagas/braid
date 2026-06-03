@@ -9,10 +9,10 @@
  * main source of mobile lag.
  *
  * This format carries the raw output bytes verbatim inside the encrypted
- * payload of a binary WebSocket frame: no JSON escaping, no base64. The frame
- * is encrypted with the same NaCl box session and lockstep nonce counter as the
- * JSON channel, so it slots into the existing ordered stream transparently -
- * the receiver simply branches on the WebSocket frame type (binary vs text).
+ * payload of a binary WebSocket frame: no JSON escaping, no base64. The frame is
+ * sealed with the session's NaCl box key and its own random nonce (see
+ * e2ee.sealBytes), independently of the JSON channel - the receiver simply
+ * branches on the WebSocket frame type (binary vs text).
  *
  * Plaintext layout (before encryption):
  *   byte  0       : frame kind (TERMINAL_FRAME_DATA = 0x01)

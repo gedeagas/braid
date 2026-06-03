@@ -5,6 +5,14 @@
     "body": "スマホが報告したサイズでセッションを保持しています。デスクトップで使うには元のサイズに戻してください。",
     "restore": "デスクトップサイズに戻す"
   },
+  "mobileDriver": {
+    "drivingEyebrow": "モバイルがこのターミナルを操作中",
+    "drivingTitle": "キーボードは一時停止中",
+    "drivingBody": "下の出力はスマホから入力されています。デスクトップで入力を再開するには「操作を戻す」、見るだけなら「折りたたむ」。",
+    "takeBack": "操作を戻す",
+    "collapse": "折りたたむ",
+    "chipLabel": "モバイル操作中"
+  },
   "selectWorktreeHint": "ワークツリーを選択して新しいチャットを始めましょう",
   "startConversation": "会話を始めましょう",
   "dropImageHint": "画像をドロップして添付",

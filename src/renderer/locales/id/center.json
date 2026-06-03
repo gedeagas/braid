@@ -5,6 +5,14 @@
     "body": "Sesi ditahan pada dimensi yang dilaporkan ponsel Anda. Pulihkan untuk menggunakannya di desktop.",
     "restore": "Pulihkan ukuran desktop"
   },
+  "mobileDriver": {
+    "drivingEyebrow": "Ponsel sedang mengendalikan terminal ini",
+    "drivingTitle": "Keyboard Anda dijeda",
+    "drivingBody": "Output di bawah diketik dari ponsel Anda. Ambil alih untuk kembali mengetik di desktop, atau ciutkan untuk tetap menonton.",
+    "takeBack": "Ambil alih",
+    "collapse": "Ciutkan",
+    "chipLabel": "Ponsel mengendalikan"
+  },
   "selectWorktreeHint": "Pilih worktree dan mulai sesi chat baru",
   "startConversation": "Mulai percakapan",
   "dropImageHint": "Jatuhkan gambar untuk melampirkan",

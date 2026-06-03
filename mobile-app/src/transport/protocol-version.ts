@@ -12,8 +12,12 @@
 //
 // Bump MIN_COMPATIBLE_DESKTOP_VERSION only when mobile starts requiring a server
 // feature added at a specific protocol version - it hard-blocks older desktops.
-export const MOBILE_PROTOCOL_VERSION = 4;
-export const MIN_COMPATIBLE_DESKTOP_VERSION = 1;
+// v5: e2ee framing switched from a shared lockstep nonce counter to a
+// self-describing `[random nonce][ciphertext]` bundle per message. Breaking
+// change to the encrypted wire format - a v5 client cannot complete the
+// handshake against a v4 desktop, so require v5 on the desktop too.
+export const MOBILE_PROTOCOL_VERSION = 5;
+export const MIN_COMPATIBLE_DESKTOP_VERSION = 5;
 
 // Capability ids the desktop advertises in `status.get`. Gate features on these
 // instead of the protocol version. Mirror of MOBILE_CAPABILITIES on the desktop.
@@ -23,4 +27,6 @@ export const MOBILE_CAPABILITY = {
   subscribeSnapshot: 'terminal.subscribe-snapshot.v1',
   terminalPresence: 'terminal.presence.v1',
   githubPrStatus: 'github.pr-status.v1',
+  jira: 'jira.lookup.v1',
+  copyFiles: 'worktree.copy-files.v1',
 } as const;

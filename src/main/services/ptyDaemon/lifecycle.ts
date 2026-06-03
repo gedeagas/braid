@@ -3,7 +3,8 @@
  */
 import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from 'fs'
 import { dirname } from 'path'
-import { PID_FILE_PATH, SOCKET_PATH } from './protocol'
+import { connect } from 'net'
+import { PID_FILE_PATH, SOCKET_PATH, SOCKET_IS_FILE } from './protocol'
 
 /** Write the current process PID to the PID file. */
 export function writePidFile(): void {
@@ -20,13 +21,51 @@ export function removePidFile(): void {
   }
 }
 
-/** Remove the socket file. */
+/** Remove the socket file. No-op on Windows, where the pipe has no disk path. */
 export function removeSocketFile(): void {
+  if (!SOCKET_IS_FILE) return
   try {
     unlinkSync(SOCKET_PATH)
   } catch {
     // May not exist
   }
+}
+
+/** Attempt a single connection to the IPC endpoint; resolves whether it succeeded. */
+function probeConnect(timeoutMs: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const sock = connect(SOCKET_PATH)
+    let settled = false
+    const done = (ok: boolean): void => {
+      if (settled) return
+      settled = true
+      sock.destroy()
+      resolve(ok)
+    }
+    sock.once('connect', () => done(true))
+    sock.once('error', () => done(false))
+    setTimeout(() => done(false), timeoutMs)
+  })
+}
+
+/**
+ * Resolve once the daemon is accepting connections, or reject on timeout.
+ *
+ * POSIX: the Unix socket file appears atomically when the server binds, so a
+ * cheap existsSync poll suffices. Windows: a named pipe is not a filesystem
+ * entry, so existsSync never sees it - we probe by actually connecting.
+ */
+export async function waitForDaemonListening(timeoutMs: number): Promise<void> {
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    if (SOCKET_IS_FILE) {
+      if (existsSync(SOCKET_PATH)) return
+    } else if (await probeConnect(250)) {
+      return
+    }
+    await new Promise((r) => setTimeout(r, 100))
+  }
+  throw new Error('Timed out waiting for daemon socket')
 }
 
 /** Read the PID from the PID file. Returns null if not found. */

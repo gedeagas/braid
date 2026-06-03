@@ -7,9 +7,8 @@ import {
 import {
   generateKeyPair,
   deriveSharedKey,
-  generateNonce,
-  encrypt,
-  decrypt,
+  sealBytes,
+  openBytes,
 } from '../e2ee'
 
 describe('terminalFrame', () => {
@@ -55,18 +54,16 @@ describe('terminalFrame', () => {
     expect(decodeTerminalFrame(frame)).toBeNull()
   })
 
-  it('survives a full NaCl box encrypt/decrypt round-trip', () => {
+  it('survives a full sealed-frame encrypt/decrypt round-trip', () => {
     const server = generateKeyPair()
     const client = generateKeyPair()
     const serverShared = deriveSharedKey(server.secretKey, client.publicKey)
     const clientShared = deriveSharedKey(client.secretKey, server.publicKey)
 
     const data = '\x1b[32m$ yarn build\x1b[0m\r\n'
-    const plaintext = encodeTerminalFrame('pty-abc', data)
-    const nonce = generateNonce(7, true)
-    const ciphertext = encrypt(plaintext, serverShared, nonce)
+    const sealed = sealBytes(encodeTerminalFrame('pty-abc', data), serverShared)
 
-    const recovered = decrypt(ciphertext, clientShared, generateNonce(7, true))
+    const recovered = openBytes(sealed, clientShared)
     expect(recovered).not.toBeNull()
     const decoded = decodeTerminalFrame(recovered!)
     expect(decoded).toEqual({ ptyId: 'pty-abc', data })

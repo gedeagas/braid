@@ -9,6 +9,7 @@ export interface DaemonSession {
   cols: number
   rows: number
   createdAt: number
+  lastOutputAt?: number
   /** Whether at least one client is currently attached to this session. */
   attached: boolean
 }
@@ -34,6 +35,7 @@ export interface CheckpointData {
   rows: number
   scrollback: string
   createdAt: number
+  lastOutputAt?: number
   checkpointedAt: number
   metadata?: DaemonSessionMetadata
 }
@@ -51,6 +53,7 @@ export interface SessionInfo {
   cols: number
   rows: number
   createdAt: number
+  lastOutputAt?: number
   metadata?: DaemonSessionMetadata
   /** Number of clients currently attached (viewing) this session. 0 = nobody is
    *  looking at it right now, which is the safety signal for orphan cleanup. */

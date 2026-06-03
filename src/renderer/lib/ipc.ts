@@ -362,13 +362,18 @@ export const mobile = {
   stopNgrokTunnel: () => api().mobile.stopNgrokTunnel(),
   getDevices: () => api().mobile.getDevices(),
   removeDevice: (deviceId: string) => api().mobile.removeDevice(deviceId),
+  onDeviceConnected: (
+    callback: (info: { deviceId: string; name: string; isNewPairing: boolean }) => void
+  ) => api().mobile.onDeviceConnected(callback),
+  onDeviceDisconnected: (callback: (info: { deviceId: string }) => void) =>
+    api().mobile.onDeviceDisconnected(callback),
   onRemoveWorktreeRequest: (
     callback: (req: { requestId: string; repoPath: string; worktreePath: string }) => void
   ) => api().mobile.onRemoveWorktreeRequest(callback),
   sendRemoveWorktreeResult: (result: { requestId: string; ok: boolean; reason?: string }) =>
     api().mobile.sendRemoveWorktreeResult(result),
   onCreateWorktreeRequest: (
-    callback: (req: { requestId: string; repoPath: string; branch: string; baseBranch?: string }) => void
+    callback: (req: { requestId: string; repoPath: string; branch: string; baseBranch?: string; filesToCopy?: string[] }) => void
   ) => api().mobile.onCreateWorktreeRequest(callback),
   sendCreateWorktreeResult: (result: { requestId: string; ok: boolean; reason?: string; worktreePath?: string; worktreeId?: string }) =>
     api().mobile.sendCreateWorktreeResult(result),

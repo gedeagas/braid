@@ -1,16 +1,43 @@
 import { logger } from '../../lib/logger'
 import { getGit, getValidGit } from './core'
+import { ServiceCache } from '../../lib/serviceCache'
 import { mkdirSync, existsSync, rmSync } from 'fs'
 import { join, dirname } from 'path'
 import { homedir } from 'os'
 import { DATA_DIR_NAME } from '../../appBrand'
 import type { WorktreeInfo } from './types'
 
-export async function getWorktrees(repoPath: string): Promise<WorktreeInfo[]> {
-  const git = await getValidGit(repoPath)
-  if (!git) return []
+// The worktree set for a repo changes only when a worktree is added/removed —
+// both of which funnel through addWorktree/removeWorktree below, which
+// invalidate this cache. So a short TTL is purely a backstop for external
+// `git worktree` edits made outside the app. Keyed by repo path. This keeps the
+// hot read path (desktop sidebar refresh, mobile projects.list polling) off of
+// spawning git per request. Concurrent callers for the same repo share one
+// in-flight git invocation.
+const worktreesCache = new ServiceCache<WorktreeInfo[]>(10_000)
 
-  const result = await git.raw(['worktree', 'list', '--porcelain'])
+/** Drop the cached worktree list for a repo, forcing the next read to re-run git. */
+export function invalidateWorktrees(repoPath: string): void {
+  worktreesCache.invalidate(repoPath)
+}
+
+export async function getWorktrees(repoPath: string): Promise<WorktreeInfo[]> {
+  return worktreesCache.get(repoPath, () => loadWorktrees(repoPath))
+}
+
+async function loadWorktrees(repoPath: string): Promise<WorktreeInfo[]> {
+  if (!existsSync(repoPath)) return []
+
+  // `git worktree list` already fails cleanly on a non-repo, so we skip the
+  // separate `git rev-parse --git-dir` validity probe getValidGit runs — that
+  // would double the subprocess spawns on the hottest read path for no gain.
+  let result: string
+  try {
+    result = await getGit(repoPath).raw(['worktree', 'list', '--porcelain'])
+  } catch {
+    return []
+  }
+
   const worktrees: WorktreeInfo[] = []
   let current: Partial<WorktreeInfo> = {}
 
@@ -96,6 +123,7 @@ export async function addWorktree(
       await git.raw(cmd)
     }
     logger.debug('[Git] worktree created OK at', finalPath)
+    invalidateWorktrees(repoPath)
   } catch (err) {
     logger.error('[Git] addWorktree FAILED:', err)
     throw err
@@ -106,6 +134,7 @@ export async function removeWorktree(repoPath: string, worktreePath: string): Pr
   const git = await getValidGit(repoPath)
   if (!git) throw new Error(`Not a git repository: ${repoPath}`)
   await git.raw(['worktree', 'remove', worktreePath, '--force'])
+  invalidateWorktrees(repoPath)
 }
 
 /** Extract repo name from any git URL format (HTTPS, SSH, etc.) */

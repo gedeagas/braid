@@ -43,6 +43,14 @@ export interface BigTermEntry {
   spawnPromise: Promise<void>
   /** Set by disposeBigTerminal so the in-flight spawn can bail out. */
   disposed: boolean
+  /**
+   * True while a paired mobile device is driving this terminal. Desktop
+   * keystrokes are NOT forwarded to the PTY (the phone owns input); instead they
+   * trigger a take-back. Set by BigTerminalView.
+   */
+  mobileInputLocked: boolean
+  /** Invoked when the desktop types while locked - typing = desktop take-back. */
+  onDesktopInputWhileLocked: (() => void) | null
 }
 
 const cache = new Map<string, BigTermEntry>()
@@ -294,7 +302,9 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
     codexPromptWriteDisposable: null,
     commandObserver: null,
     spawnPromise: Promise.resolve(),
-    disposed: false
+    disposed: false,
+    mobileInputLocked: false,
+    onDesktopInputWhileLocked: null
   }
   cache.set(terminalId, entry)
 
@@ -362,6 +372,8 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
         ipc.pty.registerBigTerminal(result.sessionId, terminalId)
         term.onData((d) => {
           if (isReplaying(terminalId)) return
+          // Phone owns input: don't forward to the PTY; typing is a take-back.
+          if (entry.mobileInputLocked) { entry.onDesktopInputWhileLocked?.(); return }
           commandObserver.accept(d)
           if (entry.ptyId && !entry.disposed) ipc.pty.write(entry.ptyId, d)
         })
@@ -406,6 +418,8 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
       term.onData((d) => {
         // Suppress xterm auto-replies during scrollback replay
         if (isReplaying(terminalId)) return
+        // Phone owns input: don't forward to the PTY; typing is a take-back.
+        if (entry.mobileInputLocked) { entry.onDesktopInputWhileLocked?.(); return }
         commandObserver.accept(d)
         if (entry.ptyId && !entry.disposed) ipc.pty.write(entry.ptyId, d)
       })

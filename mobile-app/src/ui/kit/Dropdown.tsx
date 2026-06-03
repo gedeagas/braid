@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { Check, ChevronDown, Search } from 'lucide-react-native';
 
@@ -20,7 +21,7 @@ export function Dropdown<T extends string>({
   value,
   options,
   onChange,
-  placeholder = 'Select',
+  placeholder,
   disabled = false,
   searchable = false,
 }: {
@@ -31,6 +32,7 @@ export function Dropdown<T extends string>({
   disabled?: boolean;
   searchable?: boolean;
 }) {
+  const { t } = useTranslation();
   const { palette: c } = useTheme();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -64,7 +66,7 @@ export function Dropdown<T extends string>({
       >
         {selected?.icon}
         <Text style={{ flex: 1, color: selected ? c.text : c.subtle, fontSize: 14 }} numberOfLines={1}>
-          {selected?.label ?? placeholder}
+          {selected?.label ?? placeholder ?? t('connection.select')}
         </Text>
         <ChevronDown color={c.muted} size={18} />
       </Pressable>
@@ -100,7 +102,7 @@ export function Dropdown<T extends string>({
                 <TextInput
                   value={query}
                   onChangeText={setQuery}
-                  placeholder="Search"
+                  placeholder={t('connection.search')}
                   placeholderTextColor={c.subtle}
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -111,7 +113,7 @@ export function Dropdown<T extends string>({
             <ScrollView contentContainerStyle={{ padding: 8 }} keyboardShouldPersistTaps="handled">
               {filtered.length === 0 ? (
                 <Text style={{ color: c.subtle, fontSize: 13, padding: 14 }}>
-                  {options.length === 0 ? 'No options' : 'No matches'}
+                  {options.length === 0 ? t('connection.noOptions') : t('connection.noMatches')}
                 </Text>
               ) : (
                 filtered.map((option) => {

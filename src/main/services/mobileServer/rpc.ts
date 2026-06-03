@@ -6,6 +6,8 @@ import { gitService } from '../git'
 import { agentService } from '../agent'
 import { ptyService } from '../pty'
 import { githubService } from '../github'
+import { jiraService } from '../jira'
+import { filesService } from '../files'
 import { sessionStorageService } from '../sessionStorage'
 import { rateLimitService } from '../rateLimits/service'
 import { enrichedEnv } from '../../lib/enrichedEnv'
@@ -34,6 +36,9 @@ import type {
 // frame (see terminal.subscribe). Short enough to stay imperceptible for
 // interactive echo, long enough to collapse bursty output into a few frames.
 const TERMINAL_COALESCE_MS = 5
+// ngrok adds internet/tunnel latency, so batching a little longer cuts down on
+// tiny WebSocket frames and usually feels smoother for remote terminal output.
+const TERMINAL_NGROK_COALESCE_MS = 16
 // Flush immediately once the buffer reaches this size so a firehose of output
 // streams promptly instead of accumulating latency while it waits for the timer.
 const TERMINAL_COALESCE_MAX_BYTES = 32 * 1024
@@ -89,6 +94,14 @@ register('rateLimits.get', async () => rateLimitService.getState())
 
 register('rateLimits.refresh', async () => rateLimitService.refresh())
 
+// ── Diagnostics ──────────────────────────────────────────────────────────────
+
+register('diagnostics.ping', async (params, connection) => ({
+  desktopReceivedAt: Date.now(),
+  clientSentAt: typeof params.clientSentAt === 'number' ? params.clientSentAt : null,
+  transport: connection.transport ?? 'lan',
+}))
+
 // ── Projects / Worktrees ──────────────────────────────────────────────────────
 
 register('projects.list', async () => {
@@ -138,12 +151,47 @@ register('worktrees.create', async (params) => {
   // directly — see worktreeCreation.ts.
   // Returns { worktreePath?, worktreeId? } so the device can navigate straight
   // into the new worktree and auto-launch its chosen agent.
+  // filesToCopy (gated by 'worktree.copy-files.v1') mirrors the desktop dialog:
+  // env/secret files the user chose to copy from the main worktree.
   return await createWorktreeViaDesktop(
     params.repoPath as string,
     params.branch as string,
     params.projectName as string,
     params.baseBranch as string | undefined,
+    Array.isArray(params.filesToCopy) ? (params.filesToCopy as string[]) : undefined,
   )
+})
+
+// Surface the desktop AddWorktreeDialog's copy-file suggestions to mobile: the
+// project's saved copyFiles plus auto-discovered gitignored env/secret files
+// (DEFAULT_PATTERNS) in the main worktree. The device shows these as a checklist
+// and passes the selected paths back via worktrees.create's filesToCopy.
+register('worktrees.copyCandidates', async (params) => {
+  const repoPath = params.repoPath as string
+  const data = storageService.load()
+  const project = data.projects.find((p) => p.path === repoPath)
+  const savedPaths = project?.settings?.copyFiles ?? []
+
+  const worktrees = await gitService.getWorktrees(repoPath).catch(() => [])
+  const sourceWt = worktrees.find((w) => w.isMain)
+  if (!sourceWt) return { sourceBranch: null, saved: [], discovered: [] }
+
+  const [fileInfo, ignored] = await Promise.all([
+    savedPaths.length > 0 ? filesService.getFileInfo(sourceWt.path, savedPaths) : Promise.resolve([]),
+    // No patterns => filesService uses its DEFAULT_PATTERNS (.env*, .envrc,
+    // .npmrc, credentials.json, .claude*, …) — the same auto-detection the
+    // desktop dialog shows by default.
+    filesService.getIgnoredFiles(sourceWt.path),
+  ])
+
+  const savedSet = new Set(savedPaths)
+  const saved = fileInfo
+    .filter((f) => f.exists)
+    .map((f) => ({ path: f.path, size: f.size }))
+  const discovered = ignored
+    .filter((f) => !savedSet.has(f.path))
+    .map((f) => ({ path: f.path, size: f.size }))
+  return { sourceBranch: sourceWt.branch, saved, discovered }
 })
 
 register('worktrees.remove', async (params) => {
@@ -151,6 +199,22 @@ register('worktrees.remove', async (params) => {
   // terminal/PTY disposal, session cascade-delete, UI cleanup, then git remove)
   // rather than calling git directly — see worktreeRemoval.ts.
   await removeWorktreeViaDesktop(params.repoPath as string, params.worktreePath as string)
+})
+
+// ── Jira ──────────────────────────────────────────────────────────────────────
+// Gated by the 'jira.lookup.v1' capability. Lets mobile mirror the desktop
+// AddWorktreeDialog's Jira field: check whether the acli CLI is installed, then
+// resolve a ticket key to prefill the new worktree's branch name.
+
+register('jira.isAvailable', async () => jiraService.isAvailable())
+
+register('jira.getIssueByKey', async (params) => {
+  const key = String(params.key ?? '').trim()
+  if (!key) return null
+  const baseUrl = typeof params.baseUrl === 'string' ? params.baseUrl : undefined
+  // Summary mode (includeContext=false) is enough to derive a branch and show a
+  // ticket card; force a refresh so the device always sees current status.
+  return jiraService.getIssueByKey(key, baseUrl, true, false)
 })
 
 // ── Sessions ──────────────────────────────────────────────────────────────────
@@ -381,6 +445,7 @@ register('terminal.list', async (params) => {
         agentId: meta?.agentId ?? session.metadata?.agentId ?? instance?.agentId,
         worktreeId: meta?.worktreeId ?? session.metadata?.worktreeId ?? instance?.worktreeId,
         status: getTerminalActivity(session.sessionId),
+        lastOutputAt: session.lastOutputAt,
         // Monotonic accumulated working time. Mobile needs this both for its
         // "agent time" total and to fingerprint a finished agent so a re-run
         // (which adds more working time) re-surfaces in "Needs attention".
@@ -703,6 +768,7 @@ register('terminal.subscribe', async (params, connection) => {
   // byte cap flushes immediately so a firehose can't grow unbounded latency.
   let pending = ''
   let flushTimer: ReturnType<typeof setTimeout> | null = null
+  const coalesceMs = connection.transport === 'ngrok' ? TERMINAL_NGROK_COALESCE_MS : TERMINAL_COALESCE_MS
   const flush = () => {
     if (flushTimer) {
       clearTimeout(flushTimer)
@@ -731,7 +797,7 @@ register('terminal.subscribe', async (params, connection) => {
       flush()
       return
     }
-    if (!flushTimer) flushTimer = setTimeout(flush, TERMINAL_COALESCE_MS)
+    if (!flushTimer) flushTimer = setTimeout(flush, coalesceMs)
   })
 
   const unsubExit = ptyService.onExit(ptyId, (_id: string, exitCode: number) => {
@@ -805,7 +871,10 @@ register('terminal.subscribe', async (params, connection) => {
     pending = ''
   }
 
-  return { subscriptionId, snapshot }
+  // Return the PTY's current size (after any pre-fit above) so the device inits
+  // its xterm at exactly the width the snapshot was serialized at - history and
+  // live output then share one size, so an alt-screen TUI never wraps wrong.
+  return { subscriptionId, snapshot, cols: currentSize?.cols, rows: currentSize?.rows }
 })
 
 register('terminal.unsubscribe', async (params, connection) => {

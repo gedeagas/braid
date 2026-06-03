@@ -1,4 +1,5 @@
 import { WebSocketServer, WebSocket } from 'ws'
+import { BrowserWindow } from 'electron'
 import crypto from 'crypto'
 import { networkInterfaces } from 'os'
 import { logger } from '../../lib/logger'
@@ -50,6 +51,13 @@ class MobileServer {
     for (const [deviceId, conn] of this.connections) {
       if (deviceId === exceptDeviceId) continue
       conn.ws.emit('rpc:notification', notification)
+    }
+  }
+
+  /** Push a one-off event to every desktop renderer window (e.g. pairing UI). */
+  private notifyDesktopWindows(channel: string, payload: Record<string, unknown>): void {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) win.webContents.send(channel, payload)
     }
   }
 
@@ -179,8 +187,6 @@ class MobileServer {
             sharedKey,
             localKeyPair: serverEphemeral,
             remotePublicKey,
-            sendCounter: 0,
-            receiveCounter: 0,
             deviceId: legacyDevice?.id ?? '',
             deviceToken: legacyDeviceToken,
           }
@@ -203,16 +209,13 @@ class MobileServer {
             return
           }
 
-          const result = e2ee.decryptJson<E2EEAuth>(data, session.sharedKey, 0, false)
-          if (!result || result.data.type !== 'e2ee_auth') {
+          const authMsg = e2ee.openJson<E2EEAuth>(data, session.sharedKey)
+          if (!authMsg || authMsg.type !== 'e2ee_auth') {
             logger.warn('[MobileServer] Failed to decrypt auth message')
             ws.close(4001, 'Auth failed')
             clearTimeout(handshakeTimer)
             return
           }
-          session.receiveCounter = result.nextCounter
-
-          const authMsg = result.data
           const encryptedDeviceToken = typeof authMsg.deviceToken === 'string' ? authMsg.deviceToken : ''
           if (session.deviceToken && encryptedDeviceToken && session.deviceToken !== encryptedDeviceToken) {
             logger.warn('[MobileServer] Device token mismatch during auth')
@@ -230,7 +233,12 @@ class MobileServer {
 
           // Retrieve the device bound during the hello phase to prevent session hijacking
           let device = session.deviceId ? deviceStore.getById(session.deviceId) : deviceStore.getByToken(deviceToken)
-          if (device && device.publicKey === '') {
+          // A device with an empty publicKey is still in the one-time pairing
+          // flow; this auth finalizes it. Tracked so the desktop can swap its
+          // (now-consumed) pairing QR for a success state - see the
+          // 'mobile:deviceConnected' notify below.
+          const isNewPairing = !!device && device.publicKey === ''
+          if (isNewPairing) {
             // New pairing - finalize using the cryptographically bound token
             device = deviceStore.finalizePairing(deviceToken, authMsg.deviceName, authMsg.devicePublicKey)
           }
@@ -247,15 +255,11 @@ class MobileServer {
           deviceStore.updateLastSeen(device.id)
           clearTimeout(handshakeTimer)
 
-          // Send authenticated response (encrypted)
-          const { encrypted, nextCounter } = e2ee.encryptJson(
+          // Send authenticated response (sealed)
+          ws.send(e2ee.sealJson(
             { type: 'e2ee_authenticated', deviceId: device.id, instanceName: getMobileInstanceName(), deviceToken: device.token },
             session.sharedKey,
-            session.sendCounter,
-            true
-          )
-          session.sendCounter = nextCounter
-          ws.send(encrypted)
+          ))
 
           // Register connection
           const connection: MobileConnection = {
@@ -267,6 +271,7 @@ class MobileServer {
             sendQueue: Promise.resolve(),
             binaryTerminalData: authMsg.capabilities?.binaryTerminalData === true,
             subscribeSnapshot: authMsg.capabilities?.subscribeSnapshot === true,
+            transport: device.pairingTransport ?? 'lan',
           }
 
           // Close existing connection from same device
@@ -284,6 +289,16 @@ class MobileServer {
           // Set up notification forwarding for this connection
           this.setupNotificationForwarding(connection)
 
+          // Tell desktop windows a device connected so the pairing UI can update
+          // live: refresh the device list, mark it connected, and (on a fresh
+          // pairing) replace the now-consumed one-time QR with a success state so
+          // nobody scans a stale code.
+          this.notifyDesktopWindows('mobile:deviceConnected', {
+            deviceId: device.id,
+            name: device.name,
+            isNewPairing,
+          })
+
           logger.info(`[MobileServer] Device "${device.name}" (${device.id}) authenticated`)
           return
         }
@@ -293,14 +308,15 @@ class MobileServer {
           const conn = this.findConnectionByWs(ws)
           if (!conn) return
 
-          const result = e2ee.decryptJson<JsonRpcRequest>(data, session.sharedKey, conn.e2ee.receiveCounter, false)
-          if (!result) {
+          const request = e2ee.openJson<JsonRpcRequest>(data, session.sharedKey)
+          if (!request) {
+            // Self-describing nonces mean a single bad frame is isolated: drop it
+            // and keep serving the connection rather than desyncing the stream.
             logger.warn('[MobileServer] Failed to decrypt RPC message')
             return
           }
-          conn.e2ee.receiveCounter = result.nextCounter
 
-          const response = await dispatch(result.data, conn)
+          const response = await dispatch(request, conn)
           conn.sendQueue = conn.sendQueue
             .then(() => this.sendEncrypted(conn, response as JsonRpcResponse))
             .catch((err) => {
@@ -320,6 +336,8 @@ class MobileServer {
         for (const unsub of conn.subscriptions.values()) unsub()
         deviceStore.updateLastSeen(conn.device.id)
         this.connections.delete(conn.device.id)
+        // Keep the desktop device list's connected indicator live.
+        this.notifyDesktopWindows('mobile:deviceDisconnected', { deviceId: conn.device.id })
       }
     })
 
@@ -339,8 +357,9 @@ class MobileServer {
         })
     })
     // Raw PTY output, streamed as an encrypted binary WS frame for clients that
-    // negotiated `binaryTerminalData`. Queued on the same sendQueue as JSON so
-    // the lockstep nonce counter stays monotonic across both channels.
+    // negotiated `binaryTerminalData`. Each frame carries its own random nonce,
+    // so it is independent of the JSON channel; the sendQueue is kept only to
+    // preserve output ordering within the terminal stream itself.
     connection.ws.on('rpc:binary', (payload: { ptyId: string; data: string }) => {
       connection.sendQueue = connection.sendQueue
         .then(() => this.sendEncryptedBinaryTerminal(connection, payload.ptyId, payload.data))
@@ -354,36 +373,24 @@ class MobileServer {
     connection: MobileConnection,
     message: JsonRpcResponse | JsonRpcNotification,
   ): Promise<void> {
-    const { encrypted, nextCounter } = e2ee.encryptJson(
-      message,
-      connection.e2ee.sharedKey,
-      connection.e2ee.sendCounter,
-      true
-    )
-    connection.e2ee.sendCounter = nextCounter
-    if (connection.ws.readyState === WebSocket.OPEN) {
-      connection.ws.send(encrypted)
-    }
+    if (connection.ws.readyState !== WebSocket.OPEN) return
+    connection.ws.send(e2ee.sealJson(message, connection.e2ee.sharedKey))
   }
 
   /**
-   * Encrypt raw PTY output as a binary frame and send it as a binary WS frame.
-   * Shares the session's send-counter sequence with {@link sendEncrypted} (both
-   * run on the per-connection sendQueue), so the client can decrypt binary and
-   * text frames against one in-order receive counter.
+   * Seal raw PTY output as a binary frame and send it as a binary WS frame. Each
+   * frame carries its own random nonce (see e2ee.sealBytes), so it is fully
+   * independent of the JSON channel - a binary hiccup can't corrupt RPC and an
+   * RPC hiccup can't corrupt the terminal stream.
    */
   private async sendEncryptedBinaryTerminal(
     connection: MobileConnection,
     ptyId: string,
     data: string,
   ): Promise<void> {
-    const plaintext = encodeTerminalFrame(ptyId, data)
-    const nonce = e2ee.generateNonce(connection.e2ee.sendCounter, true)
-    const ciphertext = e2ee.encrypt(plaintext, connection.e2ee.sharedKey, nonce)
-    connection.e2ee.sendCounter += 1
-    if (connection.ws.readyState === WebSocket.OPEN) {
-      connection.ws.send(ciphertext, { binary: true })
-    }
+    if (connection.ws.readyState !== WebSocket.OPEN) return
+    const sealed = e2ee.sealBytes(encodeTerminalFrame(ptyId, data), connection.e2ee.sharedKey)
+    connection.ws.send(sealed, { binary: true })
   }
 
   // ── Activity probe (ping/pong) ────────────────────────────────────────
@@ -440,12 +447,13 @@ class MobileServer {
     })()
     if (!endpoint) return null
 
-    const token = deviceStore.createPairingToken()
+    const transport = options.transport ?? 'lan'
+    const token = deviceStore.createPairingToken(transport)
     return {
       endpoint,
       token,
       serverPublicKey: this.instanceId,
-      transport: options.transport ?? 'lan',
+      transport,
     }
   }
 

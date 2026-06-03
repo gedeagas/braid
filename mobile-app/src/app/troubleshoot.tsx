@@ -1,10 +1,8 @@
-import { router } from 'expo-router';
 import {
   Activity,
   AlertTriangle,
   CheckCircle2,
   ChevronDown,
-  ChevronLeft,
   ChevronUp,
   Clock,
   Globe,
@@ -13,12 +11,15 @@ import {
   XCircle,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { startDiagnosticFetchTimeout, type DiagnosticFetchTimeout } from '@/diagnostics/diagnostic-fetch-timeout';
+import { formatLatency, runLatencyDiagnostic, type LatencyVerdict } from '@/diagnostics/connection-latency';
 import { formatEndpoint, testHostReachability } from '@/diagnostics/host-reachability';
+import { useClientManager } from '@/transport/client-manager';
 import { loadHosts } from '@/transport/host-store';
-import { CornerInset, Screen } from '@/ui/kit';
+import { Screen, ScreenHeader } from '@/ui/kit';
 import { useTheme, useThemedStyles, type Palette } from '@/ui/theme';
 
 interface CheckResult {
@@ -56,9 +57,17 @@ function diagReducer(state: DiagState, action: DiagAction): DiagState {
   }
 }
 
+function latencyStatus(verdict: LatencyVerdict): CheckResult['status'] {
+  if (verdict === 'good') return 'pass';
+  if (verdict === 'fair') return 'warn';
+  return 'fail';
+}
+
 export default function TroubleshootScreen() {
+  const { t } = useTranslation();
   const { palette: c } = useTheme();
   const styles = useThemedStyles(makeStyles);
+  const manager = useClientManager();
   const [diag, dispatch] = useReducer(diagReducer, { running: false, done: false, checks: [] });
   const [expandedId, setExpandedId] = useState<string | null>(null);
   // Cancellation: diagnostics can outlive the screen. A monotonically-bumped run
@@ -84,40 +93,26 @@ export default function TroubleshootScreen() {
     {
       id: 'wifi',
       icon: <WifiOff size={16} color={c.muted} />,
-      title: 'Different Wi-Fi networks',
-      steps: [
-        'Phone and desktop must be on the same local network.',
-        'Ethernet and Wi-Fi must share the same subnet.',
-        'Toggle Wi-Fi off and on, then reconnect.',
-      ],
+      title: t('troubleshoot.issues.wifi.title'),
+      steps: t('troubleshoot.issues.wifi.steps', { returnObjects: true }) as string[],
     },
     {
       id: 'firewall',
       icon: <Shield size={16} color={c.muted} />,
-      title: 'Firewall or AP isolation',
-      steps: [
-        'A macOS firewall can block the Braid mobile server - allow incoming connections.',
-        'Guest / public Wi-Fi often isolates clients so devices can’t see each other.',
-        'Try a personal hotspot to rule the network out.',
-      ],
+      title: t('troubleshoot.issues.firewall.title'),
+      steps: t('troubleshoot.issues.firewall.steps', { returnObjects: true }) as string[],
     },
     {
       id: 'server',
       icon: <Globe size={16} color={c.muted} />,
-      title: 'Server not running',
-      steps: [
-        'Open desktop Settings › Mobile and confirm the server is started.',
-        'Re-scan the QR code if the desktop was restarted.',
-      ],
+      title: t('troubleshoot.issues.server.title'),
+      steps: t('troubleshoot.issues.server.steps', { returnObjects: true }) as string[],
     },
     {
       id: 'pairing',
       icon: <Clock size={16} color={c.muted} />,
-      title: 'Pairing rejected',
-      steps: [
-        'If you see “Pairing rejected”, the device token was revoked.',
-        'Remove the desktop and re-pair from desktop Settings › Mobile.',
-      ],
+      title: t('troubleshoot.issues.pairing.title'),
+      steps: t('troubleshoot.issues.pairing.steps', { returnObjects: true }) as string[],
     },
   ];
 
@@ -134,11 +129,11 @@ export default function TroubleshootScreen() {
       const hosts = await loadHosts();
       results.push(
         hosts.length > 0
-          ? { label: 'Paired desktops', status: 'pass', detail: `${hosts.length} paired` }
-          : { label: 'Paired desktops', status: 'fail', detail: 'None - scan a QR to pair' },
+          ? { label: t('troubleshoot.checks.pairedDesktops'), status: 'pass', detail: t('troubleshoot.checks.pairedCount', { count: hosts.length }) }
+          : { label: t('troubleshoot.checks.pairedDesktops'), status: 'fail', detail: t('troubleshoot.checks.pairedNone') },
       );
     } catch {
-      results.push({ label: 'Paired desktops', status: 'warn', detail: 'Could not read host data' });
+      results.push({ label: t('troubleshoot.checks.pairedDesktops'), status: 'warn', detail: t('troubleshoot.checks.pairedReadError') });
     }
     if (!isCurrent()) return;
     dispatch({ type: 'set', checks: [...results] });
@@ -150,12 +145,12 @@ export default function TroubleshootScreen() {
       if (!isCurrent()) return;
       results.push(
         resp.ok
-          ? { label: 'Internet', status: 'pass', detail: 'Connected' }
-          : { label: 'Internet', status: 'warn', detail: 'Unexpected response' },
+          ? { label: t('troubleshoot.checks.internet'), status: 'pass', detail: t('troubleshoot.checks.internetConnected') }
+          : { label: t('troubleshoot.checks.internet'), status: 'warn', detail: t('troubleshoot.checks.internetUnexpected') },
       );
     } catch {
       if (!isCurrent()) return;
-      results.push({ label: 'Internet', status: 'fail', detail: 'No connection' });
+      results.push({ label: t('troubleshoot.checks.internet'), status: 'fail', detail: t('troubleshoot.checks.internetNone') });
     } finally {
       internetCheck.dispose();
       if (activeFetchRef.current === internetCheck) activeFetchRef.current = null;
@@ -172,18 +167,42 @@ export default function TroubleshootScreen() {
         results.push({
           label: host.instanceName ?? formatEndpoint(host.endpoint),
           status: reachable ? 'pass' : 'fail',
-          detail: reachable ? `Reachable at ${formatEndpoint(host.endpoint)}` : `Cannot reach ${formatEndpoint(host.endpoint)}`,
+          detail: reachable
+            ? t('troubleshoot.checks.reachableAt', { endpoint: formatEndpoint(host.endpoint) })
+            : t('troubleshoot.checks.cannotReach', { endpoint: formatEndpoint(host.endpoint) }),
+        });
+        dispatch({ type: 'set', checks: [...results] });
+
+        if (!isCurrent()) return;
+        const client = manager.acquireHost(host);
+        const latency = await runLatencyDiagnostic(client);
+        if (!isCurrent()) return;
+        const hostName = host.instanceName ?? formatEndpoint(host.endpoint);
+        results.push({
+          label: t('troubleshoot.checks.quality', { name: hostName }),
+          status: latencyStatus(latency.verdict),
+          detail: latency.error
+            ? latency.error
+            : t('troubleshoot.checks.qualityDetail', { label: latency.label, rtt: formatLatency(latency.rttMs) }),
+        });
+        results.push({
+          label: t('troubleshoot.checks.handshake', { name: hostName }),
+          status: latency.error ? 'fail' : 'pass',
+          detail: t('troubleshoot.checks.handshakeDetail', {
+            connect: formatLatency(latency.connectMs),
+            auth: formatLatency(latency.authMs),
+          }),
         });
         dispatch({ type: 'set', checks: [...results] });
       }
     } catch {
-      results.push({ label: 'Desktops', status: 'warn', detail: 'Could not test' });
+      results.push({ label: t('troubleshoot.checks.desktops'), status: 'warn', detail: t('troubleshoot.checks.couldNotTest') });
     }
     if (!isCurrent()) return;
 
-    results.push({ label: 'Platform', status: 'pass', detail: `${Platform.OS} ${Platform.Version ?? ''}`.trim() });
+    results.push({ label: t('troubleshoot.checks.platform'), status: 'pass', detail: `${Platform.OS} ${Platform.Version ?? ''}`.trim() });
     dispatch({ type: 'finish', checks: [...results] });
-  }, []);
+  }, [manager, t]);
 
   const statusIcon = (status: CheckResult['status']) => {
     if (status === 'pass') return <CheckCircle2 size={15} color={c.success} />;
@@ -193,13 +212,7 @@ export default function TroubleshootScreen() {
 
   return (
     <Screen edges={['top', 'left', 'right']}>
-      <View style={styles.topRow}>
-        <CornerInset />
-        <Pressable style={styles.back} onPress={() => router.back()} accessibilityLabel="Back">
-          <ChevronLeft size={22} color={c.text} />
-        </Pressable>
-        <Text style={styles.heading}>Troubleshooting</Text>
-      </View>
+      <ScreenHeader title={t('troubleshoot.title')} back compact style={styles.topRow} />
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Pressable
@@ -208,7 +221,9 @@ export default function TroubleshootScreen() {
           disabled={diag.running}
         >
           {diag.running ? <ActivityIndicator size="small" color={c.text} /> : <Activity size={16} color={c.text} />}
-          <Text style={styles.runLabel}>{diag.running ? 'Running…' : diag.done ? 'Run again' : 'Run diagnostics'}</Text>
+          <Text style={styles.runLabel}>
+            {diag.running ? t('troubleshoot.running') : diag.done ? t('troubleshoot.runAgain') : t('troubleshoot.runDiagnostics')}
+          </Text>
         </Pressable>
 
         {diag.checks.length > 0 && (
@@ -218,19 +233,21 @@ export default function TroubleshootScreen() {
                 {i > 0 && <View style={styles.separator} />}
                 <View style={styles.checkRow}>
                   {statusIcon(check.status)}
-                  <Text style={styles.checkLabel} numberOfLines={1}>
-                    {check.label}
-                  </Text>
-                  <Text style={[styles.checkDetail, check.status === 'fail' && { color: c.danger }]} numberOfLines={1}>
-                    {check.detail}
-                  </Text>
+                  <View style={styles.checkText}>
+                    <Text style={styles.checkLabel} numberOfLines={1} ellipsizeMode="middle">
+                      {check.label}
+                    </Text>
+                    <Text style={[styles.checkDetail, check.status === 'fail' && { color: c.danger }]} numberOfLines={2}>
+                      {check.detail}
+                    </Text>
+                  </View>
                 </View>
               </View>
             ))}
           </View>
         )}
 
-        <Text style={styles.sectionHeading}>Common issues</Text>
+        <Text style={styles.sectionHeading}>{t('troubleshoot.commonIssues')}</Text>
         <View style={styles.section}>
           {issues.map((issue, i) => (
             <View key={issue.id}>
@@ -263,9 +280,7 @@ export default function TroubleshootScreen() {
 
 function makeStyles(c: Palette) {
   return StyleSheet.create({
-    topRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 10 },
-    back: { width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-    heading: { color: c.text, fontSize: 20, fontWeight: '800' },
+    topRow: { paddingHorizontal: 16, paddingVertical: 10 },
     scroll: { flex: 1 },
     content: { paddingHorizontal: 16, paddingBottom: 40 },
     runButton: {
@@ -285,9 +300,10 @@ function makeStyles(c: Palette) {
     runLabel: { color: c.text, fontSize: 14, fontWeight: '800' },
     section: { borderRadius: 10, borderWidth: 1, borderColor: c.border, backgroundColor: c.panel, overflow: 'hidden' },
     separator: { height: 1, backgroundColor: c.border },
-    checkRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11, paddingHorizontal: 14 },
+    checkRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 11, paddingHorizontal: 14 },
+    checkText: { flex: 1, gap: 2 },
     checkLabel: { color: c.text, fontSize: 13, fontWeight: '600' },
-    checkDetail: { flex: 1, textAlign: 'right', color: c.muted, fontSize: 12 },
+    checkDetail: { color: c.muted, fontSize: 12, lineHeight: 16 },
     sectionHeading: {
       color: c.subtle,
       fontSize: 12,

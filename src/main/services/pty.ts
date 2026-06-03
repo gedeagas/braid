@@ -1,9 +1,9 @@
 import { BrowserWindow, app } from 'electron'
-import { existsSync, accessSync, constants, lstatSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
-import { execFileSync } from 'child_process'
 import { mainSettings } from '../ipc'
+import { resolveShellPath, resolveShellLaunchArgs } from '../lib/shell'
 import { getHookServerPort, getHookServerToken } from './agentHookServer'
 import { DEFAULT_TERMINAL_SCROLLBACK_LINES, getTerminalScrollbackBufferMaxLength } from '../../shared/terminal'
 
@@ -166,31 +166,8 @@ class PtyService implements IPtyService {
     return windows[0] ?? null
   }
 
-  private isExecutable(path: string): boolean {
-    try {
-      // Resolve symlinks - catches dangling Homebrew links
-      const stat = lstatSync(path)
-      if (stat.isSymbolicLink()) {
-        if (!existsSync(path)) return false // dangling symlink
-      }
-      accessSync(path, constants.X_OK)
-      return true
-    } catch {
-      return false
-    }
-  }
-
   private resolveShell(): string {
-    const configured = mainSettings.terminalShell
-    if (configured && this.isExecutable(configured)) return configured
-    if (process.env.SHELL && this.isExecutable(process.env.SHELL)) return process.env.SHELL
-    // Last resort: ask the system for the user's login shell
-    try {
-      const result = execFileSync('dscl', ['.', '-read', `/Users/${process.env.USER ?? 'root'}`, 'UserShell'], { encoding: 'utf8', timeout: 2000 })
-      const match = result.match(/UserShell:\s*(\S+)/)
-      if (match && this.isExecutable(match[1])) return match[1]
-    } catch { /* ignore */ }
-    return '/bin/zsh'
+    return resolveShellPath(mainSettings.terminalShell)
   }
 
   async spawn(cwd: string, envOverrides?: Record<string, string>): Promise<string> {
@@ -212,7 +189,7 @@ class PtyService implements IPtyService {
 
     let ptyProcess: import('node-pty').IPty
     try {
-      ptyProcess = nodePty.spawn(shell, ['-l'], {
+      ptyProcess = nodePty.spawn(shell, resolveShellLaunchArgs(shell).args, {
         name: 'xterm-256color',
         cols: 80,
         rows: 24,
@@ -446,7 +423,7 @@ class PtyService implements IPtyService {
     return new Promise((resolve, reject) => {
       let ptyProcess: import('node-pty').IPty
       try {
-        ptyProcess = nodePty.spawn(shell, ['-l', '-c', command], {
+        ptyProcess = nodePty.spawn(shell, resolveShellLaunchArgs(shell, { command }).args, {
           name: 'xterm-256color',
           cols: 80,
           rows: 24,

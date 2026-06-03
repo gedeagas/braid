@@ -1,10 +1,11 @@
-import { spawn, type ChildProcessByStdio } from 'child_process'
+import { execFile, spawn, type ChildProcessByStdio } from 'child_process'
 import type { Readable } from 'stream'
 import { logger } from '../../lib/logger'
 import { enrichedEnv } from '../../lib/enrichedEnv'
-import type { MobileNgrokTunnelStatus } from './types'
+import type { MobileNgrokRegion, MobileNgrokTunnelStatus } from './types'
 
 const NGROK_START_TIMEOUT_MS = 15_000
+let ngrokHttpSupportsRegion: Promise<boolean> | null = null
 
 type PendingStart = {
   resolve: (status: MobileNgrokTunnelStatus) => void
@@ -53,6 +54,21 @@ function isLikelyNgrokUrl(value: string): boolean {
   }
 }
 
+function supportsHttpRegionFlag(): Promise<boolean> {
+  if (!ngrokHttpSupportsRegion) {
+    ngrokHttpSupportsRegion = new Promise((resolve) => {
+      execFile('ngrok', ['http', '--help'], { timeout: 3000 }, (err, stdout, stderr) => {
+        if (err) {
+          resolve(false)
+          return
+        }
+        resolve(`${stdout}\n${stderr}`.includes('--region'))
+      })
+    })
+  }
+  return ngrokHttpSupportsRegion
+}
+
 class MobileNgrokTunnel {
   private proc: ChildProcessByStdio<null, Readable, Readable> | null = null
   private port: number | null = null
@@ -64,12 +80,13 @@ class MobileNgrokTunnel {
   private stderrBuffer = ''
   private pendingStart: PendingStart | null = null
   private stopping = false
+  private region: MobileNgrokRegion | null = null
 
-  async start(port: number): Promise<MobileNgrokTunnelStatus> {
-    if (this.proc && this.port === port && this.endpoint) {
+  async start(port: number, region: MobileNgrokRegion = 'auto'): Promise<MobileNgrokTunnelStatus> {
+    if (this.proc && this.port === port && this.region === region && this.endpoint) {
       return this.getStatus()
     }
-    if (this.pendingStart && this.port === port) {
+    if (this.pendingStart && this.port === port && this.region === region) {
       return new Promise((resolve, reject) => {
         const previous = this.pendingStart!
         this.pendingStart = {
@@ -88,6 +105,7 @@ class MobileNgrokTunnel {
 
     this.stop()
     this.port = port
+    this.region = region
     this.url = null
     this.endpoint = null
     this.startedAt = Date.now()
@@ -95,8 +113,13 @@ class MobileNgrokTunnel {
     this.stdoutBuffer = ''
     this.stderrBuffer = ''
 
+    const supportsRegion = await supportsHttpRegionFlag()
+    if (region !== 'auto' && !supportsRegion) {
+      throw new Error(`This ngrok agent does not support selecting an HTTP tunnel region. Update ngrok or switch the region back to Auto.`)
+    }
     const args = ['http', String(port), '--log', 'stdout', '--log-format', 'json']
-    logger.info(`[MobileNgrokTunnel] Starting ngrok for port ${port}`)
+    if (supportsRegion && region !== 'auto') args.splice(2, 0, '--region', region)
+    logger.info(`[MobileNgrokTunnel] Starting ngrok for port ${port}${supportsRegion && region !== 'auto' ? ` in region ${region}` : ''}`)
     this.stopping = false
     const proc = spawn('ngrok', args, {
       env: enrichedEnv(),
@@ -148,6 +171,7 @@ class MobileNgrokTunnel {
     this.stopping = true
     this.proc = null
     this.port = null
+    this.region = null
     this.url = null
     this.endpoint = null
     this.startedAt = null

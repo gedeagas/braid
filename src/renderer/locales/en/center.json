@@ -5,6 +5,14 @@
     "body": "The session is held at the dimensions your phone reported. Restore to use it on your desktop.",
     "restore": "Restore desktop size"
   },
+  "mobileDriver": {
+    "drivingEyebrow": "Mobile is driving this terminal",
+    "drivingTitle": "Your keyboard is paused",
+    "drivingBody": "Output below is being typed from your phone. Take back to resume typing on the desktop, or collapse to keep watching.",
+    "takeBack": "Take back",
+    "collapse": "Collapse",
+    "chipLabel": "Mobile driving"
+  },
   "selectWorktreeHint": "Select a worktree and start a new chat session",
   "startConversation": "Start a conversation",
   "dropImageHint": "Drop image to attach",

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Braid IDE",
+    "name": "Braid Code",
     "slug": "mobile-app",
     "version": "1.0.1",
     "orientation": "portrait",
@@ -27,7 +27,8 @@
           "UIInterfaceOrientationLandscapeLeft",
           "UIInterfaceOrientationLandscapeRight"
         ]
-      }
+      },
+      "appleTeamId": "395NV3CZR4"
     },
     "android": {
       "adaptiveIcon": {

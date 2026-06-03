@@ -1,6 +1,10 @@
 import crypto from 'crypto'
+import { spawn } from 'child_process'
 import { BrowserWindow, ipcMain } from 'electron'
 import { gitService } from '../git'
+import { storageService } from '../storage'
+import { resolveShellPath, resolveShellLaunchArgs } from '../../lib/shell'
+import { enrichedEnv } from '../../lib/enrichedEnv'
 
 // Mobile-initiated worktree creation must run the SAME flow the desktop's
 // "Add worktree" button does (store/projects.ts addWorktree): create the
@@ -59,6 +63,58 @@ function firstLiveWindow(): BrowserWindow | undefined {
 }
 
 /**
+ * Run the project's setup script headlessly in a freshly created worktree.
+ *
+ * A mobile-initiated create never selects the worktree on the desktop, so the
+ * desktop's SetupPanel (which normally runs the script in a visible terminal)
+ * never mounts for it. We replicate its semantics here instead: join the
+ * non-empty lines with `&&` so a failing step short-circuits the rest, and run
+ * them in a single login shell at the worktree cwd.
+ *
+ * Deliberately fire-and-forget: the mobile RPC client times out in ~12s and a
+ * real setup step (`npm install`, `bundle`, …) can take minutes, so blocking the
+ * create response on it is not an option. Output is captured only for logging —
+ * there is no UI surface for it on either side (the desktop user didn't ask for
+ * this worktree). Any nonzero exit / spawn error is logged for diagnosis.
+ */
+function runSetupScriptHeadless(repoPath: string, worktreePath: string): void {
+  const project = storageService.load().projects.find((p) => p.path === repoPath)
+  const script = project?.settings?.setupScript?.trim()
+  if (!script) return
+
+  const combined = script
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join(' && ')
+  if (!combined) return
+
+  const shell = resolveShellPath()
+  const { args } = resolveShellLaunchArgs(shell, { command: combined })
+  console.log('[MobileWorktree] running setup script headless', { worktreePath })
+
+  try {
+    const child = spawn(shell, args, { cwd: worktreePath, env: enrichedEnv() })
+    let tail = ''
+    const capture = (chunk: Buffer) => {
+      // Keep only the last ~4KB so a chatty install doesn't grow unbounded.
+      tail = (tail + chunk.toString()).slice(-4096)
+    }
+    child.stdout?.on('data', capture)
+    child.stderr?.on('data', capture)
+    child.on('error', (err) => {
+      console.error('[MobileWorktree] setup script spawn failed', { worktreePath, err })
+    })
+    child.on('exit', (code) => {
+      if (code === 0) console.log('[MobileWorktree] setup script complete', { worktreePath })
+      else console.error('[MobileWorktree] setup script failed', { worktreePath, code, tail })
+    })
+  } catch (err) {
+    console.error('[MobileWorktree] setup script error', { worktreePath, err })
+  }
+}
+
+/**
  * Create a worktree by driving the desktop renderer's full add flow.
  * Falls back to a bare `git worktree add` only when no window is available or
  * the renderer doesn't know the project (stale state), so a mobile request
@@ -69,6 +125,7 @@ export async function createWorktreeViaDesktop(
   branch: string,
   projectName: string,
   baseBranch?: string,
+  filesToCopy?: string[],
 ): Promise<CreatedWorktree> {
   ensureListener()
   const win = firstLiveWindow()
@@ -94,7 +151,7 @@ export async function createWorktreeViaDesktop(
     // send() can throw if the webContents was destroyed between the liveness
     // check and here; clear the pending entry + timer so it doesn't leak and
     // later fire an unhandled rejection.
-    win.webContents.send('mobile:createWorktreeRequest', { requestId, repoPath, branch, baseBranch })
+    win.webContents.send('mobile:createWorktreeRequest', { requestId, repoPath, branch, baseBranch, filesToCopy })
   } catch (err) {
     clearTimeout(timer!)
     pending.delete(requestId)
@@ -102,7 +159,11 @@ export async function createWorktreeViaDesktop(
   }
 
   try {
-    return await ack
+    const created = await ack
+    // Copy-files already ran inside the renderer's add flow (before the ack), so
+    // any .env the setup needs is in place. Fire-and-forget the setup script.
+    if (created.worktreePath) runSetupScriptHeadless(repoPath, created.worktreePath)
+    return created
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err)
     // The renderer couldn't locate the project (e.g. its state is stale or the

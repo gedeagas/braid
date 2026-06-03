@@ -312,6 +312,21 @@
     color-mix(in srgb, var(--bg-primary) 76%, transparent);
 }
 
+.mobile-ngrok-region {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-10);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.mobile-ngrok-region .settings-select {
+  min-width: 180px;
+}
+
 .mobile-ngrok-status {
   display: flex;
   flex-direction: column;

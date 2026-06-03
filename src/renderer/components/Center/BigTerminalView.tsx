@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react'
+import { useEffect, useRef, useCallback, useReducer, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import * as ipc from '@/lib/ipc'
 import { useTerminalFileDrop } from '@/hooks/useTerminalFileDrop'
@@ -18,21 +18,58 @@ interface Props {
   agentId?: string
 }
 
+// Consolidated mobile-driver UI state (kept in a reducer so the component stays
+// within the 2-useState budget while tracking related flags).
+//   active      - a paired phone is subscribed to (driving) this terminal
+//   mode        - 'desktop' means the phone/desktop asked to view at the desktop's
+//                 native size, so we stop yielding
+//   collapsed   - the "Mobile is driving" overlay is minimized to a corner chip
+//   fitOverride - the PTY is sized to the phone's viewport. Persists after the
+//                 phone detaches so the desktop shows a "Held at phone size"
+//                 prompt (instead of silently auto-resizing).
+type MobileUiState = { active: boolean; mode: 'phone' | 'desktop'; collapsed: boolean; fitOverride: boolean }
+type MobileUiAction =
+  | { type: 'active'; active: boolean }
+  | { type: 'mode'; mode: 'phone' | 'desktop' }
+  | { type: 'collapsed'; collapsed: boolean }
+  | { type: 'fitOverride'; value: boolean }
+  | { type: 'restore' }
+  | { type: 'resetForTerminal' }
+
+function mobileUiReducer(state: MobileUiState, action: MobileUiAction): MobileUiState {
+  switch (action.type) {
+    case 'active':
+      // Keep fitOverride on detach so the held-at-phone-size prompt can appear;
+      // collapse only applies while actively driving, so clear it.
+      return { ...state, active: action.active, collapsed: action.active ? state.collapsed : false }
+    case 'mode':
+      return state.mode === action.mode ? state : { ...state, mode: action.mode }
+    case 'collapsed':
+      return state.collapsed === action.collapsed ? state : { ...state, collapsed: action.collapsed }
+    case 'fitOverride':
+      return state.fitOverride === action.value ? state : { ...state, fitOverride: action.value }
+    case 'restore':
+      // Desktop reclaims: drop the phone-fit override and any collapse, and mark
+      // desktop mode so the pane fits to its own size again.
+      return { ...state, mode: 'desktop', collapsed: false, fitOverride: false }
+    case 'resetForTerminal':
+      return { active: state.active, mode: 'phone', collapsed: false, fitOverride: false }
+    default:
+      return state
+  }
+}
+
 export function BigTerminalView({ terminalId, worktreePath, initialCommand, initialInput, agentId }: Props) {
   const { t } = useTranslation('center')
   const containerRef = useRef<HTMLDivElement>(null)
   const entryRef = useRef<BigTermEntry | null>(null)
-  // Last phone-fit dimensions a paired mobile device applied to the shared PTY,
-  // and a live mirror of `heldForMobile` so the (terminalId-scoped) mobile-fit
-  // listener can read the current hold state without re-subscribing.
+  // Last phone-fit dims a paired device applied to the shared PTY, and a live
+  // mirror of `driving` so the (terminalId-scoped) mobile-fit listener can read
+  // the current state without re-subscribing.
   const mobileFitRef = useRef<{ cols: number; rows: number } | null>(null)
-  const heldForMobileRef = useRef(false)
+  const drivingRef = useRef(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const [mobileActive, setMobileActive] = useState(false)
-  // 'desktop' means the paired phone (or the desktop's "Restore desktop size"
-  // button) asked to view this terminal at the desktop's native size, so we
-  // release the hold and fit to our own pane.
-  const [mobileDisplayMode, setMobileDisplayMode] = useState<'phone' | 'desktop'>('phone')
+  const [mobileUi, dispatchMobileUi] = useReducer(mobileUiReducer, { active: false, mode: 'phone', collapsed: false, fitOverride: false })
 
   // File-drop onto big terminal
   const getFileDropTarget = useCallback(() => {
@@ -53,31 +90,26 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, init
   }, [])
 
   useEffect(() => {
-    setMobileDisplayMode('phone')
+    dispatchMobileUi({ type: 'resetForTerminal' })
     let cancelled = false
     ipc.pty.isMobileTerminalActive(terminalId)
-      .then((active) => { if (!cancelled) setMobileActive(active) })
+      .then((active) => { if (!cancelled) dispatchMobileUi({ type: 'active', active }) })
       .catch(() => undefined)
     const unsubscribe = ipc.pty.onMobileTerminalActive((status) => {
-      if (status.terminalId === terminalId) {
-        setMobileActive(status.active)
-        if (!status.active) {
-          setMobileDisplayMode('phone')
-        }
-      }
+      if (status.terminalId === terminalId) dispatchMobileUi({ type: 'active', active: status.active })
     })
     const unsubscribeMode = ipc.pty.onMobileDisplayMode((status) => {
-      if (status.terminalId === terminalId) setMobileDisplayMode(status.mode)
+      if (status.terminalId === terminalId) dispatchMobileUi({ type: 'mode', mode: status.mode })
     })
-    // While the desktop is yielding to a phone, size our xterm to the phone's
-    // PTY dims (the "held at phone size" buffer): the held buffer is laid out at the
-    // width the phone shows, so xterm reflows cleanly back to desktop width on
-    // restore instead of stranding phone-width scrollback in a wide pane. The
-    // mount effect's scheduleFit() bails while held, so this does not fight it.
+    // While a phone is driving, size our xterm to the phone's PTY dims so the
+    // buffer is laid out at the width the phone shows (output streams correctly
+    // underneath the "Mobile is driving" overlay). Also record the phone-fit
+    // override so a "Held at phone size" prompt can appear after the phone leaves.
     const unsubscribeFit = ipc.pty.onMobileFit((status) => {
       if (status.terminalId !== terminalId) return
       mobileFitRef.current = { cols: status.cols, rows: status.rows }
-      if (!heldForMobileRef.current) return
+      dispatchMobileUi({ type: 'fitOverride', value: true })
+      if (!drivingRef.current) return
       const entry = entryRef.current
       if (!entry || entry.disposed) return
       if (entry.term.cols === status.cols && entry.term.rows === status.rows) return
@@ -91,10 +123,38 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, init
     }
   }, [terminalId])
 
-  // In 'desktop' mode the phone wants our native size, so we stop holding and
-  // let the ResizeObserver fit to this pane (which resizes the shared PTY).
-  const heldForMobile = mobileActive && mobileDisplayMode !== 'desktop'
-  heldForMobileRef.current = heldForMobile
+  // A phone is actively driving (input paused on the desktop) unless we're in
+  // 'desktop' mode. After the phone detaches, a lingering phone-fit override puts
+  // the pane in a "held at phone size" state until the desktop restores.
+  const driving = mobileUi.active && mobileUi.mode !== 'desktop'
+  const held = !mobileUi.active && mobileUi.fitOverride && mobileUi.mode !== 'desktop'
+  // Desktop input + auto-fit are suppressed in both states (the PTY is the
+  // phone's size; fitting it to our pane would clobber the phone's output).
+  const locked = driving || held
+  drivingRef.current = driving
+
+  // Desktop reclaims control: tell main the terminal is driven at desktop dims
+  // (it broadcasts 'desktop' back, lifting the main-side resize guard), and drop
+  // our local hold so the pane re-fits. Used by Take back, Restore, and
+  // type-to-take-back.
+  const takeBack = useCallback(() => {
+    dispatchMobileUi({ type: 'restore' })
+    ipc.pty.setMobileDisplayMode(terminalId, 'desktop')
+  }, [terminalId])
+
+  // Lock the desktop xterm's input while a phone owns the terminal: keystrokes
+  // are not forwarded to the PTY; instead they reclaim control (type = take
+  // back).
+  useEffect(() => {
+    const entry = entryRef.current
+    if (!entry) return
+    entry.mobileInputLocked = locked
+    entry.onDesktopInputWhileLocked = locked ? takeBack : null
+    return () => {
+      const e = entryRef.current
+      if (e) { e.mobileInputLocked = false; e.onDesktopInputWhileLocked = null }
+    }
+  }, [locked, takeBack, terminalId])
 
   useEffect(() => {
     const el = containerRef.current
@@ -105,6 +165,8 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, init
 
     const entry = getOrCreate(terminalId, worktreePath, initialCommand, agentId, initialInput)
     entryRef.current = entry
+    entry.mobileInputLocked = locked
+    entry.onDesktopInputWhileLocked = locked ? takeBack : null
 
     // Attach xterm to DOM (open on first mount, re-append on remount).
     if (!entry.term.element) {
@@ -132,10 +194,10 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, init
     // frame (e.g. split resize drag). Coalesce into one rAF to avoid loops
     // and keep fit() off the pointermove hot path.
     const scheduleFit = () => {
-      if (heldForMobile) return
+      if (locked) return
       if (entry.pendingFitRafId !== null) return
       entry.pendingFitRafId = requestAnimationFrame(() => {
-        if (heldForMobile) {
+        if (locked) {
           entry.pendingFitRafId = null
           return
         }
@@ -175,33 +237,27 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, init
         el.removeChild(entry.term.element)
       }
     }
-  }, [terminalId, worktreePath, heldForMobile])
+  }, [terminalId, worktreePath, locked, takeBack])
 
-  // Robust restore (mirrors the desktop terminal pane's desktop-fit handler). When the
-  // pane un-holds after a mobile session, the mount effect's single rAF fit()
-  // can silently no-op if it measured the container before layout settled (it
-  // was just toggled from visibility:hidden), leaving xterm - which we sized
-  // down to the phone's dims while held - and the shared PTY parked narrow. A
-  // short fallback re-measures and force-fits if xterm is still stuck at the
-  // phone dims, so the PTY returns to desktop width and xterm reflows scrollback
-  // back out to full width.
-  const prevHeldRef = useRef(heldForMobile)
+  // Robust restore when the pane stops being locked (take back / restore). The
+  // mount effect's single rAF fit() can silently no-op if it measured the
+  // container before layout settled, leaving xterm - sized to the phone's dims
+  // while locked - and the shared PTY parked narrow. A short fallback re-measures
+  // and force-fits if xterm is still stuck at the phone dims.
+  const prevLockedRef = useRef(locked)
   useEffect(() => {
-    const wasHeld = prevHeldRef.current
-    prevHeldRef.current = heldForMobile
-    if (!wasHeld || heldForMobile) return // only on the held -> un-held transition
+    const wasLocked = prevLockedRef.current
+    prevLockedRef.current = locked
+    if (!wasLocked || locked) return // only on the locked -> unlocked transition
 
     const entry = entryRef.current
     const el = containerRef.current
     if (!entry || !el) return
 
     const phoneFit = mobileFitRef.current
-    // Dims xterm is parked at as we un-hold; if a fit lands they change, if it
-    // silently fails they stay and the fallback forces the resize.
     const stuckCols = entry.term.cols
     const stuckRows = entry.term.rows
 
-    // Primary: fit once the browser settles the visibility:hidden -> visible flip.
     const rafId = requestAnimationFrame(() => {
       try {
         entry.fitAddon.fit()
@@ -209,10 +265,6 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, init
       } catch { /* ignore */ }
     })
 
-    // Belt-and-suspenders: force a re-fit if the rAF fit threw or no-oped - but
-    // only for a visible, non-zero pane (a hidden pane's later activation refit
-    // corrects it) and only while xterm is still parked at the phone's dims, so
-    // a desktop pane the user resized in the meantime is never clobbered.
     const timerId = window.setTimeout(() => {
       if (entry.disposed) return
       const rect = el.getBoundingClientRect()
@@ -235,22 +287,7 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, init
       cancelAnimationFrame(rafId)
       window.clearTimeout(timerId)
     }
-  }, [heldForMobile])
-
-  const restoreDesktopSize = useCallback(() => {
-    // Tell the main process the terminal is now driven at desktop dimensions.
-    // It broadcasts back a 'desktop' display mode which un-holds this pane
-    // (heldForMobile -> false), re-fits, and resizes the shared PTY. Because
-    // the mode is set on main *before* that resize fires, the resulting
-    // `terminal.resized` event is tagged 'desktop', so the paired phone
-    // resizes its xterm and toggles its desktop/phone indicator.
-    //
-    // We intentionally do NOT set desktopOverride or resize locally here:
-    // doing so would un-hold the pane and emit a 'phone'-tagged resize before
-    // main learns about the mode change, and the later broadcast would be a
-    // no-op (heldForMobile already false), leaving the phone out of sync.
-    ipc.pty.setMobileDisplayMode(terminalId, 'desktop')
-  }, [terminalId])
+  }, [locked])
 
   useEffect(() => {
     updateBigTerminalAgentId(terminalId, agentId)
@@ -317,45 +354,71 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, init
             onClose={() => setSearchOpen(false)}
           />
         )}
-        {heldForMobile && (
+        {/* While a phone is driving, the terminal stays visible and live output
+            keeps streaming - desktop input is paused (xterm.onData is gated in
+            bigTerminalCache; typing reclaims control). Expanded: a card with Take
+            back + Collapse. Collapsed: a corner chip; the terminal is left
+            interactive for watching/scrolling, and typing takes back. */}
+        {driving && !mobileUi.collapsed && (
           <div
+            className="mobile-driver-overlay"
             style={{
-              position: 'absolute',
-              inset: 0,
-              zIndex: 2,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'var(--bg-primary)',
+              position: 'absolute', inset: 0, zIndex: 2, display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+              background: 'color-mix(in srgb, var(--bg-primary) 78%, transparent)',
               padding: 24,
             }}
           >
-            <div
-              style={{
-                width: 'min(480px, 100%)',
-                borderRadius: 8,
-                background: 'var(--bg-secondary)',
-                padding: 24,
-                color: 'var(--text-primary)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-secondary)', fontSize: 13, marginBottom: 14 }}>
-                <span style={{ width: 9, height: 9, borderRadius: 999, background: 'var(--text-secondary)' }} />
-                <span>{t('heldForMobile.eyebrow')}</span>
+            <div style={{ width: 'min(420px, 100%)', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', padding: 20, color: 'var(--text-primary)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--accent)', fontSize: 12, fontWeight: 600, marginBottom: 12 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 999, background: 'var(--accent)' }} />
+                <span>{t('mobileDriver.drivingEyebrow')}</span>
               </div>
-              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>
-                {t('heldForMobile.title')}
-              </div>
-              <div style={{ color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: 18 }}>
-                {t('heldForMobile.body')}
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button className="btn btn-primary" onClick={restoreDesktopSize}>{t('heldForMobile.restore')}</button>
+              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>{t('mobileDriver.drivingTitle')}</div>
+              <div style={{ color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: 18 }}>{t('mobileDriver.drivingBody')}</div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <button className="btn" onClick={() => dispatchMobileUi({ type: 'collapsed', collapsed: true })}>{t('mobileDriver.collapse')}</button>
+                <button className="btn btn-primary" onClick={takeBack}>{t('mobileDriver.takeBack')}</button>
               </div>
             </div>
           </div>
         )}
-        <div ref={containerRef} style={{ width: '100%', height: '100%', overflow: 'hidden', visibility: heldForMobile ? 'hidden' : 'visible' }} />
+        {driving && mobileUi.collapsed && (
+          <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 3, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 999, padding: '5px 8px 5px 12px', boxShadow: 'var(--shadow-elevation-lg)' }}>
+            <span style={{ width: 7, height: 7, borderRadius: 999, background: 'var(--accent)' }} />
+            <button
+              style={{ all: 'unset', cursor: 'pointer', fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}
+              onClick={() => dispatchMobileUi({ type: 'collapsed', collapsed: false })}
+            >
+              {t('mobileDriver.chipLabel')}
+            </button>
+            <button className="btn btn-primary" style={{ padding: '3px 9px', fontSize: 11 }} onClick={takeBack}>{t('mobileDriver.takeBack')}</button>
+          </div>
+        )}
+        {/* The phone left but the PTY is still sized for it: prompt the user to
+            restore the desktop size (we don't auto-resize the held buffer). */}
+        {held && (
+          <div
+            style={{
+              position: 'absolute', inset: 0, zIndex: 2, display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+              background: 'var(--bg-primary)', padding: 24,
+            }}
+          >
+            <div style={{ width: 'min(480px, 100%)', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', padding: 24, color: 'var(--text-primary)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-secondary)', fontSize: 13, marginBottom: 14 }}>
+                <span style={{ width: 9, height: 9, borderRadius: 999, background: 'var(--text-secondary)' }} />
+                <span>{t('heldForMobile.eyebrow')}</span>
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>{t('heldForMobile.title')}</div>
+              <div style={{ color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: 18 }}>{t('heldForMobile.body')}</div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button className="btn btn-primary" onClick={takeBack}>{t('heldForMobile.restore')}</button>
+              </div>
+            </div>
+          </div>
+        )}
+        <div ref={containerRef} style={{ width: '100%', height: '100%', overflow: 'hidden' }} />
       </div>
       {agentId && (
         <div className="chat-input-footer">

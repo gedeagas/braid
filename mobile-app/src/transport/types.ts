@@ -98,6 +98,7 @@ export interface BraidTerminal {
   worktreeId?: string;
   worktreePath?: string;
   status?: string;
+  lastOutputAt?: number;
   /** Accumulated wall-clock time (ms) the agent has spent in the "working" state. */
   totalRunDurationMs?: number;
 }

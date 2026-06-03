@@ -25,11 +25,12 @@ import { notesService } from './services/notes'
 import { mobileServer, deviceStore } from './services/mobileServer'
 import { setAgentAwakeEnabled } from './services/agentAwake'
 import { mobileNgrokTunnel } from './services/mobileServer/ngrokTunnel'
-import type { MobilePairingTransport } from './services/mobileServer/types'
+import type { MobileNgrokRegion, MobilePairingTransport } from './services/mobileServer/types'
 import { broadcastMobileNotification } from './services/mobileServer/broadcast'
 import { hasKnownBigTerminals, setKnownBigTerminals, type KnownBigTerminal } from './services/mobileServer/knownBigTerminals'
 import { isMobileTerminalActive, setDesktopActiveTerminal } from './services/mobileServer/mobileTerminalPresence'
-import { setMobileDisplayMode, type MobileDisplayMode } from './services/mobileServer/mobileTerminalDisplay'
+import { setMobileDisplayMode, getMobileDisplayMode, type MobileDisplayMode } from './services/mobileServer/mobileTerminalDisplay'
+import { getMobileTerminalActor } from './services/mobileServer/mobileTerminalActor'
 import { lspService, LspServerConfig } from './services/lsp'
 import { jiraService } from './services/jira'
 import { githubAuthService } from './services/githubAuth'
@@ -90,6 +91,8 @@ export const mainSettings = {
   bypassPermissions: true,
   /** When true, the mobile companion WebSocket server is running. */
   mobileServerEnabled: false,
+  /** ngrok edge region used for remote mobile pairing. */
+  mobileNgrokRegion: 'auto' as MobileNgrokRegion,
   /** When true, prevent the computer from sleeping while an agent is working. */
   keepAwakeWhileAgentsRun: false,
 }
@@ -213,7 +216,21 @@ export function registerIpcHandlers(): void {
   // PTY
   ipcMain.handle('pty:spawn', (_e, cwd: string, envOverrides?: Record<string, string>) => ptyService.spawn(cwd, envOverrides))
   ipcMain.on('pty:write', (_e, id: string, data: string) => ptyService.write(id, data))
-  ipcMain.on('pty:resize', (_e, id: string, cols: number, rows: number) => ptyService.resize(id, cols, rows))
+  ipcMain.on('pty:resize', (_e, id: string, cols: number, rows: number) => {
+    // Suppress desktop-driven resizes while a mobile device owns this terminal's
+    // viewport (phone-fit). A shared PTY can't satisfy both sizes; the phone is
+    // the active driver, so the desktop must not fit the PTY to its own pane and
+    // clobber the phone-fit dims (which would wrap the phone's output wrong). The
+    // desktop reclaims by hitting "Restore desktop size" (-> display mode
+    // 'desktop'), which lifts this guard. Defense-in-depth behind
+    // BigTerminalView's own held check, covering the mount/connect race before
+    // the renderer learns it's held.
+    const terminalId = ptyService.listInstances().find((item) => item.ptyId === id)?.terminalId
+    if (terminalId && getMobileTerminalActor(terminalId) && getMobileDisplayMode(terminalId) !== 'desktop') {
+      return
+    }
+    ptyService.resize(id, cols, rows)
+  })
 
   // Dock badge
   ipcMain.on('dock:setBadgeCount', (_e, count: number) => {
@@ -703,7 +720,7 @@ export function registerIpcHandlers(): void {
     if (transport === 'ngrok') {
       const status = mobileServer.getStatus()
       if (!status.port) return null
-      const tunnel = await mobileNgrokTunnel.start(status.port)
+      const tunnel = await mobileNgrokTunnel.start(status.port, mainSettings.mobileNgrokRegion)
       if (!tunnel.endpoint) throw new Error('ngrok tunnel did not provide a public endpoint')
       return mobileServer.generatePairingOffer({ endpoint: tunnel.endpoint, transport })
     }
@@ -713,7 +730,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('mobile:startNgrokTunnel', async () => {
     const status = mobileServer.getStatus()
     if (!status.port) throw new Error('Start the mobile companion server before starting ngrok.')
-    return mobileNgrokTunnel.start(status.port)
+    return mobileNgrokTunnel.start(status.port, mainSettings.mobileNgrokRegion)
   })
   ipcMain.handle('mobile:stopNgrokTunnel', () => {
     mobileNgrokTunnel.stop()

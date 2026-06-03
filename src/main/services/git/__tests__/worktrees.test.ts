@@ -35,13 +35,16 @@ vi.mock('../../../lib/enrichedEnv', () => ({
 }))
 
 // Import AFTER mocks are in place
-import { getWorktrees, addWorktree, removeWorktree, cloneRepo, parseRepoName, CloneError } from '../worktrees'
+import { getWorktrees, addWorktree, removeWorktree, cloneRepo, parseRepoName, CloneError, invalidateWorktrees } from '../worktrees'
 
 // Stable repo path for tests
 const REPO = '/repo'
 
 beforeEach(() => {
   vi.clearAllMocks()
+  // getWorktrees memoizes per repo path (10s TTL); clear it so each test that
+  // reuses REPO observes its own mocked git output instead of a prior result.
+  invalidateWorktrees(REPO)
   // Default: path exists and rev-parse succeeds → valid git repo
   mockExistsSync.mockReturnValue(true)
   mockRaw.mockResolvedValue('')

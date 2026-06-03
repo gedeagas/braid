@@ -5,6 +5,14 @@
     "body": "会话保持在手机报告的尺寸。恢复后即可在桌面端使用。",
     "restore": "恢复桌面尺寸"
   },
+  "mobileDriver": {
+    "drivingEyebrow": "移动端正在操作此终端",
+    "drivingTitle": "键盘已暂停",
+    "drivingBody": "下方输出来自你的手机输入。点击“收回控制”可在桌面端继续输入，或“折叠”以继续观看。",
+    "takeBack": "收回控制",
+    "collapse": "折叠",
+    "chipLabel": "移动端操作中"
+  },
   "selectWorktreeHint": "选择一个 worktree 并开始新的聊天会话",
   "startConversation": "开始对话",
   "dropImageHint": "拖放图片以附加",

@@ -1,4 +1,5 @@
 import { FileText, Minus, Plus, Trash2 } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, Text } from 'react-native';
 
 import type { GitChange } from '@/transport/types';
@@ -24,6 +25,7 @@ export function FileRow({
   onToggleStage: (change: GitChange) => void;
   onDiscard: (change: GitChange) => void;
 }) {
+  const { t } = useTranslation();
   const c = useTheme().palette;
   const dir = change.file.includes('/') ? change.file.slice(0, change.file.lastIndexOf('/') + 1) : '';
   const name = dir ? change.file.slice(dir.length) : change.file;
@@ -35,7 +37,7 @@ export function FileRow({
         pressed && { backgroundColor: c.panel },
       ]}
       onPress={() => onOpenDiff(change)}
-      accessibilityLabel={`Open diff for ${change.file}`}
+      accessibilityLabel={t('sourceControl.openDiff', { file: change.file })}
     >
       <Text style={{ width: 16, color: statusColor(change, c), fontSize: 13, fontWeight: '800', textAlign: 'center' }}>
         {statusLetter(change)}
@@ -52,7 +54,7 @@ export function FileRow({
           hitSlop={6}
           style={{ width: 30, height: 30, alignItems: 'center', justifyContent: 'center' }}
           onPress={() => onToggleStage(change)}
-          accessibilityLabel={change.staged ? `Unstage ${change.file}` : `Stage ${change.file}`}
+          accessibilityLabel={change.staged ? t('sourceControl.unstageFile', { file: change.file }) : t('sourceControl.stageFile', { file: change.file })}
         >
           {change.staged ? <Minus color={c.muted} size={19} /> : <Plus color={c.muted} size={19} />}
         </Pressable>
@@ -62,7 +64,7 @@ export function FileRow({
         disabled={busy}
         style={{ width: 30, height: 30, alignItems: 'center', justifyContent: 'center', opacity: busy ? 0.35 : 1 }}
         onPress={() => onDiscard(change)}
-        accessibilityLabel={`Discard ${change.file}`}
+        accessibilityLabel={t('sourceControl.discardFile', { file: change.file })}
       >
         <Trash2 color={c.danger} size={18} />
       </Pressable>

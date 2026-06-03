@@ -2,6 +2,7 @@ import { useReducer, useCallback, useEffect, useRef, type ReactElement } from 'r
 import { useTranslation } from 'react-i18next'
 import QRCode from 'qrcode'
 import { useUIStore } from '@/store/ui'
+import type { MobileNgrokRegion } from '@/store/ui/settings'
 import { Toggle } from '@/components/shared/Toggle'
 import { SegmentedControl } from '@/components/shared/SegmentedControl'
 import { Button } from '@/components/ui'
@@ -57,6 +58,9 @@ interface MobileState {
   serverRunning: boolean
   serverPort: number | null
   connectedDevices: Array<{ id: string; name: string; connectedAt: number }>
+  // Set when a phone just consumed the one-time pairing QR, so we replace the
+  // (now-stale) QR with a success state instead of leaving a scannable dead code.
+  justPaired: { name: string } | null
   loading: boolean
   error: string | null
 }
@@ -67,6 +71,7 @@ type MobileAction =
   | { type: 'SET_TRANSPORT'; transport: PairingTransport }
   | { type: 'SET_PAIRING'; offer: PairingOffer | null; pairingPayload: string | null; qrDataUrl: string | null }
   | { type: 'SET_NGROK_TUNNEL'; tunnel: NgrokTunnelStatus }
+  | { type: 'SET_JUST_PAIRED'; device: { name: string } | null }
   | { type: 'SET_LOADING'; loading: boolean }
   | { type: 'SET_ERROR'; error: string | null }
 
@@ -79,9 +84,13 @@ function reducer(state: MobileState, action: MobileAction): MobileState {
     case 'SET_TRANSPORT':
       return { ...state, pairingTransport: action.transport }
     case 'SET_PAIRING':
-      return { ...state, pairingOffer: action.offer, pairingPayload: action.pairingPayload, qrDataUrl: action.qrDataUrl }
+      // Generating/clearing a QR always leaves the just-paired success state.
+      return { ...state, pairingOffer: action.offer, pairingPayload: action.pairingPayload, qrDataUrl: action.qrDataUrl, justPaired: null }
     case 'SET_NGROK_TUNNEL':
       return { ...state, ngrokTunnel: action.tunnel }
+    case 'SET_JUST_PAIRED':
+      // A successful pairing consumes the one-time QR; drop it as we show success.
+      return { ...state, justPaired: action.device, pairingOffer: null, pairingPayload: null, qrDataUrl: null }
     case 'SET_LOADING':
       return { ...state, loading: action.loading }
     case 'SET_ERROR':
@@ -99,6 +108,8 @@ const FEATURES: Array<{ key: string; Icon: (props: IconProps) => ReactElement }>
 export function SettingsMobile() {
   const { t } = useTranslation('settings')
   const setMobileServerEnabled = useUIStore((s) => s.setMobileServerEnabled)
+  const mobileNgrokRegion = useUIStore((s) => s.mobileNgrokRegion)
+  const setMobileNgrokRegion = useUIStore((s) => s.setMobileNgrokRegion)
   const confirmingRef = useRef<string | null>(null)
   const [, forceRender] = useReducer((x: number) => x + 1, 0)
 
@@ -112,6 +123,7 @@ export function SettingsMobile() {
     serverRunning: false,
     serverPort: null,
     connectedDevices: [],
+    justPaired: null,
     loading: false,
     error: null,
   })
@@ -136,6 +148,21 @@ export function SettingsMobile() {
 
   useEffect(() => {
     loadData()
+  }, [loadData])
+
+  // Live device events: refresh the list/connected indicators, and when a phone
+  // just consumed the one-time pairing QR, swap it for a success state so no one
+  // scans a now-dead code.
+  useEffect(() => {
+    const offConnected = ipc.mobile.onDeviceConnected((info) => {
+      void loadData()
+      if (info.isNewPairing) dispatch({ type: 'SET_JUST_PAIRED', device: { name: info.name } })
+    })
+    const offDisconnected = ipc.mobile.onDeviceDisconnected(() => { void loadData() })
+    return () => {
+      offConnected()
+      offDisconnected()
+    }
   }, [loadData])
 
   const handleToggle = async (enabled: boolean) => {
@@ -204,6 +231,17 @@ export function SettingsMobile() {
     }
   }
 
+  const handleNgrokRegionChange = (region: MobileNgrokRegion) => {
+    setMobileNgrokRegion(region)
+    dispatch({ type: 'SET_PAIRING', offer: null, pairingPayload: null, qrDataUrl: null })
+    dispatch({ type: 'SET_ERROR', error: null })
+    if (state.ngrokTunnel.running) {
+      void ipc.mobile.stopNgrokTunnel().then((tunnel: NgrokTunnelStatus | null) => {
+        if (tunnel) dispatch({ type: 'SET_NGROK_TUNNEL', tunnel: tunnel as NgrokTunnelStatus })
+      }).catch(() => undefined)
+    }
+  }
+
   const handleRemoveDevice = async (deviceId: string) => {
     confirmingRef.current = null
     await ipc.mobile.removeDevice(deviceId)
@@ -225,6 +263,18 @@ export function SettingsMobile() {
   const transportOptions = [
     { value: 'lan' as const, label: t('mobile.transportLan') },
     { value: 'ngrok' as const, label: t('mobile.transportNgrok') },
+  ]
+  const ngrokRegionOptions: Array<{ value: MobileNgrokRegion; label: string }> = [
+    { value: 'auto', label: t('mobile.ngrokRegionAuto') },
+    { value: 'jp', label: t('mobile.ngrokRegionJapan') },
+    { value: 'us', label: t('mobile.ngrokRegionUnitedStates') },
+    { value: 'us-cal-1', label: t('mobile.ngrokRegionUsCalifornia') },
+    { value: 'eu', label: t('mobile.ngrokRegionEurope') },
+    { value: 'eu-lon-1', label: t('mobile.ngrokRegionEuropeLondon') },
+    { value: 'ap', label: t('mobile.ngrokRegionAsiaPacific') },
+    { value: 'au', label: t('mobile.ngrokRegionAustralia') },
+    { value: 'in', label: t('mobile.ngrokRegionIndia') },
+    { value: 'sa', label: t('mobile.ngrokRegionSouthAmerica') },
   ]
 
   return (
@@ -280,6 +330,19 @@ export function SettingsMobile() {
 
           {running && state.pairingTransport === 'ngrok' && (
             <div className="mobile-ngrok-panel">
+              <label className="mobile-ngrok-region">
+                <span>{t('mobile.ngrokRegionLabel')}</span>
+                <select
+                  className="settings-select"
+                  value={mobileNgrokRegion}
+                  onChange={(event) => handleNgrokRegionChange(event.target.value as MobileNgrokRegion)}
+                  disabled={state.loading}
+                >
+                  {ngrokRegionOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
               <div className="mobile-ngrok-status">
                 <span className="mobile-ngrok-heading">
                   <IconGlobe size={13} />
@@ -304,7 +367,20 @@ export function SettingsMobile() {
 
           {running ? (
             <div className="mobile-pair-body">
-              {state.qrDataUrl ? (
+              {state.justPaired ? (
+                <div className="mobile-pair-cta">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)' }} aria-hidden="true">
+                    <StatusDot state="success" />
+                    <IconSmartphone size={20} />
+                  </div>
+                  <h4 className="mobile-pair-title" style={{ margin: 0 }}>{t('mobile.pairedTitle')}</h4>
+                  <p className="mobile-pair-cta-text">{t('mobile.pairedDesc', { name: state.justPaired.name || t('mobile.unnamed') })}</p>
+                  <Button onClick={() => { dispatch({ type: 'SET_JUST_PAIRED', device: null }); void handleGeneratePairing() }} disabled={state.loading}>
+                    <IconSparkle size={14} />
+                    {t('mobile.pairAnother')}
+                  </Button>
+                </div>
+              ) : state.qrDataUrl ? (
                 <>
                   <div className="mobile-qr-stage">
                     <div className="mobile-qr-frame">
