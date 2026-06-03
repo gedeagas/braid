@@ -83,7 +83,14 @@
     "projectCount_one": "{{count}} proyek",
     "projectCount_other": "{{count}} proyek",
     "agentCount_one": "{{count}} agen",
-    "agentCount_other": "{{count}} agen"
+    "agentCount_other": "{{count}} agen",
+    "justNow": "baru saja",
+    "minutesAgo_one": "{{count}}m lalu",
+    "minutesAgo_other": "{{count}}m lalu",
+    "hoursAgo_one": "{{count}}j lalu",
+    "hoursAgo_other": "{{count}}j lalu",
+    "daysAgo_one": "{{count}}h lalu",
+    "daysAgo_other": "{{count}}h lalu"
   },
   "settings": {
     "title": "Pengaturan",
@@ -164,6 +171,12 @@
           "Hapus desktop dan lakukan pemasangan ulang dari Pengaturan desktop › Mobile."
         ]
       }
+    },
+    "latency": {
+      "good": "Baik",
+      "fair": "Cukup",
+      "poor": "Buruk",
+      "unreachable": "Tidak terjangkau"
     }
   },
   "host": {

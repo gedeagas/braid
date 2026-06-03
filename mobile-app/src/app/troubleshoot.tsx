@@ -183,7 +183,10 @@ export default function TroubleshootScreen() {
           status: latencyStatus(latency.verdict),
           detail: latency.error
             ? latency.error
-            : t('troubleshoot.checks.qualityDetail', { label: latency.label, rtt: formatLatency(latency.rttMs) }),
+            : t('troubleshoot.checks.qualityDetail', {
+                label: t(`troubleshoot.latency.${latency.verdict}`),
+                rtt: formatLatency(latency.rttMs),
+              }),
         });
         results.push({
           label: t('troubleshoot.checks.handshake', { name: hostName }),

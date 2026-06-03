@@ -36,15 +36,16 @@ function probeConnect(timeoutMs: number): Promise<boolean> {
   return new Promise((resolve) => {
     const sock = connect(SOCKET_PATH)
     let settled = false
+    const timer = setTimeout(() => done(false), timeoutMs)
     const done = (ok: boolean): void => {
       if (settled) return
       settled = true
+      clearTimeout(timer)
       sock.destroy()
       resolve(ok)
     }
     sock.once('connect', () => done(true))
     sock.once('error', () => done(false))
-    setTimeout(() => done(false), timeoutMs)
   })
 }
 

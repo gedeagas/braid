@@ -1506,11 +1506,11 @@ function formatActivityTime(timestamp?: number): string | null {
   const diffMs = Date.now() - timestamp;
   if (diffMs < 0) return null;
   const minutes = Math.floor(diffMs / 60_000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 1) return i18n.t('home.justNow');
+  if (minutes < 60) return i18n.t('home.minutesAgo', { count: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
+  if (hours < 24) return i18n.t('home.hoursAgo', { count: hours });
+  return i18n.t('home.daysAgo', { count: Math.floor(hours / 24) });
 }
 
 function activityToneColor(tone: RecentActivityItem['tone'], c: Palette): string {

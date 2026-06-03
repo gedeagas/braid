@@ -82,19 +82,27 @@ function runSetupScriptHeadless(repoPath: string, worktreePath: string): void {
   const script = project?.settings?.setupScript?.trim()
   if (!script) return
 
-  const combined = script
+  const lines = script
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)
-    .join(' && ')
-  if (!combined) return
+  if (lines.length === 0) return
 
   const shell = resolveShellPath()
+  // PowerShell 5.1 (the default Windows shell) has no `&&` separator; chain with
+  // `;` so each line still runs in order. POSIX shells / pwsh 7+ keep `&&` so a
+  // failing step short-circuits the rest.
+  const isPowerShell = /powershell|pwsh/i.test(shell)
+  const combined = isPowerShell ? lines.join('; ') : lines.join(' && ')
+
   const { args } = resolveShellLaunchArgs(shell, { command: combined })
   console.log('[MobileWorktree] running setup script headless', { worktreePath })
 
   try {
     const child = spawn(shell, args, { cwd: worktreePath, env: enrichedEnv() })
+    // Fire-and-forget: detach so a slow setup (npm install can take minutes)
+    // never keeps the Electron main process alive at shutdown.
+    child.unref()
     let tail = ''
     const capture = (chunk: Buffer) => {
       // Keep only the last ~4KB so a chatty install doesn't grow unbounded.

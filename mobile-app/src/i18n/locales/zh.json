@@ -83,7 +83,14 @@
     "projectCount_one": "{{count}} 个项目",
     "projectCount_other": "{{count}} 个项目",
     "agentCount_one": "{{count}} 个智能体",
-    "agentCount_other": "{{count}} 个智能体"
+    "agentCount_other": "{{count}} 个智能体",
+    "justNow": "刚刚",
+    "minutesAgo_one": "{{count}}分钟前",
+    "minutesAgo_other": "{{count}}分钟前",
+    "hoursAgo_one": "{{count}}小时前",
+    "hoursAgo_other": "{{count}}小时前",
+    "daysAgo_one": "{{count}}天前",
+    "daysAgo_other": "{{count}}天前"
   },
   "settings": {
     "title": "设置",
@@ -164,6 +171,12 @@
           "移除该桌面端并从桌面端设置 › Mobile 重新配对。"
         ]
       }
+    },
+    "latency": {
+      "good": "良好",
+      "fair": "一般",
+      "poor": "较差",
+      "unreachable": "无法连接"
     }
   },
   "host": {

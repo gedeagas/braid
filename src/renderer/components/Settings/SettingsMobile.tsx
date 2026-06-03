@@ -84,7 +84,7 @@ function reducer(state: MobileState, action: MobileAction): MobileState {
     case 'SET_TRANSPORT':
       return { ...state, pairingTransport: action.transport }
     case 'SET_PAIRING':
-      // Generating/clearing a QR always leaves the just-paired success state.
+      // Generating or clearing a QR always exits the just-paired success state.
       return { ...state, pairingOffer: action.offer, pairingPayload: action.pairingPayload, qrDataUrl: action.qrDataUrl, justPaired: null }
     case 'SET_NGROK_TUNNEL':
       return { ...state, ngrokTunnel: action.tunnel }
@@ -111,6 +111,9 @@ export function SettingsMobile() {
   const mobileNgrokRegion = useUIStore((s) => s.mobileNgrokRegion)
   const setMobileNgrokRegion = useUIStore((s) => s.setMobileNgrokRegion)
   const confirmingRef = useRef<string | null>(null)
+  // Device ids already paired when the current QR was generated; used to detect
+  // a brand-new pairing while the QR is on screen.
+  const pairBaselineRef = useRef<Set<string>>(new Set())
   const [, forceRender] = useReducer((x: number) => x + 1, 0)
 
   const [state, dispatch] = useReducer(reducer, {
@@ -165,6 +168,24 @@ export function SettingsMobile() {
     }
   }, [loadData])
 
+  // Fallback to the push event above: while a QR is on screen, poll the device
+  // list. This catches the pairing even if the 'mobile:deviceConnected' event is
+  // missed (e.g. a stale preload after a hot-reload), using only the pre-existing
+  // getStatus/getDevices IPC. Stops as soon as the QR is gone.
+  useEffect(() => {
+    if (!state.qrDataUrl) return
+    const timer = setInterval(() => { void loadData() }, 2500)
+    return () => clearInterval(timer)
+  }, [state.qrDataUrl, loadData])
+
+  // When the device list gains an entry that wasn't paired when this QR was
+  // generated, that's the scan we were waiting for - swap the QR for success.
+  useEffect(() => {
+    if (!state.qrDataUrl) return
+    const newDevice = state.devices.find((d) => d.publicKey && !pairBaselineRef.current.has(d.id))
+    if (newDevice) dispatch({ type: 'SET_JUST_PAIRED', device: { name: newDevice.name } })
+  }, [state.devices, state.qrDataUrl])
+
   const handleToggle = async (enabled: boolean) => {
     dispatch({ type: 'SET_LOADING', loading: true })
     dispatch({ type: 'SET_ERROR', error: null })
@@ -202,6 +223,9 @@ export function SettingsMobile() {
         color: { dark: '#0b0b0c', light: '#ffffff' },
       })
       dispatch({ type: 'SET_PAIRING', offer: offer as PairingOffer, pairingPayload: payload, qrDataUrl })
+      // Snapshot the devices already paired, so the poll/event below can tell a
+      // *new* pairing (a device id not in this set) from an existing one.
+      pairBaselineRef.current = new Set(state.devices.filter((d) => d.publicKey).map((d) => d.id))
     } catch (err) {
       dispatch({ type: 'SET_ERROR', error: err instanceof Error ? err.message : String(err) })
     } finally {
