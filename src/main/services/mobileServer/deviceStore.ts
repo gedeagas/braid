@@ -89,6 +89,7 @@ class DeviceStore {
     if (!device || device.pushToken === undefined) return
     delete device.pushToken
     delete device.pushPlatform
+    delete device.pushTokenUpdatedAt
     this.save(devices)
   }
 

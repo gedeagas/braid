@@ -119,7 +119,18 @@ async function handleNotification(n: MobileNotification): Promise<void> {
 
 /** Subscribe agent notifications to the Expo push bridge. Returns an unsubscribe
  *  fn. Mirrors startMobileTerminalNotifier - both ride the same onNotify stream,
- *  so push content matches the WS notifications exactly. */
+ *  so push content matches the WS notifications exactly.
+ *
+ *  KILL SWITCH: outbound push to exp.host is a third-party dependency pending
+ *  the internal External Service Review, so it stays OFF unless explicitly
+ *  enabled via BRAID_ENABLE_MOBILE_PUSH=1. When off we never subscribe, so the
+ *  desktop never POSTs to Expo (it still accepts token registrations harmlessly;
+ *  they just go unused). Flip the env var once the review clears. */
 export function startMobilePushNotifier(): () => void {
+  const enabled = process.env.BRAID_ENABLE_MOBILE_PUSH === '1' || process.env.BRAID_ENABLE_MOBILE_PUSH === 'true'
+  if (!enabled) {
+    logger.info('[MobilePush] disabled (set BRAID_ENABLE_MOBILE_PUSH=1 to enable; pending External Service Review)')
+    return () => {}
+  }
   return agentService.onNotify((n) => { void handleNotification(n) })
 }

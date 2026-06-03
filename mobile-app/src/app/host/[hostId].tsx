@@ -426,15 +426,18 @@ export default function HostScreen() {
         text: t('common.remove'),
         style: 'destructive',
         onPress: async () => {
-          // Stop desktop background push for this device (best-effort, while
-          // connected) before tearing down the connection and forgetting the host.
-          await manager.unregisterPush(host.id);
-          manager.dropHost(host.id);
+          // Tear down push + connection in the background so the UI transitions
+          // instantly: unregisterPush can wait up to 4s for a socket when the
+          // desktop is offline, and we don't want "Remove" to feel frozen.
+          void (async () => {
+            await manager.unregisterPush(host.id);
+            manager.dropHost(host.id);
+          })();
           const remaining = await removeHost(host.id);
           // No desktops left: kill push registration entirely so a desktop that
           // was offline at removal self-cleans via DeviceNotRegistered on its next
           // push, rather than waiting out the token TTL.
-          if (remaining.length === 0) await unregisterFromPushAsync();
+          if (remaining.length === 0) void unregisterFromPushAsync();
           router.replace('/');
         },
       },

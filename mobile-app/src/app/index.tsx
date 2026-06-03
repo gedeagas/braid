@@ -368,19 +368,21 @@ function FreshHomeScreen() {
         text: i18n.t('common.remove'),
         style: 'destructive',
         onPress: async () => {
-          // Tell the desktop to forget our push token (while still connected) so
-          // it stops sending background notifications, then drop the live
-          // connection: removing only from storage leaves the client-manager entry
-          // alive, so it keeps the socket open (and keeps reconnecting + presenting
-          // notifications) for a desktop the user just removed. dropHost closes the
+          // Tear down push + connection in the background so the row disappears
+          // instantly: removing only from storage would leave the client-manager
+          // entry alive (socket open, still reconnecting + notifying), but
+          // unregisterPush can wait up to 4s for a socket when the desktop is
+          // offline, so we don't await it on the UI path. dropHost then closes the
           // socket and tears down the listener.
-          await manager.unregisterPush(host.id);
-          manager.dropHost(host.id);
+          void (async () => {
+            await manager.unregisterPush(host.id);
+            manager.dropHost(host.id);
+          })();
           const next = await removeHost(host.id);
           // No desktops left: tear down push registration entirely so any desktop
           // that was offline at removal self-cleans via DeviceNotRegistered on its
           // next push, instead of waiting out the token TTL.
-          if (next.length === 0) await unregisterFromPushAsync();
+          if (next.length === 0) void unregisterFromPushAsync();
           setHosts(next);
           setSnapshots((current) => {
             const copy = { ...current };
@@ -1007,19 +1009,21 @@ function LegacyHomeScreen() {
         text: i18n.t('common.remove'),
         style: 'destructive',
         onPress: async () => {
-          // Tell the desktop to forget our push token (while still connected) so
-          // it stops sending background notifications, then drop the live
-          // connection: removing only from storage leaves the client-manager entry
-          // alive, so it keeps the socket open (and keeps reconnecting + presenting
-          // notifications) for a desktop the user just removed. dropHost closes the
+          // Tear down push + connection in the background so the row disappears
+          // instantly: removing only from storage would leave the client-manager
+          // entry alive (socket open, still reconnecting + notifying), but
+          // unregisterPush can wait up to 4s for a socket when the desktop is
+          // offline, so we don't await it on the UI path. dropHost then closes the
           // socket and tears down the listener.
-          await manager.unregisterPush(host.id);
-          manager.dropHost(host.id);
+          void (async () => {
+            await manager.unregisterPush(host.id);
+            manager.dropHost(host.id);
+          })();
           const next = await removeHost(host.id);
           // No desktops left: tear down push registration entirely so any desktop
           // that was offline at removal self-cleans via DeviceNotRegistered on its
           // next push, instead of waiting out the token TTL.
-          if (next.length === 0) await unregisterFromPushAsync();
+          if (next.length === 0) void unregisterFromPushAsync();
           setHosts(next);
           setSnapshots((current) => {
             const copy = { ...current };

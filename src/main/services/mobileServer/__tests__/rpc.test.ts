@@ -19,6 +19,13 @@ vi.mock('../../storage', () => ({
   },
 }))
 
+vi.mock('../deviceStore', () => ({
+  deviceStore: {
+    setPushToken: vi.fn(),
+    clearPushToken: vi.fn(),
+  },
+}))
+
 vi.mock('../../git', () => ({
   gitService: {
     getWorktrees: vi.fn(async () => [{ path: '/test/wt', branch: 'main' }]),
@@ -232,6 +239,43 @@ describe('RPC Dispatch', () => {
     const result = res.result as Record<string, unknown>
     expect(result.agentId).toBe('claude')
     expect(ptyService.write).toHaveBeenCalledWith('pty-new', 'claude\n')
+  })
+
+  it('notifications.registerPush stores the token for the connection device', async () => {
+    const { deviceStore } = await import('../deviceStore')
+    vi.mocked(deviceStore.setPushToken).mockClear()
+    const req: JsonRpcRequest = {
+      jsonrpc: '2.0', id: 110, method: 'notifications.registerPush',
+      params: { token: 'ExponentPushToken[abc]', platform: 'ios' },
+    }
+    const res = await dispatch(req, conn)
+    expect(res.error).toBeUndefined()
+    expect(res.result).toEqual({ ok: true })
+    expect(deviceStore.setPushToken).toHaveBeenCalledWith('d1', 'ExponentPushToken[abc]', 'ios')
+  })
+
+  it('notifications.registerPush rejects a missing token and ignores a bad platform', async () => {
+    const { deviceStore } = await import('../deviceStore')
+    vi.mocked(deviceStore.setPushToken).mockClear()
+    const missing = await dispatch({ jsonrpc: '2.0', id: 111, method: 'notifications.registerPush', params: {} }, conn)
+    expect(missing.error).toBeDefined()
+    expect(deviceStore.setPushToken).not.toHaveBeenCalled()
+    // Unknown platform is dropped to undefined rather than persisted verbatim.
+    const badPlatform = await dispatch(
+      { jsonrpc: '2.0', id: 112, method: 'notifications.registerPush', params: { token: 't', platform: 'web' } },
+      conn,
+    )
+    expect(badPlatform.error).toBeUndefined()
+    expect(deviceStore.setPushToken).toHaveBeenCalledWith('d1', 't', undefined)
+  })
+
+  it('notifications.unregisterPush clears the token for the connection device', async () => {
+    const { deviceStore } = await import('../deviceStore')
+    vi.mocked(deviceStore.clearPushToken).mockClear()
+    const res = await dispatch({ jsonrpc: '2.0', id: 113, method: 'notifications.unregisterPush' }, conn)
+    expect(res.error).toBeUndefined()
+    expect(res.result).toEqual({ ok: true })
+    expect(deviceStore.clearPushToken).toHaveBeenCalledWith('d1')
   })
 
   it('terminal.close kills the big terminal by its id (reaps PTY + metadata)', async () => {

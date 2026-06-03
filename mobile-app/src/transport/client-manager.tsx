@@ -403,15 +403,18 @@ function createManager(): ClientManager & {
         entry.reconnectTimer = null;
       }
       await new Promise<void>((resolve) => {
-        const off = entry.client.onOpen(() => {
-          off();
-          clearTimeout(timer);
-          resolve();
-        });
+        // `off` is declared first and guarded so a (hypothetical) synchronous
+        // onOpen can't reference it before assignment.
+        let off: (() => void) | undefined;
         const timer = setTimeout(() => {
-          off();
+          off?.();
           resolve();
         }, 4000);
+        off = entry.client.onOpen(() => {
+          clearTimeout(timer);
+          off?.();
+          resolve();
+        });
         // Kick a connect unless one is already in flight (don't reset it).
         if (entry.state !== 'connecting') {
           entry.attempt = 0;
