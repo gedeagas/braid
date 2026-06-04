@@ -14,8 +14,8 @@ import type { ConnectionLogEntry } from '@/transport/connection-health';
 import type { PairedHost } from '@/transport/types';
 
 import { createInternals } from './internals';
-import { connectEntry, endpointDetail, makeEntry, reconcile, reconcileAll } from './lifecycle';
-import { probeEntry, startHeartbeat, stopHeartbeat } from './heartbeat';
+import { connectEntry, endpointDetail, makeEntry, rebuildClient, reconcile, reconcileAll } from './lifecycle';
+import { startHeartbeat, stopHeartbeat } from './heartbeat';
 import { desktopSupports, registerPush } from './notifications';
 import type { ClientManager, HostConnectionState, ManagerDeps } from './types';
 
@@ -80,9 +80,12 @@ export function createManager(deps: ManagerDeps = {}): InternalManager {
       entry.reconnectTimer = null;
     }
     // Reset the streak so the verdict de-escalates from "Can't reach desktop"
-    // and the backoff starts fresh, then reconnect right away.
+    // and the backoff starts fresh. Rebuild a fresh client (not just reconnect
+    // the old one) so a manual Reconnect can recover a wedged socket - same
+    // guarantee as foreground resume.
     entry.attempt = 0;
     self.pushLog(entry, 'info', 'Manual reconnect', endpointDetail(entry));
+    rebuildClient(self, entry);
     connectEntry(self, entry);
   };
 
@@ -180,6 +183,14 @@ export function createManager(deps: ManagerDeps = {}): InternalManager {
     }
   };
 
+  // TODO(netinfo): add `onNetworkReconnect()` here for reconnect-on-network-change.
+  // Wire it to a NetInfo/expo-network listener in provider.tsx (see the TODO
+  // there). When connectivity is regained (or the transport flips wifi<->cellular)
+  // while the app is foregrounded, run the SAME kill-and-reset as the 'active'
+  // branch below: for each non-disposed, non-auth-failed entry -> clear timer,
+  // reset attempt, rebuildClient(self, entry), connectEntry(self, entry). Guard on
+  // self.desiredConnected so it no-ops while backgrounded. NOTE: NetInfo is a
+  // native module -> needs a new build, not OTA-able; that's why it's deferred.
   const onAppState = (state: AppStateStatus): void => {
     if (state === 'active') {
       // Returning to the foreground: we want everything connected again. Set the
@@ -190,25 +201,23 @@ export function createManager(deps: ManagerDeps = {}): InternalManager {
       // can't strand a dead socket. 'auth-failed' is preserved by reconcile.
       self.desiredConnected = true;
       startHeartbeat(self);
-      // Returning to the foreground is a strong "retry now" signal. If a prior
-      // attempt failed and parked in a backoff wait, reconcile would otherwise
-      // see the pending timer and do nothing - leaving the user staring at
-      // "Connecting…" until the timer (up to RECONNECT_MAX_MS, 10s) fires.
-      // Cancel any backoff and
-      // reset the streak so reconcile issues an immediate connect, matching what
-      // the manual refresh button does. (auth-failed stays sticky.)
+      // Kill-and-reset: a socket can't be trusted across a background. iOS may
+      // have torn it down, left it half-open, or wedged the native layer (the
+      // "infinite Connecting… that only an app restart fixes" bug). Rather than
+      // nurse the old client back to health, throw it away and build a fresh one
+      // per host, then connect - the in-process equivalent of relaunching, which
+      // was the only thing that reliably recovered. auth-failed stays sticky.
       for (const entry of entries.values()) {
         if (entry.disposed || entry.state === 'auth-failed') continue;
         if (entry.reconnectTimer) {
           clearTimeout(entry.reconnectTimer);
           entry.reconnectTimer = null;
         }
-        if (entry.state !== 'connected') entry.attempt = 0;
+        entry.attempt = 0;
+        rebuildClient(self, entry);
+        connectEntry(self, entry);
       }
-      reconcileAll(self);
-      // Probe immediately too: the 20s heartbeat tick would otherwise leave a
-      // brief window where a just-resumed half-open socket reads connected.
-      for (const entry of entries.values()) probeEntry(self, entry);
+      self.emit();
     } else if (state === 'background') {
       // iOS suspends sockets when backgrounded; close cleanly and reconnect on
       // return. 'inactive' is intentionally ignored (transient, e.g. the

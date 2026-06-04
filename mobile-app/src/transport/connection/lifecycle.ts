@@ -138,15 +138,21 @@ export function makeEntry(self: ManagerInternals, host: PairedHost): Entry {
     log: [],
     capabilities: null,
   };
-  // Register notification routing once; it survives reconnects (the client
-  // keeps notificationListeners across close()), so we never tear it down
-  // except when the host is permanently dropped.
+  wireClient(self, entry);
+  return entry;
+}
+
+// Attach the manager's listeners to entry.client. Split out of makeEntry so
+// rebuildClient() can re-wire a brand-new client instance with the same
+// behavior. Notification routing survives a client's own reconnects, but a
+// rebuild swaps the client object entirely, so we re-register here.
+function wireClient(self: ManagerInternals, entry: Entry): void {
   startNotificationRouting(self, entry);
   // Sync state from any successful handshake, even screen-initiated ones, so a
   // direct load()/refresh that revives a parked socket clears the error verdict
   // (and its connection-log panel) instead of leaving it stuck.
-  entry.offOpen = client.onOpen(() => markConnected(self, entry));
-  entry.offClose = client.onClose((reason) => {
+  entry.offOpen = entry.client.onOpen(() => markConnected(self, entry));
+  entry.offClose = entry.client.onClose((reason) => {
     if (entry.disposed) return;
     // Token revoked mid-session: the desktop closed with 4001. Park in
     // 'auth-failed' rather than reconnecting with the now-dead token.
@@ -171,7 +177,35 @@ export function makeEntry(self: ManagerInternals, host: PairedHost): Entry {
     self.emit();
     scheduleReconnect(self, entry);
   });
-  return entry;
+}
+
+// Throw away the entire client instance and build a fresh one. This is the
+// "kill and reset" - the in-process equivalent of an app restart, which was the
+// only thing that reliably recovered a connection wedged across an iOS
+// suspension (a stuck connectPromise, a half-open ws, or a confused native
+// socket binding all live inside the old client object). Used on foreground
+// resume and manual reconnect, where the existing socket can't be trusted. The
+// caller connects afterward. Listeners on the old client are detached first so
+// nothing it does post-mortem can touch the entry.
+export function rebuildClient(self: ManagerInternals, entry: Entry): void {
+  entry.offNotification?.();
+  entry.offClose?.();
+  entry.offOpen?.();
+  entry.offNotification = null;
+  entry.offClose = null;
+  entry.offOpen = null;
+  entry.client.clearSubscriptions();
+  entry.client.close();
+  entry.client = self.createClient(entry.host);
+  entry.connectInFlight = false;
+  entry.capabilities = null;
+  // Fresh client: its subscription map is empty, so markConnected must (re)send
+  // the notification subscription rather than replay. Screens re-open their own
+  // terminal subscriptions on reconnect.
+  entry.everConnected = false;
+  // Orphan any stale callback still holding the previous connectSeq.
+  entry.connectSeq += 1;
+  wireClient(self, entry);
 }
 
 // Idempotent: drive a single entry toward the desired state. Safe to call on

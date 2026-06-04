@@ -16,6 +16,16 @@ export function ClientManagerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void manager.init();
     const sub = AppState.addEventListener('change', manager.onAppState);
+    // TODO(netinfo): reconnect on network change. Add a
+    // `@react-native-community/netinfo` (or `expo-network`) listener here,
+    // alongside the AppState one, and call `manager.onNetworkReconnect()` when
+    // connectivity is regained (state.isConnected && state.isInternetReachable
+    // flips false -> true, or the transport type changes wifi <-> cellular).
+    // That catches a network swap while the app stays foregrounded - the
+    // heartbeat already covers it within HEARTBEAT_INTERVAL_MS, this just makes
+    // it instant. NOTE: NetInfo is a NATIVE module, so adding it requires a new
+    // dev/standalone build - it canNOT ship over `eas update`. Left out for now
+    // to keep this change OTA-deployable.
     return () => {
       sub.remove();
       manager.disposeAll();

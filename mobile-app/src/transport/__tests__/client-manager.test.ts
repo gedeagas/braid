@@ -10,11 +10,12 @@ jest.mock('@/notifications/mobile-notifications', () => ({
   scheduleDesktopNotification: jest.fn(),
 }));
 
-// These suites pin the reconnect/liveness contract that fixed "terminal stuck
-// after a long background". The manager is driven through an injected fake
-// client so we can simulate the iOS failure modes - a socket the OS kills
-// silently (no close event), a handshake that never settles, a dead heartbeat -
-// without a real WebSocket or network.
+// These suites pin the reconnect/liveness contract. The manager is driven
+// through injected fake clients so we can simulate the iOS failure modes - a
+// socket the OS kills silently, a dead heartbeat, a rejected pairing - without a
+// real WebSocket. The headline behavior: foreground resume throws away the old
+// client and builds a fresh one ("kill and reset"), the only thing that
+// reliably recovered a socket wedged across a suspension.
 
 const HOST: PairedHost = {
   id: 'host-1',
@@ -64,19 +65,12 @@ class FakeClient {
   }
 
   async request<T>(method: string): Promise<T> {
-    // status.get gates push registration; advertise no capabilities so the
-    // manager never reaches the expo push path in tests.
     if (method === 'status.get') return { capabilities: [] } as T;
     return {} as T;
   }
 
   async subscribe(): Promise<string> {
     return 'sub-1';
-  }
-
-  /** Simulate the OS tearing down the TCP socket while suspended - no close event. */
-  killSilently(): void {
-    this.open = false;
   }
 
   /** Simulate the desktop rejecting this device's pairing (close code 4001). */
@@ -104,14 +98,23 @@ class FakeClient {
   clearSubscriptions(): void {}
 }
 
+// createClient hands out a fresh fake each call, so a rebuild produces a new
+// instance we can distinguish from the old one.
 function setup() {
-  const fake = new FakeClient();
-  const manager = createManager({ createClient: () => fake as unknown as BraidRpcClient });
-  return { fake, manager };
+  const clients: FakeClient[] = [];
+  const manager = createManager({
+    createClient: () => {
+      const c = new FakeClient();
+      clients.push(c);
+      return c as unknown as BraidRpcClient;
+    },
+  });
+  const latest = () => clients[clients.length - 1];
+  return { manager, clients, latest };
 }
 
 // Drain several microtask checkpoints so a connect().then().catch() chain (and
-// the scheduleReconnect it triggers) fully settles before assertions.
+// any scheduleReconnect it triggers) fully settles before assertions.
 const flush = async () => {
   for (let i = 0; i < 5; i++) await Promise.resolve();
 };
@@ -126,122 +129,100 @@ describe('client-manager reconnect/liveness', () => {
   });
 
   it('connects on acquire and reports connected', async () => {
-    const { fake, manager } = setup();
+    const { manager, clients, latest } = setup();
     manager.acquireHost(HOST);
     await flush();
-    expect(fake.connectCount).toBe(1);
+    expect(clients.length).toBe(1);
+    expect(latest().connectCount).toBe(1);
     expect(manager.getState(HOST.id)).toBe('connected');
     manager.disposeAll();
   });
 
-  it('reconnects a half-open socket on foreground resume (the long-background bug)', async () => {
-    const { fake, manager } = setup();
+  it('rebuilds a fresh client on foreground resume (kill and reset)', async () => {
+    const { manager, clients, latest } = setup();
     manager.acquireHost(HOST);
     await flush();
+    const first = latest();
     expect(manager.getState(HOST.id)).toBe('connected');
 
-    // The OS killed the TCP socket while suspended but delivered no close event:
-    // the cached state still reads 'connected', isOpen() is now false.
-    fake.killSilently();
-    expect(manager.getState(HOST.id)).toBe('connected'); // state still lies
-
-    // Resume. The fix: reconcile trusts isOpen() over the cached state.
+    // Resume: don't trust the old socket - throw it away and build a new client.
     manager.onAppState('active');
     await flush();
 
-    expect(fake.connectCount).toBe(2);
+    expect(clients.length).toBe(2); // a brand-new client was created
+    expect(latest()).not.toBe(first);
+    expect(first.closeCount).toBeGreaterThan(0); // the old client was torn down
+    expect(latest().isOpen()).toBe(true);
     expect(manager.getState(HOST.id)).toBe('connected');
     manager.disposeAll();
   });
 
-  it('reconnects when the heartbeat probe fails (dead socket, no close event)', async () => {
-    const { fake, manager } = setup();
+  it('reconnects the same client when the heartbeat probe fails', async () => {
+    const { manager, clients, latest } = setup();
     manager.acquireHost(HOST);
     await flush();
-    expect(fake.connectCount).toBe(1);
-    // Foregrounding arms the heartbeat (production does this via init()/resume).
-    manager.onAppState('active');
+    manager.onAppState('active'); // arms the heartbeat (and rebuilds once)
     await flush();
+    const c = latest();
+    const beforeConnects = c.connectCount;
+    const beforeClients = clients.length;
 
-    // Socket goes dead; pings will now reject.
-    fake.pingMode = 'reject';
+    // Socket goes dead; the next heartbeat ping rejects.
+    c.pingMode = 'reject';
     await jest.advanceTimersByTimeAsync(20_000); // one heartbeat interval
-    // Probe rejected -> close -> reconcile -> reconnect.
-    fake.pingMode = 'resolve';
+    c.pingMode = 'resolve';
     await flush();
 
-    expect(fake.connectCount).toBe(2);
-    expect(manager.getState(HOST.id)).toBe('connected');
-    manager.disposeAll();
-  });
-
-  it('cancels a backoff wait and reconnects immediately on foreground resume', async () => {
-    const { fake, manager } = setup();
-    manager.acquireHost(HOST);
-    await flush();
-
-    // Background, then make the next connect fail so the resume parks in backoff.
-    manager.onAppState('background');
-    await flush();
-    fake.connectMode = 'reject';
-    manager.onAppState('active');
-    await flush();
-    // First resume attempt failed -> a backoff timer is now pending, state reconnecting.
-    expect(manager.getState(HOST.id)).toBe('reconnecting');
-    const connectsAfterFail = fake.connectCount;
-
-    // Network is ready now. A second foreground (or the screen nudging) must NOT
-    // wait out the backoff timer: resume cancels it and connects immediately.
-    fake.connectMode = 'resolve';
-    manager.onAppState('active');
-    await flush();
-
-    expect(fake.connectCount).toBe(connectsAfterFail + 1); // immediate, no timer advance
+    // A foreground blip reconnects the SAME client (no rebuild) and recovers.
+    expect(latest()).toBe(c);
+    expect(clients.length).toBe(beforeClients);
+    expect(c.connectCount).toBeGreaterThan(beforeConnects);
     expect(manager.getState(HOST.id)).toBe('connected');
     manager.disposeAll();
   });
 
   it('closes the socket on background and stops probing', async () => {
-    const { fake, manager } = setup();
+    const { manager, clients, latest } = setup();
     manager.acquireHost(HOST);
     await flush();
-    const closesBefore = fake.closeCount;
+    manager.onAppState('active'); // arm heartbeat (rebuilds once)
+    await flush();
+    const c = latest();
 
     manager.onAppState('background');
     await flush();
-
-    expect(fake.closeCount).toBeGreaterThan(closesBefore);
-    expect(fake.isOpen()).toBe(false);
+    expect(c.isOpen()).toBe(false);
     expect(manager.getState(HOST.id)).toBe('disconnected');
 
-    // Heartbeat is stopped: advancing time must not probe/reconnect.
-    const connectsAfterBackground = fake.connectCount;
+    // Heartbeat stopped + backgrounded: advancing time must not probe/reconnect/rebuild.
+    const connectsAfter = c.connectCount;
+    const clientsAfter = clients.length;
     await jest.advanceTimersByTimeAsync(60_000);
-    expect(fake.connectCount).toBe(connectsAfterBackground);
+    expect(c.connectCount).toBe(connectsAfter);
+    expect(clients.length).toBe(clientsAfter);
     manager.disposeAll();
   });
 
-  it('does not reconnect a rejected pairing on resume', async () => {
-    const { fake, manager } = setup();
+  it('does not rebuild or reconnect a rejected pairing on resume', async () => {
+    const { manager, clients, latest } = setup();
     manager.acquireHost(HOST);
     await flush();
     expect(manager.getState(HOST.id)).toBe('connected');
-    const connectsBeforeReject = fake.connectCount;
 
-    // Desktop rejects the pairing mid-session (close code 4001): the manager
-    // parks the entry in 'auth-failed' and must NOT retry the dead token.
-    fake.failAuth();
+    // Desktop rejects the pairing mid-session (close code 4001): park 'auth-failed'.
+    latest().failAuth();
     await flush();
     expect(manager.getState(HOST.id)).toBe('auth-failed');
+    const clientsLen = clients.length;
 
-    // A background/foreground cycle must leave it parked - reconcile preserves
-    // 'auth-failed' and issues no connect. Only forceReconnect clears it.
+    // A background/foreground cycle must leave it parked - no fresh client, no
+    // connect. Only forceReconnect clears it.
     manager.onAppState('background');
     await flush();
     manager.onAppState('active');
     await flush();
     expect(manager.getState(HOST.id)).toBe('auth-failed');
-    expect(fake.connectCount).toBe(connectsBeforeReject);
+    expect(clients.length).toBe(clientsLen);
     manager.disposeAll();
   });
 });

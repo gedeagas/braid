@@ -154,10 +154,10 @@ export default function TerminalScreen() {
   // disconnected; if that first projects.list races a failed connect, the list
   // stays empty and must be re-fetched once the socket finally connects).
   const projectsRef = useRef(projects);
-  // Update during render, not in an effect: effects in the same render pass run
-  // before the mirroring effect would, so a deferred update leaves them reading
-  // a stale list. A plain ref write during render is safe (no subscription).
-  projectsRef.current = projects;
+  // Mirror via an effect declared ABOVE the connect effect, so it runs first in
+  // any shared commit and the connect effect never reads a stale list. (Writing
+  // a ref during render trips the hooks lint and isn't needed here.)
+  useEffect(() => { projectsRef.current = projects; }, [projects]);
 
   const selectedProject = projects.find((project) => project.id === projectId) ?? projects[0] ?? null;
   const isSessionScoped = typeof worktreePath === 'string' && worktreePath.length > 0;
@@ -672,11 +672,11 @@ export default function TerminalScreen() {
     };
   }, [client, fitActiveTerminal, openTerminal, refreshTerminalList]);
 
-  // Catch the active terminal up after a reconnect. The client auto-resends the
-  // terminal.subscribe on reconnect (resendSubscriptions), so the live stream
-  // resumes on its own - re-subscribing here would duplicate it. We only replay
-  // scrollback (to pick up output emitted while backgrounded) and refit. Keyed
-  // off the connection-state transition since the client instance is reused.
+  // Catch the active terminal up after a reconnect. A reconnect - especially the
+  // foreground kill-and-reset - hands us a brand-new client whose subscription
+  // map is empty, so the live stream will NOT replay on its own; we re-open the
+  // active terminal from scratch to re-subscribe. Keyed off the connection-state
+  // transition into 'connected'.
   useEffect(() => {
     const prev = prevStateRef.current;
     prevStateRef.current = state;
@@ -698,18 +698,11 @@ export default function TerminalScreen() {
     void refreshTerminalList(worktreeRef.current);
     // Nothing more to do if no tab is active yet (handled by loadTerminals).
     if (!active) return;
-    const terminal = active;
-    console.log('[BraidMobile] terminal.resume', { ptyId: terminal.id });
-    client
-      .request<string>('terminal.readScrollback', { ptyId: terminal.id, maxBytes: SCROLLBACK_SNAPSHOT_BYTES })
-      .then((scrollback) => {
-        if (activeIdRef.current !== terminal.id) return;
-        terminalRef.current?.init(DEFAULT_COLS, DEFAULT_ROWS, '');
-        if (scrollback) terminalRef.current?.write(scrollback);
-        void fitActiveTerminal(terminal);
-      })
-      .catch(() => undefined);
-  }, [state, active, client, fitActiveTerminal, refreshTerminalList, loadProjects]);
+    // Re-open re-subscribes on the (possibly brand-new) client and re-inits xterm
+    // with a fresh snapshot, which also picks up output emitted while backgrounded.
+    console.log('[BraidMobile] terminal.resume', { ptyId: active.id });
+    void openTerminal(active);
+  }, [state, active, client, refreshTerminalList, loadProjects, openTerminal]);
 
   // While this screen is foreground and the socket has dropped into
   // 'reconnecting', the manager may be parked in a backoff wait (up to
