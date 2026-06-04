@@ -5,6 +5,19 @@ All notable changes to Braid are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [26.2.9] - 2026-06-04
+
+### Added
+
+- robust reconnect after long background + connection overlay (#124)
+- background push, bare terminal tab, notification & usage fixes (#123)
+
+### Contributors
+
+Thanks to [@gedeagas](https://github.com/gedeagas) for their contributions to this release!
+
+---
+
 ## [26.2.8] - 2026-06-03
 
 ### Added
