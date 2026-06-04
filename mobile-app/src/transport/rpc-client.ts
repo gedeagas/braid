@@ -454,6 +454,12 @@ export class BraidRpcClient {
     this.ws = null;
     this.connectPromise = null;
     this.sharedKey = null;
+    // Reject every in-flight request before clearing. We removed rejectPending
+    // above so the socket's close event won't settle them, and a bare clear()
+    // would strand each caller's promise forever (the request timeout fires its
+    // callback, finds the id already gone, and returns early). A manual close
+    // (backgrounding / reconnect) must settle callers so they can react.
+    for (const pending of this.pending.values()) pending.reject(new Error('Connection closed'));
     this.pending.clear();
   }
 

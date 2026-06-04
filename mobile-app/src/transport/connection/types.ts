@@ -42,6 +42,14 @@ export interface Entry {
   reconnectTimer: ReturnType<typeof setTimeout> | null;
   /** A connect() handshake is in flight; gates reconcile from kicking a duplicate. */
   connectInFlight: boolean;
+  /**
+   * Monotonic id stamped on each connectEntry() attempt. The connect promise's
+   * then/catch capture the seq at kickoff and bail if it no longer matches, so a
+   * superseded attempt (forceReconnect/reconcile closed its socket, rejecting the
+   * old promise) can't run its catch and schedule a spurious reconnect over the
+   * newer in-flight attempt.
+   */
+  connectSeq: number;
   /** A heartbeat probe is already outstanding for this entry; gates overlap. */
   pingInFlight: boolean;
   disposed: boolean;

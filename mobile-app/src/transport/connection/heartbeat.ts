@@ -12,7 +12,11 @@ export function probeEntry(self: ManagerInternals, entry: Entry): void {
   entry.client
     .ping()
     .catch(() => {
-      if (entry.disposed) return;
+      // A clean background close() rejects the in-flight ping. If the entry is
+      // no longer 'connected' (backgrounded → 'disconnected'), this is that
+      // benign rejection, not a dead socket: bail so we don't log a spurious
+      // timeout and stomp the clean state back to 'reconnecting'.
+      if (entry.disposed || entry.state !== 'connected') return;
       self.pushLog(entry, 'warn', 'Heartbeat timed out', 'Socket presumed dead');
       // Don't trust the cached 'connected' state; close so reconcile sees a
       // dead socket and reconnects.

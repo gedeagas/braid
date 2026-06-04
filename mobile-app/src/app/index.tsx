@@ -1517,7 +1517,9 @@ function terminalLabel(terminal: BraidTerminal): string {
 
 /** The worktree (branch) name for a terminal, derived from its worktree path. */
 function worktreeName(terminal: BraidTerminal): string | undefined {
-  return (terminal.worktreePath ?? terminal.cwd)?.split('/').filter(Boolean).pop();
+  // Split on both separators: a Windows desktop reports paths with `\`, so a
+  // `/`-only split would return the whole path and overflow the meta line.
+  return (terminal.worktreePath ?? terminal.cwd)?.split(/[/\\]/).filter(Boolean).pop();
 }
 
 /** Stable identity for a terminal within a host, for acknowledgement tracking. */

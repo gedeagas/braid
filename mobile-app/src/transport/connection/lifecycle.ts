@@ -80,17 +80,25 @@ export function connectEntry(self: ManagerInternals, entry: Entry): void {
   entry.state = entry.attempt > 0 ? 'reconnecting' : 'connecting';
   entry.connectStartedAt = Date.now();
   entry.connectInFlight = true;
+  // Tag this attempt. A later forceReconnect/reconcile that kicks a fresh
+  // connectEntry bumps the seq and closes the old socket, rejecting this
+  // attempt's promise; the stale-seq guards below then swallow it so it can't
+  // clobber the newer attempt's state or schedule a duplicate reconnect.
+  const seq = entry.connectSeq + 1;
+  entry.connectSeq = seq;
   self.pushLog(entry, 'info', entry.attempt > 0 ? 'Reconnecting' : 'Opening connection', endpointDetail(entry));
   self.emit();
   entry.client
     .connect()
     .then(() => {
+      if (entry.connectSeq !== seq) return;
       entry.connectInFlight = false;
       // onOpen has usually already run markConnected; this is a safety net for
       // the case where the listener was somehow missed.
       markConnected(self, entry);
     })
     .catch((error: unknown) => {
+      if (entry.connectSeq !== seq) return;
       entry.connectInFlight = false;
       if (entry.disposed) return;
       // A rejected/revoked pairing is terminal: park in 'auth-failed' and do
@@ -121,6 +129,7 @@ export function makeEntry(self: ManagerInternals, host: PairedHost): Entry {
     offOpen: null,
     reconnectTimer: null,
     connectInFlight: false,
+    connectSeq: 0,
     pingInFlight: false,
     disposed: false,
     everConnected: false,

@@ -113,8 +113,11 @@ export function createManager(deps: ManagerDeps = {}): InternalManager {
           off?.();
           resolve();
         });
-        // Kick a connect unless one is already in flight (don't reset it).
-        if (entry.state !== 'connecting') {
+        // Kick a connect unless one is already in flight (don't reset it). Guard
+        // on connectInFlight, not state: a reconnect attempt sets state to
+        // 'reconnecting' (not 'connecting') while still in flight, so a
+        // state-only check would start a second overlapping connect.
+        if (!entry.connectInFlight) {
           entry.attempt = 0;
           connectEntry(self, entry);
         }
@@ -190,7 +193,8 @@ export function createManager(deps: ManagerDeps = {}): InternalManager {
       // Returning to the foreground is a strong "retry now" signal. If a prior
       // attempt failed and parked in a backoff wait, reconcile would otherwise
       // see the pending timer and do nothing - leaving the user staring at
-      // "Connecting…" until the timer (up to 30s) fires. Cancel any backoff and
+      // "Connecting…" until the timer (up to RECONNECT_MAX_MS, 10s) fires.
+      // Cancel any backoff and
       // reset the streak so reconcile issues an immediate connect, matching what
       // the manual refresh button does. (auth-failed stays sticky.)
       for (const entry of entries.values()) {

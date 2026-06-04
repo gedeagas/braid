@@ -79,6 +79,12 @@ class FakeClient {
     this.open = false;
   }
 
+  /** Simulate the desktop rejecting this device's pairing (close code 4001). */
+  failAuth(): void {
+    this.open = false;
+    for (const cb of this.closeCbs) cb({ authFailed: true, superseded: false });
+  }
+
   onOpen(cb: () => void): () => void {
     this.openCbs.add(cb);
     return () => this.openCbs.delete(cb);
@@ -219,19 +225,23 @@ describe('client-manager reconnect/liveness', () => {
     const { fake, manager } = setup();
     manager.acquireHost(HOST);
     await flush();
+    expect(manager.getState(HOST.id)).toBe('connected');
+    const connectsBeforeReject = fake.connectCount;
 
-    // Desktop rejected the pairing mid-session (close code 4001 path): the
-    // manager would set auth-failed. Simulate by driving a connect rejection
-    // through a forced reconnect into an auth error is heavier than needed here;
-    // instead assert the simpler invariant: once connected and then backgrounded,
-    // a resume with a live socket is a no-op (no spurious reconnect).
-    fake.killSilently();
+    // Desktop rejects the pairing mid-session (close code 4001): the manager
+    // parks the entry in 'auth-failed' and must NOT retry the dead token.
+    fake.failAuth();
+    await flush();
+    expect(manager.getState(HOST.id)).toBe('auth-failed');
+
+    // A background/foreground cycle must leave it parked - reconcile preserves
+    // 'auth-failed' and issues no connect. Only forceReconnect clears it.
     manager.onAppState('background');
     await flush();
     manager.onAppState('active');
     await flush();
-    // One reconnect for the resume; not a tight loop.
-    expect(fake.connectCount).toBe(2);
+    expect(manager.getState(HOST.id)).toBe('auth-failed');
+    expect(fake.connectCount).toBe(connectsBeforeReject);
     manager.disposeAll();
   });
 });

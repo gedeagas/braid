@@ -154,7 +154,10 @@ export default function TerminalScreen() {
   // disconnected; if that first projects.list races a failed connect, the list
   // stays empty and must be re-fetched once the socket finally connects).
   const projectsRef = useRef(projects);
-  useEffect(() => { projectsRef.current = projects; }, [projects]);
+  // Update during render, not in an effect: effects in the same render pass run
+  // before the mirroring effect would, so a deferred update leaves them reading
+  // a stale list. A plain ref write during render is safe (no subscription).
+  projectsRef.current = projects;
 
   const selectedProject = projects.find((project) => project.id === projectId) ?? projects[0] ?? null;
   const isSessionScoped = typeof worktreePath === 'string' && worktreePath.length > 0;
@@ -709,8 +712,9 @@ export default function TerminalScreen() {
   }, [state, active, client, fitActiveTerminal, refreshTerminalList, loadProjects]);
 
   // While this screen is foreground and the socket has dropped into
-  // 'reconnecting', the manager may be parked in a backoff wait (up to 30s)
-  // before its next attempt - so a deep-link from a push (or a cold radio right
+  // 'reconnecting', the manager may be parked in a backoff wait (up to
+  // RECONNECT_MAX_MS, 10s) before its next attempt - so a deep-link from a push
+  // (or a cold radio right
   // after resume) can leave the user staring at "Connecting…" even though the
   // desktop is reachable. Kick one immediate reconnect (what the manual refresh
   // button does via connect()), bypassing the backoff. Guarded by a ref so it
