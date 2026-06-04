@@ -106,7 +106,14 @@
     "languageHint": "Pilih bahasa Anda, atau ikuti pengaturan perangkat.",
     "notifications": "Notifikasi",
     "notificationsA11y": "Pengaturan notifikasi",
-    "troubleshoot": "Atasi masalah koneksi"
+    "troubleshoot": "Atasi masalah koneksi",
+    "about": "Tentang",
+    "version": "Versi",
+    "updateChannel": "Saluran pembaruan",
+    "updateId": "Pembaruan",
+    "updateEmbedded": "Bawaan (belum ada OTA)",
+    "updateDevelopment": "Pengembangan",
+    "updatePublished": "Diterbitkan {{date}}"
   },
   "notifications": {
     "title": "Notifikasi",
@@ -292,7 +299,13 @@
     "modeCommand": "Perintah",
     "modeLive": "Langsung",
     "displayPhone": "Sesuaikan ponsel",
-    "displayDesktop": "Ukuran desktop"
+    "displayDesktop": "Ukuran desktop",
+    "connectingOverlay": "Menghubungkan ke desktop…",
+    "cantReachDesktop": "Tidak dapat menjangkau desktop",
+    "pairingRejected": "Penyandingan ditolak",
+    "connectHint": "Pastikan Braid berjalan di desktop dan berada di jaringan yang sama.",
+    "pairingHint": "Sandingkan ulang perangkat ini dari aplikasi Braid desktop.",
+    "reconnect": "Hubungkan ulang"
   },
   "sourceControl": {
     "title": "Kontrol Sumber",

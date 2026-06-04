@@ -106,7 +106,14 @@
     "languageHint": "选择语言，或跟随设备设置。",
     "notifications": "通知",
     "notificationsA11y": "通知设置",
-    "troubleshoot": "连接问题排查"
+    "troubleshoot": "连接问题排查",
+    "about": "关于",
+    "version": "版本",
+    "updateChannel": "更新通道",
+    "updateId": "更新",
+    "updateEmbedded": "内置（尚无 OTA）",
+    "updateDevelopment": "开发",
+    "updatePublished": "发布于 {{date}}"
   },
   "notifications": {
     "title": "通知",
@@ -292,7 +299,13 @@
     "modeCommand": "命令",
     "modeLive": "实时",
     "displayPhone": "适配手机",
-    "displayDesktop": "桌面尺寸"
+    "displayDesktop": "桌面尺寸",
+    "connectingOverlay": "正在连接到桌面…",
+    "cantReachDesktop": "无法连接到桌面",
+    "pairingRejected": "配对被拒绝",
+    "connectHint": "请确认桌面端 Braid 正在运行且处于同一网络。",
+    "pairingHint": "请在 Braid 桌面应用中重新配对此设备。",
+    "reconnect": "重新连接"
   },
   "sourceControl": {
     "title": "源代码管理",

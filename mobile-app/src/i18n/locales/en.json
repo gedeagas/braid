@@ -106,7 +106,14 @@
     "languageHint": "Choose your language, or follow the device setting.",
     "notifications": "Notifications",
     "notificationsA11y": "Notification settings",
-    "troubleshoot": "Troubleshoot connection"
+    "troubleshoot": "Troubleshoot connection",
+    "about": "About",
+    "version": "Version",
+    "updateChannel": "Update channel",
+    "updateId": "Update",
+    "updateEmbedded": "Embedded (no OTA yet)",
+    "updateDevelopment": "Development",
+    "updatePublished": "Published {{date}}"
   },
   "notifications": {
     "title": "Notifications",
@@ -292,7 +299,13 @@
     "modeCommand": "Command",
     "modeLive": "Live",
     "displayPhone": "Phone fit",
-    "displayDesktop": "Desktop size"
+    "displayDesktop": "Desktop size",
+    "connectingOverlay": "Connecting to desktop…",
+    "cantReachDesktop": "Can't reach desktop",
+    "pairingRejected": "Pairing rejected",
+    "connectHint": "Make sure Braid is running on your desktop and on the same network.",
+    "pairingHint": "Re-pair this device from the Braid desktop app.",
+    "reconnect": "Reconnect"
   },
   "sourceControl": {
     "title": "Source Control",
