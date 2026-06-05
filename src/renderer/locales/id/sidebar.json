@@ -44,6 +44,7 @@
   "searchOriginBranches": "Cari cabang asal…",
   "noBranchesMatch": "Tidak ada cabang yang cocok",
   "localBranchLabel": "Nama cabang lokal",
+  "lockedFromPullRequest": "(dari pull request)",
   "localBranchPlaceholder": "mis. fitur/cabang-saya",
   "randomNameTitle": "Nama acak",
   "worktreeMain": "Worktree utama",

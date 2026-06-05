@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { Worktree } from '@/types'
 import { useTasksReviewStore } from '@/store/tasks'
 import * as ipc from '@/lib/ipc'
 import { getPRCommentAudienceCounts, isBotPRComment } from '../../../shared/pr-comment-audience'
@@ -13,7 +12,7 @@ import type {
   UiIssueComment,
   UiReviewComment,
 } from './types'
-import { checkVariant, getCheckState, groupChecks, isLikelyPreviewFile, parsePatch } from './taskUtils'
+import { checkVariant, getCheckState, groupChecks, isLikelyPreviewFile, parsePatch, shouldShowReviewTimelineEntry } from './taskUtils'
 import { usePrDetailActions } from './usePrDetailActions'
 
 const prDetailRenderCache = new Map<string, { detail: GitHubPrDetail; fetchedAt: number }>()
@@ -23,14 +22,14 @@ interface UsePrDetailControllerArgs {
   selectedRow: TaskRow | null
   setSelectedRow: (value: TaskRow | null | ((current: TaskRow | null) => TaskRow | null)) => void
   fetchTasks: (forceRefresh?: boolean) => void
-  addWorktree: (projectId: string, branch: string, baseBranch?: string, filesToCopy?: string[], options?: { select?: boolean }) => Promise<Worktree | null>
+  openCreateWorktreeDialog: (row: TaskRow) => void
   selectWorktree: (projectId: string, worktreeId: string) => void
   toggleTasks: () => void
 }
 
 export function usePrDetailController(args: UsePrDetailControllerArgs) {
   const { t } = useTranslation('tasks')
-  const { selectedRow, setSelectedRow, fetchTasks, addWorktree, selectWorktree, toggleTasks } = args
+  const { selectedRow, setSelectedRow, fetchTasks, openCreateWorktreeDialog, selectWorktree, toggleTasks } = args
   const review = useTasksReviewStore()
   const {
     activityFilter,
@@ -157,6 +156,10 @@ export function usePrDetailController(args: UsePrDetailControllerArgs) {
     () => [...(prDetail?.comments ?? []), ...optimisticReviewReplies].sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()),
     [optimisticReviewReplies, prDetail]
   )
+  const visibleReviews = useMemo(
+    () => (prDetail?.reviews ?? []).filter(shouldShowReviewTimelineEntry),
+    [prDetail?.reviews]
+  )
   const rootReviewComments = useMemo(() => reviewComments.filter((comment) => comment.inReplyToId === null), [reviewComments])
   const reviewRepliesByParent = useMemo(() => groupReplies(reviewComments), [reviewComments])
   const inlineCommentsByPathLine = useMemo(() => {
@@ -174,7 +177,7 @@ export function usePrDetailController(args: UsePrDetailControllerArgs) {
   const timelineEntries = useMemo(() => {
     const comments = [
       ...issueComments.map((comment): TimelineEntry => ({ kind: 'issue-comment', at: comment.createdAt, item: comment })),
-      ...(prDetail?.reviews ?? []).map((review): TimelineEntry => ({ kind: 'review', at: review.submittedAt, item: review })),
+      ...visibleReviews.map((review): TimelineEntry => ({ kind: 'review', at: review.submittedAt, item: review })),
       ...rootReviewComments.map((comment): TimelineEntry => ({ kind: 'review-comment', at: comment.createdAt, item: comment })),
     ]
     return comments.filter((entry) => {
@@ -182,10 +185,10 @@ export function usePrDetailController(args: UsePrDetailControllerArgs) {
       if (activityFilter === 'human') return !isBotPRComment(entry.item)
       return true
     }).sort((a, b) => new Date(a.at || 0).getTime() - new Date(b.at || 0).getTime())
-  }, [activityFilter, issueComments, prDetail?.reviews, rootReviewComments])
+  }, [activityFilter, issueComments, rootReviewComments, visibleReviews])
   const activityCounts = useMemo(
-    () => getPRCommentAudienceCounts([...issueComments, ...(prDetail?.reviews ?? []), ...rootReviewComments]),
-    [issueComments, prDetail?.reviews, rootReviewComments]
+    () => getPRCommentAudienceCounts([...issueComments, ...visibleReviews, ...rootReviewComments]),
+    [issueComments, rootReviewComments, visibleReviews]
   )
 
   const actions = usePrDetailActions({
@@ -195,7 +198,7 @@ export function usePrDetailController(args: UsePrDetailControllerArgs) {
     setPrDetail,
     review,
     fetchTasks,
-    addWorktree,
+    openCreateWorktreeDialog,
     loadPrDetail,
     setPrDetailLoading,
     setPrDetailError,

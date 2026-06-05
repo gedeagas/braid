@@ -74,6 +74,8 @@
 .task-detail-panel {
   position: relative;
   min-width: 0;
+  --task-panel-header-accent: var(--accent);
+  --task-panel-header-tint: 6%;
   overflow: hidden;
   box-shadow: 0 10px 24px color-mix(in srgb, #000 10%, transparent);
 }
@@ -84,6 +86,7 @@
 }
 
 .task-summary-panel {
+  --task-panel-header-accent: var(--text-muted);
   z-index: 2;
   overflow: visible;
 }
@@ -99,7 +102,13 @@
   gap: var(--space-8);
   padding: 0 clamp(var(--space-24), 2vw, var(--space-40));
   border-bottom: 1px solid color-mix(in srgb, var(--border) 62%, transparent);
-  color: var(--text-muted);
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--task-panel-header-accent) var(--task-panel-header-tint), transparent),
+      transparent 68%
+    );
+  color: color-mix(in srgb, var(--task-panel-header-accent) 58%, var(--text-muted));
 }
 
 .task-detail-sidebar .task-detail-panel-header {
@@ -109,14 +118,18 @@
 
 .task-detail-panel-header h2 {
   margin: 0;
-  color: var(--text-primary);
+  color: color-mix(in srgb, var(--task-panel-header-accent) 16%, var(--text-primary));
   font-size: var(--text-base);
   font-weight: var(--weight-semibold);
 }
 
+.task-detail-panel-header svg {
+  color: var(--task-panel-header-accent);
+}
+
 .task-detail-panel-header span {
   margin-left: auto;
-  color: var(--text-muted);
+  color: color-mix(in srgb, var(--task-panel-header-accent) 46%, var(--text-muted));
   font-size: var(--text-sm);
 }
 

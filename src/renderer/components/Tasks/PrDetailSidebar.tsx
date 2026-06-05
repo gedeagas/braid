@@ -264,10 +264,12 @@ function PullRequestActionCard({ detail }: { detail: PrDetailController }) {
   if (!detailItem || detailItem.type !== 'pr') return null
 
   const isOpen = detailItem.state === 'open'
+  const canMarkReady = Boolean(showReadyAction)
   const isBusy = review.prActionBusy !== null
   const isMergeBusy = review.prActionBusy === 'merge' || review.prActionBusy === 'squash' || review.prActionBusy === 'rebase'
   const primaryDisabled = !showMergeActions || isBusy
   const mergeBlockReason = getMergeBlockReason(detailItem, t)
+  const actionTone = getPrActionTone(detailItem, canMarkReady, showMergeActions, Boolean(review.prActionError))
 
   const handleMergeStrategy = (action: typeof MERGE_STRATEGIES[number]['action']) => {
     setMenuOpen(false)
@@ -275,7 +277,7 @@ function PullRequestActionCard({ detail }: { detail: PrDetailController }) {
   }
 
   return (
-    <section className="task-detail-panel task-pr-action-card">
+    <section className={`task-detail-panel task-pr-action-card task-pr-action-card--${actionTone}`}>
       <div className="task-pr-action-header">
         <span>
           <IconPrBranch size={14} />
@@ -286,7 +288,7 @@ function PullRequestActionCard({ detail }: { detail: PrDetailController }) {
 
       {isOpen ? (
         <div className="task-pr-action-stack">
-          {showReadyAction ? (
+          {canMarkReady ? (
             <button
               type="button"
               className="task-pr-action-primary"
@@ -355,6 +357,18 @@ function PullRequestActionCard({ detail }: { detail: PrDetailController }) {
       )}
     </section>
   )
+}
+
+function getPrActionTone(
+  item: NonNullable<PrDetailController['detailItem']>,
+  showReadyAction: boolean,
+  showMergeActions: boolean,
+  hasError: boolean,
+): 'success' | 'warning' | 'danger' | 'muted' {
+  if (hasError || item.state === 'closed') return 'danger'
+  if (item.state === 'merged' || showMergeActions) return 'success'
+  if (item.state === 'open' || showReadyAction) return 'warning'
+  return 'muted'
 }
 
 function getMergeBlockReason(item: NonNullable<PrDetailController['detailItem']>, t: TFunction<'tasks'>): string {

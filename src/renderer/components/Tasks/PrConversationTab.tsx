@@ -97,7 +97,7 @@ function ReviewEntry({ review, baseUrl }: { review: NonNullable<PrDetailControll
           <Badge variant={reviewVariant(review.state)} size="sm">{formatState(review.state, t)}</Badge>
           <em>{review.submittedAt ? formatRelativeTime(review.submittedAt) : ''}</em>
         </div>
-        {review.body ? <TaskMarkdown body={review.body} baseUrl={baseUrl} /> : <span className="task-detail-muted">{t('conversation.noReviewSummary')}</span>}
+        {review.body.trim() && <TaskMarkdown body={review.body} baseUrl={baseUrl} />}
       </div>
     </button>
   )

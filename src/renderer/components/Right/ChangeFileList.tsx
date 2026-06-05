@@ -215,9 +215,11 @@ export function ChangeFileList({
       <div className="changes-file-list changes-file-list--clean">
         <div className="changes-clean-indicator">
           <NekoWalk />
-          <div className="changes-clean-label">
-            <span className="changes-clean-icon">✓</span>
-            <span>{t('workingTreeClean')}</span>
+          <div className="changes-clean-label ui-tonal-empty ui-tonal-empty--success">
+            <span className="changes-clean-icon ui-tonal-empty__icon">✓</span>
+            <span className="ui-tonal-empty__copy">
+              <span className="ui-tonal-empty__title">{t('workingTreeClean')}</span>
+            </span>
           </div>
         </div>
       </div>

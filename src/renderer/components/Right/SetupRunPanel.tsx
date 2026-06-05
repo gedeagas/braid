@@ -4,6 +4,7 @@ import { useUIStore } from '@/store/ui'
 import { FixedTabButton } from './TabbedTerminal'
 import { SetupPanel } from './SetupPanel'
 import { RunPanel } from './RunPanel'
+import { IconChevronDown, IconChevronRight, IconPlay, IconSettings } from '@/components/shared/icons'
 
 type ActiveTab = 'setup' | 'run'
 
@@ -47,33 +48,29 @@ export function SetupRunPanel({ worktreePath, projectId, projectPath, collapsed,
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', minHeight: 0 }}>
       {/* Tab bar */}
       <div
-        className="scrollbar-overlay"
-        style={{
-          display: 'flex', alignItems: 'stretch',
-          background: 'var(--bg-secondary)', flexShrink: 0,
-          borderBottom: collapsed ? 'none' : '1px solid var(--border)',
-          overflowX: 'auto', overflowY: 'hidden',
-        }}
+        className={[
+          'scrollbar-overlay',
+          'terminal-tabs-shell',
+          collapsed ? 'terminal-tabs-shell--collapsed' : '',
+        ].filter(Boolean).join(' ')}
       >
-        <span
-          style={{
-            fontSize: 12, padding: '0 6px 0 10px',
-            color: 'var(--text-muted)', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', flexShrink: 0,
-          }}
+        <button
+          type="button"
+          className="terminal-tab-toggle"
           onClick={onToggleCollapse}
+          aria-label={t('terminalToggleTooltip')}
         >
-          {collapsed ? '▶' : '▼'}
-        </span>
+          {collapsed ? <IconChevronRight size={12} /> : <IconChevronDown size={12} />}
+        </button>
         <FixedTabButton
           active={activeTab === 'setup'}
-          icon="⚙"
+          icon={<IconSettings size={13} />}
           label={t('setupLabel')}
           onClick={() => activate('setup')}
         />
         <FixedTabButton
           active={activeTab === 'run'}
-          icon="▶"
+          icon={<IconPlay size={13} />}
           label={t('runLabel')}
           onClick={() => activate('run')}
         />

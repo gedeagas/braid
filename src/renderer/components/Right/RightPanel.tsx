@@ -25,7 +25,8 @@ import {
   IconClipboardCheck,
   IconBook,
   IconSmartphone,
-  IconMonitor
+  IconMonitor,
+  IconArrowLeft
 } from '@/components/shared/icons'
 import type { RightPanelTab } from '@/types'
 
@@ -88,48 +89,48 @@ export const RightPanel = memo(function RightPanel() {
       <div className="tab-bar scrollbar-overlay" data-tour="right-panel" data-display={tabDisplayMode}>
         {TABS.map((tab) => (
           <Tooltip key={tab.id} content={tab.tooltip} position="bottom">
-          <button
-            className={`tab ${activeTab === tab.id ? 'active' : ''}`}
-            onClick={() => setTab(tab.id)}
-          >
-            {tabDisplayMode === 'labels' ? tab.label : <><tab.icon size={tabDisplayMode === 'icons' ? 16 : 14} />{tabDisplayMode === 'both' && <span>{tab.label}</span>}</>}
-            {tab.badge ? <span className="tab-badge">{tab.badge}</span> : null}
-          </button>
+            <button
+              className={`tab ${activeTab === tab.id ? 'active' : ''}`}
+              onClick={() => setTab(tab.id)}
+            >
+              {tabDisplayMode === 'labels' ? tab.label : <><tab.icon size={tabDisplayMode === 'icons' ? 16 : 14} />{tabDisplayMode === 'both' && <span>{tab.label}</span>}</>}
+              {tab.badge ? <span className="tab-badge">{tab.badge}</span> : null}
+            </button>
           </Tooltip>
         ))}
       </div>
 
       {!worktree ? (
-        <EmptyState title={t('selectWorktree')} />
+        <EmptyState variant="panel" icon={<IconArrowLeft size={24} />} title={t('selectWorktree')} />
       ) : (
-        <div ref={containerRef} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+        <div ref={containerRef} className="right-panel-body">
           {/* Upper area: tabbed content */}
-          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: activeTab === 'files' ? 'flex' : 'none', flex: 1, overflow: 'hidden' }}>
+          <div className="right-panel-content">
+            <div className="right-panel-pane" style={{ display: activeTab === 'files' ? 'flex' : 'none' }}>
               <FileTree worktreePath={worktree.path} onFileSelect={openFile} />
             </div>
-            <div style={{ display: activeTab === 'search' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+            <div className="right-panel-pane right-panel-pane--column" style={{ display: activeTab === 'search' ? 'flex' : 'none' }}>
               <SearchView worktreePath={worktree.path} />
             </div>
-            <div style={{ display: activeTab === 'changes' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+            <div className="right-panel-pane right-panel-pane--column" style={{ display: activeTab === 'changes' ? 'flex' : 'none' }}>
               <ChangesView key={worktree.path} worktreePath={worktree.path} isActive={panelActive && activeTab === 'changes'} />
             </div>
-            <div style={{ display: activeTab === 'overview' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+            <div className="right-panel-pane right-panel-pane--column" style={{ display: activeTab === 'overview' ? 'flex' : 'none' }}>
               <ChecksView key={worktree.path} worktreePath={worktree.path} worktreeId={worktree.id} isActive={panelActive && activeTab === 'overview'} />
             </div>
-            <div style={{ display: activeTab === 'notes' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+            <div className="right-panel-pane right-panel-pane--column" style={{ display: activeTab === 'notes' ? 'flex' : 'none' }}>
               <Suspense fallback={<Spinner size="md" />}>
                 <NotesView worktreeId={worktree.id} />
               </Suspense>
             </div>
             {/* Always mounted so state survives project/tab switches */}
-            <div style={{ display: isMobile && activeTab === 'simulator' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+            <div className="right-panel-pane right-panel-pane--column" style={{ display: isMobile && activeTab === 'simulator' ? 'flex' : 'none' }}>
               <Suspense fallback={<Spinner size="md" />}>
                 <SimulatorView isActive={isMobile && activeTab === 'simulator'} mobileFramework={project?.mobileFramework} />
               </Suspense>
             </div>
             {experimentalCapture && (
-              <div style={{ display: activeTab === 'windowCapture' ? 'flex' : 'none', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+              <div className="right-panel-pane right-panel-pane--column" style={{ display: activeTab === 'windowCapture' ? 'flex' : 'none' }}>
                 <Suspense fallback={<Spinner size="md" />}>
                   <WindowCaptureView isActive={activeTab === 'windowCapture'} />
                 </Suspense>
@@ -143,13 +144,13 @@ export const RightPanel = memo(function RightPanel() {
           )}
           <div
             data-tour="terminal"
+            className={[
+              'right-panel-terminal-host',
+              terminalCollapsed ? 'right-panel-terminal-host--collapsed' : '',
+            ].filter(Boolean).join(' ')}
             style={{
               height: terminalCollapsed ? 36 : (terminalHeight || 250),
               minHeight: terminalCollapsed ? 36 : 120,
-              borderTop: terminalCollapsed ? '1px solid var(--border)' : 'none',
-              display: 'flex',
-              flexDirection: 'column',
-              flexShrink: 0
             }}
           >
             {bottomTerminalEnabled ? (

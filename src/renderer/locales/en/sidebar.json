@@ -44,6 +44,7 @@
   "searchOriginBranches": "Search origin branches…",
   "noBranchesMatch": "No branches match",
   "localBranchLabel": "Local branch name",
+  "lockedFromPullRequest": "(from pull request)",
   "localBranchPlaceholder": "e.g. feature/my-branch",
   "randomNameTitle": "Random name",
   "worktreeMain": "Main worktree",

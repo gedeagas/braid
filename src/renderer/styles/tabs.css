@@ -71,11 +71,13 @@
 }
 
 .tab {
+  position: relative;
   padding: 0 var(--space-14);
   font-size: var(--text-md);
   color: var(--text-secondary);
   background: transparent;
   border: none;
+  border-radius: var(--radius) var(--radius) 0 0;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -86,18 +88,22 @@
      Explicit heights are not overridden by align-items: stretch, so the
      scrollbar indicator cannot shrink the tab. */
   height: 37px;
-  transition: color var(--duration-normal), box-shadow var(--duration-normal), margin-top var(--duration-instant);
+  transition: background var(--duration-normal), color var(--duration-normal), box-shadow var(--duration-normal), margin-top var(--duration-instant);
 }
 
 .tab:hover {
+  background: var(--shell-wash-hover);
   color: var(--text-primary);
 }
 
 .tab.active {
+  background: var(--shell-wash-active);
   color: var(--text-primary);
   margin-top: 0;
   height: 40px; /* flush with tab bar top; bottom edge still at 40px */
-  box-shadow: inset 0 -2px 0 var(--accent);
+  box-shadow:
+    inset 0 -2px 0 var(--accent),
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 /* ── Icon-only tab display ─────────────────────────────────── */
@@ -109,15 +115,14 @@
 
 .tab-bar[data-display="icons"] .tab {
   padding: 0 var(--space-10);
-  border-radius: var(--radius) var(--radius) 0 0;
 }
 
 .tab-bar[data-display="icons"] .tab:hover {
-  background: var(--bg-hover);
+  background: var(--shell-wash-hover);
 }
 
 .tab-bar[data-display="icons"] .tab.active {
-  background: var(--accent-tint-10);
+  background: var(--shell-wash-active);
 }
 
 /* New chat / new terminal add button — larger + to match terminal tab bar */
@@ -249,6 +254,182 @@
 @keyframes tab-error-flash {
   0%   { background: var(--red-tint-35); }
   100% { background: var(--red-tint-10); }
+}
+
+.terminal-tabs-shell {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.terminal-tabs-shell--collapsed {
+  border-bottom: none;
+}
+
+.terminal-tabs-shell--dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.terminal-tab-toggle,
+.terminal-tab,
+.terminal-tab-add {
+  height: 36px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+}
+
+.terminal-tab-toggle {
+  width: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  cursor: pointer;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.terminal-tab-toggle:hover {
+  background: var(--shell-wash-hover);
+  color: var(--text-primary);
+}
+
+.terminal-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  min-width: 0;
+  padding: 0 var(--space-10) 0 var(--space-12);
+  border-right: 1px solid var(--border);
+  font-size: var(--text-md);
+  white-space: nowrap;
+  cursor: grab;
+  user-select: none;
+  transition: background var(--duration-fast), color var(--duration-fast), opacity var(--duration-normal), box-shadow var(--duration-fast);
+}
+
+.terminal-tab:hover,
+.terminal-tab--hovered {
+  background: var(--shell-wash-hover);
+  color: var(--text-secondary);
+}
+
+.terminal-tab--active {
+  background: var(--shell-wash-active);
+  color: var(--text-primary);
+  box-shadow:
+    inset 0 -2px 0 var(--accent),
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.terminal-tab--fixed {
+  cursor: pointer;
+}
+
+.terminal-tab--renaming {
+  cursor: default;
+}
+
+.terminal-tab--dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+
+.terminal-tab--drop-target {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.terminal-tab__prompt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 14px;
+  color: currentColor;
+  opacity: 0.65;
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  letter-spacing: 0;
+}
+
+.terminal-tab__label {
+  max-width: 120px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.terminal-tab__input {
+  min-width: 72px;
+  max-width: 200px;
+  padding: var(--space-2) var(--space-7);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  outline: none;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font: inherit;
+  box-shadow: 0 0 0 3px var(--accent-tint-15);
+}
+
+.terminal-tab__action {
+  width: 20px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  opacity: 0.45;
+  cursor: pointer;
+  transition: background var(--duration-fast), color var(--duration-fast), opacity var(--duration-fast);
+}
+
+.terminal-tab--active .terminal-tab__action {
+  opacity: 0.55;
+}
+
+.terminal-tab__action:hover {
+  opacity: 1;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--text-primary);
+}
+
+.terminal-tab__action--danger:hover {
+  background: var(--red-tint-20);
+  color: var(--red);
+}
+
+.terminal-tab-add {
+  width: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  cursor: pointer;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.terminal-tab-add:hover {
+  background: var(--shell-wash-hover);
+  color: var(--text-primary);
+}
+
+.terminal-tab-fill {
+  flex: 1;
 }
 
 

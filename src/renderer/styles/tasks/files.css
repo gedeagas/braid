@@ -311,6 +311,7 @@
 .task-file-row {
   width: 100%;
   min-width: 0;
+  --task-row-wash-accent: var(--accent);
   display: flex;
   flex-direction: column;
   gap: var(--space-7);
@@ -327,10 +328,23 @@
 .task-file-row:hover,
 .task-file-row.active {
   color: var(--text-primary);
-  background: color-mix(in srgb, var(--bg-hover) 74%, transparent);
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--task-row-wash-accent) 8%, transparent),
+      transparent 76%
+    ),
+    color-mix(in srgb, var(--bg-hover) 70%, transparent);
 }
 
 .task-file-row.active {
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--task-row-wash-accent) 14%, transparent),
+      transparent 78%
+    ),
+    color-mix(in srgb, var(--bg-hover) 76%, transparent);
   box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 86%, var(--text-primary));
 }
 

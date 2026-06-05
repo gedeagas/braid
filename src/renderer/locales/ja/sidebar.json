@@ -44,6 +44,7 @@
   "searchOriginBranches": "オリジンブランチを検索…",
   "noBranchesMatch": "一致するブランチがありません",
   "localBranchLabel": "ローカルブランチ名",
+  "lockedFromPullRequest": "（Pull request から）",
   "localBranchPlaceholder": "例: feature/my-branch",
   "randomNameTitle": "ランダムな名前",
   "worktreeMain": "メインワークツリー",

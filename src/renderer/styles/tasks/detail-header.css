@@ -133,6 +133,12 @@
   gap: var(--space-10);
   padding: 0 var(--task-sidebar-inset, var(--space-20));
   border-bottom: 1px solid color-mix(in srgb, var(--border) 62%, transparent);
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--task-panel-header-accent) var(--task-panel-header-tint), transparent),
+      transparent 68%
+    );
 }
 
 .task-pr-action-header > span {
@@ -140,8 +146,12 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-8);
-  color: var(--text-primary);
+  color: color-mix(in srgb, var(--task-panel-header-accent) 16%, var(--text-primary));
   font-size: var(--text-base);
+}
+
+.task-pr-action-header svg {
+  color: var(--task-panel-header-accent);
 }
 
 .task-pr-action-header strong {
@@ -154,6 +164,36 @@
 
 .task-pr-action-header .badge {
   flex-shrink: 0;
+}
+
+.task-pr-action-card--success {
+  --task-panel-header-accent: var(--green);
+  --task-panel-header-tint: 12%;
+}
+
+.task-pr-action-card--warning {
+  --task-panel-header-accent: var(--amber);
+  --task-panel-header-tint: 12%;
+}
+
+.task-pr-action-card--danger {
+  --task-panel-header-accent: var(--red);
+  --task-panel-header-tint: 12%;
+}
+
+.task-pr-action-card--muted {
+  --task-panel-header-accent: var(--text-muted);
+  --task-panel-header-tint: 7%;
+}
+
+.task-review-action-card {
+  --task-panel-header-accent: var(--accent);
+  --task-panel-header-tint: 9%;
+}
+
+.task-review-action-card:has(.task-review-submit-error) {
+  --task-panel-header-accent: var(--red);
+  --task-panel-header-tint: 10%;
 }
 
 .task-pr-action-stack {
@@ -316,6 +356,8 @@
 
 .task-review-decision-panel {
   --task-review-decision-accent: var(--text-muted);
+  --task-panel-header-accent: var(--task-review-decision-accent);
+  --task-panel-header-tint: 8%;
 }
 
 .task-review-decision-panel--success {

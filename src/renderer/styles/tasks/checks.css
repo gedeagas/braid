@@ -2,23 +2,14 @@
   padding: var(--space-12) 0 var(--space-16);
 }
 
-.task-checks-card .task-detail-panel-header {
-  color: color-mix(in srgb, var(--green) 86%, var(--text-primary));
-  background:
-    linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--green) 8%, transparent),
-      transparent 68%
-    );
+.task-checks-card {
+  --task-panel-header-accent: var(--green);
+  --task-panel-header-tint: 8%;
 }
 
 .task-checks-card .task-detail-panel-header h2 {
   font-size: var(--text-md);
   font-weight: var(--weight-semibold);
-}
-
-.task-checks-card .task-detail-panel-header svg {
-  color: var(--green);
 }
 
 .task-checks-card .task-detail-panel-header span {
@@ -153,6 +144,7 @@
 .task-check-row {
   width: 100%;
   min-height: 48px;
+  --task-row-wash-accent: var(--text-muted);
   display: grid;
   grid-template-columns: 10px minmax(0, 1fr);
   align-items: start;
@@ -167,7 +159,29 @@
 }
 
 .task-check-row:hover {
-  background: color-mix(in srgb, var(--bg-hover) 72%, transparent);
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--task-row-wash-accent) 10%, transparent),
+      transparent 76%
+    ),
+    color-mix(in srgb, var(--bg-hover) 64%, transparent);
+}
+
+.task-check-row--success {
+  --task-row-wash-accent: var(--green);
+}
+
+.task-check-row--failure {
+  --task-row-wash-accent: var(--red);
+}
+
+.task-check-row--pending {
+  --task-row-wash-accent: var(--amber);
+}
+
+.task-check-row--skipped {
+  --task-row-wash-accent: var(--text-muted);
 }
 
 .task-check-row:disabled {

@@ -475,13 +475,17 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
         )}
 
         {pr.state === 'MERGED' && (
-          <div className="checks-empty" style={{ padding: '16px 14px', color: '#a371f7' }}>
-            {t('prMerged')}
+          <div className="checks-empty checks-empty--state ui-tonal-empty ui-tonal-empty--merged">
+            <div className="ui-tonal-empty__copy">
+              <div className="ui-tonal-empty__title">{t('prMerged')}</div>
+            </div>
           </div>
         )}
         {pr.state === 'CLOSED' && (
-          <div className="checks-empty" style={{ padding: '16px 14px', color: 'var(--red)' }}>
-            {t('prClosed')}
+          <div className="checks-empty checks-empty--state ui-tonal-empty ui-tonal-empty--danger">
+            <div className="ui-tonal-empty__copy">
+              <div className="ui-tonal-empty__title">{t('prClosed')}</div>
+            </div>
           </div>
         )}
       </div>

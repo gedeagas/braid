@@ -1,9 +1,10 @@
-import { useRef, useReducer, useCallback, useEffect } from 'react'
+import { useRef, useReducer, useCallback, useEffect, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import * as ipc from '@/lib/ipc'
 import { useDragScroll } from '@/hooks/useDragScroll'
 import { useTabReorder } from '@/hooks/useTabReorder'
 import { Tooltip } from '@/components/shared/Tooltip'
+import { IconChevronDown, IconChevronRight, IconPlay, IconPlus, IconSettings } from '@/components/shared/icons'
 import { SetupPanel } from './SetupPanel'
 import { RunPanel } from './RunPanel'
 import { TerminalTabRow } from './TerminalTabRow'
@@ -35,36 +36,23 @@ interface Props {
 // ── Fixed tab button (Setup / Run) ──────────────────────────────────────────
 
 export function FixedTabButton({ active, icon, label, onClick }: {
-  active: boolean; icon: string; label: string; onClick: () => void
+  active: boolean; icon: ReactNode; label: string; onClick: () => void
 }) {
+  const classes = [
+    'terminal-tab',
+    'terminal-tab--fixed',
+    active ? 'terminal-tab--active' : '',
+  ].filter(Boolean).join(' ')
+
   return (
-    <div
+    <button
+      type="button"
+      className={classes}
       onClick={onClick}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 5, padding: '0 12px',
-        height: 36, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap',
-        borderRight: '1px solid var(--border)',
-        background: active ? 'var(--bg-primary)' : 'transparent',
-        color: active ? 'var(--text-primary)' : 'var(--text-muted)',
-        boxShadow: active ? 'inset 0 -2px 0 var(--accent)' : 'none',
-        userSelect: 'none', transition: 'background 0.1s, color 0.1s',
-      }}
-      onMouseEnter={(e) => {
-        if (!active) {
-          ;(e.currentTarget as HTMLElement).style.background = 'var(--bg-tertiary)'
-          ;(e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!active) {
-          ;(e.currentTarget as HTMLElement).style.background = 'transparent'
-          ;(e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'
-        }
-      }}
     >
-      <span style={{ fontSize: 13, opacity: 0.6 }}>{icon}</span>
-      <span>{label}</span>
-    </div>
+      <span className="terminal-tab__prompt">{icon}</span>
+      <span className="terminal-tab__label">{label}</span>
+    </button>
   )
 }
 
@@ -362,24 +350,26 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
       {/* Tab bar */}
       <div
         ref={tabBarRef} onMouseDown={tabBarMouseDown} onWheel={handleWheel} onClickCapture={preventClickAfterDrag()}
-        className="scrollbar-overlay"
-        style={{
-          display: 'flex', alignItems: 'stretch', background: 'var(--bg-secondary)',
-          flexShrink: 0, overflowX: 'auto', overflowY: 'hidden',
-          borderBottom: collapsed ? 'none' : '1px solid var(--border)',
-          cursor: tabBarDragging ? 'grabbing' : undefined,
-          userSelect: tabBarDragging ? 'none' : undefined,
-        }}
+        className={[
+          'scrollbar-overlay',
+          'terminal-tabs-shell',
+          collapsed ? 'terminal-tabs-shell--collapsed' : '',
+          tabBarDragging ? 'terminal-tabs-shell--dragging' : '',
+        ].filter(Boolean).join(' ')}
       >
-        <span
-          style={{ fontSize: 12, padding: '0 6px 0 10px', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+        <button
+          type="button"
+          className="terminal-tab-toggle"
           onClick={onToggleCollapse}
-        >{collapsed ? '▶' : '▼'}</span>
+          aria-label={t('terminalToggleTooltip')}
+        >
+          {collapsed ? <IconChevronRight size={12} /> : <IconChevronDown size={12} />}
+        </button>
 
         {showFixedTabs && (
           <>
-            <FixedTabButton active={isSetupActive} icon="⚙" label={t('setupLabel')} onClick={() => activateFixedTab(SETUP_TAB_ID)} />
-            <FixedTabButton active={isRunActive} icon="▶" label={t('runLabel')} onClick={() => activateFixedTab(RUN_TAB_ID)} />
+            <FixedTabButton active={isSetupActive} icon={<IconSettings size={13} />} label={t('setupLabel')} onClick={() => activateFixedTab(SETUP_TAB_ID)} />
+            <FixedTabButton active={isRunActive} icon={<IconPlay size={13} />} label={t('runLabel')} onClick={() => activateFixedTab(RUN_TAB_ID)} />
           </>
         )}
 
@@ -401,18 +391,14 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
 
         <Tooltip content="New terminal">
           <button
+            type="button"
+            className="terminal-tab-add"
             onClick={addTab}
-            style={{
-              background: 'none', border: 'none', color: 'var(--text-secondary)',
-              cursor: 'pointer', padding: '0 14px', fontSize: 20, lineHeight: 1,
-              height: 36, flexShrink: 0, display: 'flex', alignItems: 'center',
-              transition: 'color 0.1s, background 0.1s',
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'; (e.currentTarget as HTMLElement).style.background = 'var(--accent-tint-8)' }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; (e.currentTarget as HTMLElement).style.background = 'transparent' }}
-          >+</button>
+          >
+            <IconPlus size={15} />
+          </button>
         </Tooltip>
-        <div style={{ flex: 1 }} />
+        <div className="terminal-tab-fill" />
       </div>
 
       {/* Content area */}

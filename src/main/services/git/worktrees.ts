@@ -6,6 +6,7 @@ import { join, dirname } from 'path'
 import { homedir } from 'os'
 import { DATA_DIR_NAME } from '../../appBrand'
 import type { WorktreeInfo } from './types'
+import type { SimpleGit } from 'simple-git'
 
 // The worktree set for a repo changes only when a worktree is added/removed —
 // both of which funnel through addWorktree/removeWorktree below, which
@@ -112,6 +113,7 @@ export async function addWorktree(
       logger.debug('[Git] running: git', cmd.join(' '))
       await git.raw(cmd)
     } else if (baseBranch) {
+      await fetchRemoteTrackingRef(git, baseBranch)
       // New branch forked from a specific base branch
       const cmd = ['worktree', 'add', '-b', branch, finalPath, baseBranch]
       logger.debug('[Git] running: git', cmd.join(' '))
@@ -127,6 +129,22 @@ export async function addWorktree(
   } catch (err) {
     logger.error('[Git] addWorktree FAILED:', err)
     throw err
+  }
+}
+
+async function fetchRemoteTrackingRef(git: SimpleGit, ref: string): Promise<void> {
+  const slash = ref.indexOf('/')
+  if (slash <= 0) return
+  const remote = ref.slice(0, slash)
+  const branch = ref.slice(slash + 1)
+  if (!remote || !branch || remote === 'refs' || branch.startsWith('/')) return
+
+  try {
+    const fetchRef = `${branch}:refs/remotes/${remote}/${branch}`
+    logger.debug('[Git] fetching remote ref for worktree base', { remote, fetchRef })
+    await git.raw(['fetch', remote, fetchRef])
+  } catch (err) {
+    logger.debug('[Git] remote ref fetch before addWorktree failed, continuing:', err)
   }
 }
 

@@ -236,13 +236,13 @@ export function ChecksSection({ checks, onSelectCheck, openingLog, onFixWithAI, 
     <div className="checks-section">
       <SectionHeader title={t('checks')} />
       {checks.length === 0 ? (
-        <div className="checks-empty-block">
-          <div className="checks-empty-block-icon">
+        <div className="checks-empty-block ui-tonal-empty">
+          <div className="checks-empty-block-icon ui-tonal-empty__icon">
             <IconClipboardCheck size={16} />
           </div>
-          <div className="checks-empty-block-copy">
-            <div className="checks-empty-block-title">{t('noChecks')}</div>
-            <div className="checks-empty-block-hint">{t('noChecksHint')}</div>
+          <div className="checks-empty-block-copy ui-tonal-empty__copy">
+            <div className="checks-empty-block-title ui-tonal-empty__title">{t('noChecks')}</div>
+            <div className="checks-empty-block-hint ui-tonal-empty__hint">{t('noChecksHint')}</div>
           </div>
         </div>
       ) : (

@@ -74,12 +74,19 @@
 }
 
 .pr-table-row {
+  --task-row-wash-accent: var(--accent);
   cursor: pointer;
 }
 
 .pr-table-row:hover,
 .pr-table-row:focus-within {
-  background: color-mix(in srgb, var(--accent) 6%, var(--bg-hover));
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--task-row-wash-accent) 10%, transparent),
+      transparent 72%
+    ),
+    color-mix(in srgb, var(--bg-hover) 72%, transparent);
 }
 
 .pr-table-row:hover td:first-child,
@@ -402,7 +409,13 @@
 
   .pr-table-row:hover,
   .pr-table-row:focus-within {
-    background: color-mix(in srgb, var(--accent) 6%, var(--bg-hover));
+    background:
+      linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--task-row-wash-accent) 10%, transparent),
+        transparent 72%
+      ),
+      color-mix(in srgb, var(--bg-hover) 72%, transparent);
   }
 
   .pr-col-id {

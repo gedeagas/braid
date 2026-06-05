@@ -14,7 +14,7 @@ import { SegmentedControl } from '@/components/shared/SegmentedControl'
 import { copyFilesReducer } from './copyFilesReducer'
 import { JiraLookupField, useJiraAvailable } from './JiraLookupField'
 import { CopyFilesSection } from './CopyFilesSection'
-import type { JiraIssue } from '@/types'
+import type { JiraIssue, Worktree } from '@/types'
 
 // ── Dialog state reducer ────────────────────────────────────────────────────
 
@@ -78,6 +78,16 @@ interface Props {
   projectId: string
   repoPath: string
   onClose: () => void
+  prefill?: AddWorktreeDialogPrefill
+  onCreated?: (worktree: Worktree) => void
+}
+
+export interface AddWorktreeDialogPrefill {
+  branch?: string
+  sourceBranch?: string | null
+  baseBranch?: string | null
+  jiraKey?: string | null
+  locked?: boolean
 }
 
 /** Strip the remote prefix from a remote-tracking ref, e.g. "origin/main" -> "main" */
@@ -86,9 +96,14 @@ function stripRemote(b: string): string {
   return slash !== -1 ? b.slice(slash + 1) : b
 }
 
-export function AddWorktreeDialog({ projectId, repoPath, onClose }: Props) {
+export function AddWorktreeDialog({ projectId, repoPath, onClose, prefill, onCreated }: Props) {
+  const prefilledBranch = prefill?.branch?.trim() ?? ''
+  const prefilledJiraKey = prefill?.jiraKey?.trim().toUpperCase() ?? ''
+  const branchLocked = Boolean(prefill?.locked && prefilledBranch)
+  const jiraLocked = Boolean(prefill?.locked && prefilledJiraKey)
+  const sourceBranchLocked = Boolean(prefill?.locked && prefill?.sourceBranch?.trim())
   const [d, dd] = useReducer(dialogReducer, {
-    branch: '', userEdited: false, error: '',
+    branch: prefilledBranch, userEdited: Boolean(prefilledBranch), error: prefilledBranch ? (validateBranchName(prefilledBranch) ?? '') : '',
     origin: '', remotes: [], loadingRemotes: true,
     creating: false,
   })
@@ -129,16 +144,26 @@ export function AddWorktreeDialog({ projectId, repoPath, onClose }: Props) {
         const branches: string[] = Array.isArray(result) ? result : (result?.branches ?? [])
         const defaultBranch: string | undefined = Array.isArray(result) ? undefined : result?.defaultBranch
         const projectDefault = project?.settings?.defaultBaseBranch || undefined
-        const preferred = (projectDefault && branches.find((b) => b === projectDefault))
+        const preferredSource = prefill?.sourceBranch || prefill?.baseBranch || undefined
+        const preferredRemoteSource = preferredSource && !preferredSource.includes('/') ? `origin/${preferredSource}` : preferredSource
+        const preferredRemoteInList = preferredRemoteSource
+          ? branches.find((b) => b === preferredRemoteSource) || branches.find((b) => stripRemote(b) === stripRemote(preferredRemoteSource))
+          : undefined
+        const remoteBranches = preferredRemoteSource && !branches.some((b) => b === preferredRemoteSource)
+          ? [preferredRemoteSource, ...branches]
+          : branches
+        const preferred = preferredRemoteInList
+          || preferredRemoteSource
+          || (projectDefault && branches.find((b) => b === projectDefault))
           || (defaultBranch && branches.find((b) => b === defaultBranch))
           || branches.find((b) => b === 'origin/main' || b === 'origin/master')
         const initial = preferred || branches[0] || ''
         const stripped = initial ? stripRemote(initial) : ''
         const baseName = !stripped || stripped === 'main' || stripped === 'master' ? randomBranchName() : stripped
-        dd({ type: 'remotesLoaded', remotes: branches, origin: initial, branch: withPrefix(baseName) })
+        dd({ type: 'remotesLoaded', remotes: remoteBranches, origin: initial, branch: prefilledBranch || withPrefix(baseName) })
       })
       .catch(() => {
-        dd({ type: 'remotesFailed', branch: withPrefix(randomBranchName()) })
+        dd({ type: 'remotesFailed', branch: prefilledBranch || withPrefix(randomBranchName()) })
       })
   }, [repoPath]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -184,19 +209,23 @@ export function AddWorktreeDialog({ projectId, repoPath, onClose }: Props) {
 
   const selectOriginBranch = useCallback((b: string) => {
     const stripped = stripRemote(b)
-    const localBranch = !d.userEdited
+    const localBranch = !branchLocked && !d.userEdited
       ? (stripped === 'main' || stripped === 'master' ? randomBranchName() : stripped)
       : undefined
     dd({ type: 'selectOrigin', origin: b, branch: localBranch })
-  }, [d.userEdited])
+  }, [branchLocked, d.userEdited])
 
-  const handleReroll = () => dd({ type: 'reroll', name: randomBranchName() })
+  const handleReroll = () => {
+    if (branchLocked) return
+    dd({ type: 'reroll', name: randomBranchName() })
+  }
 
   const handleJiraResolved = useCallback((issue: JiraIssue, branch: string, validationError: string | null) => {
     setJiraIssue(issue)
     jiraPrefsDispatch({ type: 'enable' })
-    dd({ type: 'setBranch', value: branch, error: validationError ?? '' })
-  }, [])
+    const nextBranch = branchLocked ? d.branch : branch
+    dd({ type: 'setBranch', value: nextBranch, error: branchLocked ? (validateBranchName(nextBranch) ?? '') : (validationError ?? '') })
+  }, [branchLocked, d.branch])
 
   const handleJiraCleared = useCallback(() => {
     setJiraIssue(null)
@@ -214,6 +243,7 @@ export function AddWorktreeDialog({ projectId, repoPath, onClose }: Props) {
     try {
       const newWorktree = await addWorktree(projectId, trimmed, d.origin || undefined, filesToCopy.length > 0 ? filesToCopy : undefined)
       onClose()
+      if (newWorktree) onCreated?.(newWorktree)
       if (newWorktree && jiraIssue && jiraPrefs.start && selectedAgent) {
         setLastNewTabAction(`agent:${selectedAgent.id}`)
         const initialInput = jiraPrefs.contextMode === 'link'
@@ -257,17 +287,17 @@ export function AddWorktreeDialog({ projectId, repoPath, onClose }: Props) {
           <div className="dialog-field">
             <label>
               {t('originBranchLabel')}
-              <span className="dialog-label-hint">{t('originBranchHint')}</span>
+              <span className="dialog-label-hint">{sourceBranchLocked ? t('lockedFromPullRequest') : t('originBranchHint')}</span>
             </label>
             <Combobox
               items={d.remotes}
               value={d.origin}
               onSelect={selectOriginBranch}
-              disabled={d.loadingRemotes || d.creating}
+              disabled={d.loadingRemotes || d.creating || sourceBranchLocked}
               filterPlaceholder={t('searchOriginBranches')}
               emptyText={t('noBranchesMatch')}
-              className="branch-combobox"
-              triggerClassName="branch-combobox__trigger"
+              className={`branch-combobox${sourceBranchLocked ? ' branch-combobox--locked' : ''}`}
+              triggerClassName={`branch-combobox__trigger${sourceBranchLocked ? ' branch-combobox__trigger--locked' : ''}`}
               renderItem={(item, { isSelected }) => (
                 <>
                   <span className="branch-combobox__item-label">{item}</span>
@@ -283,7 +313,7 @@ export function AddWorktreeDialog({ projectId, repoPath, onClose }: Props) {
                   ? t('fetchingBranches')
                   : d.origin || t('noRemoteBranches')}
               </span>
-              {!d.loadingRemotes && (
+              {!d.loadingRemotes && !sourceBranchLocked && (
                 <IconChevronDownFill className="branch-combobox__chevron" />
               )}
               {d.loadingRemotes && <Spinner size="sm" />}
@@ -293,6 +323,9 @@ export function AddWorktreeDialog({ projectId, repoPath, onClose }: Props) {
           {jiraAvailable && (
             <JiraLookupField
               disabled={d.creating}
+              initialValue={prefilledJiraKey}
+              locked={jiraLocked}
+              autoLookup={Boolean(prefilledJiraKey)}
               branchPrefix={defaultBranchPrefix}
               jiraBaseUrl={jiraBaseUrl}
               onResolved={handleJiraResolved}
@@ -363,8 +396,11 @@ export function AddWorktreeDialog({ projectId, repoPath, onClose }: Props) {
           </div>
         )}
 
-        <div className="dialog-field add-worktree-branch-field">
-          <label>{t('localBranchLabel')}</label>
+        <div className={`dialog-field add-worktree-branch-field${branchLocked ? ' add-worktree-branch-field--locked' : ''}`}>
+          <label>
+            {t('localBranchLabel')}
+            {branchLocked && <span className="dialog-label-hint">{t('lockedFromPullRequest')}</span>}
+          </label>
           <div className="add-worktree-branch-row">
             <input
               value={d.branch}
@@ -374,18 +410,20 @@ export function AddWorktreeDialog({ projectId, repoPath, onClose }: Props) {
               }}
               onKeyDown={(e) => e.key === 'Enter' && !d.loadingRemotes && !d.creating && handleAdd()}
               autoFocus
-              disabled={d.loadingRemotes || d.creating}
+              disabled={d.loadingRemotes || d.creating || branchLocked}
               placeholder={d.loadingRemotes ? t('fetchingBranches') : t('localBranchPlaceholder')}
             />
-            <Button
-              className="add-worktree-reroll-button"
-              onClick={handleReroll}
-              title={t('randomNameTitle')}
-              aria-label={t('randomNameTitle')}
-              disabled={d.loadingRemotes || d.creating}
-            >
-              <IconRefresh size={14} />
-            </Button>
+            {!branchLocked && (
+              <Button
+                className="add-worktree-reroll-button"
+                onClick={handleReroll}
+                title={t('randomNameTitle')}
+                aria-label={t('randomNameTitle')}
+                disabled={d.loadingRemotes || d.creating}
+              >
+                <IconRefresh size={14} />
+              </Button>
+            )}
           </div>
           {d.error && (
             <div className="add-worktree-field-error">

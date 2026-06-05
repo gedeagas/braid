@@ -317,6 +317,7 @@
 }
 
 .project-header {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-6);
@@ -327,10 +328,12 @@
   font-weight: var(--weight-semibold);
   color: var(--text-primary);
   user-select: none;
+  overflow: hidden;
+  transition: background var(--duration-fast), color var(--duration-fast), box-shadow var(--duration-fast);
 }
 
 .project-header:hover {
-  background: var(--bg-hover);
+  background: var(--shell-wash-hover);
 }
 
 .project-chevron {
@@ -344,6 +347,7 @@
 }
 
 .worktree-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-6);
@@ -353,16 +357,30 @@
   font-size: var(--text-lg);
   color: var(--text-secondary);
   user-select: none;
+  overflow: hidden;
+  transition: background var(--duration-fast), color var(--duration-fast), box-shadow var(--duration-fast);
 }
 
 .worktree-row:hover {
-  background: var(--bg-hover);
+  background: var(--shell-wash-hover);
   color: var(--text-primary);
 }
 
 .worktree-row.selected {
-  background: var(--accent-tint-15);
+  background: var(--shell-wash-active);
   color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.worktree-row.selected::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: var(--space-6);
+  bottom: var(--space-6);
+  width: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
 }
 
 .worktree-row:focus {
@@ -371,6 +389,12 @@
 
 .worktree-row--keyboard-focused {
   box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.worktree-row.selected.worktree-row--keyboard-focused {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent),
+    inset 0 0 0 2px var(--accent);
 }
 
 .project-header:focus {
@@ -400,7 +424,7 @@
   justify-content: center;
   font-size: var(--text-base);
   font-weight: var(--weight-semibold);
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 .status-dot.status-badge.inactive {
@@ -691,11 +715,11 @@
 
 @keyframes worktree-highlight {
   0% {
-    background: var(--accent-tint-15);
+    background: var(--shell-wash-active);
     box-shadow: inset 3px 0 0 var(--accent);
   }
   70% {
-    background: var(--accent-tint-15);
+    background: var(--shell-wash-active);
     box-shadow: inset 3px 0 0 var(--accent);
   }
   100% {
@@ -838,10 +862,10 @@
   align-items: center;
   gap: var(--space-2);
   font-size: var(--text-xs);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   overflow: hidden;
   white-space: nowrap;
-  opacity: 0.75;
+  opacity: 0.82;
 }
 
 .worktree-branch-secondary svg {

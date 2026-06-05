@@ -90,6 +90,7 @@
 }
 
 .file-entry {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-4);
@@ -99,16 +100,30 @@
   color: var(--text-secondary);
   user-select: none;
   min-height: 25px;
+  overflow: hidden;
+  transition: background var(--duration-fast), color var(--duration-fast), box-shadow var(--duration-fast);
 }
 
 .file-entry:hover {
-  background: var(--bg-hover);
+  background: var(--shell-wash-hover);
   color: var(--text-primary);
 }
 
 .file-entry.selected {
-  background: var(--accent-tint-15);
+  background: var(--shell-wash-active);
   color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.file-entry.selected::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: var(--space-5);
+  bottom: var(--space-5);
+  width: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
 }
 
 .file-chevron {
@@ -151,7 +166,9 @@
 }
 
 .changes-file-list--clean {
-  padding: 0;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-14);
 }
 
 .changes-file-list::-webkit-scrollbar {
@@ -214,6 +231,7 @@
 
 /* File rows */
 .change-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-6);
@@ -221,16 +239,30 @@
   padding: var(--space-5) var(--space-10);
   font-size: var(--text-md);
   color: var(--text-secondary);
-  transition: background var(--duration-instant);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: background var(--duration-fast), color var(--duration-fast), box-shadow var(--duration-fast);
 }
 
 .change-row:hover {
-  background: var(--bg-hover);
+  background: var(--shell-wash-hover);
 }
 
 .change-row.selected {
-  background: var(--accent-tint-10);
+  background: var(--shell-wash-active);
   color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.change-row.selected::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: var(--space-6);
+  bottom: var(--space-6);
+  width: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
 }
 
 .change-badge {
@@ -351,6 +383,7 @@
   justify-content: center;
   flex: 1;
   gap: var(--space-8);
+  width: 100%;
   color: var(--text-muted);
   animation: changes-clean-fadein 0.3s ease;
 }
@@ -358,11 +391,12 @@
   display: flex;
   align-items: center;
   gap: var(--space-6);
+  width: min(100%, 280px);
   font-size: var(--text-md);
 }
 .changes-clean-icon {
   color: var(--green);
-  opacity: 0.5;
+  opacity: 1;
 }
 @keyframes changes-clean-fadein {
   from { opacity: 0; }

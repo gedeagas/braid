@@ -44,6 +44,7 @@
   "searchOriginBranches": "搜索远程分支…",
   "noBranchesMatch": "没有匹配的分支",
   "localBranchLabel": "本地分支名",
+  "lockedFromPullRequest": "（来自 pull request）",
   "localBranchPlaceholder": "例如 feature/my-branch",
   "randomNameTitle": "随机名称",
   "worktreeMain": "主 worktree",

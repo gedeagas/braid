@@ -1,7 +1,6 @@
 import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
-import type { Worktree } from '@/types'
 import { useTasksReviewStore, type TaskPrAction, type TaskReviewSubmitAction } from '@/store/tasks'
 import * as ipc from '@/lib/ipc'
 import type {
@@ -26,7 +25,7 @@ interface ActionArgs {
   setPrDetail: Dispatch<SetStateAction<GitHubPrDetail | null>>
   review: MutablePrDetail
   fetchTasks: (forceRefresh?: boolean) => void
-  addWorktree: (projectId: string, branch: string, baseBranch?: string, filesToCopy?: string[], options?: { select?: boolean }) => Promise<Worktree | null>
+  openCreateWorktreeDialog: (row: TaskRow) => void
   loadPrDetail: (row: TaskRow, forceRefresh?: boolean) => Promise<GitHubPrDetail>
   setPrDetailLoading: (value: boolean) => void
   setPrDetailError: (value: string | null) => void
@@ -39,7 +38,7 @@ interface ActionArgs {
 
 export function usePrDetailActions(args: ActionArgs) {
   const { t } = useTranslation('tasks')
-  const { selectedRow, setSelectedRow, setPrDetail, review, fetchTasks, addWorktree, loadPrDetail } = args
+  const { selectedRow, setPrDetail, review, fetchTasks, openCreateWorktreeDialog, loadPrDetail } = args
   const { setPrDetailLoading, setPrDetailError, selectWorktree, toggleTasks } = args
 
   const handleOpenMatchingWorktree = useCallback(() => {
@@ -99,18 +98,8 @@ export function usePrDetailActions(args: ActionArgs) {
 
   const handleCreateWorktreeForRow = useCallback((row: TaskRow) => {
     if (row.item.type !== 'pr' || !row.item.headBranch || review.creatingWorktreeForRowId !== null) return
-    review.setCreatingWorktreeForRowId(`${row.projectId}:${row.item.id}`)
-    void addWorktree(row.projectId, row.item.headBranch, row.item.baseBranch || undefined, undefined, { select: true })
-      .then(async (worktree) => {
-        if (!worktree) return
-        await fetchTasks(true)
-        setSelectedRow((current) => current && current.projectId === row.projectId && current.item.id === row.item.id
-          ? { ...current, matchingWorktreeId: worktree.id, matchingBranch: worktree.branch }
-          : current)
-      })
-      .catch((error: unknown) => review.setPrActionError(ipc.cleanIpcError(error, t('errors.createWorkspace'))))
-      .finally(() => review.setCreatingWorktreeForRowId(null))
-  }, [addWorktree, fetchTasks, review, setSelectedRow, t])
+    openCreateWorktreeDialog(row)
+  }, [openCreateWorktreeDialog, review.creatingWorktreeForRowId])
 
   return {
     handleOpenMatchingWorktree,

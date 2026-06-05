@@ -7,6 +7,7 @@ import type {
   DiffLine,
   FilterSuggestion,
   GitHubPrFile,
+  PrReview,
   GitHubWorkItem,
   QueryTokenRange,
   QuickFilter,
@@ -279,6 +280,11 @@ export function reviewVariant(state: string): 'success' | 'warning' | 'danger' |
   if (state === 'CHANGES_REQUESTED') return 'danger'
   if (state === 'PENDING' || state === 'REVIEW_REQUIRED') return 'warning'
   return 'muted'
+}
+
+export function shouldShowReviewTimelineEntry(review: PrReview): boolean {
+  if (review.body.trim().length > 0) return true
+  return review.state !== 'COMMENTED'
 }
 
 export function formatState(value?: string, t?: TasksT): string {

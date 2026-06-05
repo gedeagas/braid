@@ -143,8 +143,29 @@ describe('addWorktree', () => {
 
     await addWorktree(REPO, 'feat/new', 'myproject', 'origin/main')
 
+    expect(mockRaw).toHaveBeenCalledWith(['fetch', 'origin', 'main:refs/remotes/origin/main'])
     expect(mockRaw).toHaveBeenCalledWith(
       expect.arrayContaining(['worktree', 'add', '-b', 'feat/new', expect.any(String), 'origin/main'])
+    )
+    const rawCalls = mockRaw.mock.calls.map((call) => call[0])
+    const fetchIndex = rawCalls.findIndex((args: string[]) => args[0] === 'fetch')
+    const worktreeIndex = rawCalls.findIndex((args: string[]) => args[0] === 'worktree')
+    expect(fetchIndex).toBeGreaterThan(-1)
+    expect(worktreeIndex).toBeGreaterThan(fetchIndex)
+  })
+
+  it('creates a PR worktree from the remote PR head branch', async () => {
+    mockExistsSync.mockImplementation((p: string) => p === REPO)
+
+    await addWorktree(REPO, 'USRN-10110-pr-head-branch', 'myproject', 'origin/USRN-10110-pr-head-branch')
+
+    expect(mockRaw).toHaveBeenCalledWith([
+      'fetch',
+      'origin',
+      'USRN-10110-pr-head-branch:refs/remotes/origin/USRN-10110-pr-head-branch',
+    ])
+    expect(mockRaw).toHaveBeenCalledWith(
+      expect.arrayContaining(['worktree', 'add', '-b', 'USRN-10110-pr-head-branch', expect.any(String), 'origin/USRN-10110-pr-head-branch'])
     )
   })
 
