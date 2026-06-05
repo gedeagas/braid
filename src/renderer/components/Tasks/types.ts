@@ -216,6 +216,7 @@ export interface TaskRow {
   item: GitHubWorkItem
   matchingWorktreeId: string | null
   matchingBranch: string | null
+  detailBackTarget?: 'worktree'
 }
 
 export interface QueryTokenRange {

@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useProjectsStore } from '@/store/projects'
-import { useUIStore } from '@/store/ui'
+import { useUIStore, type PendingTaskPrRequest } from '@/store/ui'
 import { IconClose } from '@/components/shared/icons'
 import { AddWorktreeDialog, type AddWorktreeDialogPrefill } from '@/components/Sidebar/AddWorktreeDialog'
 import type { Worktree } from '@/types'
-import type { TaskRow } from './types'
+import type { TaskRow, WorkItemState } from './types'
 import { useTaskListController } from './useTaskListController'
 import { usePrDetailController } from './usePrDetailController'
 import { TaskListView } from './TaskListView'
@@ -21,12 +21,50 @@ function extractFirstJiraKey(title: string): string | null {
   return match ? match[0].toUpperCase() : null
 }
 
+function normalizeWorkItemState(state: string): WorkItemState {
+  const normalized = state.toLowerCase()
+  if (normalized === 'merged') return 'merged'
+  if (normalized === 'closed') return 'closed'
+  return 'open'
+}
+
+function buildPendingPrRow(request: PendingTaskPrRequest): TaskRow {
+  return {
+    detailBackTarget: request.detailBackTarget,
+    projectId: request.projectId,
+    projectName: request.projectName,
+    repoPath: request.repoPath,
+    matchingWorktreeId: request.worktreeId,
+    matchingBranch: request.matchingBranch,
+    item: {
+      id: `pr:${request.repoPath}:${request.pr.number}`,
+      type: 'pr',
+      number: request.pr.number,
+      title: request.pr.title,
+      state: normalizeWorkItemState(request.pr.state),
+      url: request.pr.url,
+      author: '',
+      labels: [],
+      assignees: [],
+      updatedAt: '',
+      isDraft: request.pr.isDraft,
+      headBranch: request.pr.headBranch ?? undefined,
+      baseBranch: request.pr.baseBranch ?? undefined,
+      mergeable: request.pr.mergeable,
+      reviewDecision: request.pr.reviewDecision,
+      mergeStateStatus: request.pr.mergeStateStatus,
+    },
+  }
+}
+
 export function TasksView() {
   const { t: tSidebar } = useTranslation('sidebar')
   const projects = useProjectsStore((s) => s.projects)
   const tasksActive = useUIStore((s) => s.tasksActive)
   const toggleTasks = useUIStore((s) => s.toggleTasks)
   const selectWorktree = useUIStore((s) => s.selectWorktree)
+  const pendingTaskPrRequest = useUIStore((s) => s.pendingTaskPrRequest)
+  const clearPendingTaskPrRequest = useUIStore((s) => s.clearPendingTaskPrRequest)
   const [selectedRow, setSelectedRow] = useState<TaskRow | null>(null)
   const [createWorktreeRequest, setCreateWorktreeRequest] = useState<CreateWorktreeDialogRequest | null>(null)
 
@@ -59,6 +97,12 @@ export function TasksView() {
     selectWorktree,
     toggleTasks,
   })
+
+  useEffect(() => {
+    if (!pendingTaskPrRequest) return
+    setSelectedRow(buildPendingPrRow(pendingTaskPrRequest))
+    clearPendingTaskPrRequest(pendingTaskPrRequest.id)
+  }, [clearPendingTaskPrRequest, pendingTaskPrRequest])
 
   const handleWorktreeCreated = (request: CreateWorktreeDialogRequest, worktree: Worktree) => {
     list.fetchTasks(true)

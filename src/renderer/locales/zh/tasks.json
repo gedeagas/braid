@@ -140,6 +140,7 @@
   },
   "detail": {
     "backToPullRequests": "Pull requests",
+    "backToWorkspace": "工作区",
     "openWorkspace": "打开工作区",
     "startWorkspaceFromPr": "从 PR 启动工作区",
     "refreshPullRequest": "刷新 pull request",

@@ -25,6 +25,28 @@ export type ActivityIndicatorStyle = 'spinner' | 'dots' | 'waveform'
 export type SidebarGroupBy = 'none' | 'status' | 'pr' | 'project'
 export type SidebarSortBy = 'manual' | 'recent' | 'name'
 
+export interface PendingTaskPrRequest {
+  id: number
+  detailBackTarget?: 'worktree'
+  projectId: string
+  projectName: string
+  repoPath: string
+  worktreeId: string | null
+  matchingBranch: string | null
+  pr: {
+    number: number
+    title: string
+    state: string
+    url: string
+    headBranch?: string | null
+    baseBranch?: string | null
+    isDraft?: boolean
+    mergeable?: string
+    reviewDecision?: string
+    mergeStateStatus?: string
+  }
+}
+
 /** Git status codes returned by `git status --porcelain`. */
 export type GitStatusCode = 'M' | 'A' | 'D' | 'R' | '?'
 
@@ -114,6 +136,7 @@ function loadSidebarSortBy(): SidebarSortBy {
 // Module-level: remembers whether the sidebar was open before an overlay (MC or web app) took over.
 // Set when entering MC or opening a web app; cleared when returning to Explorer.
 let sidebarBeforeOverlay: boolean | null = null
+let pendingTaskPrRequestId = 0
 
 /** Save sidebar state before an overlay takes over. No-op if already saved (e.g. MC -> App
  *  preserves the original Explorer sidebar state rather than overwriting with MC's closed state). */
@@ -145,6 +168,7 @@ export interface LayoutSlice {
   newlyAddedWorktreeId: string | null
   missionControlActive: boolean
   tasksActive: boolean
+  pendingTaskPrRequest: PendingTaskPrRequest | null
   mobilePairingActive: boolean
   projectAvatarVisible: boolean
   sidebarGroupBy: SidebarGroupBy
@@ -194,6 +218,8 @@ export interface LayoutSlice {
   toggleMissionControl: () => void
   setMissionControlActive: (active: boolean) => void
   toggleTasks: () => void
+  openTaskPr: (request: Omit<PendingTaskPrRequest, 'id'>) => void
+  clearPendingTaskPrRequest: (id?: number) => void
   toggleMobilePairing: () => void
   toggleSidebar: () => void
   toggleRightPanel: () => void
@@ -270,6 +296,7 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
   // The dedicated Tasks page is a transient action surface, so it always starts
   // closed and is never persisted across restarts.
   tasksActive: false,
+  pendingTaskPrRequest: null,
   // The mobile pairing page is a transient action surface, so it always starts
   // closed and is never persisted across restarts.
   mobilePairingActive: false,
@@ -681,6 +708,28 @@ export const createLayoutSlice: StateCreator<UIState, [], [], LayoutSlice> = (se
       localStorage.setItem(SK.sidebarPanelOpen, String(restore))
       set({ tasksActive: false, sidebarPanelOpen: restore })
     }
+  },
+
+  openTaskPr: (request) => {
+    const { sidebarPanelOpen, activeWebAppId, closeWebApp } = get()
+    if (activeWebAppId) closeWebApp()
+    saveSidebarForOverlay(sidebarPanelOpen)
+    localStorage.setItem(SK.sidebarPanelOpen, 'false')
+    if (get().missionControlActive) localStorage.setItem(SK.missionControlActive, 'false')
+    set({
+      pendingTaskPrRequest: { ...request, id: ++pendingTaskPrRequestId },
+      tasksActive: true,
+      missionControlActive: false,
+      mobilePairingActive: false,
+      sidebarPanelOpen: false,
+    })
+  },
+
+  clearPendingTaskPrRequest: (id) => {
+    const current = get().pendingTaskPrRequest
+    if (!current) return
+    if (id !== undefined && current.id !== id) return
+    set({ pendingTaskPrRequest: null })
   },
 
   toggleMobilePairing: () => {

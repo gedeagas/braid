@@ -32,13 +32,20 @@ export function PrDetailView({ selectedRow, setSelectedRow, detail }: PrDetailVi
   const { t } = useTranslation('tasks')
   const { review, prDetail, prDetailLoading, prDetailError, detailItem, detailMarkdownBaseUrl, actions } = detail
   if (!detailItem) return null
+  const backToWorktree = selectedRow.detailBackTarget === 'worktree' && Boolean(selectedRow.matchingWorktreeId)
+  const handleBack = () => {
+    setSelectedRow(null)
+    if (backToWorktree) {
+      actions.handleOpenMatchingWorktree()
+    }
+  }
 
   return (
     <div className="pull-requests-body task-detail-body">
       <div className="task-detail-toolbar">
-        <button className="task-detail-back" onClick={() => setSelectedRow(null)}>
+        <button className="task-detail-back" onClick={handleBack}>
           <IconArrowLeft size={12} />
-          <span>{t('detail.backToPullRequests')}</span>
+          <span>{backToWorktree ? t('detail.backToWorkspace') : t('detail.backToPullRequests')}</span>
         </button>
         <div className="task-detail-actions">
           {selectedRow.matchingWorktreeId && (

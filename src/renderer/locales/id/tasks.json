@@ -140,6 +140,7 @@
   },
   "detail": {
     "backToPullRequests": "Pull request",
+    "backToWorkspace": "Workspace",
     "openWorkspace": "Buka workspace",
     "startWorkspaceFromPr": "Mulai workspace dari PR",
     "refreshPullRequest": "Muat ulang pull request",

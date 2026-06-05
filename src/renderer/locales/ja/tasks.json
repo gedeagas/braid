@@ -140,6 +140,7 @@
   },
   "detail": {
     "backToPullRequests": "Pull requests",
+    "backToWorkspace": "ワークスペース",
     "openWorkspace": "ワークスペースを開く",
     "startWorkspaceFromPr": "PR からワークスペースを開始",
     "refreshPullRequest": "Pull request を更新",
