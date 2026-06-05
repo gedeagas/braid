@@ -1,0 +1,217 @@
+.task-repo-picker {
+  position: relative;
+  min-width: 0;
+}
+
+.task-repo-picker-trigger {
+  width: 100%;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  padding: 0 var(--space-10);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--text-base);
+  cursor: pointer;
+}
+
+.task-repo-picker-trigger:hover,
+.task-repo-picker-trigger[aria-expanded='true'] {
+  border-color: color-mix(in srgb, var(--accent) 46%, var(--border));
+  background: var(--bg-hover);
+}
+
+.task-repo-picker-trigger:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.task-repo-picker-trigger-label,
+.task-repo-picker-label,
+.task-repo-picker-label-main {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.task-repo-picker-trigger-label {
+  flex: 1;
+  overflow: hidden;
+}
+
+.task-repo-picker-label,
+.task-repo-picker-label-main {
+  overflow: hidden;
+}
+
+.task-repo-picker-label-main span,
+.task-repo-picker-label-extra {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-repo-picker-label-extra,
+.task-repo-picker-muted {
+  color: var(--text-muted);
+}
+
+.task-repo-marker {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--text-primary) 18%, transparent);
+}
+
+.task-repo-marker img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.task-repo-picker-popover {
+  position: absolute;
+  top: calc(100% + var(--space-6));
+  left: 0;
+  z-index: var(--z-popover);
+  width: min(360px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-elevation-lg);
+}
+
+.task-repo-picker-search {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-7);
+  padding: 0 var(--space-10);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.task-repo-picker-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--text-base);
+}
+
+.task-repo-picker-all,
+.task-repo-picker-row {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.task-repo-picker-all {
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: var(--space-8);
+  min-height: 34px;
+  padding: 0 var(--space-10);
+  border-bottom: 1px solid var(--border);
+}
+
+.task-repo-picker-list {
+  max-height: 280px;
+  overflow-y: auto;
+  padding: var(--space-4) 0;
+}
+
+.task-repo-picker-row {
+  grid-template-columns: 16px 10px minmax(0, 1fr);
+  gap: var(--space-8);
+  min-height: 42px;
+  padding: var(--space-6) var(--space-10);
+}
+
+.task-repo-picker-all:hover,
+.task-repo-picker-row:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.task-repo-picker-row:disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.task-repo-picker-check {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+}
+
+.task-repo-picker-row-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.task-repo-picker-row-title {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  color: var(--text-primary);
+  font-size: var(--text-base);
+}
+
+.task-repo-picker-row-title span,
+.task-repo-picker-row-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-repo-picker-row-title em {
+  flex-shrink: 0;
+  padding: 1px var(--space-4);
+  border-radius: var(--radius-xs);
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-style: normal;
+  font-weight: var(--weight-medium);
+}
+
+.task-repo-picker-row-path,
+.task-repo-picker-empty {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.task-repo-picker-empty {
+  padding: var(--space-14);
+  text-align: center;
+}
+

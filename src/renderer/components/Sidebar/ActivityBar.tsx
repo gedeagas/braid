@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/store/ui'
 import { useUpdaterStore } from '@/store/updater'
 import { Tooltip } from '@/components/shared/Tooltip'
-import { IconGitBranch, IconGrid, IconSettings, IconArrowUp, IconSmartphone } from '@/components/shared/icons'
+import { IconGitBranch, IconTasks, IconGrid, IconSettings, IconArrowUp, IconSmartphone } from '@/components/shared/icons'
 import { ActivityBarApps } from './ActivityBarApps'
 
 interface ActivityBarItemProps {
@@ -34,11 +34,13 @@ export const ActivityBar = memo(function ActivityBar() {
   const { t: tMc } = useTranslation('missionControl')
   const sidebarPanelOpen = useUIStore((s) => s.sidebarPanelOpen)
   const missionControlActive = useUIStore((s) => s.missionControlActive)
+  const tasksActive = useUIStore((s) => s.tasksActive)
   const mobilePairingActive = useUIStore((s) => s.mobilePairingActive)
   const webAppsEnabled = useUIStore((s) => s.webAppsEnabled)
   const activeWebAppId = useUIStore((s) => s.activeWebAppId)
   const toggleSidebar = useUIStore((s) => s.toggleSidebar)
   const toggleMissionControl = useUIStore((s) => s.toggleMissionControl)
+  const toggleTasks = useUIStore((s) => s.toggleTasks)
   const toggleMobilePairing = useUIStore((s) => s.toggleMobilePairing)
   const openSettings = useUIStore((s) => s.openSettings)
   const dismissedUpdate = useUpdaterStore(
@@ -61,7 +63,7 @@ export const ActivityBar = memo(function ActivityBar() {
         <ActivityBarItem
           icon={<IconGitBranch size={22} />}
           label={`${t('explorer')} (\u2318B)`}
-          isActive={sidebarPanelOpen && !missionControlActive && !activeWebAppId}
+          isActive={sidebarPanelOpen && !missionControlActive && !tasksActive && !mobilePairingActive && !activeWebAppId}
           onClick={toggleSidebar}
         />
         <ActivityBarItem
@@ -70,6 +72,13 @@ export const ActivityBar = memo(function ActivityBar() {
           isActive={missionControlActive}
           onClick={toggleMissionControl}
           dataTour="mission-control"
+        />
+        <ActivityBarItem
+          icon={<IconTasks size={20} />}
+          label={t('tasks')}
+          isActive={tasksActive}
+          onClick={toggleTasks}
+          dataTour="tasks"
         />
         <ActivityBarItem
           icon={<IconSmartphone size={20} />}

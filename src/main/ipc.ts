@@ -10,7 +10,7 @@ import { storageService } from './services/storage'
 import { gitService } from './services/git'
 import { agentService } from './services/agent'
 import { ptyService } from './services/pty'
-import { githubService } from './services/github'
+import { githubService, type GitHubReactionContent } from './services/github'
 import { sessionStorageService, PersistedSession } from './services/sessionStorage'
 import { filesService } from './services/files'
 import { searchService } from './services/search'
@@ -329,6 +329,42 @@ export function registerIpcHandlers(): void {
   // GitHub
   ipcMain.handle('github:getPrStatus', (_e, worktreePath: string, forceRefresh?: boolean) =>
     githubService.getPrStatus(worktreePath, forceRefresh))
+  ipcMain.handle('github:listWorkItems', (_e, repoPath: string, limit?: number, query?: string, forceRefresh?: boolean) =>
+    githubService.listWorkItems(repoPath, limit, query, forceRefresh))
+  ipcMain.handle('github:countWorkItems', (_e, repoPath: string, query?: string, forceRefresh?: boolean) =>
+    githubService.countWorkItems(repoPath, query, forceRefresh))
+  ipcMain.handle('github:getPrDetail', (_e, repoPath: string, number: number, forceRefresh?: boolean) =>
+    githubService.getPrDetail(repoPath, number, forceRefresh))
+  ipcMain.handle('github:listReviewerSuggestions', (_e, repoPath: string, query?: string, limit?: number, forceRefresh?: boolean) =>
+    githubService.listReviewerSuggestions(repoPath, query, limit, forceRefresh))
+  ipcMain.handle('github:listLabelSuggestions', (_e, repoPath: string, query?: string, limit?: number, forceRefresh?: boolean) =>
+    githubService.listLabelSuggestions(repoPath, query, limit, forceRefresh))
+  ipcMain.handle('github:addPrComment', (_e, repoPath: string, number: number, body: string) =>
+    githubService.addPrComment(repoPath, number, body))
+  ipcMain.handle('github:replyToPrReviewComment', (_e, repoPath: string, number: number, commentId: number, body: string) =>
+    githubService.replyToPrReviewComment(repoPath, number, commentId, body))
+  ipcMain.handle('github:addPrReviewComment', (_e, repoPath: string, number: number, args: { body: string; commitId: string; path: string; side: 'LEFT' | 'RIGHT'; line: number }) =>
+    githubService.addPrReviewComment(repoPath, number, args))
+  ipcMain.handle('github:submitPrReview', (_e, repoPath: string, number: number, event: 'COMMENT' | 'APPROVE' | 'REQUEST_CHANGES', body?: string) =>
+    githubService.submitPrReview(repoPath, number, event, body))
+  ipcMain.handle('github:resolvePrReviewThread', (_e, repoPath: string, number: number, threadId: string, resolve: boolean) =>
+    githubService.resolvePrReviewThread(repoPath, number, threadId, resolve))
+  ipcMain.handle('github:setPrFileViewed', (_e, repoPath: string, number: number, pullRequestId: string, path: string, viewed: boolean) =>
+    githubService.setPrFileViewed(repoPath, number, pullRequestId, path, viewed))
+  ipcMain.handle('github:getPrFilePreview', (_e, repoPath: string, number: number, path: string, ref: string) =>
+    githubService.getPrFilePreview(repoPath, number, path, ref))
+  ipcMain.handle('github:requestPrReviewer', (_e, repoPath: string, number: number, reviewer: string) =>
+    githubService.requestPrReviewer(repoPath, number, reviewer))
+  ipcMain.handle('github:removePrReviewer', (_e, repoPath: string, number: number, reviewer: string) =>
+    githubService.removePrReviewer(repoPath, number, reviewer))
+  ipcMain.handle('github:addPrLabel', (_e, repoPath: string, number: number, label: string) =>
+    githubService.addPrLabel(repoPath, number, label))
+  ipcMain.handle('github:removePrLabel', (_e, repoPath: string, number: number, label: string) =>
+    githubService.removePrLabel(repoPath, number, label))
+  ipcMain.handle('github:rerunCheck', (_e, repoPath: string, checkUrl: string, failedOnly: boolean) =>
+    githubService.rerunCheck(repoPath, checkUrl, failedOnly))
+  ipcMain.handle('github:toggleReaction', (_e, repoPath: string, number: number, subjectId: string, content: string, reacted: boolean) =>
+    githubService.toggleReaction(repoPath, number, subjectId, content as GitHubReactionContent, reacted))
   ipcMain.handle('github:getChecks', (_e, worktreePath: string, forceRefresh?: boolean) =>
     githubService.getChecks(worktreePath, forceRefresh))
   ipcMain.handle('github:getDeployments', (_e, worktreePath: string, forceRefresh?: boolean) =>
@@ -343,6 +379,15 @@ export function registerIpcHandlers(): void {
   )
   ipcMain.handle('github:markPrReady', (_e, worktreePath: string) =>
     githubService.markPrReady(worktreePath)
+  )
+  ipcMain.handle('github:mergePrByNumber', (_e, repoPath: string, number: number, strategy: string) =>
+    githubService.mergePrByNumber(repoPath, number, strategy as 'merge' | 'squash' | 'rebase')
+  )
+  ipcMain.handle('github:closePrByNumber', (_e, repoPath: string, number: number) =>
+    githubService.closePrByNumber(repoPath, number)
+  )
+  ipcMain.handle('github:markPrReadyByNumber', (_e, repoPath: string, number: number) =>
+    githubService.markPrReadyByNumber(repoPath, number)
   )
   ipcMain.handle('github:getCheckRunLog', (_e, worktreePath: string, checkUrl: string) =>
     githubService.getCheckRunLog(worktreePath, checkUrl)
