@@ -5,6 +5,30 @@ All notable changes to Braid are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [26.3.0] - 2026-06-08
+
+### Added
+
+- **In-app GitHub Tasks panel** - browse, filter, and manage pull requests and issues across multiple repositories without leaving Braid (#125)
+- **Full PR detail view** - dedicated layout with a tabbed sidebar (reviewers, labels, assignees, metadata), checks status, changed files, and conversation - replacing external browser navigation for PR interactions (#125)
+- **Changed files tab** - changed-files tree with an inline unified diff viewer and file-level comments (#125)
+- **Conversation tab** - threaded PR comments and review discussions rendered with GitHub-flavored markdown, syntax highlighting, task lists, and emoji reactions (#125)
+- **PR review submission** - approve, request changes, or comment on a PR directly from the detail view (#125)
+- **Cross-repo task views** - multi-repo picker to aggregate PRs and issues from several repositories at once (#125)
+- **PR-driven worktree creation** - `AddWorktreeDialog` now accepts prefill data so a worktree can be spun up straight from a PR (#125)
+
+### Changed
+
+- PR clicks in `ChecksView` and `PrMergeBar` now open the in-app Tasks panel with back-navigation instead of launching an external browser (#125)
+- Refactored the GitHub service into a modular architecture (`core`, `operations`, `types`, `mappers`, `reviews`, `statusChecks`, `tasks`) backed by 24 new IPC handlers for PR and issue management (#125)
+- Migrated `TabbedTerminal` and `TerminalTabRow` styling to design tokens (#125)
+
+### Contributors
+
+Thanks to [@gedeagas](https://github.com/gedeagas) for their contributions to this release!
+
+---
+
 ## [26.2.9] - 2026-06-04
 
 ### Added
