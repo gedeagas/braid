@@ -4,6 +4,27 @@ html, body, #root {
   color: var(--text-primary);
 }
 
+:root {
+  --shell-wash-hover: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 10%, transparent) 0%,
+    color-mix(in srgb, var(--accent) 4%, transparent) 54%,
+    transparent 100%
+  );
+  --shell-wash-active: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 18%, transparent) 0%,
+    color-mix(in srgb, var(--accent) 8%, transparent) 52%,
+    transparent 100%
+  );
+  --shell-wash-soft: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 10%, transparent) 0%,
+    color-mix(in srgb, var(--accent) 4%, transparent) 42%,
+    transparent 72%
+  );
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
@@ -31,6 +52,67 @@ html, body, #root {
   display: flex;
   flex: 1;
   min-height: 0;
+}
+
+.ui-tonal-empty {
+  --ui-tonal-color: var(--accent);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-10);
+  padding: var(--space-12);
+  border: 1px solid color-mix(in srgb, var(--ui-tonal-color) 18%, var(--border));
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--ui-tonal-color) 12%, transparent) 0%,
+      color-mix(in srgb, var(--ui-tonal-color) 5%, transparent) 42%,
+      transparent 74%
+    ),
+    var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.ui-tonal-empty--success {
+  --ui-tonal-color: var(--green);
+}
+
+.ui-tonal-empty--danger {
+  --ui-tonal-color: var(--red);
+}
+
+.ui-tonal-empty--merged {
+  --ui-tonal-color: var(--purple, #8b5cf6);
+}
+
+.ui-tonal-empty__icon {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--ui-tonal-color) 12%, var(--bg-tertiary));
+  color: var(--ui-tonal-color);
+}
+
+.ui-tonal-empty__copy {
+  min-width: 0;
+}
+
+.ui-tonal-empty__title {
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-snug);
+  color: var(--text-primary);
+}
+
+.ui-tonal-empty__hint {
+  margin-top: var(--space-2);
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
+  color: var(--text-muted);
 }
 
 /* Experimental: bottom terminal strip rendered inside CenterPanel */
@@ -135,6 +217,42 @@ body.resizing .right-panel {
   transition: width var(--duration-slow) ease;
 }
 
+.right-panel-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.right-panel-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.right-panel-pane {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.right-panel-pane--column {
+  flex-direction: column;
+}
+
+.right-panel-terminal-host {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.right-panel-terminal-host--collapsed {
+  border-top: 1px solid var(--border);
+}
+
 
 /* ── UI Card — general-purpose grouped container ───────────────────── */
 /* Base class used by <Card> from @/components/ui. Settings pages that need
@@ -227,4 +345,3 @@ body.resizing .right-panel {
   color: var(--text-primary);
   opacity: 1 !important;
 }
-

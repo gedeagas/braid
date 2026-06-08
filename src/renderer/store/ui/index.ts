@@ -6,6 +6,6 @@ export { useUIStore } from './store'
 // Types used by consumers
 export type { UIState } from './types'
 export type { CenterView, ToolMessageStyle, ActivityIndicatorStyle, DiffFileSelection, GitStatusCode } from './layout'
-export type { SidebarGroupBy, SidebarSortBy } from './layout'
+export type { PendingTaskPrRequest, SidebarGroupBy, SidebarSortBy } from './layout'
 export { selectChangesOpen, selectSelectedDiffFile, selectActiveCenterView, selectCodeReviewOpen } from './layout'
 export type { SupportedLanguage } from './theme'

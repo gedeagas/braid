@@ -9,6 +9,9 @@ interface Props {
   disabled: boolean
   branchPrefix: string
   jiraBaseUrl: string
+  initialValue?: string
+  locked?: boolean
+  autoLookup?: boolean
   /** Called when a Jira issue resolves with the derived branch name */
   onResolved: (issue: JiraIssue, branch: string, validationError: string | null) => void
   /** Called when lookup fails */
@@ -17,10 +20,10 @@ interface Props {
   onCleared?: () => void
 }
 
-export function JiraLookupField({ disabled, branchPrefix, jiraBaseUrl, onResolved, onError, onCleared }: Props) {
+export function JiraLookupField({ disabled, branchPrefix, jiraBaseUrl, initialValue = '', locked = false, autoLookup = false, onResolved, onError, onCleared }: Props) {
   const { t } = useTranslation('sidebar')
 
-  const [input, setInput] = useState('')
+  const [input, setInput] = useState(initialValue)
   const [loading, setLoading] = useState(false)
   const [issue, setIssue] = useState<JiraIssue | null>(null)
   const [error, setError] = useState('')
@@ -31,6 +34,7 @@ export function JiraLookupField({ disabled, branchPrefix, jiraBaseUrl, onResolve
   const inflightRef = useRef(false)
   // Last resolved key for same-key dedup
   const resolvedKeyRef = useRef<string | null>(null)
+  const autoLookupStartedRef = useRef(false)
 
   const handleLookup = useCallback(async (raw: string) => {
     const key = extractJiraKey(raw)
@@ -78,6 +82,14 @@ export function JiraLookupField({ disabled, branchPrefix, jiraBaseUrl, onResolve
     }
   }, [jiraBaseUrl, branchPrefix, t, onResolved, onError])
 
+  useEffect(() => {
+    if (!initialValue) return
+    setInput(initialValue)
+    if (!autoLookup || autoLookupStartedRef.current) return
+    autoLookupStartedRef.current = true
+    void handleLookup(initialValue)
+  }, [autoLookup, handleLookup, initialValue])
+
   const handleChange = (val: string) => {
     setInput(val)
     if (!val.trim()) {
@@ -103,7 +115,7 @@ export function JiraLookupField({ disabled, branchPrefix, jiraBaseUrl, onResolve
           if (pasted) { e.preventDefault(); setInput(pasted); handleLookup(pasted) }
         }}
         onKeyDown={(e) => { if (e.key === 'Enter' && input.trim()) { e.preventDefault(); handleLookup(input) } }}
-        disabled={disabled}
+        disabled={disabled || locked}
         placeholder={t('jiraPlaceholder')}
         spellCheck={false}
       />

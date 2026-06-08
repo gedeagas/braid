@@ -127,6 +127,7 @@ export const CenterPanel = memo(function CenterPanel() {
           <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             {hasNoTabs ? (
               <EmptyState
+                variant="hero"
                 icon={<IconMessagePlus />}
                 title={t('emptyStateHeading')}
                 hint={t('emptyStateHint')}
@@ -159,7 +160,7 @@ export const CenterPanel = memo(function CenterPanel() {
           {bottomTerminalEnabled && <BottomTerminalStrip />}
         </>
       ) : (
-        <EmptyState icon={<IconArrowLeft size={28} />} title={t('selectWorktreeHint')} />
+        <EmptyState variant="panel" icon={<IconArrowLeft size={28} />} title={t('selectWorktreeHint')} />
       )}
     </div>
   )

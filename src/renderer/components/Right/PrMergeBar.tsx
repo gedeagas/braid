@@ -3,10 +3,12 @@ import { useTranslation } from 'react-i18next'
 import * as ipc from '@/lib/ipc'
 import { cleanIpcError } from '@/lib/ipc'
 import { usePrStatus, usePrCacheStore, type PrStatus } from '@/store/prCache'
+import { useProjectsStore } from '@/store/projects'
 import { useSessionsStore } from '@/store/sessions'
 import { useUIStore } from '@/store/ui'
 import { flash } from '@/store/flash'
 import { DEFAULT_MERGE_CONFLICT_PROMPT } from '@/lib/mergeConflictPrompt'
+import { buildTaskPrRequest } from '@/lib/taskPrRequest'
 import { requestWorktreeRefresh } from '@/lib/worktreeRefresh'
 import { Button, Spinner } from '@/components/ui'
 import { IconMergeGraph, IconExternalLinkSmall, IconChevronDownSmall } from '@/components/shared/icons'
@@ -103,8 +105,6 @@ function isMergeClean(pr: PrStatus): boolean {
     (pr.mergeStateStatus === 'CLEAN' || pr.mergeStateStatus === 'HAS_HOOKS' || !pr.mergeStateStatus)
 }
 
-const openExternal = (url: string) => ipc.shell.openExternal(url)
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -115,6 +115,7 @@ interface Props {
 export function PrMergeBar({ worktreePath, worktreeId }: Props) {
   const { t } = useTranslation('right')
   const pr = usePrStatus(worktreePath)
+  const projects = useProjectsStore((s) => s.projects)
   const [state, dispatch] = useReducer(mergeBarReducer, INITIAL_STATE)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -123,6 +124,7 @@ export function PrMergeBar({ worktreePath, worktreeId }: Props) {
   const sendMessage = useSessionsStore((s) => s.sendMessage)
   const setActiveSession = useSessionsStore((s) => s.setActiveSession)
   const setActiveCenterView = useUIStore((s) => s.setActiveCenterView)
+  const openTaskPr = useUIStore((s) => s.openTaskPr)
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -215,6 +217,16 @@ export function PrMergeBar({ worktreePath, worktreeId }: Props) {
   }, [state.fixingConflicts, pr, worktreeId, worktreePath,
       createSession, sendMessage, setActiveSession, setActiveCenterView])
 
+  const handleOpenPr = useCallback(() => {
+    if (!pr) return
+    const request = buildTaskPrRequest(projects, worktreePath, pr)
+    if (request) {
+      openTaskPr(request)
+      return
+    }
+    if (pr.url) ipc.shell.openExternal(pr.url)
+  }, [openTaskPr, pr, projects, worktreePath])
+
   // Show if open, or if we have a pending error/merge-in-progress to display
   const hasActiveState = state.merging || state.error !== null
   if (!pr) return null
@@ -230,7 +242,7 @@ export function PrMergeBar({ worktreePath, worktreeId }: Props) {
 
   return (
     <div className={`pr-merge-bar pr-merge-bar--${statusInfo.variant}`}>
-      <span className="pr-merge-badge" onClick={() => openExternal(pr.url)}>
+      <span className="pr-merge-badge" onClick={handleOpenPr}>
         <IconMergeGraph />
         #{pr.number}
         <IconExternalLinkSmall className="pr-merge-badge-link-icon" />

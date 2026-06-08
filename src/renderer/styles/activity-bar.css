@@ -47,16 +47,22 @@
   color: var(--text-muted);
   cursor: pointer;
   position: relative;
-  transition: background var(--duration-fast), color var(--duration-fast);
+  transition: background var(--duration-fast), color var(--duration-fast), box-shadow var(--duration-fast);
 }
 
 .activity-bar-item:hover {
-  background: var(--bg-hover);
+  background: var(--shell-wash-hover);
   color: var(--text-primary);
 }
 
 .activity-bar-item--active {
+  background: var(--shell-wash-active);
   color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.activity-bar-item--active:hover {
+  background: var(--shell-wash-active);
 }
 
 /* Spacer in sidebar panel to clear macOS traffic lights vertically */

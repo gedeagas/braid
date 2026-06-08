@@ -106,6 +106,7 @@ export const createAppsSlice: StateCreator<UIState, [], [], AppsSlice> = (set, g
       activeWebAppId: id,
       dormantAppIds: nextDormant,
       missionControlActive: false,
+      tasksActive: false,
       mobilePairingActive: false,
       sidebarPanelOpen: false,
     }

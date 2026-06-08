@@ -15,10 +15,11 @@
   border-bottom: 1px solid var(--border);
   cursor: pointer;
   flex-shrink: 0;
+  transition: background var(--duration-fast);
 }
 
 .checks-pr-header:hover {
-  background: var(--bg-hover);
+  background: var(--shell-wash-hover);
 }
 
 .checks-pr-title {
@@ -123,7 +124,7 @@
   font-weight: var(--weight-semibold);
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0;
 }
 
 .checks-section-actions {
@@ -137,7 +138,7 @@
   padding: var(--space-4) var(--space-14) var(--space-6);
 }
 .checks-section > .section-header .section-header-title {
-  letter-spacing: 0.06em;
+  letter-spacing: 0;
 }
 
 /* Rows */
@@ -147,11 +148,14 @@
 }
 
 .checks-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-8);
   padding: var(--space-5) var(--space-14);
   min-height: 30px;
+  overflow: hidden;
+  transition: background var(--duration-fast);
 }
 
 .checks-row--clickable {
@@ -159,7 +163,7 @@
 }
 
 .checks-row--clickable:hover {
-  background: var(--bg-hover);
+  background: var(--shell-wash-hover);
 }
 
 .checks-row-label {
@@ -289,45 +293,12 @@
   color: var(--text-muted);
 }
 
-.checks-empty-block {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-10);
+.checks-empty--state {
   margin: var(--space-4) var(--space-14) var(--space-8);
-  padding: var(--space-10) var(--space-12);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--bg-secondary);
 }
 
-.checks-empty-block-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius);
-  background: var(--bg-tertiary);
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.checks-empty-block-copy {
-  min-width: 0;
-}
-
-.checks-empty-block-title {
-  font-size: var(--text-md);
-  font-weight: var(--weight-medium);
-  color: var(--text-primary);
-  line-height: 1.35;
-}
-
-.checks-empty-block-hint {
-  margin-top: var(--space-2);
-  font-size: var(--text-base);
-  color: var(--text-muted);
-  line-height: 1.4;
+.checks-empty-block {
+  margin: var(--space-4) var(--space-14) var(--space-8);
 }
 
 /* ─── Skeleton loading ───────────────────────────────────────────────────────── */

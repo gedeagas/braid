@@ -1,14 +1,58 @@
-import { act, render, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { requestWorktreeRefresh, resetWorktreeRefreshForTests } from '@/lib/worktreeRefresh'
+import type { PrStatus } from '@/store/prCache'
 import { ChecksView } from '../ChecksView'
 
 const prCacheState: {
-  cache: Record<string, { data: null; fetchedAt: number; loading: boolean }>
+  cache: Record<string, { data: PrStatus | null; fetchedAt: number; loading: boolean }>
 } = {
   cache: {
     '/repo': { data: null, fetchedAt: 123, loading: false },
   },
+}
+
+const projectsStoreState = {
+  projects: [
+    {
+      id: 'project-1',
+      name: 'repo',
+      path: '/repo',
+      createdAt: 1,
+      worktrees: [
+        {
+          id: 'wt-1',
+          projectId: 'project-1',
+          branch: 'feature/pr-link',
+          path: '/repo',
+          isMain: false,
+          sessions: [],
+        },
+      ],
+    },
+  ],
+}
+
+const uiStoreState = {
+  jiraBaseUrl: '',
+  openFile: vi.fn(),
+  setActiveCenterView: vi.fn(),
+  openCodeReview: vi.fn(),
+  openTaskPr: vi.fn(),
+  prPrompt: '',
+}
+
+const basePr: PrStatus = {
+  number: 42,
+  title: 'Fix PR link routing',
+  state: 'OPEN',
+  url: 'https://github.com/example/repo/pull/42',
+  headBranch: 'feature/pr-link',
+  baseRefName: 'main',
+  isDraft: false,
+  mergeable: 'MERGEABLE',
+  reviewDecision: 'APPROVED',
+  mergeStateStatus: 'CLEAN',
 }
 
 vi.mock('@/lib/ipc', () => ({
@@ -41,7 +85,7 @@ vi.mock('@/store/prCache', () => {
 })
 
 vi.mock('@/store/projects', () => ({
-  useProjectsStore: vi.fn((selector: (state: { projects: unknown[] }) => unknown) => selector({ projects: [] })),
+  useProjectsStore: vi.fn((selector: (state: typeof projectsStoreState) => unknown) => selector(projectsStoreState)),
 }))
 
 vi.mock('@/store/sessions', () => {
@@ -54,13 +98,6 @@ vi.mock('@/store/sessions', () => {
 })
 
 vi.mock('@/store/ui', () => {
-  const uiStoreState = {
-    jiraBaseUrl: '',
-    openFile: vi.fn(),
-    setActiveCenterView: vi.fn(),
-    openCodeReview: vi.fn(),
-    prPrompt: '',
-  }
   return {
     useUIStore: vi.fn((selector: (state: typeof uiStoreState) => unknown) => selector(uiStoreState)),
   }
@@ -140,5 +177,36 @@ describe('ChecksView', () => {
     })
 
     expect(prCacheState.cache['/repo']).toEqual({ data: null, fetchedAt: 0, loading: false })
+  })
+
+  it('opens the in-app Tasks PR detail from the PR header', async () => {
+    prCacheState.cache['/repo'] = { data: basePr, fetchedAt: 123, loading: false }
+    vi.mocked(ipc.github.getPrStatus).mockResolvedValue(basePr)
+
+    render(<ChecksView worktreePath="/repo" worktreeId="wt-1" isActive={false} />)
+
+    fireEvent.click(screen.getByText('#42'))
+
+    expect(uiStoreState.openTaskPr).toHaveBeenCalledWith({
+      detailBackTarget: 'worktree',
+      projectId: 'project-1',
+      projectName: 'repo',
+      repoPath: '/repo',
+      worktreeId: 'wt-1',
+      matchingBranch: 'feature/pr-link',
+      pr: {
+        number: 42,
+        title: 'Fix PR link routing',
+        state: 'OPEN',
+        url: 'https://github.com/example/repo/pull/42',
+        headBranch: 'feature/pr-link',
+        baseBranch: 'main',
+        isDraft: false,
+        mergeable: 'MERGEABLE',
+        reviewDecision: 'APPROVED',
+        mergeStateStatus: 'CLEAN',
+      },
+    })
+    expect(ipc.shell.openExternal).not.toHaveBeenCalled()
   })
 })

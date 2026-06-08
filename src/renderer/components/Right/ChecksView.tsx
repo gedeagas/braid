@@ -19,6 +19,7 @@ import { useProjectsStore } from '@/store/projects'
 import { IconRefresh } from '@/components/shared/icons'
 import { DEFAULT_PR_PROMPT } from '@/lib/prPrompt'
 import { isOnline, onOnline } from '@/lib/online'
+import { buildTaskPrRequest } from '@/lib/taskPrRequest'
 import { requestWorktreeRefresh, subscribeWorktreeRefresh } from '@/lib/worktreeRefresh'
 import { JiraSection } from './JiraSection'
 import { ReviewsSection } from './ReviewsSection'
@@ -143,6 +144,7 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
   const lastOwnFetchRef = useRef(0)
   const mountedRef = useRef(true)
   const { t } = useTranslation('right')
+  const projects = useProjectsStore((s) => s.projects)
 
   // Current upstream tracking branch used as the sync-status base branch
   const upstream = useProjectsStore((s) => {
@@ -166,6 +168,7 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
   const setActiveSession = useSessionsStore((s) => s.setActiveSession)
   const openFile = useUIStore((s) => s.openFile)
   const setActiveCenterView = useUIStore((s) => s.setActiveCenterView)
+  const openTaskPr = useUIStore((s) => s.openTaskPr)
 
   useEffect(() => () => { mountedRef.current = false }, [])
 
@@ -394,14 +397,19 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
     )
   }
 
-  const openPrUrl = () => {
+  const openPrInTasks = () => {
+    const request = buildTaskPrRequest(projects, worktreePath, pr)
+    if (request) {
+      openTaskPr(request)
+      return
+    }
     if (pr.url) ipc.shell.openExternal(pr.url)
   }
 
   return (
     <div className="checks-view">
       {/* PR Header */}
-      <div className="checks-pr-header" onClick={openPrUrl}>
+      <div className="checks-pr-header" onClick={openPrInTasks}>
         <div className="checks-pr-title">
           <span className="checks-pr-number">#{pr.number}</span>
           <span className="checks-pr-name">{pr.title}</span>
@@ -475,13 +483,17 @@ export function ChecksView({ worktreePath, worktreeId, isActive = true }: Props)
         )}
 
         {pr.state === 'MERGED' && (
-          <div className="checks-empty" style={{ padding: '16px 14px', color: '#a371f7' }}>
-            {t('prMerged')}
+          <div className="checks-empty checks-empty--state ui-tonal-empty ui-tonal-empty--merged">
+            <div className="ui-tonal-empty__copy">
+              <div className="ui-tonal-empty__title">{t('prMerged')}</div>
+            </div>
           </div>
         )}
         {pr.state === 'CLOSED' && (
-          <div className="checks-empty" style={{ padding: '16px 14px', color: 'var(--red)' }}>
-            {t('prClosed')}
+          <div className="checks-empty checks-empty--state ui-tonal-empty ui-tonal-empty--danger">
+            <div className="ui-tonal-empty__copy">
+              <div className="ui-tonal-empty__title">{t('prClosed')}</div>
+            </div>
           </div>
         )}
       </div>

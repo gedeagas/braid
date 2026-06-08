@@ -267,4 +267,51 @@ describe('AddWorktreeDialog', () => {
     expect(initialInput).toContain('Start work on Jira ticket USRN-10110: Fix cart total')
     expect(initialInput).not.toContain('BEGIN JIRA TICKET')
   })
+
+  it('locks a PR-provided branch while resolving the prefilled Jira ticket', async () => {
+    mocks.getRemoteBranches.mockResolvedValue({ branches: ['origin/main'], defaultBranch: 'origin/main' })
+    mocks.addWorktree.mockResolvedValue({
+      id: 'wt-pr',
+      projectId: 'project-1',
+      branch: 'USRN-10110-pr-head-branch',
+      path: '/repo/project-USRN-10110',
+      isMain: false,
+      sessions: [],
+    })
+    const onCreated = vi.fn()
+
+    render(
+      <AddWorktreeDialog
+        projectId="project-1"
+        repoPath="/repo/project"
+        prefill={{
+          branch: 'USRN-10110-pr-head-branch',
+          sourceBranch: 'USRN-10110-pr-head-branch',
+          baseBranch: 'main',
+          jiraKey: 'USRN-10110',
+          locked: true,
+        }}
+        onClose={vi.fn()}
+        onCreated={onCreated}
+      />
+    )
+
+    const branchInput = document.querySelector('.add-worktree-branch-row input') as HTMLInputElement
+    await waitFor(() => expect(branchInput.value).toBe('USRN-10110-pr-head-branch'))
+    expect(branchInput.disabled).toBe(true)
+    const sourceBranchTrigger = screen.getByText('origin/USRN-10110-pr-head-branch').closest('button') as HTMLButtonElement
+    expect(sourceBranchTrigger.disabled).toBe(true)
+
+    const jiraInput = await screen.findByDisplayValue('USRN-10110') as HTMLInputElement
+    expect(jiraInput.disabled).toBe(true)
+    await waitFor(() => expect(mocks.getIssueByKey).toHaveBeenCalledWith('USRN-10110', undefined, undefined, true))
+    expect(branchInput.value).toBe('USRN-10110-pr-head-branch')
+
+    const createButtons = screen.getAllByText('create')
+    fireEvent.click(createButtons[createButtons.length - 1])
+
+    await waitFor(() => expect(mocks.addWorktree).toHaveBeenCalled())
+    expect(mocks.addWorktree).toHaveBeenCalledWith('project-1', 'USRN-10110-pr-head-branch', 'origin/USRN-10110-pr-head-branch', undefined)
+    expect(onCreated).toHaveBeenCalledWith(expect.objectContaining({ id: 'wt-pr', branch: 'USRN-10110-pr-head-branch' }))
+  })
 })

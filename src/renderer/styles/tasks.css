@@ -1,0 +1,13 @@
+@import './tasks/shell.css';
+@import './tasks/repo-picker.css';
+@import './tasks/filters.css';
+@import './tasks/task-list-table.css';
+@import './tasks/detail-header.css';
+@import './tasks/detail-layout.css';
+@import './tasks/activity.css';
+@import './tasks/checks.css';
+@import './tasks/files.css';
+@import './tasks/diff.css';
+@import './tasks/review-comments.css';
+@import './tasks/markdown-table.css';
+@import './tasks/animations-responsive.css';
