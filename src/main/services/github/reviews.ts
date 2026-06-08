@@ -14,11 +14,17 @@ import {
   getAuthorIsBot,
   getAuthorLogin,
   getString,
+  isRecord,
   mapPrFile,
   mapPrIssueComment,
   mapPrReviewComment,
   mapReactionGroups,
 } from "./mappers"
+
+function getNumberOrNull(value: unknown): number | null {
+  const number = Number(value)
+  return Number.isFinite(number) && number > 0 ? number : null
+}
 
 export abstract class GitHubReviews extends GitHubStatusChecks {
   async getReviews(worktreePath: string, forceRefresh?: boolean): Promise<PrReviewData> {
@@ -219,23 +225,14 @@ export abstract class GitHubReviews extends GitHubStatusChecks {
               pullRequest?: {
                 id?: string
                 comments?: {
-                  nodes?: Array<Record<string, unknown>>
+                  nodes?: unknown[]
                 }
                 files?: {
-                  nodes?: Array<{ path?: string; viewerViewedState?: GitHubPrFile['viewedState'] }>
+                  nodes?: unknown[]
                   pageInfo?: { hasNextPage?: boolean; endCursor?: string | null }
                 }
                 reviewThreads?: {
-                  nodes?: Array<{
-                    id: string
-                    isResolved: boolean
-                    isOutdated?: boolean
-                    line?: number | null
-                    startLine?: number | null
-                    originalLine?: number | null
-                    originalStartLine?: number | null
-                    comments: { nodes: Array<Record<string, unknown>> }
-                  }>
+                  nodes?: unknown[]
                   pageInfo?: { hasNextPage?: boolean; endCursor?: string | null }
                 }
               }
@@ -246,37 +243,47 @@ export abstract class GitHubReviews extends GitHubStatusChecks {
         const pullRequest = parsed.data?.repository?.pullRequest
         if (pullRequest?.id) metadata.pullRequestId = pullRequest.id
         if (!fileAfter && !threadAfter && pullRequest?.comments?.nodes) {
-          metadata.issueComments = pullRequest.comments.nodes.map((comment) => ({
-            id: Number(comment.databaseId) || 0,
-            subjectId: getString(comment.id),
-            author: getAuthorLogin(comment.author) || 'unknown',
-            authorAvatarUrl: getAuthorAvatarUrl(comment.author),
-            isBot: getAuthorIsBot(comment.author),
-            body: getString(comment.body),
-            createdAt: getString(comment.createdAt),
-            updatedAt: getString(comment.updatedAt),
-            htmlUrl: getString(comment.url),
-            reactions: mapReactionGroups(comment.reactionGroups),
-          })).filter((comment) => comment.id > 0)
+          metadata.issueComments = pullRequest.comments.nodes
+            .filter(isRecord)
+            .map((comment) => ({
+              id: Number(comment.databaseId) || 0,
+              subjectId: getString(comment.id),
+              author: getAuthorLogin(comment.author) || 'unknown',
+              authorAvatarUrl: getAuthorAvatarUrl(comment.author),
+              isBot: getAuthorIsBot(comment.author),
+              body: getString(comment.body),
+              createdAt: getString(comment.createdAt),
+              updatedAt: getString(comment.updatedAt),
+              htmlUrl: getString(comment.url),
+              reactions: mapReactionGroups(comment.reactionGroups),
+            }))
+            .filter((comment) => comment.id > 0)
         }
         for (const file of pullRequest?.files?.nodes ?? []) {
-          const path = file.path ?? ''
-          if (path) metadata.viewedStates.set(path, file.viewerViewedState ?? null)
+          if (!isRecord(file)) continue
+          const path = getString(file.path)
+          const viewedState = getString(file.viewerViewedState) as GitHubPrFile['viewedState']
+          if (path) metadata.viewedStates.set(path, viewedState || null)
         }
 
         const reviewThreads = pullRequest?.reviewThreads
         const threads = reviewThreads?.nodes
         if (threads) {
           for (const thread of threads) {
-            const threadLine = thread.line ?? thread.originalLine ?? null
-            const threadStartLine = thread.startLine ?? thread.originalStartLine ?? null
-            for (const comment of thread.comments.nodes) {
+            if (!isRecord(thread)) continue
+            const threadLine = getNumberOrNull(thread.line) ?? getNumberOrNull(thread.originalLine)
+            const threadStartLine = getNumberOrNull(thread.startLine) ?? getNumberOrNull(thread.originalStartLine)
+            const threadComments = isRecord(thread.comments) && Array.isArray(thread.comments.nodes)
+              ? thread.comments.nodes
+              : []
+            for (const comment of threadComments) {
+              if (!isRecord(comment)) continue
               const id = Number(comment.databaseId) || 0
               if (!id) continue
               metadata.reviewCommentThreads.set(id, {
-                threadId: thread.id,
-                isResolved: thread.isResolved,
-                isOutdated: thread.isOutdated === true || thread.line === null,
+                threadId: getString(thread.id),
+                isResolved: thread.isResolved === true,
+                isOutdated: thread.isOutdated === true || thread.line == null,
                 line: threadLine,
                 startLine: threadStartLine,
                 subjectId: getString(comment.id),

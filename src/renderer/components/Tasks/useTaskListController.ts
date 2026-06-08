@@ -43,6 +43,7 @@ export function useTaskListController(args: UseTaskListControllerArgs) {
   const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string> | null>(null)
   const queryInputRef = useRef<HTMLInputElement>(null)
   const filtersRef = useRef<HTMLDivElement>(null)
+  const fetchSequenceRef = useRef(0)
 
   const activePresetId = getPresetId(query)
   const parsedQuery = useMemo(() => parseTaskQuery(stripRepoQualifiers(query)), [query])
@@ -68,6 +69,8 @@ export function useTaskListController(args: UseTaskListControllerArgs) {
   const showSuggestions = suggestionsOpen && filterSuggestions.length > 0
 
   const fetchTasks = useCallback(async (forceRefresh = false) => {
+    const requestId = fetchSequenceRef.current + 1
+    fetchSequenceRef.current = requestId
     if (filteredProjects.length === 0) {
       setRows([])
       setErrorCount(0)
@@ -99,6 +102,7 @@ export function useTaskListController(args: UseTaskListControllerArgs) {
       })),
       Promise.allSettled(filteredProjects.map((project) => ipc.github.countWorkItems(project.path, normalizedQuery, forceRefresh) as Promise<number>)),
     ])
+    if (fetchSequenceRef.current !== requestId) return
 
     const nextRows: TaskRow[] = []
     let failures = 0

@@ -31,6 +31,25 @@ export async function resolveNwo(cwd: string): Promise<string> {
   })
 }
 
+export function isNwoResolutionError(error: unknown): boolean {
+  const err = error as { message?: unknown; stderr?: unknown; cause?: { message?: unknown; stderr?: unknown } } | null
+  const message = [
+    err?.message,
+    err?.stderr,
+    err?.cause?.message,
+    err?.cause?.stderr,
+    String(error),
+  ]
+    .filter((part): part is string => typeof part === 'string')
+    .join('\n')
+    .toLowerCase()
+
+  return message.includes('no git remotes found') ||
+    message.includes('not a git repository') ||
+    message.includes('could not resolve repo namewithowner') ||
+    message.includes('unable to determine current github repository')
+}
+
 const fetchTimestamps = new Map<string, number>()
 const FETCH_COOLDOWN_MS = 30_000
 

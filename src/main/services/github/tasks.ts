@@ -1,5 +1,5 @@
 import { parseTaskQuery, type ParsedTaskQuery } from "../../../shared/task-query"
-import { GitHubCore, resolveNwo } from "./core"
+import { GitHubCore, isNwoResolutionError, resolveNwo } from "./core"
 import {
   PR_DETAIL_JSON_FIELDS,
   WORK_ITEM_ISSUE_LIST_JSON_FIELDS,
@@ -483,7 +483,8 @@ export abstract class GitHubTasks extends GitHubCore {
   }
 
   protected async _fetchWorkItems(repoPath: string, limit: number, rawQuery: string): Promise<ListWorkItemsResult> {
-    const nwo = await resolveNwo(repoPath)
+    const nwo = await this._resolveWorkItemRepo(repoPath)
+    if (!nwo) return { items: [] }
     const query = parseTaskQuery(rawQuery)
     const hasPrOnlyFilter = query.state === 'merged' || query.draft || query.reviewRequested !== null || query.reviewedBy !== null
     const includeIssues = query.scope !== 'pr' && !hasPrOnlyFilter
@@ -548,7 +549,8 @@ export abstract class GitHubTasks extends GitHubCore {
 
   protected async _fetchWorkItemCount(repoPath: string, rawQuery: string): Promise<number> {
     if (!await this.hasRateLimitBudget(repoPath, 'search', 2)) return 0
-    const nwo = await resolveNwo(repoPath)
+    const nwo = await this._resolveWorkItemRepo(repoPath)
+    if (!nwo) return 0
     const query = parseTaskQuery(rawQuery)
     const searchQ = buildSearchQueryString(nwo, query)
     const raw = await this.gh(
@@ -557,6 +559,15 @@ export abstract class GitHubTasks extends GitHubCore {
       true
     )
     return parseInt(raw.trim(), 10) || 0
+  }
+
+  protected async _resolveWorkItemRepo(repoPath: string): Promise<string | null> {
+    try {
+      return await resolveNwo(repoPath)
+    } catch (error) {
+      if (isNwoResolutionError(error)) return null
+      throw error
+    }
   }
 
 

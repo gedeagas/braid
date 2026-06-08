@@ -258,7 +258,7 @@ export type PrDetailController = ReturnType<typeof usePrDetailController>
 function groupReplies(reviewComments: UiReviewComment[]): Map<number, UiReviewComment[]> {
   const replies = new Map<number, UiReviewComment[]>()
   for (const comment of reviewComments) {
-    if (comment.inReplyToId === null) continue
+    if (comment.inReplyToId == null) continue
     const list = replies.get(comment.inReplyToId) ?? []
     list.push(comment)
     replies.set(comment.inReplyToId, list)

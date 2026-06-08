@@ -16,6 +16,10 @@ export function getString(value: unknown): string {
   return typeof value === 'string' ? value : ''
 }
 
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
 export function getLogin(value: unknown): string {
   if (!value || typeof value !== 'object') return ''
   return getString((value as Record<string, unknown>).login)
@@ -85,15 +89,20 @@ export function getAuthorIsBot(value: unknown): boolean {
 
 export function mapReactionGroups(value: unknown): GitHubReactionGroup[] {
   if (!Array.isArray(value)) return []
-  return value.map((group) => {
-    const record = group as Record<string, unknown>
-    const reactors = record.reactors as Record<string, unknown> | undefined
-    return {
-      content: getString(record.content) as GitHubReactionContent,
-      count: Number(reactors?.totalCount) || 0,
-      viewerHasReacted: record.viewerHasReacted === true,
-    }
-  }).filter((group) => group.content && group.count > 0)
+  const groups: GitHubReactionGroup[] = []
+  for (const group of value) {
+    if (!isRecord(group)) continue
+    const reactors = isRecord(group.reactors) ? group.reactors : null
+    const content = getString(group.content) as GitHubReactionContent
+    const count = Number(reactors?.totalCount) || 0
+    if (!content || count <= 0) continue
+    groups.push({
+      content,
+      count,
+      viewerHasReacted: group.viewerHasReacted === true,
+    })
+  }
+  return groups
 }
 
 export function normalizeWorkItemState(value: unknown): GitHubWorkItemState {
@@ -210,7 +219,7 @@ export function mapPrReviewComment(
   }>
 ): PrReviewComment {
   const commentId = Number(comment.id) || 0
-  const replyTo = (comment.in_reply_to_id as number) ?? null
+  const replyTo = comment.in_reply_to_id == null ? null : Number(comment.in_reply_to_id) || null
   const user = comment.user as Record<string, unknown> | undefined
   const thread = threadData.get(commentId)
   return {

@@ -66,29 +66,31 @@ export function TaskReactions({ comment, reactingSubjectIds, onToggleReaction }:
           >
             +
           </button>
-          <div className={open ? 'task-reaction-menu task-reaction-menu--open' : 'task-reaction-menu'} role="menu" aria-label={t('reactions.chooseReaction')}>
-            {REACTION_OPTIONS.map((option) => {
-              const active = comment.reactions.find((item) => item.content === option.content)?.viewerHasReacted === true
-              const label = t(option.labelKey)
-              return (
-                <button
-                  key={option.content}
-                  type="button"
-                  className={active ? 'active' : ''}
-                  onClick={() => {
-                    onToggleReaction(comment, option.content)
-                    setOpen(false)
-                  }}
-                  disabled={busy}
-                  aria-label={active ? t('reactions.removeReactionAria', { reaction: label }) : t('reactions.addReactionAria', { reaction: label })}
-                  title={label}
-                  role="menuitem"
-                >
-                  <span aria-hidden="true">{option.symbol}</span>
-                </button>
-              )
-            })}
-          </div>
+          {open && (
+            <div className="task-reaction-menu task-reaction-menu--open" role="menu" aria-label={t('reactions.chooseReaction')}>
+              {REACTION_OPTIONS.map((option) => {
+                const active = comment.reactions.find((item) => item.content === option.content)?.viewerHasReacted === true
+                const label = t(option.labelKey)
+                return (
+                  <button
+                    key={option.content}
+                    type="button"
+                    className={active ? 'active' : ''}
+                    onClick={() => {
+                      onToggleReaction(comment, option.content)
+                      setOpen(false)
+                    }}
+                    disabled={busy}
+                    aria-label={active ? t('reactions.removeReactionAria', { reaction: label }) : t('reactions.addReactionAria', { reaction: label })}
+                    title={label}
+                    role="menuitem"
+                  >
+                    <span aria-hidden="true">{option.symbol}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>

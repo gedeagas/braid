@@ -34,12 +34,12 @@ export abstract class GitHubStatusChecks extends GitHubTasks {
   }
 
   async getChecks(worktreePath: string, forceRefresh?: boolean): Promise<CheckRun[]> {
-    return this.checksCache.get(worktreePath, () => this._fetchChecks(worktreePath), { forceRefresh })
+    return this.checksCache.get(worktreePath, () => this._fetchChecks(worktreePath, forceRefresh), { forceRefresh })
   }
 
-  protected async _fetchChecks(worktreePath: string): Promise<CheckRun[]> {
+  protected async _fetchChecks(worktreePath: string, forceRefresh?: boolean): Promise<CheckRun[]> {
     const nwo = await resolveNwo(worktreePath)
-    const pr = await this.getPrStatus(worktreePath)
+    const pr = await this.getPrStatus(worktreePath, forceRefresh)
     if (!pr) return []
     return this._fetchChecksForPr(worktreePath, nwo, pr.number)
   }
