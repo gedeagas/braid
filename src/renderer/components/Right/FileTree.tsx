@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useReducer, useRef, type Reducer } from 'react'
+import { useEffect, useCallback, useMemo, useReducer, useRef, type Reducer } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FileIcon, DefaultFolderOpenedIcon } from '@react-symbols/icons/utils'
 import { Folder } from '@react-symbols/icons/folders'
@@ -28,24 +28,30 @@ interface TreeNodeProps {
   entry: FileEntry
   worktreePath: string
   selectedPath: string | null
+  expandedPaths: Set<string>
+  childrenByPath: Record<string, FileEntry[]>
   onFileSelect: (filePath: string) => void
-  onExpand: (dirPath: string) => Promise<FileEntry[]>
+  onToggleDirectory: (dirPath: string) => void
   onContextMenu: (e: React.MouseEvent, fullPath: string, isDirectory: boolean) => void
 }
 
 // ─── TreeNode ────────────────────────────────────────────────────────────────
 
-function TreeNode({ entry, worktreePath, selectedPath, onFileSelect, onExpand, onContextMenu }: TreeNodeProps) {
-  const [expanded, setExpanded] = useState(false)
-  const [children, setChildren] = useState<FileEntry[]>([])
-
-  const handleClick = async () => {
+function TreeNode({
+  entry,
+  worktreePath,
+  selectedPath,
+  expandedPaths,
+  childrenByPath,
+  onFileSelect,
+  onToggleDirectory,
+  onContextMenu
+}: TreeNodeProps) {
+  const expanded = expandedPaths.has(entry.path)
+  const children = childrenByPath[entry.path] ?? []
+  const handleClick = () => {
     if (entry.isDirectory) {
-      if (!expanded && children.length === 0) {
-        const items = await onExpand(entry.path)
-        setChildren(items)
-      }
-      setExpanded(!expanded)
+      onToggleDirectory(entry.path)
     } else {
       onFileSelect(`${worktreePath}/${entry.path}`)
     }
@@ -90,8 +96,10 @@ function TreeNode({ entry, worktreePath, selectedPath, onFileSelect, onExpand, o
               entry={child}
               worktreePath={worktreePath}
               selectedPath={selectedPath}
+              expandedPaths={expandedPaths}
+              childrenByPath={childrenByPath}
               onFileSelect={onFileSelect}
-              onExpand={onExpand}
+              onToggleDirectory={onToggleDirectory}
               onContextMenu={onContextMenu}
             />
           ))}
@@ -105,29 +113,52 @@ function TreeNode({ entry, worktreePath, selectedPath, onFileSelect, onExpand, o
 
 type FileTreeState = {
   entries: FileEntry[]
+  expandedPaths: Set<string>
+  childrenByPath: Record<string, FileEntry[]>
   selectedPath: string | null
   refreshing: boolean
-  generation: number
   menu: { x: number; y: number; path: string; isDirectory: boolean } | null
   apps: InstalledApp[]
 }
+
+const createInitialFileTreeState = (): FileTreeState => ({
+  entries: [],
+  expandedPaths: new Set<string>(),
+  childrenByPath: {},
+  selectedPath: null,
+  refreshing: false,
+  menu: null,
+  apps: [],
+})
+
 type FileTreeAction =
+  | { type: 'RESET_FOR_WORKTREE' }
   | { type: 'LOAD_START' }
-  | { type: 'LOAD_DONE'; entries: FileEntry[] }
+  | { type: 'LOAD_DONE'; entries: FileEntry[] | null | undefined }
   | { type: 'LOAD_ERROR' }
+  | { type: 'TOGGLE_DIRECTORY'; path: string }
+  | { type: 'SET_CHILDREN'; path: string; children: FileEntry[] }
+  | { type: 'SET_CHILDREN_MANY'; entries: Record<string, FileEntry[]> }
   | { type: 'SELECT'; path: string }
-  | { type: 'BUMP_GENERATION' }
   | { type: 'OPEN_MENU'; x: number; y: number; path: string; isDirectory: boolean }
   | { type: 'CLOSE_MENU' }
   | { type: 'SET_APPS'; apps: InstalledApp[] }
 
 const fileTreeReducer: Reducer<FileTreeState, FileTreeAction> = (state, action) => {
   switch (action.type) {
+    case 'RESET_FOR_WORKTREE': return { ...createInitialFileTreeState(), apps: state.apps }
     case 'LOAD_START': return { ...state, refreshing: true }
-    case 'LOAD_DONE': return { ...state, refreshing: false, entries: action.entries }
+    case 'LOAD_DONE': return { ...state, refreshing: false, entries: action.entries ?? [] }
     case 'LOAD_ERROR': return { ...state, refreshing: false }
+    case 'TOGGLE_DIRECTORY': {
+      const expandedPaths = new Set(state.expandedPaths)
+      if (expandedPaths.has(action.path)) expandedPaths.delete(action.path)
+      else expandedPaths.add(action.path)
+      return { ...state, expandedPaths }
+    }
+    case 'SET_CHILDREN': return { ...state, childrenByPath: { ...state.childrenByPath, [action.path]: action.children } }
+    case 'SET_CHILDREN_MANY': return { ...state, childrenByPath: { ...state.childrenByPath, ...action.entries } }
     case 'SELECT': return { ...state, selectedPath: action.path }
-    case 'BUMP_GENERATION': return { ...state, generation: state.generation + 1 }
     case 'OPEN_MENU': return { ...state, menu: { x: action.x, y: action.y, path: action.path, isDirectory: action.isDirectory } }
     case 'CLOSE_MENU': return { ...state, menu: null }
     case 'SET_APPS': return { ...state, apps: action.apps }
@@ -136,28 +167,79 @@ const fileTreeReducer: Reducer<FileTreeState, FileTreeAction> = (state, action) 
 
 export function FileTree({ worktreePath, onFileSelect }: Props) {
   const { t } = useTranslation('right')
-  const [ftState, ftDispatch] = useReducer(fileTreeReducer, { entries: [], selectedPath: null, refreshing: false, generation: 0, menu: null, apps: [] })
-  const { entries, selectedPath, refreshing, generation, menu, apps } = ftState
-  const inflightRef = useRef(false)
+  const [ftState, ftDispatch] = useReducer(fileTreeReducer, createInitialFileTreeState())
+  const { entries, expandedPaths, childrenByPath, selectedPath, refreshing, menu, apps } = ftState
+  const expandedPathsRef = useRef(expandedPaths)
+  const childrenByPathRef = useRef(childrenByPath)
+  const rootLoadIdRef = useRef(0)
+  const worktreePathRef = useRef(worktreePath)
 
-  const loadRoot = useCallback((forceRefresh = false) => {
-    if (inflightRef.current) return
-    inflightRef.current = true
-    ftDispatch({ type: 'LOAD_START' })
-    ipc.git.getFileTree(worktreePath, forceRefresh)
-      .then((items: FileEntry[]) => ftDispatch({ type: 'LOAD_DONE', entries: items }))
-      .catch((err: unknown) => { console.warn('[FileTree] refresh failed:', err); ftDispatch({ type: 'LOAD_ERROR' }) })
-      .finally(() => { inflightRef.current = false })
+  useEffect(() => {
+    expandedPathsRef.current = expandedPaths
+  }, [expandedPaths])
+
+  useEffect(() => {
+    childrenByPathRef.current = childrenByPath
+  }, [childrenByPath])
+
+  useEffect(() => {
+    worktreePathRef.current = worktreePath
   }, [worktreePath])
 
+  const loadDirectory = useCallback(
+    async (dirPath: string, forceRefresh = false): Promise<FileEntry[]> => {
+      const fullPath = `${worktreePath}/${dirPath}`
+      const items = await ipc.git.getFileTree(fullPath, forceRefresh)
+      return (items ?? []).map((item: FileEntry) => ({
+        ...item,
+        path: `${dirPath}/${item.name}`
+      }))
+    },
+    [worktreePath]
+  )
+
+  const loadRoot = useCallback((forceRefresh = false, refreshExpanded = false) => {
+    const loadId = rootLoadIdRef.current + 1
+    rootLoadIdRef.current = loadId
+    ftDispatch({ type: 'LOAD_START' })
+    ipc.git.getFileTree(worktreePath, forceRefresh)
+      .then(async (items: FileEntry[]) => {
+        if (rootLoadIdRef.current !== loadId || worktreePathRef.current !== worktreePath) return
+        ftDispatch({ type: 'LOAD_DONE', entries: items })
+
+        if (!refreshExpanded || expandedPathsRef.current.size === 0) return
+        const expandedEntries = await Promise.all(
+          [...expandedPathsRef.current].map(async (dirPath) => {
+            try {
+              return [dirPath, await loadDirectory(dirPath, forceRefresh)] as const
+            } catch (err) {
+              console.warn('[FileTree] expanded folder refresh failed:', dirPath, err)
+              return null
+            }
+          })
+        )
+        if (rootLoadIdRef.current !== loadId || worktreePathRef.current !== worktreePath) return
+        const refreshedChildren = Object.fromEntries(expandedEntries.filter((entry): entry is readonly [string, FileEntry[]] => entry !== null))
+        ftDispatch({ type: 'SET_CHILDREN_MANY', entries: refreshedChildren })
+      })
+      .catch((err: unknown) => {
+        if (rootLoadIdRef.current !== loadId || worktreePathRef.current !== worktreePath) return
+        console.warn('[FileTree] refresh failed:', err)
+        ftDispatch({ type: 'LOAD_ERROR' })
+      })
+  }, [loadDirectory, worktreePath])
+
   // Load on mount + worktree change
-  useEffect(() => { loadRoot() }, [loadRoot])
+  useEffect(() => {
+    ftDispatch({ type: 'RESET_FOR_WORKTREE' })
+    expandedPathsRef.current = new Set()
+    loadRoot()
+  }, [loadRoot])
 
   // Auto-refresh when a per-worktree refresh is requested.
   useEffect(() => {
     return subscribeWorktreeRefresh(worktreePath, 'files', (event) => {
-      loadRoot(event.force)
-      ftDispatch({ type: 'BUMP_GENERATION' })
+      loadRoot(event.force, true)
     })
   }, [worktreePath, loadRoot])
 
@@ -170,17 +252,25 @@ export function FileTree({ worktreePath, onFileSelect }: Props) {
     onFileSelect(path)
   }
 
-  const handleExpand = useCallback(
-    async (dirPath: string): Promise<FileEntry[]> => {
-      const fullPath = `${worktreePath}/${dirPath}`
-      const items = await ipc.git.getFileTree(fullPath)
-      return items.map((item: FileEntry) => ({
-        ...item,
-        path: `${dirPath}/${item.name}`
-      }))
-    },
-    [worktreePath]
-  )
+  const handleToggleDirectory = useCallback((dirPath: string) => {
+    const requestWorktreePath = worktreePath
+    const requestLoadId = rootLoadIdRef.current
+    const willExpand = !expandedPathsRef.current.has(dirPath)
+    const nextExpandedPaths = new Set(expandedPathsRef.current)
+    if (willExpand) nextExpandedPaths.add(dirPath)
+    else nextExpandedPaths.delete(dirPath)
+    expandedPathsRef.current = nextExpandedPaths
+
+    ftDispatch({ type: 'TOGGLE_DIRECTORY', path: dirPath })
+    if (willExpand && !childrenByPathRef.current[dirPath]) {
+      loadDirectory(dirPath)
+        .then((children) => {
+          if (rootLoadIdRef.current !== requestLoadId || worktreePathRef.current !== requestWorktreePath) return
+          ftDispatch({ type: 'SET_CHILDREN', path: dirPath, children })
+        })
+        .catch((err: unknown) => console.warn('[FileTree] folder expand failed:', err))
+    }
+  }, [loadDirectory, worktreePath])
 
   // Lazily fetch installed apps on first context menu open
   useEffect(() => {
@@ -249,12 +339,14 @@ export function FileTree({ worktreePath, onFileSelect }: Props) {
         <div className={`file-tree-body${refreshing ? ' refreshing' : ''}`}>
           {entries.map((entry) => (
             <TreeNode
-              key={`${entry.path}-${generation}`}
+              key={entry.path}
               entry={entry}
               worktreePath={worktreePath}
               selectedPath={selectedPath}
+              expandedPaths={expandedPaths}
+              childrenByPath={childrenByPath}
               onFileSelect={handleFileSelect}
-              onExpand={handleExpand}
+              onToggleDirectory={handleToggleDirectory}
               onContextMenu={handleContextMenu}
             />
           ))}
