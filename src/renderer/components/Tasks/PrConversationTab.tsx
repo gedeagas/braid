@@ -150,7 +150,7 @@ export function ReviewCommentEntry({ detail, comment, replies, compact = false }
           <TaskAvatar author={comment.author} avatarUrl={comment.authorAvatarUrl} />
           <div className="task-activity-content">{body}</div>
         </div>
-        {replies.map((reply) => <ReplyEntry key={`reply:${reply.id}`} detail={detail} reply={reply} />)}
+        {renderReplyEntries(detail, replies)}
         <ReviewThreadReply detail={detail} comment={comment} />
       </div>
     )
@@ -161,11 +161,22 @@ export function ReviewCommentEntry({ detail, comment, replies, compact = false }
       <TaskAvatar author={comment.author} avatarUrl={comment.authorAvatarUrl} />
       <div className="task-activity-content">
         {body}
-        {replies.map((reply) => <ReplyEntry key={`reply:${reply.id}`} detail={detail} reply={reply} />)}
+        {renderReplyEntries(detail, replies)}
         <ReviewThreadReply detail={detail} comment={comment} />
       </div>
     </div>
   )
+}
+
+function renderReplyEntries(detail: PrDetailController, replies: PrDetailController['rootReviewComments']) {
+  return replies.map((reply) => (
+    <ReplyEntry
+      key={`reply:${reply.id}`}
+      detail={detail}
+      reply={reply}
+      replies={detail.reviewRepliesByParent.get(reply.id) ?? []}
+    />
+  ))
 }
 
 function ReviewCommentHeader({ detail, comment }: { detail: PrDetailController; comment: ReviewComment }) {
@@ -184,8 +195,10 @@ function ReviewCommentHeader({ detail, comment }: { detail: PrDetailController; 
   )
 }
 
-function ReplyEntry({ detail, reply }: { detail: PrDetailController; reply: ReviewComment }) {
+function ReplyEntry({ detail, reply, replies }: { detail: PrDetailController; reply: ReviewComment; replies: PrDetailController['rootReviewComments'] }) {
   const { t } = useTranslation('tasks')
+  const { review } = detail
+  const isReplying = review.replyingCommentId === reply.id
   return (
     <div className={['task-detail-comment-reply', reply.pending ? 'task-detail-comment-reply--pending' : null, reply.error ? 'task-detail-comment-reply--error' : null].filter(Boolean).join(' ')}>
       <TaskAvatar author={reply.author} avatarUrl={reply.authorAvatarUrl} />
@@ -195,10 +208,21 @@ function ReplyEntry({ detail, reply }: { detail: PrDetailController; reply: Revi
           <em>{reply.pending ? t('conversation.sending') : reply.createdAt ? formatRelativeTime(reply.createdAt) : ''}</em>
           {reply.error && <Badge variant="danger" size="sm">{t('conversation.failed')}</Badge>}
           {reply.htmlUrl && <button onClick={() => ipc.shell.openExternal(reply.htmlUrl)} aria-label={t('conversation.openReplyOnGitHub')}><IconExternalLinkSmall size={9} /></button>}
+          {!reply.pending && reply.id > 0 && (
+            <button className="task-reply-inline-action" onClick={() => startReviewReply(review, reply)} type="button">
+              {t('conversation.reply')}
+            </button>
+          )}
         </div>
         <TaskMarkdown body={reply.body} baseUrl={detail.detailMarkdownBaseUrl} />
         <TaskReactions comment={reply} reactingSubjectIds={detail.review.reactingSubjectIds} onToggleReaction={detail.actions.handleToggleReaction} />
         {reply.error && <div className="task-activity-error">{reply.error}</div>}
+        {isReplying && (
+          <div className="task-thread-reply task-thread-reply--active task-thread-reply--inline">
+            <ReplyComposer detail={detail} comment={reply} />
+          </div>
+        )}
+        {renderReplyEntries(detail, replies)}
       </div>
     </div>
   )
@@ -208,23 +232,24 @@ function ReviewThreadReply({ detail, comment }: { detail: PrDetailController; co
   const { t } = useTranslation('tasks')
   const { review } = detail
   const isReplying = review.replyingCommentId === comment.id
-  const startReply = () => {
-    review.setReplyingCommentId(comment.id)
-    review.setReplyBody('')
-    review.setCommentError(null)
-  }
 
   return (
     <div className={['task-thread-reply', isReplying ? 'task-thread-reply--active' : null].filter(Boolean).join(' ')}>
       {isReplying ? (
         <ReplyComposer detail={detail} comment={comment} />
       ) : (
-        <button className="task-thread-reply-prompt" onClick={startReply} type="button">
+        <button className="task-thread-reply-prompt" onClick={() => startReviewReply(review, comment)} type="button">
           <span>{t('conversation.replyPrompt')}</span>
         </button>
       )}
     </div>
   )
+}
+
+function startReviewReply(review: PrDetailController['review'], comment: ReviewComment): void {
+  review.setReplyingCommentId(comment.id)
+  review.setReplyBody('')
+  review.setCommentError(null)
 }
 
 function ReplyComposer({ detail, comment }: { detail: PrDetailController; comment: ReviewComment }) {

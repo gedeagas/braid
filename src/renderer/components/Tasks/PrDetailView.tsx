@@ -1,4 +1,4 @@
-import { Badge, Button } from '@/components/ui'
+import { Badge, Button, Spinner } from '@/components/ui'
 import { Trans, useTranslation } from 'react-i18next'
 import {
   IconArrowLeft,
@@ -68,6 +68,7 @@ export function PrDetailView({ selectedRow, setSelectedRow, detail }: PrDetailVi
             </Button>
           )}
           {detailItem.url && <Button size="sm" onClick={() => ipc.shell.openExternal(detailItem.url)}><IconGitHub size={13} />{t('github')}</Button>}
+          <DetailRefreshStatus detail={detail} />
           <Button size="icon-sm" onClick={actions.handleRefreshPrDetail} aria-label={t('detail.refreshPullRequest')} loading={prDetailLoading}>
             {!prDetailLoading && <IconRefresh size={14} />}
           </Button>
@@ -96,6 +97,34 @@ export function PrDetailView({ selectedRow, setSelectedRow, detail }: PrDetailVi
         )}
       </div>
     </div>
+  )
+}
+
+function DetailRefreshStatus({ detail }: { detail: PrDetailController }) {
+  const { t } = useTranslation('tasks')
+  const { prDetail, prSummaryRefreshStatus, prSummaryRefreshedAt } = detail
+  if (!prDetail) return null
+
+  const title = prSummaryRefreshStatus === 'refreshing'
+    ? t('detail.refreshingSummary')
+    : prSummaryRefreshStatus === 'error'
+      ? t('detail.summaryRefreshFailed')
+      : prSummaryRefreshedAt
+        ? t('detail.summaryUpdatedTime', { time: formatRelativeTime(prSummaryRefreshedAt) })
+        : t('detail.summaryAutoRefresh')
+  const text = prSummaryRefreshStatus === 'refreshing'
+    ? t('detail.refreshingSummary')
+    : prSummaryRefreshStatus === 'error'
+      ? t('detail.summaryRefreshFailedShort')
+      : prSummaryRefreshedAt
+        ? t('detail.summaryUpdatedTime', { time: formatRelativeTime(prSummaryRefreshedAt) })
+        : t('detail.summaryAutoRefresh')
+
+  return (
+    <span className={`task-detail-refresh-status task-detail-refresh-status--${prSummaryRefreshStatus}`} title={title} aria-label={title}>
+      {prSummaryRefreshStatus === 'refreshing' ? <Spinner size="sm" /> : <span className="task-detail-refresh-status-dot" aria-hidden="true" />}
+      <span>{text}</span>
+    </span>
   )
 }
 

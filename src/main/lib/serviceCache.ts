@@ -78,6 +78,14 @@ export class ServiceCache<T> {
     }
   }
 
+  /** Update an existing fresh entry without extending its TTL. */
+  updateIfFresh(key: string, updater: (value: T) => T): boolean {
+    const entry = this.cache.get(key)
+    if (!entry || Date.now() >= entry.expiresAt) return false
+    this.cache.set(key, { value: updater(entry.value), expiresAt: entry.expiresAt })
+    return true
+  }
+
   /** Clear the entire cache. */
   clear(): void {
     this.cache.clear()

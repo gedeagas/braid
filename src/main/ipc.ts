@@ -335,6 +335,8 @@ export function registerIpcHandlers(): void {
     githubService.countWorkItems(repoPath, query, forceRefresh))
   ipcMain.handle('github:getPrDetail', (_e, repoPath: string, number: number, forceRefresh?: boolean) =>
     githubService.getPrDetail(repoPath, number, forceRefresh))
+  ipcMain.handle('github:getPrSummary', (_e, repoPath: string, number: number, forceRefresh?: boolean) =>
+    githubService.getPrSummary(repoPath, number, forceRefresh))
   ipcMain.handle('github:listReviewerSuggestions', (_e, repoPath: string, query?: string, limit?: number, forceRefresh?: boolean) =>
     githubService.listReviewerSuggestions(repoPath, query, limit, forceRefresh))
   ipcMain.handle('github:listLabelSuggestions', (_e, repoPath: string, query?: string, limit?: number, forceRefresh?: boolean) =>

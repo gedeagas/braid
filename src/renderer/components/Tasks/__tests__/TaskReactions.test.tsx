@@ -39,5 +39,6 @@ describe('TaskReactions', () => {
 
     expect(screen.getByRole('menu', { name: 'reactions.chooseReaction' })).toBeDefined()
     expect(screen.getAllByRole('menuitem').length).toBeGreaterThan(0)
+    expect(screen.getByRole('menu').className).toContain('task-reaction-menu--open')
   })
 })

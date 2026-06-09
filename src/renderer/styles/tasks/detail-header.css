@@ -47,6 +47,37 @@
   gap: var(--space-6);
 }
 
+.task-detail-refresh-status {
+  min-width: 0;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-5);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.task-detail-refresh-status .spinner {
+  flex-shrink: 0;
+}
+
+.task-detail-refresh-status-dot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--green) 76%, var(--text-muted));
+}
+
+.task-detail-refresh-status--error {
+  color: var(--amber);
+}
+
+.task-detail-refresh-status--error .task-detail-refresh-status-dot {
+  background: var(--amber);
+}
+
 .task-detail-actions .task-detail-workspace-action {
   min-width: 168px;
   height: 32px;

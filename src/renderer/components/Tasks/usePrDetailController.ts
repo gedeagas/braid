@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { useTasksReviewStore } from '@/store/tasks'
 import * as ipc from '@/lib/ipc'
 import { getPRCommentAudienceCounts, isBotPRComment } from '../../../shared/pr-comment-audience'
-import { PR_DETAIL_STALE_MS } from './constants'
+import { mergePrSummary } from '../../../shared/pr-summary'
+import { PR_SUMMARY_POLL_MS } from './constants'
 import type {
   GitHubPrDetail,
   GitHubPrFilePreview,
@@ -15,8 +16,8 @@ import type {
 import { checkVariant, getCheckState, groupChecks, isLikelyPreviewFile, parsePatch, shouldShowReviewTimelineEntry } from './taskUtils'
 import { usePrDetailActions } from './usePrDetailActions'
 
-const prDetailRenderCache = new Map<string, { detail: GitHubPrDetail; fetchedAt: number }>()
-const prDetailInFlight = new Map<string, Promise<GitHubPrDetail>>()
+const prDetailRenderCache = new Map<string, GitHubPrDetail>()
+type PrSummaryRefreshStatus = 'idle' | 'refreshing' | 'error'
 
 interface UsePrDetailControllerArgs {
   selectedRow: TaskRow | null
@@ -46,40 +47,41 @@ export function usePrDetailController(args: UsePrDetailControllerArgs) {
   const [filePreviews, setFilePreviews] = useState<Record<string, GitHubPrFilePreview>>({})
   const [optimisticIssueComments, setOptimisticIssueComments] = useState<UiIssueComment[]>([])
   const [optimisticReviewReplies, setOptimisticReviewReplies] = useState<UiReviewComment[]>([])
+  const [prSummaryRefreshStatus, setPrSummaryRefreshStatus] = useState<PrSummaryRefreshStatus>('idle')
+  const [prSummaryRefreshedAt, setPrSummaryRefreshedAt] = useState<string | null>(null)
   const pendingCommentIdRef = useRef(-1)
+  const selectedPrRepoPath = selectedRow?.item.type === 'pr' ? selectedRow.repoPath : null
+  const selectedPrNumber = selectedRow?.item.type === 'pr' ? selectedRow.item.number : null
 
   const loadPrDetail = useCallback((row: TaskRow, forceRefresh = false): Promise<GitHubPrDetail> => {
     const cacheKey = `${row.repoPath}:${row.item.number}`
-    const cached = prDetailRenderCache.get(cacheKey)
-    if (!forceRefresh && cached && Date.now() - cached.fetchedAt < PR_DETAIL_STALE_MS) return Promise.resolve(cached.detail)
-    const inFlightKey = `${cacheKey}:${forceRefresh ? 'force' : 'normal'}`
-    const existing = prDetailInFlight.get(inFlightKey)
-    if (existing) return existing
-    const request = (ipc.github.getPrDetail(row.repoPath, row.item.number, forceRefresh) as Promise<GitHubPrDetail>)
+    return (ipc.github.getPrDetail(row.repoPath, row.item.number, forceRefresh) as Promise<GitHubPrDetail>)
       .then((detail) => {
-        prDetailRenderCache.set(cacheKey, { detail, fetchedAt: Date.now() })
+        prDetailRenderCache.set(cacheKey, detail)
         return detail
       })
-      .finally(() => prDetailInFlight.delete(inFlightKey))
-    prDetailInFlight.set(inFlightKey, request)
-    return request
   }, [])
 
   useEffect(() => {
-    if (!selectedRow || selectedRow.item.type !== 'pr') return
+    const row = selectedRow
+    if (!row || row.item.type !== 'pr') return
     let cancelled = false
-    const cacheKey = `${selectedRow.repoPath}:${selectedRow.item.number}`
+    const cacheKey = `${row.repoPath}:${row.item.number}`
     const cached = prDetailRenderCache.get(cacheKey)
-    setPrDetail(cached?.detail ?? null)
+    setPrDetail(cached ?? null)
     setPrDetailError(null)
     resetPrDetailUi()
     setOptimisticIssueComments([])
     setOptimisticReviewReplies([])
     setFilePreviews({})
+    setPrSummaryRefreshStatus('idle')
     setPrDetailLoading(true)
-    void loadPrDetail(selectedRow, false)
+    void loadPrDetail(row, false)
       .then((detail) => {
-        if (!cancelled) setPrDetail(detail)
+        if (!cancelled) {
+          setPrDetail(detail)
+          setPrSummaryRefreshedAt(new Date().toISOString())
+        }
       })
       .catch((error: unknown) => {
         if (!cancelled) setPrDetailError(ipc.cleanIpcError(error, t('errors.loadPrDetails')))
@@ -90,7 +92,7 @@ export function usePrDetailController(args: UsePrDetailControllerArgs) {
     return () => {
       cancelled = true
     }
-  }, [loadPrDetail, resetPrDetailUi, selectedRow, t])
+  }, [loadPrDetail, resetPrDetailUi, selectedPrNumber, selectedPrRepoPath, t])
 
   useEffect(() => {
     if (!prDetail) return
@@ -101,9 +103,9 @@ export function usePrDetailController(args: UsePrDetailControllerArgs) {
   }, [prDetail, setSelectedFilePath])
 
   useEffect(() => {
-    if (!selectedRow || !prDetail) return
-    prDetailRenderCache.set(`${selectedRow.repoPath}:${selectedRow.item.number}`, { detail: prDetail, fetchedAt: Date.now() })
-  }, [prDetail, selectedRow])
+    if (!selectedPrRepoPath || !selectedPrNumber || !prDetail) return
+    prDetailRenderCache.set(`${selectedPrRepoPath}:${selectedPrNumber}`, prDetail)
+  }, [prDetail, selectedPrNumber, selectedPrRepoPath])
 
   const selectedPrFile = useMemo(
     () => (prDetail?.files ?? []).find((file) => file.path === selectedFilePath) ?? prDetail?.files[0] ?? null,
@@ -111,19 +113,74 @@ export function usePrDetailController(args: UsePrDetailControllerArgs) {
   )
 
   useEffect(() => {
-    if (!selectedRow || !prDetail || !selectedPrFile || !isLikelyPreviewFile(selectedPrFile)) return
+    if (!selectedPrRepoPath || !selectedPrNumber || !prDetail || !selectedPrFile || !isLikelyPreviewFile(selectedPrFile)) return
     if (filePreviews[selectedPrFile.path] || filePreviewLoadingPath === selectedPrFile.path) return
     setFilePreviewLoadingPath(selectedPrFile.path)
-    void ipc.github.getPrFilePreview(selectedRow.repoPath, selectedRow.item.number, selectedPrFile.path, prDetail.item.headRefOid)
+    void ipc.github.getPrFilePreview(selectedPrRepoPath, selectedPrNumber, selectedPrFile.path, prDetail.item.headRefOid)
       .then((preview: unknown) => setFilePreviews((current) => ({ ...current, [selectedPrFile.path]: preview as GitHubPrFilePreview })))
       .catch(() => setFilePreviews((current) => ({
         ...current,
         [selectedPrFile.path]: { path: selectedPrFile.path, kind: 'missing', mimeType: 'application/octet-stream', size: 0 },
       })))
       .finally(() => setFilePreviewLoadingPath(null))
-  }, [filePreviewLoadingPath, filePreviews, prDetail, selectedPrFile, selectedRow, setFilePreviewLoadingPath])
+  }, [filePreviewLoadingPath, filePreviews, prDetail, selectedPrFile, selectedPrNumber, selectedPrRepoPath, setFilePreviewLoadingPath])
 
   const detailItem = prDetail?.item ?? selectedRow?.item ?? null
+  const applyPrSummary = useCallback((summary: TaskRow['item']) => {
+    if (!selectedPrRepoPath || !selectedPrNumber || summary.type !== 'pr') return
+    setSelectedRow((current) => {
+      if (!current || current.item.type !== 'pr' || current.repoPath !== selectedPrRepoPath || current.item.number !== selectedPrNumber) return current
+      const item = mergePrSummary(current.item, summary)
+      return item === current.item ? current : { ...current, item }
+    })
+    setPrDetail((current) => {
+      if (!current || current.item.number !== selectedPrNumber) return current
+      const item = mergePrSummary(current.item, summary)
+      return item === current.item ? current : { ...current, item }
+    })
+  }, [selectedPrNumber, selectedPrRepoPath, setSelectedRow])
+
+  useEffect(() => {
+    if (selectedRow?.item.type !== 'pr') return
+    applyPrSummary(selectedRow.item)
+  }, [applyPrSummary, selectedRow?.item])
+
+  useEffect(() => {
+    if (!selectedPrRepoPath || !selectedPrNumber || detailItem?.state !== 'open') return
+    let cancelled = false
+    let inFlight = false
+    const poll = () => {
+      if (cancelled || inFlight || document.visibilityState === 'hidden') return
+      inFlight = true
+      setPrSummaryRefreshStatus('refreshing')
+      void ipc.github.getPrSummary(selectedPrRepoPath, selectedPrNumber)
+        .then((summary: unknown) => {
+          if (!cancelled) {
+            applyPrSummary(summary as TaskRow['item'])
+            setPrSummaryRefreshStatus('idle')
+            setPrSummaryRefreshedAt(new Date().toISOString())
+          }
+        })
+        .catch(() => {
+          // Summary polling is a freshness assist. Manual refresh owns visible recovery.
+          if (!cancelled) setPrSummaryRefreshStatus('error')
+        })
+        .finally(() => {
+          inFlight = false
+        })
+    }
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') poll()
+    }
+    const interval = window.setInterval(poll, PR_SUMMARY_POLL_MS)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [applyPrSummary, detailItem?.state, selectedPrNumber, selectedPrRepoPath])
+
   const selectedDiffLines = useMemo(() => parsePatch(selectedPrFile?.patch ?? ''), [selectedPrFile])
   const diffSearchResult = useMemo(() => {
     const term = diffSearch.trim()
@@ -226,6 +283,8 @@ export function usePrDetailController(args: UsePrDetailControllerArgs) {
     prDetail,
     prDetailLoading,
     prDetailError,
+    prSummaryRefreshStatus,
+    prSummaryRefreshedAt,
     filePreviews,
     detailItem,
     selectedPrFile,
