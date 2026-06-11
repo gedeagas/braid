@@ -270,6 +270,8 @@ const api = {
       ipcRenderer.invoke('github:countWorkItems', repoPath, query, forceRefresh),
     getPrDetail: (repoPath: string, number: number, forceRefresh?: boolean) =>
       ipcRenderer.invoke('github:getPrDetail', repoPath, number, forceRefresh),
+    getPrSummary: (repoPath: string, number: number, forceRefresh?: boolean) =>
+      ipcRenderer.invoke('github:getPrSummary', repoPath, number, forceRefresh),
     listReviewerSuggestions: (repoPath: string, query?: string, limit?: number, forceRefresh?: boolean) =>
       ipcRenderer.invoke('github:listReviewerSuggestions', repoPath, query, limit, forceRefresh),
     listLabelSuggestions: (repoPath: string, query?: string, limit?: number, forceRefresh?: boolean) =>

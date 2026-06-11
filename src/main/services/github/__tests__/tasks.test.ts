@@ -7,8 +7,10 @@ import type {
   GitHubPrDetail,
   GitHubPrFilePreview,
   GitHubReactionContent,
+  GitHubWorkItem,
   GitHubReviewerSuggestion,
   GitHubLabelSuggestion,
+  ListWorkItemsResult,
   PrGraphqlMetadata,
   PrIssueComment,
   PrReviewComment,
@@ -109,6 +111,107 @@ class TestGitHubTasks extends GitHubTasks {
   }
 }
 
+class CacheCoherenceGitHubTasks extends GitHubTasks {
+  detailFetches = 0
+
+  protected async hasRateLimitBudget(): Promise<boolean> {
+    return true
+  }
+
+  protected async _fetchChecksForPr(): Promise<CheckRun[]> {
+    return []
+  }
+
+  protected async _fetchReviewsForPr(): Promise<PrReviewData> {
+    return { reviews: [], comments: [] }
+  }
+
+  protected async _fetchIssueCommentsForPr(): Promise<PrIssueComment[]> {
+    return []
+  }
+
+  protected async _fetchFilesForPr(): Promise<GitHubPrFile[]> {
+    return []
+  }
+
+  protected async _fetchPrGraphqlMetadata(): Promise<PrGraphqlMetadata> {
+    return { pullRequestId: 'PR_kw', issueComments: [], reviewCommentThreads: new Map(), viewedStates: new Map() }
+  }
+
+  protected async _fetchPrDetail(): Promise<GitHubPrDetail> {
+    this.detailFetches += 1
+    return dirtyPrDetail()
+  }
+
+  protected async _fetchWorkItems(): Promise<ListWorkItemsResult> {
+    return { items: [cleanPrWorkItem()] }
+  }
+
+  protected async _fetchPrSummary(): Promise<GitHubWorkItem> {
+    return cleanPrWorkItem()
+  }
+}
+
+function dirtyPrDetail(): GitHubPrDetail {
+  return {
+    item: {
+      id: 'pr:42',
+      type: 'pr',
+      number: 42,
+      title: 'Improve task view',
+      state: 'open',
+      url: 'https://github.com/example/repo/pull/42',
+      author: 'author',
+      labels: ['bug'],
+      assignees: ['dev'],
+      updatedAt: '2026-06-05T00:00:00Z',
+      isDraft: false,
+      headBranch: 'feature/task-view',
+      baseBranch: 'main',
+      mergeable: 'CONFLICTING',
+      reviewDecision: 'APPROVED',
+      mergeStateStatus: 'DIRTY',
+      body: 'Detailed body',
+      createdAt: '2026-06-01T00:00:00Z',
+      pullRequestId: 'PR_kw',
+      headRefOid: 'abc123',
+      additions: 10,
+      deletions: 2,
+      changedFiles: 3,
+      commitsCount: 1,
+      repoNameWithOwner: 'example/repo',
+      reviewRequests: [],
+      labelDetails: [{ name: 'bug', color: 'cc0000', description: null }],
+    },
+    checks: [],
+    reviews: [],
+    issueComments: [],
+    comments: [],
+    files: [],
+  }
+}
+
+function cleanPrWorkItem(): GitHubWorkItem {
+  return {
+    id: 'pr:42',
+    type: 'pr',
+    number: 42,
+    title: 'Improve task view',
+    state: 'open',
+    url: 'https://github.com/example/repo/pull/42',
+    author: 'author',
+    labels: ['bug'],
+    assignees: ['dev'],
+    updatedAt: '2026-06-06T00:00:00Z',
+    isDraft: false,
+    headBranch: 'feature/task-view',
+    baseBranch: 'main',
+    mergeable: 'MERGEABLE',
+    reviewDecision: 'APPROVED',
+    mergeStateStatus: 'CLEAN',
+  }
+}
+
 describe('GitHubTasks', () => {
   it('classifies missing git remotes as repository-resolution failures', () => {
     expect(isNwoResolutionError(new Error('Command failed: gh repo view\nno git remotes found'))).toBe(true)
@@ -119,5 +222,36 @@ describe('GitHubTasks', () => {
 
     await expect(service.listWorkItems('/repo-without-remote')).resolves.toEqual({ items: [] })
     await expect(service.countWorkItems('/repo-without-remote')).resolves.toBe(0)
+  })
+
+  it('updates cached PR detail summaries from refreshed PR list results', async () => {
+    const service = new CacheCoherenceGitHubTasks()
+
+    await expect(service.getPrDetail('/repo', 42)).resolves.toMatchObject({
+      item: { mergeable: 'CONFLICTING', mergeStateStatus: 'DIRTY', body: 'Detailed body' },
+    })
+    await service.listWorkItems('/repo', 50, 'is:pr is:open', true)
+
+    await expect(service.getPrDetail('/repo', 42)).resolves.toMatchObject({
+      item: { mergeable: 'MERGEABLE', mergeStateStatus: 'CLEAN', body: 'Detailed body' },
+    })
+    expect(service.detailFetches).toBe(1)
+  })
+
+  it('updates cached PR detail summaries from lightweight summary fetches', async () => {
+    const service = new CacheCoherenceGitHubTasks()
+
+    await expect(service.getPrDetail('/repo', 42)).resolves.toMatchObject({
+      item: { mergeable: 'CONFLICTING', mergeStateStatus: 'DIRTY', body: 'Detailed body' },
+    })
+    await expect(service.getPrSummary('/repo', 42, true)).resolves.toMatchObject({
+      mergeable: 'MERGEABLE',
+      mergeStateStatus: 'CLEAN',
+    })
+
+    await expect(service.getPrDetail('/repo', 42)).resolves.toMatchObject({
+      item: { mergeable: 'MERGEABLE', mergeStateStatus: 'CLEAN', body: 'Detailed body' },
+    })
+    expect(service.detailFetches).toBe(1)
   })
 })

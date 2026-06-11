@@ -118,6 +118,25 @@ describe('ServiceCache', () => {
     expect(cache.size).toBe(1)
   })
 
+  it('updates fresh entries without extending their TTL', async () => {
+    vi.useFakeTimers()
+    const fn = vi.fn().mockResolvedValueOnce('v1').mockResolvedValueOnce('v2')
+
+    try {
+      await cache.get('k1', fn)
+      vi.advanceTimersByTime(500)
+
+      expect(cache.updateIfFresh('k1', (value) => `${value}-patched`)).toBe(true)
+      await expect(cache.get('k1', fn)).resolves.toBe('v1-patched')
+
+      vi.advanceTimersByTime(501)
+      await expect(cache.get('k1', fn)).resolves.toBe('v2')
+      expect(fn).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('clear removes all entries', async () => {
     const fn = vi.fn().mockResolvedValue('val')
 

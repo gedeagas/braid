@@ -9,6 +9,7 @@ import type {
   GitHubPrDetail,
   GitHubLabelSuggestion,
   GitHubReviewerSuggestion,
+  GitHubWorkItem,
   GitSyncStatus,
   ListWorkItemsResult,
   PrReviewData,
@@ -71,6 +72,7 @@ export abstract class GitHubCore {
   protected workItemsCache = new ServiceCache<ListWorkItemsResult>(60_000)
   protected workItemCountsCache = new ServiceCache<number>(120_000)
   protected prDetailCache = new ServiceCache<GitHubPrDetail>(30_000)
+  protected prSummaryCache = new ServiceCache<GitHubWorkItem>(30_000)
   protected reviewerSuggestionsCache = new ServiceCache<GitHubReviewerSuggestion[]>(60_000)
   protected labelSuggestionsCache = new ServiceCache<GitHubLabelSuggestion[]>(60_000)
   protected rateLimitCache = new ServiceCache<Record<string, { remaining: number; resetAt: number }>>(10_000)
@@ -113,9 +115,11 @@ export abstract class GitHubCore {
   protected invalidatePrDetail(repoPath: string, number?: number): void {
     if (typeof number === 'number') {
       this.prDetailCache.invalidate(`${repoPath}::pr-detail::${number}`)
+      this.prSummaryCache.invalidate(`${repoPath}::pr-summary::${number}`)
       return
     }
     this.prDetailCache.invalidateWhere((key) => key.startsWith(`${repoPath}::pr-detail::`))
+    this.prSummaryCache.invalidateWhere((key) => key.startsWith(`${repoPath}::pr-summary::`))
   }
 
   protected invalidateWorkItems(repoPath: string): void {

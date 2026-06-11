@@ -10,7 +10,7 @@
 
 .task-reactions .task-reaction-pill,
 .task-reactions .task-reaction-add-button,
-.task-reactions .task-reaction-menu button {
+.task-reaction-menu button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -38,8 +38,8 @@
 .task-reactions .task-reaction-pill.active,
 .task-reactions .task-reaction-add-button:hover,
 .task-reaction-add:focus-within .task-reaction-add-button,
-.task-reactions .task-reaction-menu button:hover,
-.task-reactions .task-reaction-menu button.active {
+.task-reaction-menu button:hover,
+.task-reaction-menu button.active {
   color: var(--text-primary);
   border-color: color-mix(in srgb, var(--accent) 46%, var(--border));
   background: color-mix(in srgb, var(--accent) 10%, var(--bg-hover));
@@ -47,7 +47,7 @@
 
 .task-reactions .task-reaction-pill:disabled,
 .task-reactions .task-reaction-add-button:disabled,
-.task-reactions .task-reaction-menu button:disabled {
+.task-reaction-menu button:disabled {
   cursor: default;
   opacity: 0.65;
 }
@@ -74,9 +74,6 @@
 }
 
 .task-reaction-menu {
-  position: absolute;
-  left: 0;
-  top: calc(100% + var(--space-6));
   z-index: var(--z-popover);
   display: grid;
   grid-template-columns: repeat(4, 30px);
@@ -86,25 +83,30 @@
   border-radius: var(--radius);
   background: color-mix(in srgb, var(--bg-secondary) 96%, #000);
   box-shadow: 0 12px 28px color-mix(in srgb, #000 32%, transparent);
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(4px);
-  transition: opacity 120ms ease, transform 120ms ease;
+  pointer-events: auto;
 }
 
 .task-reaction-menu--open {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0);
+  animation: task-reaction-menu-in 120ms ease;
 }
 
-.task-reactions .task-reaction-menu button {
+.task-reaction-menu button {
   width: 30px;
   height: 30px;
   padding: 0;
   border-radius: var(--radius-sm);
   font-size: 15px;
   line-height: 1;
+}
+
+@keyframes task-reaction-menu-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .task-detail-comment-reply--pending {

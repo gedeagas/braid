@@ -57,6 +57,13 @@ function buildPendingPrRow(request: PendingTaskPrRequest): TaskRow {
   }
 }
 
+function isSameTaskRow(a: TaskRow, b: TaskRow): boolean {
+  return a.projectId === b.projectId &&
+    a.repoPath === b.repoPath &&
+    a.item.type === b.item.type &&
+    a.item.number === b.item.number
+}
+
 export function TasksView() {
   const { t: tSidebar } = useTranslation('sidebar')
   const projects = useProjectsStore((s) => s.projects)
@@ -103,6 +110,15 @@ export function TasksView() {
     setSelectedRow(buildPendingPrRow(pendingTaskPrRequest))
     clearPendingTaskPrRequest(pendingTaskPrRequest.id)
   }, [clearPendingTaskPrRequest, pendingTaskPrRequest])
+
+  useEffect(() => {
+    setSelectedRow((current) => {
+      if (!current || current.item.type !== 'pr') return current
+      const updated = list.rows.find((row) => isSameTaskRow(row, current))
+      if (!updated) return current
+      return current.detailBackTarget ? { ...updated, detailBackTarget: current.detailBackTarget } : updated
+    })
+  }, [list.rows])
 
   const handleWorktreeCreated = (request: CreateWorktreeDialogRequest, worktree: Worktree) => {
     list.fetchTasks(true)

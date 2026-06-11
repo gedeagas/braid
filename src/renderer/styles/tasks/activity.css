@@ -322,11 +322,22 @@
   background: color-mix(in srgb, var(--bg-hover) 82%, transparent);
 }
 
+.task-detail-activity-header .task-reply-inline-action {
+  padding: 0 var(--space-7);
+  color: var(--text-muted);
+}
+
 .task-thread-reply {
   grid-column: 1 / -1;
   margin-top: var(--space-12);
   padding-top: var(--space-12);
   border-top: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
+}
+
+.task-thread-reply--inline {
+  margin-top: var(--space-8);
+  padding-top: 0;
+  border-top: 0;
 }
 
 .task-thread-reply-prompt {

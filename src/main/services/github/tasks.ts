@@ -1,4 +1,5 @@
 import { parseTaskQuery, type ParsedTaskQuery } from "../../../shared/task-query"
+import { mergePrSummary } from "../../../shared/pr-summary"
 import { GitHubCore, isNwoResolutionError, resolveNwo } from "./core"
 import {
   PR_DETAIL_JSON_FIELDS,
@@ -45,7 +46,11 @@ export abstract class GitHubTasks extends GitHubCore {
     const key = `${repoPath}::${normalizedLimit}::${normalizedQuery}`
     return this.workItemsCache.get(
       key,
-      () => this._fetchWorkItems(repoPath, normalizedLimit, normalizedQuery),
+      async () => {
+        const result = await this._fetchWorkItems(repoPath, normalizedLimit, normalizedQuery)
+        this.updateCachedPrDetailsFromWorkItems(repoPath, result.items)
+        return result
+      },
       { forceRefresh }
     )
   }
@@ -66,6 +71,20 @@ export abstract class GitHubTasks extends GitHubCore {
     return this.prDetailCache.get(
       key,
       () => this._fetchPrDetail(repoPath, normalizedNumber),
+      { forceRefresh }
+    )
+  }
+
+  async getPrSummary(repoPath: string, number: number, forceRefresh?: boolean): Promise<GitHubWorkItem> {
+    const normalizedNumber = Math.max(1, Math.round(number || 0))
+    const key = `${repoPath}::pr-summary::${normalizedNumber}`
+    return this.prSummaryCache.get(
+      key,
+      async () => {
+        const summary = await this._fetchPrSummary(repoPath, normalizedNumber)
+        this.updateCachedPrDetailFromWorkItem(repoPath, summary)
+        return summary
+      },
       { forceRefresh }
     )
   }
@@ -209,6 +228,16 @@ export abstract class GitHubTasks extends GitHubCore {
       comments: reviews.comments,
       files,
     }
+  }
+
+  protected async _fetchPrSummary(repoPath: string, number: number): Promise<GitHubWorkItem> {
+    const nwo = await resolveNwo(repoPath)
+    const raw = await this.gh(
+      ['pr', 'view', String(number), '--repo', nwo, '--json', WORK_ITEM_PR_LIST_JSON_FIELDS],
+      repoPath,
+      true
+    )
+    return mapPrWorkItem(JSON.parse(raw || '{}') as Record<string, unknown>)
   }
 
   async addPrComment(repoPath: string, number: number, body: string): Promise<PrIssueComment> {
@@ -499,6 +528,21 @@ export abstract class GitHubTasks extends GitHubCore {
       .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())
       .slice(0, limit)
     return { items }
+  }
+
+  private updateCachedPrDetailsFromWorkItems(repoPath: string, items: GitHubWorkItem[]): void {
+    for (const item of items) {
+      if (item.type !== 'pr') continue
+      this.updateCachedPrDetailFromWorkItem(repoPath, item)
+    }
+  }
+
+  private updateCachedPrDetailFromWorkItem(repoPath: string, item: GitHubWorkItem): void {
+    if (item.type !== 'pr') return
+    this.prDetailCache.updateIfFresh(`${repoPath}::pr-detail::${item.number}`, (detail) => {
+      const nextItem = mergePrSummary(detail.item, item)
+      return nextItem === detail.item ? detail : { ...detail, item: nextItem }
+    })
   }
 
   protected async _fetchWorkItemsByKind(

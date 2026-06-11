@@ -198,6 +198,8 @@ export const github = {
     api().github.countWorkItems(repoPath, query, forceRefresh),
   getPrDetail: (repoPath: string, number: number, forceRefresh?: boolean) =>
     api().github.getPrDetail(repoPath, number, forceRefresh),
+  getPrSummary: (repoPath: string, number: number, forceRefresh?: boolean) =>
+    api().github.getPrSummary(repoPath, number, forceRefresh),
   listReviewerSuggestions: (repoPath: string, query?: string, limit?: number, forceRefresh?: boolean) =>
     api().github.listReviewerSuggestions(repoPath, query, limit, forceRefresh),
   listLabelSuggestions: (repoPath: string, query?: string, limit?: number, forceRefresh?: boolean) =>

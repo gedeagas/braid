@@ -4,7 +4,7 @@ import type { GitHubReactionContent } from './types'
 export const DEFAULT_QUERY = 'author:@me is:pr is:open'
 export const PER_REPO_LIMIT = 50
 export const MAX_PER_REPO_LIMIT = 100
-export const PR_DETAIL_STALE_MS = 5 * 60 * 1000
+export const PR_SUMMARY_POLL_MS = 45 * 1000
 
 export const PRESETS = [
   { id: 'my-prs', labelKey: 'presets.mine', query: 'author:@me is:pr is:open' },
