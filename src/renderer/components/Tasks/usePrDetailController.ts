@@ -126,8 +126,8 @@ export function usePrDetailController(args: UsePrDetailControllerArgs) {
   }, [filePreviewLoadingPath, filePreviews, prDetail, selectedPrFile, selectedPrNumber, selectedPrRepoPath, setFilePreviewLoadingPath])
 
   const detailItem = prDetail?.item ?? selectedRow?.item ?? null
-  const applyPrSummary = useCallback((summary: TaskRow['item']) => {
-    if (!selectedPrRepoPath || !selectedPrNumber || summary.type !== 'pr') return
+  const applyPrSummary = useCallback((summary: TaskRow['item'] | null | undefined) => {
+    if (!summary || !selectedPrRepoPath || !selectedPrNumber || summary.type !== 'pr') return
     setSelectedRow((current) => {
       if (!current || current.item.type !== 'pr' || current.repoPath !== selectedPrRepoPath || current.item.number !== selectedPrNumber) return current
       const item = mergePrSummary(current.item, summary)

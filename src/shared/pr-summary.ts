@@ -33,15 +33,15 @@ const PR_SUMMARY_KEYS = [
 ] as const
 
 export function mergePrSummary<T extends PrSummaryLike>(target: T, summary: PrSummaryLike): T {
-  let changed = false
-  const next = { ...target } as T
-  const nextRecord = next as Record<string, unknown>
+  let next: T | null = null
   for (const key of PR_SUMMARY_KEYS) {
-    if (isSameSummaryValue(target[key], summary[key])) continue
-    nextRecord[key] = summary[key]
-    changed = true
+    const value = summary[key]
+    if (value === undefined || isSameSummaryValue(target[key], value)) continue
+    next ??= { ...target } as T
+    const nextRecord = next as Record<string, unknown>
+    nextRecord[key] = value
   }
-  return changed ? next : target
+  return next ?? target
 }
 
 function isSameSummaryValue(a: PrSummaryLike[keyof PrSummaryLike], b: PrSummaryLike[keyof PrSummaryLike]): boolean {
