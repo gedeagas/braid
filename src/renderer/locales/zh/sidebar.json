@@ -69,6 +69,7 @@
   "deleteWorktreeBody": "这将永久删除 '{{branch}}' worktree 及其磁盘上的所有文件。未提交的更改将会丢失。",
   "deleteWorktreeDontAsk": "不再询问",
   "deleteWorktreeConfirm": "删除",
+  "deleteWorktreeFailed": "删除 worktree 失败",
   "failedCreateWorktree": "创建 worktree 失败",
   "projectSettings": "项目设置",
   "projectFilters": "项目筛选",

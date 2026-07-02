@@ -69,6 +69,7 @@
   "deleteWorktreeBody": "Ini akan menghapus permanen worktree '{{branch}}' dan semua filenya dari disk. Perubahan yang belum disimpan akan hilang.",
   "deleteWorktreeDontAsk": "Jangan tanya lagi",
   "deleteWorktreeConfirm": "Hapus",
+  "deleteWorktreeFailed": "Gagal menghapus worktree",
   "failedCreateWorktree": "Gagal membuat worktree",
   "projectSettings": "Pengaturan proyek",
   "projectFilters": "Filter proyek",

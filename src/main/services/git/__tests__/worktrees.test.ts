@@ -232,9 +232,33 @@ describe('addWorktree', () => {
 // ---------------------------------------------------------------------------
 describe('removeWorktree', () => {
   it('calls git worktree remove --force', async () => {
+    mockExistsSync.mockImplementation((p: string) => p === REPO)
+
     await removeWorktree(REPO, '/repo/wt/feat')
 
     expect(mockRaw).toHaveBeenCalledWith(['worktree', 'remove', '/repo/wt/feat', '--force'])
+    expect(mockRmSync).not.toHaveBeenCalled()
+  })
+
+  it('removes a leftover worktree path when git reports success but files remain', async () => {
+    let worktreeExists = true
+    mockExistsSync.mockImplementation((p: string) => p === REPO || (p === '/repo/wt/feat' && worktreeExists))
+    mockRmSync.mockImplementation((p: string) => {
+      if (p === '/repo/wt/feat') worktreeExists = false
+    })
+
+    await removeWorktree(REPO, '/repo/wt/feat')
+
+    expect(mockRmSync).toHaveBeenCalledWith('/repo/wt/feat', { recursive: true, force: true })
+  })
+
+  it('throws when a leftover worktree path cannot be removed', async () => {
+    mockExistsSync.mockImplementation((p: string) => p === REPO || p === '/repo/wt/feat')
+
+    await expect(removeWorktree(REPO, '/repo/wt/feat')).rejects.toThrow(
+      'Git reported success but worktree still exists: /repo/wt/feat'
+    )
+    expect(mockRmSync).toHaveBeenCalledWith('/repo/wt/feat', { recursive: true, force: true })
   })
 
   it('throws when path is not a git repo', async () => {

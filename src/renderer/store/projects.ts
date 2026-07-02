@@ -403,6 +403,8 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
       import('@/components/Center/bigTerminalCache'),
     ])
 
+    await ipc.git.removeWorktree(project.path, worktree.path)
+
     // Clean up terminal instances for this worktree (PTYs + xterm instances)
     cleanupTerminals(worktree.path)
     cleanupSetupPanel(worktree.path)
@@ -437,17 +439,6 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
           : p
       )
     })
-
-    try {
-      await ipc.git.removeWorktree(project.path, worktree.path)
-    } catch (err) {
-      console.error('[Projects] removeWorktree failed:', err)
-      // Revert by refreshing actual state from disk. Per-worktree UI state
-      // (open tabs, selected file, localStorage) is preserved because the
-      // cleanup below only runs after the IPC call succeeds.
-      await get().refreshWorktrees(projectId)
-      return
-    }
 
     // IPC succeeded - now safe to prune per-worktree UI state and localStorage.
     // Doing this before the IPC would cause permanent state loss on git failure.
