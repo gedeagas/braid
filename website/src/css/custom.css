@@ -1,11 +1,11 @@
 /* ============================================================
-   Braid Docs — ported from braid-web landing theme
-   Space Grotesk headings + Inter body + neutral zinc palette
+   Braid Docs - ported from braid-web landing theme
+   IBM Plex typography + neutral zinc palette
    ============================================================ */
 
 /* --- Google Fonts ------------------------------------------ */
 
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300..700&family=Space+Grotesk:wght@300..700&family=Inter:wght@300..700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
 
 /* --- CSS Variables ----------------------------------------- */
 
@@ -20,11 +20,11 @@
   --ifm-color-primary-lightest: #80aef0;
 
   /* Typography */
-  --ifm-font-family-base: 'Inter', -apple-system, BlinkMacSystemFont,
+  --ifm-font-family-base: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont,
     'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
-  --ifm-font-family-monospace: 'JetBrains Mono', 'SF Mono', 'Fira Code',
+  --ifm-font-family-monospace: 'IBM Plex Mono', 'SF Mono', 'Fira Code',
     'Cascadia Code', Menlo, monospace;
-  --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-heading: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --ifm-font-size-base: 16px;
   --ifm-line-height-base: 1.75;
   --ifm-heading-font-weight: 700;
@@ -64,7 +64,7 @@
   --ifm-footer-background-color: #0a0a0a;
 }
 
-/* --- Headings use Space Grotesk everywhere ----------------- */
+/* --- Headings use IBM Plex everywhere ---------------------- */
 
 h1, h2, h3, h4, h5, h6,
 .navbar__title {
@@ -990,7 +990,7 @@ article ul li strong {
   overflow: hidden;
   background: #0d1117;
   color: #e6edf3;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  font-family: var(--ifm-font-family-base);
   font-size: 13px;
   line-height: 1.5;
   border: 1px solid #30363d;
@@ -1655,7 +1655,7 @@ article ul li strong {
 .bp-terminal__body {
   flex: 1;
   padding: 6px 8px;
-  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-family: var(--ifm-font-family-monospace);
   font-size: 10px;
   line-height: 1.6;
   overflow: hidden;
@@ -1873,7 +1873,7 @@ article ul li strong {
   flex: 1;
   overflow-y: auto;
   padding: 4px 0;
-  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-family: var(--ifm-font-family-monospace);
   font-size: 10.5px;
   line-height: 1.6;
   background: #0d1117;
@@ -2318,7 +2318,7 @@ article ul li strong {
 /* Inline diff */
 .bp-diff {
   border-top: 1px solid #30363d;
-  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-family: var(--ifm-font-family-monospace);
   font-size: 10px;
   line-height: 1.6;
   overflow: hidden;

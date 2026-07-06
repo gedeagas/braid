@@ -876,6 +876,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@fontsource/ibm-plex-sans@npm:^5.2.8":
+  version: 5.2.8
+  resolution: "@fontsource/ibm-plex-sans@npm:5.2.8"
+  checksum: 10c0/3cdb45d9dd54f9b4ec0d5912215bbc5ef5a89cea99cc28d46fa5cf6ebee457f94183f42be5994b61b6cdacec0fe67d697b6642678823dc0cc7e7b58180e86211
+  languageName: node
+  linkType: hard
+
 "@gar/promise-retry@npm:^1.0.0":
   version: 1.0.3
   resolution: "@gar/promise-retry@npm:1.0.3"
@@ -3275,6 +3282,7 @@ __metadata:
     "@electron/packager": "npm:^18.3.5"
     "@electron/rebuild": "npm:^3.7.0"
     "@floating-ui/react": "npm:^0.27.19"
+    "@fontsource/ibm-plex-sans": "npm:^5.2.8"
     "@mobilenext/mobilecli": "npm:^0.1.62"
     "@modelcontextprotocol/sdk": "npm:^1.29.0"
     "@monaco-editor/react": "npm:^4.7.0"

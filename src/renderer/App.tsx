@@ -8,7 +8,8 @@ import { ResizeHandle } from '@/components/shared/ResizeHandle'
 import { useProjectsStore } from '@/store/projects'
 import { initAgentEventListener, useSessionsStore } from '@/store/sessions'
 import { useUIStore, selectActiveCenterView } from '@/store/ui'
-import { syncAllPersistedBigTerminalMetadata } from '@/store/ui/terminals'
+import { getAllPersistedBigTerminalIds, syncAllPersistedBigTerminalMetadata } from '@/store/ui/terminals'
+import { getAllPersistedRightTerminalIds } from '@/components/Right/terminalCache'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { applyTheme } from '@/themes/apply'
 import { findTheme, builtinThemes } from '@/themes/palettes'
@@ -33,6 +34,7 @@ import { initUpdateListeners } from '@/store/updater'
 import * as actions from '@/lib/appActions'
 import { initAgentDetection } from '@/lib/agentDetection'
 import { UsageStatusBar } from '@/components/StatusBar/UsageStatusBar'
+import { reapOrphanedTerminals } from '@/lib/orphanedTerminals'
 
 export default function App() {
   const autoUpdate = useAutoUpdate()
@@ -112,6 +114,12 @@ export default function App() {
     // (and cold-start hydrate) can name terminals in worktrees the user hasn't
     // re-selected this session - loadInitial() hydrates state without syncing.
     syncAllPersistedBigTerminalMetadata()
+    const knownTerminalIds = [...getAllPersistedBigTerminalIds(), ...getAllPersistedRightTerminalIds()]
+    reapOrphanedTerminals(knownTerminalIds)
+      .then((count) => {
+        if (count > 0) console.log(`[Braid] Reaped ${count} orphaned terminal${count === 1 ? '' : 's'}`)
+      })
+      .catch((e) => console.error('[Braid] Failed to reap orphaned terminals:', e))
     loadProjects()
       .then(() => console.log('[Braid] Projects loaded'))
       .catch((e) => console.error('[Braid] Failed to load projects:', e))
