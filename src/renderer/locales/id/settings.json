@@ -110,12 +110,12 @@
     "showKey": "Tampilkan",
     "hideKey": "Sembunyikan",
     "claudeCliPath": "Path Eksekutabel Claude Code",
-    "claudeCliPathHint": "Path absolut ke cli.js di dalam @anthropic-ai/claude-agent-sdk. Kosongkan untuk deteksi otomatis.",
+    "claudeCliPathHint": "Path absolut ke executable Claude Code. Kosongkan untuk deteksi otomatis.",
     "claudeCliDetect": "Deteksi",
     "claudeCliDetecting": "Mendeteksi...",
     "cliNotFound": "Claude CLI tidak ditemukan di sistem ini",
     "claudeCliBrowse": "Jelajahi",
-    "claudeCliPlaceholder": "/path/ke/node_modules/@anthropic-ai/claude-agent-sdk/cli.js"
+    "claudeCliPlaceholder": "/path/to/claude"
   },
   "git": {
     "branchPrefix": "Prefiks Nama Cabang Default",

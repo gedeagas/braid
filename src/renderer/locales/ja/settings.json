@@ -110,12 +110,12 @@
     "showKey": "表示",
     "hideKey": "非表示",
     "claudeCliPath": "Claude Code 実行ファイルパス",
-    "claudeCliPathHint": "@anthropic-ai/claude-agent-sdk 内の cli.js への絶対パス。空白で自動検出。",
+    "claudeCliPathHint": "Claude Code 実行ファイルへの絶対パス。空白で自動検出。",
     "claudeCliDetect": "自動検出",
     "claudeCliDetecting": "検出中...",
     "cliNotFound": "Claude CLIが見つかりませんでした",
     "claudeCliBrowse": "参照",
-    "claudeCliPlaceholder": "/path/to/node_modules/@anthropic-ai/claude-agent-sdk/cli.js"
+    "claudeCliPlaceholder": "/path/to/claude"
   },
   "git": {
     "branchPrefix": "デフォルトブランチ名プレフィックス",

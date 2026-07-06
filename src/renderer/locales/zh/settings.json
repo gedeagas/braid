@@ -110,12 +110,12 @@
     "showKey": "显示",
     "hideKey": "隐藏",
     "claudeCliPath": "Claude Code 可执行文件路径",
-    "claudeCliPathHint": "@anthropic-ai/claude-agent-sdk 中 cli.js 的绝对路径。留空自动检测。",
+    "claudeCliPathHint": "Claude Code 可执行文件的绝对路径。留空自动检测。",
     "claudeCliDetect": "检测",
     "claudeCliDetecting": "检测中...",
     "cliNotFound": "此系统未找到 Claude CLI",
     "claudeCliBrowse": "浏览",
-    "claudeCliPlaceholder": "/path/to/node_modules/@anthropic-ai/claude-agent-sdk/cli.js"
+    "claudeCliPlaceholder": "/path/to/claude"
   },
   "git": {
     "branchPrefix": "默认分支名前缀",

@@ -110,12 +110,12 @@
     "showKey": "Show",
     "hideKey": "Hide",
     "claudeCliPath": "Claude Code Executable Path",
-    "claudeCliPathHint": "Absolute path to cli.js inside @anthropic-ai/claude-agent-sdk. Leave blank for auto-detect.",
+    "claudeCliPathHint": "Absolute path to the Claude Code executable. Leave blank for auto-detect.",
     "claudeCliDetect": "Detect",
     "claudeCliDetecting": "Detecting...",
     "cliNotFound": "Claude CLI not found on this system",
     "claudeCliBrowse": "Browse",
-    "claudeCliPlaceholder": "/path/to/node_modules/@anthropic-ai/claude-agent-sdk/cli.js"
+    "claudeCliPlaceholder": "/path/to/claude"
   },
   "git": {
     "branchPrefix": "Default Branch Name Prefix",

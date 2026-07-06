@@ -6,7 +6,7 @@
  *
  * Priority:
  *   1. System `claude` binary — common install locations + `which claude`
- *   2. Bundled cli.js in app.asar.unpacked
+ *   2. Bundled native SDK binary in app.asar.unpacked
  *   3. __dirname relative fallback (dev only)
  */
 
@@ -14,6 +14,38 @@ import os from 'os'
 import path from 'path'
 import { existsSync, readdirSync } from 'fs'
 import { enrichedEnv } from '../lib/enrichedEnv'
+
+function sdkNativePackageNames(): string[] {
+  const arch = process.arch
+  const suffix = process.platform === 'win32' ? '.exe' : ''
+  const platform = process.platform === 'darwin'
+    ? 'darwin'
+    : process.platform === 'win32'
+      ? 'win32'
+      : 'linux'
+
+  const names = [`@anthropic-ai/claude-agent-sdk-${platform}-${arch}`]
+  if (platform === 'linux') names.push(`@anthropic-ai/claude-agent-sdk-linux-${arch}-musl`)
+  return names.map((pkg) => path.join(pkg, `claude${suffix}`))
+}
+
+function findBundledSdkClaude(scopeDir: string): string | undefined {
+  for (const rel of sdkNativePackageNames()) {
+    const candidate = path.join(scopeDir, rel.replace('@anthropic-ai/', ''))
+    if (existsSync(candidate)) return candidate
+  }
+  return undefined
+}
+
+function findInstalledSdkClaude(): string | undefined {
+  try {
+    const sdkEntrypoint = require.resolve('@anthropic-ai/claude-agent-sdk')
+    const scopeDir = path.dirname(path.dirname(sdkEntrypoint))
+    return findBundledSdkClaude(scopeDir)
+  } catch {
+    return undefined
+  }
+}
 
 /** Discover `claude` binary under any NVM-managed Node version. */
 function findNvmClaude(home: string): string | undefined {
@@ -55,21 +87,21 @@ export function resolveCliPath(): string | undefined {
     if (result && existsSync(result)) return result
   } catch { /* claude not on PATH */ }
 
-  // Strategy 2: bundled cli.js in app.asar.unpacked
-  const SDK_REL = path.join('app.asar.unpacked', 'node_modules', '@anthropic-ai', 'claude-agent-sdk', 'cli.js')
+  // Strategy 2: bundled native SDK binary in app.asar.unpacked
+  const SDK_SCOPE_REL = path.join('app.asar.unpacked', 'node_modules', '@anthropic-ai')
   const resourcesViaExec = path.join(path.dirname(process.execPath), '..', 'Resources')
-  const p2 = path.join(resourcesViaExec, SDK_REL)
-  if (existsSync(p2)) return p2
+  const p2 = findBundledSdkClaude(path.join(resourcesViaExec, SDK_SCOPE_REL))
+  if (p2) return p2
 
   const rp = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
   if (rp) {
-    const p = path.join(rp, SDK_REL)
-    if (existsSync(p)) return p
+    const p = findBundledSdkClaude(path.join(rp, SDK_SCOPE_REL))
+    if (p) return p
   }
 
   // Strategy 3: dev fallback
-  const p3 = path.join(__dirname, '..', '..', 'node_modules', '@anthropic-ai', 'claude-agent-sdk', 'cli.js')
-  if (existsSync(p3)) return p3
+  const p3 = findInstalledSdkClaude()
+  if (p3) return p3
 
   return undefined
 }
@@ -77,7 +109,7 @@ export function resolveCliPath(): string | undefined {
 /** Lazily-resolved auto CLI path (resolved once at module load time). */
 export const AUTO_CLI_PATH: string | undefined = resolveCliPath()
 
-/** Returns the best available cli.js path: user override → auto-resolved → undefined */
+/** Returns the best available Claude Code executable path: user override → auto-resolved → undefined */
 export function getCliPath(userPath?: string): string | undefined {
   if (userPath) {
     const expanded = userPath.startsWith('~')
