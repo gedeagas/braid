@@ -438,6 +438,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('sessions:purgeOrphaned', (_e, activeWorktreeIds: string[]) => sessionStorageService.purgeOrphaned(new Set(activeWorktreeIds)))
 
   // Shell
+  ipcMain.handle('shell:isPackaged', () => app.isPackaged)
   ipcMain.handle('shell:openExternal', (_e, url: string) => shell.openExternal(url))
   ipcMain.handle('shell:showItemInFolder', (_e, fullPath: string) => shell.showItemInFolder(fullPath))
 

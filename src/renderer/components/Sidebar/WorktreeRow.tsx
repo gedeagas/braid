@@ -11,6 +11,8 @@ import { useSessionsForWorktree } from '@/store/sessions'
 import { useTranslation } from 'react-i18next'
 import { IconGitBranch } from '@/components/shared/icons'
 import { worktreeName } from '@/lib/branchValidation'
+import { flash } from '@/store/flash'
+import { cleanIpcError } from '@/lib/ipc'
 
 interface Props {
   worktree: Worktree
@@ -112,9 +114,16 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
   else if (hasDoneAgent) status = 'done'
   else if (sessions.some((s) => s.status === 'idle')) status = 'active'
 
+  const runDeleteWorktree = () => {
+    removeWorktree(worktree.projectId, worktree.id).catch((err) => {
+      console.error('[WorktreeRow] removeWorktree failed:', err)
+      flash('error', cleanIpcError(err, t('deleteWorktreeFailed')), 5_000)
+    })
+  }
+
   const requestDeleteWorktree = () => {
     if (skipDeleteConfirm) {
-      removeWorktree(worktree.projectId, worktree.id)
+      runDeleteWorktree()
     } else {
       rowDispatch({ type: 'SHOW_DELETE_CONFIRM' })
     }
@@ -262,7 +271,7 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
                 onClick={() => {
                   if (dontAskAgain) setSkipDeleteConfirm(true)
                   rowDispatch({ type: 'HIDE_DELETE_CONFIRM' })
-                  removeWorktree(worktree.projectId, worktree.id)
+                  runDeleteWorktree()
                 }}
               >
                 {t('deleteWorktreeConfirm')}

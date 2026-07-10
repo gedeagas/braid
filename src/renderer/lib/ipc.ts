@@ -276,6 +276,7 @@ export const sessions = {
 
 export const shell = {
   get platform() { return api().shell.platform },
+  isPackaged: () => api().shell.isPackaged() as Promise<boolean>,
   openExternal: (url: string) => api().shell.openExternal(url),
   showItemInFolder: (path: string) => api().shell.showItemInFolder(path),
   getInstalledApps: () => api().shell.getInstalledApps(),

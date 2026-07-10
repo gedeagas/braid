@@ -37,7 +37,7 @@
   --space-list-gap: var(--space-4);
 
   /* ── Typography ───────────────────────────────────────────────────── */
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --font-mono: 'Menlo', 'Monaco', 'Courier New', monospace;
 
   --text-2xs: 9px;

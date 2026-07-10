@@ -5,7 +5,7 @@ import { SK } from '@/lib/storageKeys'
 import { DEFAULT_EFFORT, EFFORT_LEVELS } from '@/lib/constants'
 import { loadStr, loadBool, loadInt, loadFloat } from './helpers'
 
-const VALID_MODEL_IDS: readonly string[] = ['claude-opus-4-7', 'claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5-20251001']
+const VALID_MODEL_IDS: readonly string[] = ['claude-fable-5', 'claude-opus-4-8', 'claude-sonnet-5', 'claude-opus-4-7', 'claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5-20251001']
 const VALID_EFFORT_LEVELS = new Set<string>(EFFORT_LEVELS.map((l) => l.id))
 const DEFAULT_MODEL: ModelId = 'claude-sonnet-4-6'
 const DEFAULT_AGENT_ID = 'claude'

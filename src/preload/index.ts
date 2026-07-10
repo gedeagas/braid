@@ -365,6 +365,7 @@ const api = {
   // Shell
   shell: {
     platform: process.platform,
+    isPackaged: () => ipcRenderer.invoke('shell:isPackaged') as Promise<boolean>,
     openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url),
     showItemInFolder: (path: string) => ipcRenderer.invoke('shell:showItemInFolder', path),
     getInstalledApps: () => ipcRenderer.invoke('shell:getInstalledApps') as Promise<Array<{ id: string; name: string; icon: string | null }>>,

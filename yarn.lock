@@ -5,49 +5,102 @@ __metadata:
   version: 8
   cacheKey: 10c0
 
-"@anthropic-ai/claude-agent-sdk@npm:0.2.112":
-  version: 0.2.112
-  resolution: "@anthropic-ai/claude-agent-sdk@npm:0.2.112"
-  dependencies:
-    "@anthropic-ai/sdk": "npm:^0.81.0"
-    "@img/sharp-darwin-arm64": "npm:^0.34.2"
-    "@img/sharp-darwin-x64": "npm:^0.34.2"
-    "@img/sharp-linux-arm": "npm:^0.34.2"
-    "@img/sharp-linux-arm64": "npm:^0.34.2"
-    "@img/sharp-linux-x64": "npm:^0.34.2"
-    "@img/sharp-linuxmusl-arm64": "npm:^0.34.2"
-    "@img/sharp-linuxmusl-x64": "npm:^0.34.2"
-    "@img/sharp-win32-arm64": "npm:^0.34.2"
-    "@img/sharp-win32-x64": "npm:^0.34.2"
-    "@modelcontextprotocol/sdk": "npm:^1.29.0"
-  peerDependencies:
-    zod: ^4.0.0
-  dependenciesMeta:
-    "@img/sharp-darwin-arm64":
-      optional: true
-    "@img/sharp-darwin-x64":
-      optional: true
-    "@img/sharp-linux-arm":
-      optional: true
-    "@img/sharp-linux-arm64":
-      optional: true
-    "@img/sharp-linux-x64":
-      optional: true
-    "@img/sharp-linuxmusl-arm64":
-      optional: true
-    "@img/sharp-linuxmusl-x64":
-      optional: true
-    "@img/sharp-win32-arm64":
-      optional: true
-    "@img/sharp-win32-x64":
-      optional: true
-  checksum: 10c0/7727b8f864fb003409eec0459209f3c1627225fa7cf760b4854703baf6fcb47bbd18c7707529a949d2eba9f2b16bf93579be092b58221903897e4a60b4c0f42a
+"@anthropic-ai/claude-agent-sdk-darwin-arm64@npm:0.3.198":
+  version: 0.3.198
+  resolution: "@anthropic-ai/claude-agent-sdk-darwin-arm64@npm:0.3.198"
+  conditions: os=darwin & cpu=arm64
   languageName: node
   linkType: hard
 
-"@anthropic-ai/sdk@npm:^0.81.0":
-  version: 0.81.0
-  resolution: "@anthropic-ai/sdk@npm:0.81.0"
+"@anthropic-ai/claude-agent-sdk-darwin-x64@npm:0.3.198":
+  version: 0.3.198
+  resolution: "@anthropic-ai/claude-agent-sdk-darwin-x64@npm:0.3.198"
+  conditions: os=darwin & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@anthropic-ai/claude-agent-sdk-linux-arm64-musl@npm:0.3.198":
+  version: 0.3.198
+  resolution: "@anthropic-ai/claude-agent-sdk-linux-arm64-musl@npm:0.3.198"
+  conditions: os=linux & cpu=arm64 & libc=musl
+  languageName: node
+  linkType: hard
+
+"@anthropic-ai/claude-agent-sdk-linux-arm64@npm:0.3.198":
+  version: 0.3.198
+  resolution: "@anthropic-ai/claude-agent-sdk-linux-arm64@npm:0.3.198"
+  conditions: os=linux & cpu=arm64 & libc=glibc
+  languageName: node
+  linkType: hard
+
+"@anthropic-ai/claude-agent-sdk-linux-x64-musl@npm:0.3.198":
+  version: 0.3.198
+  resolution: "@anthropic-ai/claude-agent-sdk-linux-x64-musl@npm:0.3.198"
+  conditions: os=linux & cpu=x64 & libc=musl
+  languageName: node
+  linkType: hard
+
+"@anthropic-ai/claude-agent-sdk-linux-x64@npm:0.3.198":
+  version: 0.3.198
+  resolution: "@anthropic-ai/claude-agent-sdk-linux-x64@npm:0.3.198"
+  conditions: os=linux & cpu=x64 & libc=glibc
+  languageName: node
+  linkType: hard
+
+"@anthropic-ai/claude-agent-sdk-win32-arm64@npm:0.3.198":
+  version: 0.3.198
+  resolution: "@anthropic-ai/claude-agent-sdk-win32-arm64@npm:0.3.198"
+  conditions: os=win32 & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"@anthropic-ai/claude-agent-sdk-win32-x64@npm:0.3.198":
+  version: 0.3.198
+  resolution: "@anthropic-ai/claude-agent-sdk-win32-x64@npm:0.3.198"
+  conditions: os=win32 & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@anthropic-ai/claude-agent-sdk@npm:0.3.198":
+  version: 0.3.198
+  resolution: "@anthropic-ai/claude-agent-sdk@npm:0.3.198"
+  dependencies:
+    "@anthropic-ai/claude-agent-sdk-darwin-arm64": "npm:0.3.198"
+    "@anthropic-ai/claude-agent-sdk-darwin-x64": "npm:0.3.198"
+    "@anthropic-ai/claude-agent-sdk-linux-arm64": "npm:0.3.198"
+    "@anthropic-ai/claude-agent-sdk-linux-arm64-musl": "npm:0.3.198"
+    "@anthropic-ai/claude-agent-sdk-linux-x64": "npm:0.3.198"
+    "@anthropic-ai/claude-agent-sdk-linux-x64-musl": "npm:0.3.198"
+    "@anthropic-ai/claude-agent-sdk-win32-arm64": "npm:0.3.198"
+    "@anthropic-ai/claude-agent-sdk-win32-x64": "npm:0.3.198"
+  peerDependencies:
+    "@anthropic-ai/sdk": ">=0.93.0"
+    "@modelcontextprotocol/sdk": ^1.29.0
+    zod: ^4.0.0
+  dependenciesMeta:
+    "@anthropic-ai/claude-agent-sdk-darwin-arm64":
+      optional: true
+    "@anthropic-ai/claude-agent-sdk-darwin-x64":
+      optional: true
+    "@anthropic-ai/claude-agent-sdk-linux-arm64":
+      optional: true
+    "@anthropic-ai/claude-agent-sdk-linux-arm64-musl":
+      optional: true
+    "@anthropic-ai/claude-agent-sdk-linux-x64":
+      optional: true
+    "@anthropic-ai/claude-agent-sdk-linux-x64-musl":
+      optional: true
+    "@anthropic-ai/claude-agent-sdk-win32-arm64":
+      optional: true
+    "@anthropic-ai/claude-agent-sdk-win32-x64":
+      optional: true
+  checksum: 10c0/ee6f6aea014183a7f55d4a317d195d12a06f3a20d39e7ddb5a0b165e6cbbe9c330088d7fde3ce4da8dfcf40889b8ea91bf4e75686d2b96af136afd9ea3f3b066
+  languageName: node
+  linkType: hard
+
+"@anthropic-ai/sdk@npm:^0.93.0":
+  version: 0.93.0
+  resolution: "@anthropic-ai/sdk@npm:0.93.0"
   dependencies:
     json-schema-to-ts: "npm:^3.1.1"
   peerDependencies:
@@ -57,7 +110,7 @@ __metadata:
       optional: true
   bin:
     anthropic-ai-sdk: bin/cli
-  checksum: 10c0/9ce1de04f88c05a74e67d07e8707d74815df8a9ad4977fbd7ad6fc146cef521214f11c4faeab5f5c00d76ee5671bf4e223dadf0e2f98c2c979aa9e33c8f89d8d
+  checksum: 10c0/36d82713404322a047f87a85908c1eb7b363a193d534ec70022f2f669f9432083f509abb71a47e045028a544c73d4f5d8d0cc6a566998810a3cb5dde62c37a95
   languageName: node
   linkType: hard
 
@@ -273,10 +326,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@babel/runtime@npm:^7.12.5, @babel/runtime@npm:^7.18.3, @babel/runtime@npm:^7.23.2, @babel/runtime@npm:^7.29.2":
+"@babel/runtime@npm:^7.12.5, @babel/runtime@npm:^7.23.2, @babel/runtime@npm:^7.29.2":
   version: 7.29.2
   resolution: "@babel/runtime@npm:7.29.2"
   checksum: 10c0/30b80a0140d16467792e1bbeb06f655b0dab70407da38dfac7fedae9c859f9ae9d846ef14ad77bd3814c064295fe9b1bc551f1541ea14646ae9f22b71a8bc17a
+  languageName: node
+  linkType: hard
+
+"@babel/runtime@npm:^7.18.3":
+  version: 7.29.7
+  resolution: "@babel/runtime@npm:7.29.7"
+  checksum: 10c0/ca11572f7146b21e0bde6a9ed4bb6a89eafbee5f0944c7eb54d0d8a2dac962c33638a1d611e14faa71dfbb92b4b5f9236232208568a6b7d5c6f3f39ddb91771e
   languageName: node
   linkType: hard
 
@@ -816,6 +876,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@fontsource/ibm-plex-sans@npm:^5.2.8":
+  version: 5.2.8
+  resolution: "@fontsource/ibm-plex-sans@npm:5.2.8"
+  checksum: 10c0/3cdb45d9dd54f9b4ec0d5912215bbc5ef5a89cea99cc28d46fa5cf6ebee457f94183f42be5994b61b6cdacec0fe67d697b6642678823dc0cc7e7b58180e86211
+  languageName: node
+  linkType: hard
+
 "@gar/promise-retry@npm:^1.0.0":
   version: 1.0.3
   resolution: "@gar/promise-retry@npm:1.0.3"
@@ -836,153 +903,6 @@ __metadata:
   peerDependencies:
     hono: ^4
   checksum: 10c0/06b5c7ba775d585abebe1ece155f3b00cc9013319818c58bba6f1b1e71df44d1d0d6c6e66cd50350ab6f0b9219a182f83c9fe3074b81a1d1ebb0a1493a73db9e
-  languageName: node
-  linkType: hard
-
-"@img/sharp-darwin-arm64@npm:^0.34.2":
-  version: 0.34.5
-  resolution: "@img/sharp-darwin-arm64@npm:0.34.5"
-  dependencies:
-    "@img/sharp-libvips-darwin-arm64": "npm:1.2.4"
-  dependenciesMeta:
-    "@img/sharp-libvips-darwin-arm64":
-      optional: true
-  conditions: os=darwin & cpu=arm64
-  languageName: node
-  linkType: hard
-
-"@img/sharp-darwin-x64@npm:^0.34.2":
-  version: 0.34.5
-  resolution: "@img/sharp-darwin-x64@npm:0.34.5"
-  dependencies:
-    "@img/sharp-libvips-darwin-x64": "npm:1.2.4"
-  dependenciesMeta:
-    "@img/sharp-libvips-darwin-x64":
-      optional: true
-  conditions: os=darwin & cpu=x64
-  languageName: node
-  linkType: hard
-
-"@img/sharp-libvips-darwin-arm64@npm:1.2.4":
-  version: 1.2.4
-  resolution: "@img/sharp-libvips-darwin-arm64@npm:1.2.4"
-  conditions: os=darwin & cpu=arm64
-  languageName: node
-  linkType: hard
-
-"@img/sharp-libvips-darwin-x64@npm:1.2.4":
-  version: 1.2.4
-  resolution: "@img/sharp-libvips-darwin-x64@npm:1.2.4"
-  conditions: os=darwin & cpu=x64
-  languageName: node
-  linkType: hard
-
-"@img/sharp-libvips-linux-arm64@npm:1.2.4":
-  version: 1.2.4
-  resolution: "@img/sharp-libvips-linux-arm64@npm:1.2.4"
-  conditions: os=linux & cpu=arm64 & libc=glibc
-  languageName: node
-  linkType: hard
-
-"@img/sharp-libvips-linux-arm@npm:1.2.4":
-  version: 1.2.4
-  resolution: "@img/sharp-libvips-linux-arm@npm:1.2.4"
-  conditions: os=linux & cpu=arm & libc=glibc
-  languageName: node
-  linkType: hard
-
-"@img/sharp-libvips-linux-x64@npm:1.2.4":
-  version: 1.2.4
-  resolution: "@img/sharp-libvips-linux-x64@npm:1.2.4"
-  conditions: os=linux & cpu=x64 & libc=glibc
-  languageName: node
-  linkType: hard
-
-"@img/sharp-libvips-linuxmusl-arm64@npm:1.2.4":
-  version: 1.2.4
-  resolution: "@img/sharp-libvips-linuxmusl-arm64@npm:1.2.4"
-  conditions: os=linux & cpu=arm64 & libc=musl
-  languageName: node
-  linkType: hard
-
-"@img/sharp-libvips-linuxmusl-x64@npm:1.2.4":
-  version: 1.2.4
-  resolution: "@img/sharp-libvips-linuxmusl-x64@npm:1.2.4"
-  conditions: os=linux & cpu=x64 & libc=musl
-  languageName: node
-  linkType: hard
-
-"@img/sharp-linux-arm64@npm:^0.34.2":
-  version: 0.34.5
-  resolution: "@img/sharp-linux-arm64@npm:0.34.5"
-  dependencies:
-    "@img/sharp-libvips-linux-arm64": "npm:1.2.4"
-  dependenciesMeta:
-    "@img/sharp-libvips-linux-arm64":
-      optional: true
-  conditions: os=linux & cpu=arm64 & libc=glibc
-  languageName: node
-  linkType: hard
-
-"@img/sharp-linux-arm@npm:^0.34.2":
-  version: 0.34.5
-  resolution: "@img/sharp-linux-arm@npm:0.34.5"
-  dependencies:
-    "@img/sharp-libvips-linux-arm": "npm:1.2.4"
-  dependenciesMeta:
-    "@img/sharp-libvips-linux-arm":
-      optional: true
-  conditions: os=linux & cpu=arm & libc=glibc
-  languageName: node
-  linkType: hard
-
-"@img/sharp-linux-x64@npm:^0.34.2":
-  version: 0.34.5
-  resolution: "@img/sharp-linux-x64@npm:0.34.5"
-  dependencies:
-    "@img/sharp-libvips-linux-x64": "npm:1.2.4"
-  dependenciesMeta:
-    "@img/sharp-libvips-linux-x64":
-      optional: true
-  conditions: os=linux & cpu=x64 & libc=glibc
-  languageName: node
-  linkType: hard
-
-"@img/sharp-linuxmusl-arm64@npm:^0.34.2":
-  version: 0.34.5
-  resolution: "@img/sharp-linuxmusl-arm64@npm:0.34.5"
-  dependencies:
-    "@img/sharp-libvips-linuxmusl-arm64": "npm:1.2.4"
-  dependenciesMeta:
-    "@img/sharp-libvips-linuxmusl-arm64":
-      optional: true
-  conditions: os=linux & cpu=arm64 & libc=musl
-  languageName: node
-  linkType: hard
-
-"@img/sharp-linuxmusl-x64@npm:^0.34.2":
-  version: 0.34.5
-  resolution: "@img/sharp-linuxmusl-x64@npm:0.34.5"
-  dependencies:
-    "@img/sharp-libvips-linuxmusl-x64": "npm:1.2.4"
-  dependenciesMeta:
-    "@img/sharp-libvips-linuxmusl-x64":
-      optional: true
-  conditions: os=linux & cpu=x64 & libc=musl
-  languageName: node
-  linkType: hard
-
-"@img/sharp-win32-arm64@npm:^0.34.2":
-  version: 0.34.5
-  resolution: "@img/sharp-win32-arm64@npm:0.34.5"
-  conditions: os=win32 & cpu=arm64
-  languageName: node
-  linkType: hard
-
-"@img/sharp-win32-x64@npm:^0.34.2":
-  version: 0.34.5
-  resolution: "@img/sharp-win32-x64@npm:0.34.5"
-  conditions: os=win32 & cpu=x64
   languageName: node
   linkType: hard
 
@@ -1077,39 +997,6 @@ __metadata:
   bin:
     mobilecli: index.js
   checksum: 10c0/e2ea7fc80c20ba977a4c5120ae37380400a0343af5679d98042aac2e404dc4701cf6e5992837dafc49bf17e8ce6cdd676d30c72f2d1535783f48e0e247509028
-  languageName: node
-  linkType: hard
-
-"@modelcontextprotocol/sdk@npm:^1.28.0":
-  version: 1.28.0
-  resolution: "@modelcontextprotocol/sdk@npm:1.28.0"
-  dependencies:
-    "@hono/node-server": "npm:^1.19.9"
-    ajv: "npm:^8.17.1"
-    ajv-formats: "npm:^3.0.1"
-    content-type: "npm:^1.0.5"
-    cors: "npm:^2.8.5"
-    cross-spawn: "npm:^7.0.5"
-    eventsource: "npm:^3.0.2"
-    eventsource-parser: "npm:^3.0.0"
-    express: "npm:^5.2.1"
-    express-rate-limit: "npm:^8.2.1"
-    hono: "npm:^4.11.4"
-    jose: "npm:^6.1.3"
-    json-schema-typed: "npm:^8.0.2"
-    pkce-challenge: "npm:^5.0.0"
-    raw-body: "npm:^3.0.0"
-    zod: "npm:^3.25 || ^4.0"
-    zod-to-json-schema: "npm:^3.25.1"
-  peerDependencies:
-    "@cfworker/json-schema": ^4.1.1
-    zod: ^3.25 || ^4.0
-  peerDependenciesMeta:
-    "@cfworker/json-schema":
-      optional: true
-    zod:
-      optional: false
-  checksum: 10c0/eff999884bea7302b42832b7fe172a53c83ee0afd6fa42dcda29dd503d72b6f67f3d45e9eebbcecbe52e1ee418c14574b6d30ce5a0b10f947a2a680f8bb8c8c3
   languageName: node
   linkType: hard
 
@@ -3388,14 +3275,16 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "braid@workspace:."
   dependencies:
-    "@anthropic-ai/claude-agent-sdk": "npm:0.2.112"
+    "@anthropic-ai/claude-agent-sdk": "npm:0.3.198"
+    "@anthropic-ai/sdk": "npm:^0.93.0"
     "@electron/notarize": "npm:^2.3.0"
     "@electron/osx-sign": "npm:^1.3.1"
     "@electron/packager": "npm:^18.3.5"
     "@electron/rebuild": "npm:^3.7.0"
     "@floating-ui/react": "npm:^0.27.19"
+    "@fontsource/ibm-plex-sans": "npm:^5.2.8"
     "@mobilenext/mobilecli": "npm:^0.1.62"
-    "@modelcontextprotocol/sdk": "npm:^1.28.0"
+    "@modelcontextprotocol/sdk": "npm:^1.29.0"
     "@monaco-editor/react": "npm:^4.7.0"
     "@radix-ui/react-dropdown-menu": "npm:^2.1.16"
     "@radix-ui/react-popover": "npm:^1.1.15"

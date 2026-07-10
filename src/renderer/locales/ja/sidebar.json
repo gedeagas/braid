@@ -69,6 +69,7 @@
   "deleteWorktreeBody": "'{{branch}}' ワークツリーとディスク上のすべてのファイルを完全に削除します。未コミットの変更は失われます。",
   "deleteWorktreeDontAsk": "次回から確認しない",
   "deleteWorktreeConfirm": "削除",
+  "deleteWorktreeFailed": "ワークツリーの削除に失敗しました",
   "failedCreateWorktree": "ワークツリーの作成に失敗しました",
   "projectSettings": "プロジェクト設定",
   "projectFilters": "プロジェクトフィルター",

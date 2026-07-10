@@ -152,6 +152,13 @@ export async function removeWorktree(repoPath: string, worktreePath: string): Pr
   const git = await getValidGit(repoPath)
   if (!git) throw new Error(`Not a git repository: ${repoPath}`)
   await git.raw(['worktree', 'remove', worktreePath, '--force'])
+  if (existsSync(worktreePath)) {
+    logger.warn('[Git] worktree path still exists after git removal, deleting leftover path:', worktreePath)
+    rmSync(worktreePath, { recursive: true, force: true })
+    if (existsSync(worktreePath)) {
+      throw new Error(`Git reported success but worktree still exists: ${worktreePath}`)
+    }
+  }
   invalidateWorktrees(repoPath)
 }
 

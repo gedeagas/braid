@@ -69,6 +69,7 @@
   "deleteWorktreeBody": "This will permanently delete the '{{branch}}' worktree and all its files on disk. Uncommitted changes will be lost.",
   "deleteWorktreeDontAsk": "Don't ask again",
   "deleteWorktreeConfirm": "Delete",
+  "deleteWorktreeFailed": "Failed to delete worktree",
   "failedCreateWorktree": "Failed to create worktree",
   "projectSettings": "Project settings",
   "projectFilters": "Project filters",

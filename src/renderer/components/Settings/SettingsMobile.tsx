@@ -18,6 +18,7 @@ import {
   IconCopy,
   IconRefresh,
   IconGlobe,
+  IconExternalLink,
   type IconProps,
 } from '@/components/shared/icons'
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
@@ -105,6 +106,8 @@ const FEATURES: Array<{ key: string; Icon: (props: IconProps) => ReactElement }>
   { key: 'pushNotifs', Icon: IconInbox },
   { key: 'gitWorktrees', Icon: IconGitBranch },
 ]
+
+const APP_STORE_URL = 'https://apps.apple.com/us/app/braid-code/id6775524361'
 
 export function SettingsMobile() {
   const { t } = useTranslation('settings')
@@ -283,6 +286,10 @@ export function SettingsMobile() {
     await loadData()
   }
 
+  const handleOpenAppStore = () => {
+    ipc.shell.openExternal(APP_STORE_URL)
+  }
+
   const formatDate = (ts: number) => {
     if (!ts) return t('mobile.never')
     return new Date(ts).toLocaleDateString(undefined, {
@@ -344,6 +351,20 @@ export function SettingsMobile() {
             </span>
             {running && <span className="mobile-server-chip">{state.pairingTransport === 'ngrok' ? 'ngrok' : 'LAN'}</span>}
             <Toggle checked={running} onChange={handleToggle} disabled={state.loading} />
+          </div>
+
+          <div className="mobile-app-store-card">
+            <span className="mobile-app-store-icon">
+              <IconSmartphone size={18} />
+            </span>
+            <div className="mobile-app-store-copy">
+              <span className="mobile-app-store-title">{t('mobile.appStoreTitle')}</span>
+              <span className="mobile-app-store-desc">{t('mobile.appStoreDesc')}</span>
+            </div>
+            <Button size="sm" onClick={handleOpenAppStore}>
+              {t('mobile.appStoreButton')}
+              <IconExternalLink size={12} />
+            </Button>
           </div>
 
           {running && (

@@ -33,7 +33,7 @@ export interface SlashCommand {
 export interface AgentSettings {
   apiKey: string | null
   systemPromptSuffix: string
-  /** User-configured absolute path to the SDK's cli.js. Overrides auto-detection. */
+  /** User-configured absolute path to Claude Code executable. Overrides auto-detection. */
   claudeCodeExecutablePath: string
   /**
    * When true, every non-denied tool runs without a confirmation prompt (current
