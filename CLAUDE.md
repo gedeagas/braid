@@ -104,7 +104,21 @@ yarn build        # Production build
 yarn typecheck    # Type-check both main + renderer
 yarn test         # Run Vitest unit tests
 yarn package      # Build macOS .app
+yarn changelog    # Generate release notes from merged PRs since the last tag
+yarn release      # Upload packaged artifacts to a GitHub Release
 ```
+
+## Release Workflow
+
+Use `scripts/release.js` as the source of truth for release upload behavior.
+
+1. Confirm the intended version in `package.json` and tag name `v<version>`.
+2. Generate or update release notes with `yarn changelog --write`, then verify the matching `## [<version>]` section in `CHANGELOG.md`.
+3. Run validation appropriate for the release, normally `yarn typecheck` and `yarn test`.
+4. Build release artifacts with `yarn package`. This must produce `dist/latest-mac.yml`, at least one `.dmg`, and at least one `-mac.zip` for the current version.
+5. Create a GitHub release with `yarn release` or `yarn release --draft`.
+
+The release script requires an authenticated `gh` CLI. It uploads only current-version macOS artifacts from `dist/`, prefers the matching `CHANGELOG.md` section for release notes, falls back to `scripts/changelog.js`, and finally falls back to GitHub generated notes.
 
 ## Type-checking
 
