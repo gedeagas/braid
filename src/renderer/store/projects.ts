@@ -403,11 +403,12 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
       import('@/components/Center/bigTerminalCache'),
     ])
 
-    await ipc.git.removeWorktree(project.path, worktree.path)
-
-    // Clean up terminal instances for this worktree (PTYs + xterm instances)
+    // Clean up terminal instances first so PTYs release worktree directory locks.
     cleanupTerminals(worktree.path)
     cleanupSetupPanel(worktree.path)
+
+    await ipc.git.removeWorktree(project.path, worktree.path)
+
     cleanupWorktreeRefresh(worktree.path)
 
     // Clean up big terminals: dispose xterm + PTY, delete scrollback files, drop localStorage entry.

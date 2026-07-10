@@ -151,9 +151,9 @@ describe('projects store removeWorktree', () => {
     ).rejects.toThrow('fatal: worktree is locked')
 
     expect(currentWorktreeIds()).toEqual(['wt-main', 'wt-feature'])
+    expect(mocks.cleanupTerminals).toHaveBeenCalledWith('/repo/wt/delete-me')
+    expect(mocks.cleanupSetupPanel).toHaveBeenCalledWith('/repo/wt/delete-me')
     expect(mocks.closeSessionsByWorktree).not.toHaveBeenCalled()
-    expect(mocks.cleanupTerminals).not.toHaveBeenCalled()
-    expect(mocks.cleanupSetupPanel).not.toHaveBeenCalled()
     expect(mocks.cleanupWorktreeRefresh).not.toHaveBeenCalled()
     expect(mocks.disposeBigTerminals).not.toHaveBeenCalled()
     expect(mocks.uiState.cleanupWorktreeState).not.toHaveBeenCalled()
@@ -173,8 +173,8 @@ describe('projects store removeWorktree', () => {
     expect(mocks.uiState.cleanupWorktreeState).toHaveBeenCalledWith('wt-feature', '/repo/wt/delete-me')
     expect(currentWorktreeIds()).toEqual(['wt-main'])
 
-    expect(mocks.removeGitWorktree.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.cleanupTerminals.mock.invocationCallOrder[0],
+    expect(mocks.cleanupTerminals.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.removeGitWorktree.mock.invocationCallOrder[0],
     )
   })
 })

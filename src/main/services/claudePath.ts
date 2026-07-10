@@ -12,10 +12,10 @@
 
 import os from 'os'
 import path from 'path'
-import { existsSync, readdirSync } from 'fs'
+import { existsSync, readdirSync, readFileSync } from 'fs'
 import { enrichedEnv } from '../lib/enrichedEnv'
 
-function sdkNativePackageNames(): string[] {
+function sdkNativeBinaryRelativePaths(): string[] {
   const arch = process.arch
   const suffix = process.platform === 'win32' ? '.exe' : ''
   const platform = process.platform === 'darwin'
@@ -24,23 +24,42 @@ function sdkNativePackageNames(): string[] {
       ? 'win32'
       : 'linux'
 
-  const names = [`@anthropic-ai/claude-agent-sdk-${platform}-${arch}`]
-  if (platform === 'linux') names.push(`@anthropic-ai/claude-agent-sdk-linux-${arch}-musl`)
+  const names = [`claude-agent-sdk-${platform}-${arch}`]
+  if (platform === 'linux') names.push(`claude-agent-sdk-linux-${arch}-musl`)
   return names.map((pkg) => path.join(pkg, `claude${suffix}`))
 }
 
 function findBundledSdkClaude(scopeDir: string): string | undefined {
-  for (const rel of sdkNativePackageNames()) {
-    const candidate = path.join(scopeDir, rel.replace('@anthropic-ai/', ''))
+  for (const rel of sdkNativeBinaryRelativePaths()) {
+    const candidate = path.join(scopeDir, rel)
     if (existsSync(candidate)) return candidate
   }
   return undefined
 }
 
+function findPackageRoot(resolvedPath: string, packageName: string): string | undefined {
+  let dir = path.dirname(resolvedPath)
+  while (true) {
+    const manifest = path.join(dir, 'package.json')
+    if (existsSync(manifest)) {
+      try {
+        const pkg = JSON.parse(readFileSync(manifest, 'utf8')) as { name?: string }
+        if (pkg.name === packageName) return dir
+      } catch { /* keep walking */ }
+    }
+
+    const parent = path.dirname(dir)
+    if (parent === dir) return undefined
+    dir = parent
+  }
+}
+
 function findInstalledSdkClaude(): string | undefined {
   try {
     const sdkEntrypoint = require.resolve('@anthropic-ai/claude-agent-sdk')
-    const scopeDir = path.dirname(path.dirname(sdkEntrypoint))
+    const sdkRoot = findPackageRoot(sdkEntrypoint, '@anthropic-ai/claude-agent-sdk')
+    if (!sdkRoot) return undefined
+    const scopeDir = path.dirname(sdkRoot)
     return findBundledSdkClaude(scopeDir)
   } catch {
     return undefined
