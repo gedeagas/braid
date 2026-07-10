@@ -21,12 +21,12 @@ export function supportsExtendedContext(model: string): boolean {
 
 /**
  * Returns true if the model requires the beta header for 1M context.
- * Opus 4.6, Sonnet 4.6, Fable, and Mythos have native 1M - no beta needed.
+ * Fable, Mythos, Opus 4.6+, Sonnet 5, and Sonnet 4.6 have native 1M - no beta needed.
  * Older Sonnet models (4, 4.5) require the context-1m beta header.
  */
 export function needsExtendedContextBeta(model: string): boolean {
   if (model.includes('opus') || model.includes('fable') || model.includes('mythos')) return false
-  if (model.includes('sonnet') && model.includes('4-6')) return false
+  if (model.includes('sonnet') && (model.includes('sonnet-5') || model.includes('4-6'))) return false
   return model.includes('sonnet')
 }
 

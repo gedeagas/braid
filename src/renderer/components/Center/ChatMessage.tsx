@@ -127,6 +127,8 @@ function TurnActions({ durationMs, turnUsage }: TurnActionsProps) {
 
 const MODEL_LABELS: Record<string, string> = {
   'claude-fable-5': 'Fable 5',
+  'claude-opus-4-8': 'Opus 4.8',
+  'claude-sonnet-5': 'Sonnet 5',
   'claude-opus-4-7': 'Opus 4.7',
   'claude-sonnet-4-6': 'Sonnet 4.6',
   'claude-opus-4-6': 'Opus 4.6',
