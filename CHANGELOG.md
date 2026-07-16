@@ -5,6 +5,14 @@ All notable changes to Braid are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [26.3.2] - 2026-07-16
+
+### Changed
+
+- Migrated the auto-updater from `electron-updater` to Electron's built-in Squirrel.Mac (`update.electronjs.org`), with release discovery decoupled from download so updates are user-accepted before installing
+
+---
+
 ## [26.3.1] - 2026-07-16
 
 ### Added
