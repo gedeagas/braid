@@ -376,7 +376,7 @@ async function makeDmg(appPath, arch) {
 }
 
 // ---------------------------------------------------------------------------
-// 7. ZIP for auto-update (electron-updater needs .zip, not .dmg)
+// 7. ZIP for auto-update (Squirrel.Mac consumes the signed app archive)
 // ---------------------------------------------------------------------------
 
 function makeZip(appPath, arch) {
@@ -398,7 +398,7 @@ function makeZip(appPath, arch) {
 }
 
 // ---------------------------------------------------------------------------
-// 8. latest-mac.yml manifest for electron-updater
+// 8. Transitional latest-mac.yml manifest for pre-migration clients
 // ---------------------------------------------------------------------------
 
 function writeUpdateManifest(artifacts) {
@@ -410,8 +410,8 @@ function writeUpdateManifest(artifacts) {
     return { url: zipName, sha512, size: buffer.length }
   })
 
-  // electron-updater expects YAML with top-level path/sha512 for the primary
-  // file (backwards compat) plus a files[] array for multi-arch.
+  // Existing installations still running electron-updater need this manifest
+  // to discover the first Squirrel.Mac-based release.
   const primary = files[0]
   const lines = [
     `version: ${APP_VERSION}`,
@@ -487,20 +487,7 @@ async function packageArch(arch) {
 
   const appPath = path.join(outputDir, `${APP_NAME}.app`)
 
-  // Inject app-update.yml so electron-updater doesn't throw ENOENT.
-  // setFeedURL() in autoUpdate.ts overrides the provider config for checking,
-  // but getOrCreateDownloadHelper() still reads this file at download time to
-  // get updaterCacheDirName for the disk cache directory.
-  const appUpdateYml = [
-    'provider: github',
-    'owner: gedeagas',
-    'repo: braid',
-    `updaterCacheDirName: ${APP_PKG.name}-updater`,
-    '',
-  ].join('\n')
   const resourcesDir = path.join(appPath, 'Contents/Resources')
-  fs.writeFileSync(path.join(resourcesDir, 'app-update.yml'), appUpdateYml)
-  log('Injected app-update.yml into Resources/')
 
   // Copy Assets.car for macOS 26+ Liquid Glass icon (compiled by generate-icon.js)
   const assetsCar = path.join(BUILD_DIR, 'Assets.car')

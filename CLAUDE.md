@@ -239,7 +239,8 @@ Full-project search powered by ripgrep (`src/main/services/search.ts`):
 ## Auto-Update
 
 `src/main/services/autoUpdate.ts` + `src/renderer/store/updater.ts`:
-- Electron autoUpdater integration with download progress tracking
+- Electron built-in autoUpdater integration using update.electronjs.org and Squirrel.Mac
+- Release discovery is separate from Squirrel's automatic download so the user can accept first
 - `UpdateDialog` in shared components shows release notes
 - Preload exposes `api.updater.{check,download,install}` + event listeners
 

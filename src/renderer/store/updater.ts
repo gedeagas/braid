@@ -13,7 +13,7 @@ import { create } from 'zustand'
 interface IdleState { status: 'idle' }
 interface CheckingState { status: 'checking' }
 interface AvailableState { status: 'available'; version: string; releaseNotes: string; dismissed: boolean }
-interface DownloadingState { status: 'downloading'; version: string; releaseNotes: string; percent: number }
+interface DownloadingState { status: 'downloading'; version: string; releaseNotes: string }
 interface ReadyState { status: 'ready'; version: string; dismissed: boolean }
 interface ErrorState { status: 'error'; message: string }
 interface UpToDateState { status: 'upToDate' }
@@ -31,7 +31,6 @@ export type UpdateState =
 
 type UpdateAction =
   | { type: 'available'; version: string; releaseNotes: string }
-  | { type: 'progress'; percent: number }
   | { type: 'ready'; version: string }
   | { type: 'error'; message: string }
   | { type: 'dismiss' }
@@ -65,11 +64,7 @@ function updateReducer(state: UpdateState, action: UpdateAction): UpdateState {
         status: 'downloading',
         version: state.version,
         releaseNotes: state.releaseNotes,
-        percent: 0,
       }
-    case 'progress':
-      if (state.status !== 'downloading') return state
-      return { ...state, percent: action.percent }
     case 'ready':
       return { status: 'ready', version: action.version, dismissed: false }
     case 'error':
@@ -121,9 +116,6 @@ export function initUpdateListeners(): () => void {
     window.api.updater.onUpdateAvailable((info: { version: string; releaseNotes: string }) => {
       console.log('[updater] IPC: update-available', info.version)
       dispatch({ type: 'available', version: info.version, releaseNotes: info.releaseNotes })
-    }),
-    window.api.updater.onDownloadProgress((info: { percent: number }) => {
-      dispatch({ type: 'progress', percent: info.percent })
     }),
     window.api.updater.onUpdateDownloaded((info: { version: string }) => {
       console.log('[updater] IPC: update-downloaded', info.version)

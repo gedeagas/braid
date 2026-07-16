@@ -3,7 +3,9 @@
 // ---------------------------------------------------------------------------
 
 import { useTranslation } from 'react-i18next'
-import { Dialog, Button } from '@/components/ui'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { Dialog, Button, Spinner } from '@/components/ui'
 import type { UpdateState } from '@/hooks/useAutoUpdate'
 
 interface UpdateDialogProps {
@@ -50,18 +52,16 @@ export function UpdateDialog({ state, onDownload, onInstall, onDismiss, onRetry 
         {state.releaseNotes && (
           <>
             <p className="update-dialog__notes-label">{t('update.available.whatsNew')}</p>
-            {/* Release notes come as HTML from GitHub Releases API via electron-updater */}
-            <div
-              className="update-dialog__notes"
-              dangerouslySetInnerHTML={{ __html: state.releaseNotes }}
-            />
+            <div className="update-dialog__notes">
+              <ReactMarkdown skipHtml remarkPlugins={[remarkGfm]}>{state.releaseNotes}</ReactMarkdown>
+            </div>
           </>
         )}
       </Dialog>
     )
   }
 
-  // ── Downloading: progress bar (not dismissible) ───────────────────────
+  // ── Downloading: Squirrel.Mac does not expose byte progress ───────────
   if (state.status === 'downloading') {
     return (
       <Dialog
@@ -73,13 +73,7 @@ export function UpdateDialog({ state, onDownload, onInstall, onDismiss, onRetry 
         <p className="update-dialog__body">
           {t('update.downloading.body', { version: state.version })}
         </p>
-        <div className="update-dialog__progress">
-          <div
-            className="update-dialog__progress-bar"
-            style={{ width: `${state.percent}%` }}
-          />
-        </div>
-        <p className="update-dialog__percent">{state.percent}%</p>
+        <div className="update-dialog__spinner"><Spinner size="md" /></div>
       </Dialog>
     )
   }

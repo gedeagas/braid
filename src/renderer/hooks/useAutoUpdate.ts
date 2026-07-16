@@ -18,6 +18,36 @@ export function useAutoUpdate() {
   const state = useUpdaterStore((s) => s.state)
   const dispatch = useUpdaterStore((s) => s.dispatch)
 
+  const checkForUpdates = async () => {
+    dispatch({ type: 'check' })
+    console.log('[updater] Dispatched check action')
+
+    const initiated = await window.api.updater.check()
+    console.log('[updater] Main process responded, initiated:', initiated)
+
+    if (!initiated) {
+      // Dev mode - simulate a brief check then show up-to-date
+      console.log('[updater] Dev mode: simulating check delay')
+      setTimeout(() => {
+        const current = useUpdaterStore.getState().state
+        if (current.status === 'checking') {
+          console.log('[updater] Dev mode: transitioning to upToDate')
+          dispatch({ type: 'upToDate' })
+        }
+      }, DEV_CHECK_DELAY_MS)
+      return
+    }
+
+    // Safety timeout in case the update service does not respond
+    setTimeout(() => {
+      const current = useUpdaterStore.getState().state
+      if (current.status === 'checking') {
+        console.warn('[updater] Check timed out after', CHECK_TIMEOUT_MS, 'ms')
+        dispatch({ type: 'error', message: 'Update check timed out. Please try again.' })
+      }
+    }, CHECK_TIMEOUT_MS)
+  }
+
   return {
     state,
     download: () => {
@@ -26,36 +56,8 @@ export function useAutoUpdate() {
     },
     install: () => window.api.updater.install(),
     dismiss: () => dispatch({ type: 'dismiss' }),
-    retry: () => dispatch({ type: 'retry' }),
-    checkForUpdates: async () => {
-      dispatch({ type: 'check' })
-      console.log('[updater] Dispatched check action')
-
-      const initiated = await window.api.updater.check()
-      console.log('[updater] Main process responded, initiated:', initiated)
-
-      if (!initiated) {
-        // Dev mode - simulate a brief check then show up-to-date
-        console.log('[updater] Dev mode: simulating check delay')
-        setTimeout(() => {
-          const current = useUpdaterStore.getState().state
-          if (current.status === 'checking') {
-            console.log('[updater] Dev mode: transitioning to upToDate')
-            dispatch({ type: 'upToDate' })
-          }
-        }, DEV_CHECK_DELAY_MS)
-        return
-      }
-
-      // Safety timeout: if electron-updater hangs, don't spin forever
-      setTimeout(() => {
-        const current = useUpdaterStore.getState().state
-        if (current.status === 'checking') {
-          console.warn('[updater] Check timed out after', CHECK_TIMEOUT_MS, 'ms')
-          dispatch({ type: 'error', message: 'Update check timed out. Please try again.' })
-        }
-      }, CHECK_TIMEOUT_MS)
-    },
+    retry: checkForUpdates,
+    checkForUpdates,
   }
 }
 
@@ -107,10 +109,7 @@ if (import.meta.env.DEV) {
       }
     }
 
-    for (let i = 0; i <= 100; i += 10) {
-      dispatch({ type: 'progress', percent: i })
-      await sleep(200)
-    }
+    await sleep(2000)
 
     dispatch({ type: 'ready', version: '99.0.0' })
     console.log('[updater:sim] Done! "Restart" dialog should be visible.')
