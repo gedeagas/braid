@@ -5,6 +5,23 @@ All notable changes to Braid are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [26.3.1] - 2026-07-16
+
+### Added
+
+- upgrade claude-agent-sdk to 0.3.198, add Fable 5 support, and improve task views (#127)
+- PR summary polling, cache coherence, and task view improvements (#126)
+
+### Other
+
+- Preserve file tree expansion on refresh (#116)
+
+### Contributors
+
+Thanks to [@gedeagas](https://github.com/gedeagas) for their contributions to this release!
+
+---
+
 ## [26.3.0] - 2026-06-08
 
 ### Added
