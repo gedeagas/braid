@@ -5,7 +5,7 @@ import { PrIcon } from './PrIcon'
 import { useUIStore } from '@/store/ui'
 import { useProjectsStore } from '@/store/projects'
 import { Tooltip } from '@/components/shared/Tooltip'
-import { Checkbox } from '@/components/ui'
+import { Button, Checkbox, Spinner } from '@/components/ui'
 import { ContextMenu, type ContextMenuItem } from '@/components/shared/ContextMenu'
 import { useSessionsForWorktree } from '@/store/sessions'
 import { useTranslation } from 'react-i18next'
@@ -25,13 +25,19 @@ interface Props {
   onRegisterRef?: (el: HTMLElement | null) => void
 }
 
-type RowState = { menu: { x: number; y: number } | null; showDeleteConfirm: boolean; dontAskAgain: boolean }
+type RowState = {
+  menu: { x: number; y: number } | null
+  showDeleteConfirm: boolean
+  dontAskAgain: boolean
+  isDeleting: boolean
+}
 type RowAction =
   | { type: 'OPEN_MENU'; x: number; y: number }
   | { type: 'CLOSE_MENU' }
   | { type: 'SHOW_DELETE_CONFIRM' }
   | { type: 'HIDE_DELETE_CONFIRM' }
   | { type: 'SET_DONT_ASK'; value: boolean }
+  | { type: 'SET_DELETING'; value: boolean }
 
 function rowReducer(state: RowState, action: RowAction): RowState {
   switch (action.type) {
@@ -40,6 +46,7 @@ function rowReducer(state: RowState, action: RowAction): RowState {
     case 'SHOW_DELETE_CONFIRM': return { ...state, showDeleteConfirm: true }
     case 'HIDE_DELETE_CONFIRM': return { ...state, showDeleteConfirm: false }
     case 'SET_DONT_ASK': return { ...state, dontAskAgain: action.value }
+    case 'SET_DELETING': return { ...state, isDeleting: action.value }
   }
 }
 
@@ -82,6 +89,7 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
   const clearNewlyAdded = useUIStore((s) => s.setNewlyAddedWorktreeId)
 
   const rowRef = useRef<HTMLDivElement>(null)
+  const deleteInFlightRef = useRef(false)
 
   useEffect(() => {
     const el = rowRef.current
@@ -103,8 +111,13 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
   }, [isNew, clearNewlyAdded])
 
   // Feature 3: worktree context menu
-  const [rowState, rowDispatch] = useReducer(rowReducer, { menu: null, showDeleteConfirm: false, dontAskAgain: false })
-  const { menu, showDeleteConfirm, dontAskAgain } = rowState
+  const [rowState, rowDispatch] = useReducer(rowReducer, {
+    menu: null,
+    showDeleteConfirm: false,
+    dontAskAgain: false,
+    isDeleting: false,
+  })
+  const { menu, showDeleteConfirm, dontAskAgain, isDeleting } = rowState
 
   // Priority: permission > working > done > active > inactive
   let status: WorktreeStatus = 'inactive'
@@ -114,16 +127,28 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
   else if (hasDoneAgent) status = 'done'
   else if (sessions.some((s) => s.status === 'idle')) status = 'active'
 
-  const runDeleteWorktree = () => {
-    removeWorktree(worktree.projectId, worktree.id).catch((err) => {
+  const runDeleteWorktree = async (skipFutureConfirmations = false) => {
+    if (deleteInFlightRef.current) return
+
+    deleteInFlightRef.current = true
+    rowDispatch({ type: 'SET_DELETING', value: true })
+    try {
+      await removeWorktree(worktree.projectId, worktree.id)
+      if (skipFutureConfirmations) setSkipDeleteConfirm(true)
+      rowDispatch({ type: 'HIDE_DELETE_CONFIRM' })
+    } catch (err) {
       console.error('[WorktreeRow] removeWorktree failed:', err)
       flash('error', cleanIpcError(err, t('deleteWorktreeFailed')), 5_000)
-    })
+    } finally {
+      deleteInFlightRef.current = false
+      rowDispatch({ type: 'SET_DELETING', value: false })
+    }
   }
 
   const requestDeleteWorktree = () => {
+    if (deleteInFlightRef.current) return
     if (skipDeleteConfirm) {
-      runDeleteWorktree()
+      void runDeleteWorktree()
     } else {
       rowDispatch({ type: 'SHOW_DELETE_CONFIRM' })
     }
@@ -163,12 +188,18 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
           .join(' ')}
         role="option"
         aria-selected={isSelected}
+        aria-busy={isDeleting}
         tabIndex={isFocused ? 0 : -1}
-        draggable={draggable}
+        draggable={draggable && !isDeleting}
         data-worktree-id={worktree.id}
-        onClick={() => selectWorktree(worktree.projectId, worktree.id)}
-        onDoubleClick={() => setMissionControlActive(false)}
+        onClick={() => {
+          if (!isDeleting) selectWorktree(worktree.projectId, worktree.id)
+        }}
+        onDoubleClick={() => {
+          if (!isDeleting) setMissionControlActive(false)
+        }}
         onKeyDown={(e) => {
+          if (isDeleting) return
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
             e.stopPropagation()
@@ -181,6 +212,7 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
         onContextMenu={(e) => {
           e.preventDefault()
           e.stopPropagation()
+          if (isDeleting) return
           rowDispatch({ type: 'OPEN_MENU', x: e.clientX, y: e.clientY })
         }}
       >
@@ -210,26 +242,32 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
           </span>
         </div>
         <div className="worktree-row-actions">
-          <PrIcon worktreePath={worktree.path} />
-          {worktree.isMain && (
-            <Tooltip content={t('worktreeMain')} position="top">
-              <span className="worktree-badge">{t('worktreeMainBadge')}</span>
-            </Tooltip>
-          )}
+          {isDeleting ? (
+            <Spinner size="sm" />
+          ) : (
+            <>
+              <PrIcon worktreePath={worktree.path} />
+              {worktree.isMain && (
+                <Tooltip content={t('worktreeMain')} position="top">
+                  <span className="worktree-badge">{t('worktreeMainBadge')}</span>
+                </Tooltip>
+              )}
 
-          {/* Feature 1: pin / star button */}
-          <Tooltip content={isPinned ? t('worktreeUnpinTooltip') : t('worktreePinTooltip')} position="right">
-            <button
-              className={`worktree-pin${isPinned ? ' pinned' : ''}`}
-              aria-label={isPinned ? t('worktreeUnpinTooltip') : t('worktreePinTooltip')}
-              onClick={(e) => {
-                e.stopPropagation()
-                togglePinWorktree(worktree.id)
-              }}
-            >
-              {isPinned ? '★' : '☆'}
-            </button>
-          </Tooltip>
+              {/* Feature 1: pin / star button */}
+              <Tooltip content={isPinned ? t('worktreeUnpinTooltip') : t('worktreePinTooltip')} position="right">
+                <button
+                  className={`worktree-pin${isPinned ? ' pinned' : ''}`}
+                  aria-label={isPinned ? t('worktreeUnpinTooltip') : t('worktreePinTooltip')}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    togglePinWorktree(worktree.id)
+                  }}
+                >
+                  {isPinned ? '★' : '☆'}
+                </button>
+              </Tooltip>
+            </>
+          )}
         </div>
       </div>
 
@@ -244,7 +282,12 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
       )}
 
       {showDeleteConfirm && (
-        <div className="dialog-overlay" onClick={() => rowDispatch({ type: 'HIDE_DELETE_CONFIRM' })}>
+        <div
+          className="dialog-overlay"
+          onClick={() => {
+            if (!isDeleting) rowDispatch({ type: 'HIDE_DELETE_CONFIRM' })
+          }}
+        >
           <div
             className="dialog"
             role="dialog"
@@ -259,23 +302,27 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
             <Checkbox
               checked={dontAskAgain}
               onChange={(checked) => rowDispatch({ type: 'SET_DONT_ASK', value: checked })}
+              disabled={isDeleting}
               label={t('deleteWorktreeDontAsk')}
             />
             <div className="dialog-actions">
-              {/* autoFocus the cancel button — the safe non-destructive action */}
-              <button className="btn" autoFocus onClick={() => rowDispatch({ type: 'HIDE_DELETE_CONFIRM' })}>
+              {/* autoFocus the cancel button - the safe non-destructive action */}
+              <Button
+                autoFocus
+                disabled={isDeleting}
+                onClick={() => rowDispatch({ type: 'HIDE_DELETE_CONFIRM' })}
+              >
                 {t('cancel', { ns: 'common' })}
-              </button>
-              <button
-                className="btn btn-danger"
+              </Button>
+              <Button
+                variant="danger"
+                loading={isDeleting}
                 onClick={() => {
-                  if (dontAskAgain) setSkipDeleteConfirm(true)
-                  rowDispatch({ type: 'HIDE_DELETE_CONFIRM' })
-                  runDeleteWorktree()
+                  void runDeleteWorktree(dontAskAgain)
                 }}
               >
                 {t('deleteWorktreeConfirm')}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
