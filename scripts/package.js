@@ -159,6 +159,9 @@ const IGNORE_PATTERNS = [
   /\/node_modules\/monaco-editor\/min-maps(\/|$)/,
   // @mobilenext/mobilecli: 53MB of platform binaries (user installs via brew)
   /\/node_modules\/@mobilenext\/mobilecli\/bin(\/|$)/,
+  // serve-sim: Swift sources/tests ship in the npm tarball; only dist/ runs
+  /\/node_modules\/serve-sim\/(Sources|Tests)(\/|$)/,
+  /\/node_modules\/serve-sim\/Package\.swift$/,
   // node-pty: strip non-macOS prebuilds (~58MB win32)
   /\/node_modules\/node-pty\/prebuilds\/win32-/,
   /\/node_modules\/node-pty\/prebuilds\/linux-/,
@@ -459,10 +462,11 @@ async function packageArch(arch) {
     overwrite: true,
     prune: true,
 
-    // ASAR with selective unpacking for native modules, Claude SDK, and mobilecli
+    // ASAR with selective unpacking for native modules, Claude SDK, mobilecli,
+    // and serve-sim (run as a script by Electron's Node; needs its helpers + `ws` on disk)
     asar: {
       unpack:
-        '{**/*.node,**/node_modules/node-pty/**,**/node_modules/@anthropic-ai/claude-agent-sdk/**,**/node_modules/@mobilenext/mobilecli/bin/*}',
+        '{**/*.node,**/node_modules/node-pty/**,**/node_modules/@anthropic-ai/claude-agent-sdk/**,**/node_modules/@mobilenext/mobilecli/bin/*,**/node_modules/serve-sim/**,**/node_modules/ws/**}',
     },
 
     ignore: createIgnore(arch),

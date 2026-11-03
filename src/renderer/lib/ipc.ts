@@ -177,6 +177,13 @@ export const simulator = {
     api().simulator.sendKeyCombo(deviceId, platform, combo) as Promise<void>,
   flutterSignal: (signal: string) =>
     api().simulator.flutterSignal(signal) as Promise<void>,
+  /** serve-sim embeds the iOS Simulator via a loopback preview server (macOS only). */
+  serveSimAvailable: () => api().simulator.serveSimAvailable() as Promise<boolean>,
+  /** Start (or reuse) a device's serve-sim preview server. Resolves with its URL. */
+  serveSimStart: (deviceId: string) => api().simulator.serveSimStart(deviceId) as Promise<string>,
+  serveSimStop: (deviceId: string) => api().simulator.serveSimStop(deviceId) as Promise<void>,
+  onServeSimExited: (callback: (deviceId: string) => void): (() => void) =>
+    api().simulator.onServeSimExited(callback),
 }
 
 export const windowCapture = {

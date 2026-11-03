@@ -357,3 +357,11 @@
   background: #02569b1f;
   color: #54c5f8;
 }
+
+/* serve-sim preview page: draws its own bezel, so fill the container edge to edge */
+.simulator-stream-container > .simulator-serve-sim-frame {
+  flex: 1;
+  align-self: stretch;
+  border: none;
+  filter: none;
+}

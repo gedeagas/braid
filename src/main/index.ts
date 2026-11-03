@@ -38,6 +38,8 @@ import { ptyService } from './services/pty'
 import { mobileServer } from './services/mobileServer'
 import { mobileNgrokTunnel } from './services/mobileServer/ngrokTunnel'
 import { HTML_PREVIEW_PARTITION } from '../shared/html-preview'
+import { SERVE_SIM_PARTITION, isServeSimUrl } from '../shared/serve-sim'
+import { getServeSimSession } from './services/serveSim'
 
 // Prevent EPIPE errors from crashing the process when stdout/stderr pipes break
 // (common in Electron when the renderer detaches or during hot-reload).
@@ -137,8 +139,9 @@ function createWindow(): void {
       partition === HTML_PREVIEW_PARTITION && isFileUrl(src)
     const isEmbeddedWebApp =
       isWebAppPartition(partition) && isHttpUrl(src)
+    const isServeSim = partition === SERVE_SIM_PARTITION && isServeSimUrl(src)
 
-    if (!isHtmlPreview && !isEmbeddedWebApp) {
+    if (!isHtmlPreview && !isEmbeddedWebApp && !isServeSim) {
       event.preventDefault()
       return
     }
@@ -164,6 +167,19 @@ function createWindow(): void {
   // Also enable native right-click context menu (copy, paste, etc.).
   mainWindow.webContents.on('did-attach-webview', (_event, webviewContents) => {
     const isHtmlPreview = htmlPreviewSessions.has(webviewContents.session)
+    if (webviewContents.session === getServeSimSession()) {
+      // The simulator preview never leaves its loopback server; links go to the browser.
+      webviewContents.setWindowOpenHandler(({ url }) => {
+        if (isHttpUrl(url)) shell.openExternal(url)
+        return { action: 'deny' }
+      })
+      webviewContents.on('will-navigate', (event, url) => {
+        if (isServeSimUrl(url)) return
+        event.preventDefault()
+        if (isHttpUrl(url)) shell.openExternal(url)
+      })
+      return
+    }
     // Belt-and-suspenders: also configure the webview's session here in case
     // session-created fires too late for some Electron/ASAR edge case.
     if (isHtmlPreview) {
@@ -262,12 +278,14 @@ function configureWebAppSession(sess: import('electron').Session): void {
 
 app.whenReady().then(async () => {
   getHtmlPreviewSession()
+  getServeSimSession()
   app.on('session-created', (sess) => {
     if (sess === session.defaultSession) return
     if (sess === getHtmlPreviewSession()) {
       configureHtmlPreviewSession(sess)
       return
     }
+    if (sess === getServeSimSession()) return
     configureWebAppSession(sess)
   })
 

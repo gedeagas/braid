@@ -5,6 +5,7 @@ import * as ipc from '@/lib/ipc'
 import { useMjpegStream } from '@/hooks/useMjpegStream'
 import { useGesture } from '@/hooks/useGesture'
 import { DeviceToolbar } from './DeviceToolbar'
+import { ServeSimFrame } from './ServeSimFrame'
 import { FrameworkToolbar } from './FrameworkToolbar'
 import { simulatorRpc } from '@/lib/simulatorRpc'
 import { useSessionsStore } from '@/store/sessions'
@@ -27,6 +28,8 @@ interface SimulatorDevice {
 }
 
 type Phase = 'loading' | 'no-cli' | 'installing-cli' | 'device-list' | 'connecting' | 'streaming' | 'stream-lost' | 'error'
+/** serve-sim embeds iOS via its own preview page; mobilecli streams MJPEG into our canvas. */
+type StreamEngine = 'serve-sim' | 'mobilecli'
 
 interface PlatformTools { xcode: boolean; androidSdk: boolean }
 
@@ -35,6 +38,9 @@ interface State {
   devices: SimulatorDevice[]
   selectedId: string | null
   screenSize: { width: number; height: number } | null
+  engine: StreamEngine | null
+  /** Loopback preview URL while engine === 'serve-sim' */
+  serveSimUrl: string | null
   error: string | null
   bootingId: string | null
   shuttingDownId: string | null
@@ -58,6 +64,7 @@ type Action =
   | { type: 'SHUTDOWN_DONE' }
   | { type: 'CONNECTING'; id: string }
   | { type: 'STREAM_STARTED'; screenSize: { width: number; height: number } }
+  | { type: 'SERVE_SIM_STARTED'; url: string }
   | { type: 'SCREEN_SIZE_UPDATED'; screenSize: { width: number; height: number } }
   | { type: 'STREAM_ENDED' }
   | { type: 'STREAM_LOST' }
@@ -66,7 +73,7 @@ type Action =
 
 const initialState: State = {
   phase: 'loading', devices: [], selectedId: null,
-  screenSize: null, error: null, bootingId: null, shuttingDownId: null,
+  screenSize: null, engine: null, serveSimUrl: null, error: null, bootingId: null, shuttingDownId: null,
   cliInstallAttempted: false, needsNode: false, platformTools: null,
 }
 
@@ -85,12 +92,13 @@ function reducer(state: State, action: Action): State {
     case 'SHUTTING_DOWN': return { ...state, shuttingDownId: action.id }
     case 'SHUTDOWN_DONE': return { ...state, shuttingDownId: null }
     case 'CONNECTING': return { ...state, phase: 'connecting', selectedId: action.id }
-    case 'STREAM_STARTED': return { ...state, phase: 'streaming', screenSize: action.screenSize }
+    case 'STREAM_STARTED': return { ...state, phase: 'streaming', engine: 'mobilecli', screenSize: action.screenSize }
+    case 'SERVE_SIM_STARTED': return { ...state, phase: 'streaming', engine: 'serve-sim', serveSimUrl: action.url }
     case 'SCREEN_SIZE_UPDATED': return { ...state, screenSize: action.screenSize }
-    case 'STREAM_ENDED': return { ...state, phase: 'device-list', screenSize: null, selectedId: null }
+    case 'STREAM_ENDED': return { ...state, phase: 'device-list', screenSize: null, selectedId: null, engine: null, serveSimUrl: null }
     // Stream dropped unexpectedly — preserve selectedId so the overlay can offer reconnect
-    case 'STREAM_LOST': return { ...state, phase: 'stream-lost', screenSize: null }
-    case 'DISCONNECTED': return { ...state, phase: 'device-list', screenSize: null, selectedId: null }
+    case 'STREAM_LOST': return { ...state, phase: 'stream-lost', screenSize: null, serveSimUrl: null }
+    case 'DISCONNECTED': return { ...state, phase: 'device-list', screenSize: null, selectedId: null, engine: null, serveSimUrl: null }
     case 'ERROR': return { ...state, phase: 'error', error: action.error }
     default: return state
   }
@@ -217,8 +225,15 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
     }
   }, [refreshDevices])
   const { canvasRef, imgSizeRef, start: startStream, stop: stopStream } = useMjpegStream(
-    state.phase === 'streaming', onStreamEnded,
+    state.phase === 'streaming' && state.engine === 'mobilecli', onStreamEnded,
   )
+
+  // serve-sim exits on its own when the simulator shuts down or crashes
+  useEffect(() => ipc.simulator.onServeSimExited((deviceId) => {
+    if (deviceId !== state.selectedId || state.engine !== 'serve-sim') return
+    dispatch({ type: 'STREAM_LOST' })
+    refreshDevices()
+  }), [state.selectedId, state.engine, refreshDevices])
 
   const sendGesture = useCallback((actions: Record<string, unknown>[]) => {
     if (state.selectedId) simulatorRpc('device.io.gesture', { deviceId: state.selectedId, actions })
@@ -258,6 +273,18 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
   const handleConnect = useCallback(async (id: string) => {
     console.log('[SimulatorView] handleConnect start', { id })
     dispatch({ type: 'CONNECTING', id })
+    const device = state.devices.find((d) => d.id === id)
+    if (device?.platform === 'ios' && await ipc.simulator.serveSimAvailable()) {
+      try {
+        const url = await ipc.simulator.serveSimStart(id)
+        dispatch({ type: 'SERVE_SIM_STARTED', url })
+        ipc.simulator.hideWindow().catch(() => {})
+        return
+      } catch (err) {
+        // Fall through to the mobilecli stream (e.g. unsupported Xcode/arch)
+        console.warn('[SimulatorView] serve-sim failed, falling back to mobilecli:', err)
+      }
+    }
     try {
       // Measure the view so the server sends frames sized to fit
       const displayHeight = viewRef.current?.clientHeight ?? undefined
@@ -268,7 +295,6 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
       dispatch({ type: 'STREAM_STARTED', screenSize })
       startStream(streamUrl)
       // Hide the native Simulator window — we're streaming it in-app
-      const device = state.devices.find((d) => d.id === id)
       if (device?.platform === 'ios') {
         ipc.simulator.hideWindow().catch(() => {})
       }
@@ -291,17 +317,22 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
     }
   }, [t, startStream])
 
-  const handleDisconnect = useCallback(() => {
+  const stopActiveStream = useCallback(() => {
     stopStream()
+    if (state.engine === 'serve-sim' && state.selectedId) ipc.simulator.serveSimStop(state.selectedId).catch(() => {})
+  }, [stopStream, state.engine, state.selectedId])
+
+  const handleDisconnect = useCallback(() => {
+    stopActiveStream()
     dispatch({ type: 'DISCONNECTED' })
-  }, [stopStream])
+  }, [stopActiveStream])
 
   const handleDisconnectAndShutdown = useCallback(() => {
     const id = state.selectedId
-    stopStream()
+    stopActiveStream()
     dispatch({ type: 'DISCONNECTED' })
     if (id) handleShutdown(id)
-  }, [state.selectedId, stopStream, handleShutdown])
+  }, [state.selectedId, stopActiveStream, handleShutdown])
 
   // ─── Reconnect on significant resize ─────────────────────────────────
 
@@ -309,7 +340,8 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
 
   useEffect(() => {
     const el = viewRef.current
-    if (!el || state.phase !== 'streaming' || !state.selectedId) return
+    // serve-sim's page rescales itself; only the mobilecli stream is resolution-bound
+    if (!el || state.phase !== 'streaming' || state.engine !== 'mobilecli' || !state.selectedId) return
 
     const id = state.selectedId
     const ro = new ResizeObserver((entries) => {
@@ -332,7 +364,7 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
       ro.disconnect()
       if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null }
     }
-  }, [state.phase, state.selectedId, stopStream, handleReconnect])
+  }, [state.phase, state.engine, state.selectedId, stopStream, handleReconnect])
 
   // ─── Keyboard forwarding (direct RPC, no batching needed) ──────────────
 
@@ -479,7 +511,9 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
             <FrameworkToolbar deviceId={state.selectedId!} platform={devicePlatform} framework={mobileFramework} />
           )}
           <div className="simulator-stream-container" style={{ position: 'relative' }}>
-            {isIos ? (
+            {state.engine === 'serve-sim' ? (
+              state.serveSimUrl && <ServeSimFrame url={state.serveSimUrl} title={device?.name ?? 'Simulator'} />
+            ) : isIos ? (
               <IPhoneMockup screenWidth={screenWidth} screenType={screenType} frameColor="#1c1c1e" hideStatusBar hideNavBar>
                 {canvasEl}
               </IPhoneMockup>
@@ -495,14 +529,14 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
                   <button className="simulator-action-btn simulator-connect-btn" onClick={() => handleConnect(state.selectedId!)}>
                     {t('simulatorReconnect')}
                   </button>
-                  <button className="simulator-action-btn" onClick={() => { dispatch({ type: 'STREAM_ENDED' }); refreshDevices() }}>
+                  <button className="simulator-action-btn" onClick={() => { stopActiveStream(); dispatch({ type: 'STREAM_ENDED' }); refreshDevices() }}>
                     {t('simulatorDisconnect')}
                   </button>
                 </div>
               </div>
             )}
           </div>
-          {!isLost && <DeviceToolbar deviceId={state.selectedId!} platform={devicePlatform} />}
+          {!isLost && state.engine === 'mobilecli' && <DeviceToolbar deviceId={state.selectedId!} platform={devicePlatform} />}
         </>
       )
     }

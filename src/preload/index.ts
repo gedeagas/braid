@@ -223,6 +223,14 @@ const api = {
       ipcRenderer.invoke('simulator:sendKeyCombo', deviceId, platform, combo),
     flutterSignal: (signal: string) =>
       ipcRenderer.invoke('simulator:flutterSignal', signal),
+    serveSimAvailable: () => ipcRenderer.invoke('simulator:serveSimAvailable') as Promise<boolean>,
+    serveSimStart: (deviceId: string) => ipcRenderer.invoke('simulator:serveSimStart', deviceId) as Promise<string>,
+    serveSimStop: (deviceId: string) => ipcRenderer.invoke('simulator:serveSimStop', deviceId) as Promise<void>,
+    onServeSimExited: (callback: (deviceId: string) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, deviceId: string) => callback(deviceId)
+      ipcRenderer.on('simulator:serveSimExited', handler)
+      return () => ipcRenderer.removeListener('simulator:serveSimExited', handler)
+    },
   },
 
   // Scripts
