@@ -119,6 +119,8 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
 
   const viewRef = useRef<HTMLDivElement>(null)
   const streamHeightRef = useRef(0)
+  /** Bumped on every connect/disconnect so a stale in-flight connect can bail out. */
+  const connectAttemptRef = useRef(0)
   const [screenWidth, setScreenWidth] = useState(220)
   const screenWidthTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -273,14 +275,19 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
   const handleConnect = useCallback(async (id: string) => {
     console.log('[SimulatorView] handleConnect start', { id })
     dispatch({ type: 'CONNECTING', id })
+    const attempt = ++connectAttemptRef.current
     const device = state.devices.find((d) => d.id === id)
     if (device?.platform === 'ios' && await ipc.simulator.serveSimAvailable()) {
       try {
         const url = await ipc.simulator.serveSimStart(id)
+        // Cancelled while starting: stopActiveStream already asked main to stop it
+        if (attempt !== connectAttemptRef.current) return
         dispatch({ type: 'SERVE_SIM_STARTED', url })
         ipc.simulator.hideWindow().catch(() => {})
         return
       } catch (err) {
+        // A cancel kills the starting process; that rejection is not a reason to fall back
+        if (attempt !== connectAttemptRef.current) return
         // Fall through to the mobilecli stream (e.g. unsupported Xcode/arch)
         console.warn('[SimulatorView] serve-sim failed, falling back to mobilecli:', err)
       }
@@ -318,9 +325,12 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
   }, [t, startStream])
 
   const stopActiveStream = useCallback(() => {
+    connectAttemptRef.current++
     stopStream()
-    if (state.engine === 'serve-sim' && state.selectedId) ipc.simulator.serveSimStop(state.selectedId).catch(() => {})
-  }, [stopStream, state.engine, state.selectedId])
+    // Also covers a serve-sim start still in flight (engine not set yet); no-op otherwise
+    const device = state.devices.find((d) => d.id === state.selectedId)
+    if (state.selectedId && device?.platform === 'ios') ipc.simulator.serveSimStop(state.selectedId).catch(() => {})
+  }, [stopStream, state.devices, state.selectedId])
 
   const handleDisconnect = useCallback(() => {
     stopActiveStream()
