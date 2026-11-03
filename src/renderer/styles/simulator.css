@@ -365,3 +365,33 @@
   border: none;
   filter: none;
 }
+
+/* Braid-only actions over the serve-sim preview; styled to sit beside serve-sim's own floating controls */
+.simulator-serve-sim-actions {
+  position: absolute;
+  left: var(--space-12);
+  bottom: var(--space-12);
+  z-index: var(--z-raised);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-40);
+  height: var(--space-40);
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(28, 28, 28, 0.85);
+  color: rgba(255, 255, 255, 0.65);
+  cursor: pointer;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.simulator-serve-sim-actions:hover,
+.simulator-serve-sim-actions[aria-expanded='true'] {
+  background: rgba(48, 48, 48, 0.95);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.simulator-serve-sim-actions--linked {
+  border-color: var(--green);
+  color: var(--green);
+}

@@ -229,6 +229,7 @@
   "simulatorConnecting": "Connecting\u2026",
   "simulatorDisconnect": "Disconnect",
   "simulatorShutdown": "Shutdown",
+  "simulatorActions": "Simulator actions",
   "simulatorRefresh": "Refresh",
   "simulatorOnline": "Online",
   "simulatorOffline": "Offline",

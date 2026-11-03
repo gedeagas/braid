@@ -229,6 +229,7 @@
   "simulatorConnecting": "连接中…",
   "simulatorDisconnect": "断开连接",
   "simulatorShutdown": "关闭",
+  "simulatorActions": "模拟器操作",
   "simulatorRefresh": "刷新",
   "simulatorOnline": "在线",
   "simulatorOffline": "离线",

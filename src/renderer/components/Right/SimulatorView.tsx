@@ -6,6 +6,7 @@ import { useMjpegStream } from '@/hooks/useMjpegStream'
 import { useGesture } from '@/hooks/useGesture'
 import { DeviceToolbar } from './DeviceToolbar'
 import { ServeSimFrame } from './ServeSimFrame'
+import { ServeSimActions } from './ServeSimActions'
 import { FrameworkToolbar } from './FrameworkToolbar'
 import { simulatorRpc } from '@/lib/simulatorRpc'
 import { useSessionsStore } from '@/store/sessions'
@@ -494,35 +495,53 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
           onKeyDown={isLost ? undefined : handleKeyDown}
         />
       )
+      // serve-sim brings its own header, bezel and controls; Braid's chrome would duplicate it
+      const isServeSim = state.engine === 'serve-sim' && !isLost
       return (
         <>
-          <div className="simulator-header" data-tour="simulator-stream-header">
-            <span className="simulator-header-name">{device?.name ?? 'Device'}</span>
-            {!isLost && (
-              <div className="simulator-header-actions">
-                <button
-                  className={`simulator-action-btn ${isLinked ? 'simulator-linked-btn' : 'simulator-link-btn'}`}
-                  onClick={handleToggleLink}
-                  disabled={!activeSessionId}
-                  title={isLinked ? t('simulatorUnlinkChat') : t('simulatorLinkChat')}
-                >
-                  {isLinked ? t('simulatorLinked') : t('simulatorLinkChat')}
-                </button>
-                <button className="simulator-action-btn simulator-disconnect-btn" onClick={handleDisconnect}>
-                  {t('simulatorDisconnect')}
-                </button>
-                <button className="simulator-action-btn simulator-shutdown-btn" onClick={handleDisconnectAndShutdown}>
-                  {t('simulatorShutdown')}
-                </button>
-              </div>
-            )}
-          </div>
-          {!isLost && mobileFramework && (
+          {!isServeSim && (
+            <div className="simulator-header" data-tour="simulator-stream-header">
+              <span className="simulator-header-name">{device?.name ?? 'Device'}</span>
+              {!isLost && (
+                <div className="simulator-header-actions">
+                  <button
+                    className={`simulator-action-btn ${isLinked ? 'simulator-linked-btn' : 'simulator-link-btn'}`}
+                    onClick={handleToggleLink}
+                    disabled={!activeSessionId}
+                    title={isLinked ? t('simulatorUnlinkChat') : t('simulatorLinkChat')}
+                  >
+                    {isLinked ? t('simulatorLinked') : t('simulatorLinkChat')}
+                  </button>
+                  <button className="simulator-action-btn simulator-disconnect-btn" onClick={handleDisconnect}>
+                    {t('simulatorDisconnect')}
+                  </button>
+                  <button className="simulator-action-btn simulator-shutdown-btn" onClick={handleDisconnectAndShutdown}>
+                    {t('simulatorShutdown')}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          {!isLost && !isServeSim && mobileFramework && (
             <FrameworkToolbar deviceId={state.selectedId!} platform={devicePlatform} framework={mobileFramework} />
           )}
           <div className="simulator-stream-container" style={{ position: 'relative' }}>
             {state.engine === 'serve-sim' ? (
-              state.serveSimUrl && <ServeSimFrame url={state.serveSimUrl} title={device?.name ?? 'Simulator'} />
+              <>
+                {state.serveSimUrl && <ServeSimFrame url={state.serveSimUrl} title={device?.name ?? 'Simulator'} />}
+                {isServeSim && (
+                  <ServeSimActions
+                    deviceId={state.selectedId!}
+                    deviceName={device?.name ?? 'Simulator'}
+                    framework={mobileFramework}
+                    isLinked={isLinked}
+                    canLink={!!activeSessionId}
+                    onToggleLink={handleToggleLink}
+                    onDisconnect={handleDisconnect}
+                    onShutdown={handleDisconnectAndShutdown}
+                  />
+                )}
+              </>
             ) : isIos ? (
               <IPhoneMockup screenWidth={screenWidth} screenType={screenType} frameColor="#1c1c1e" hideStatusBar hideNavBar>
                 {canvasEl}
