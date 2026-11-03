@@ -525,22 +525,24 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
           {!isLost && !isServeSim && mobileFramework && (
             <FrameworkToolbar deviceId={state.selectedId!} platform={devicePlatform} framework={mobileFramework} />
           )}
-          <div className="simulator-stream-container" style={{ position: 'relative' }}>
+          {isServeSim && (
+            <ServeSimActions
+              deviceId={state.selectedId!}
+              framework={mobileFramework}
+              isLinked={isLinked}
+              canLink={!!activeSessionId}
+              onToggleLink={handleToggleLink}
+              onDisconnect={handleDisconnect}
+              onShutdown={handleDisconnectAndShutdown}
+            />
+          )}
+          <div
+            className={`simulator-stream-container${state.engine === 'serve-sim' ? ' simulator-stream-container--serve-sim' : ''}`}
+            style={{ position: 'relative' }}
+          >
             {state.engine === 'serve-sim' ? (
               <>
                 {state.serveSimUrl && <ServeSimFrame url={state.serveSimUrl} title={device?.name ?? 'Simulator'} />}
-                {isServeSim && (
-                  <ServeSimActions
-                    deviceId={state.selectedId!}
-                    deviceName={device?.name ?? 'Simulator'}
-                    framework={mobileFramework}
-                    isLinked={isLinked}
-                    canLink={!!activeSessionId}
-                    onToggleLink={handleToggleLink}
-                    onDisconnect={handleDisconnect}
-                    onShutdown={handleDisconnectAndShutdown}
-                  />
-                )}
               </>
             ) : isIos ? (
               <IPhoneMockup screenWidth={screenWidth} screenType={screenType} frameColor="#1c1c1e" hideStatusBar hideNavBar>
