@@ -5,7 +5,7 @@ import { useTerminalFileDrop } from '@/hooks/useTerminalFileDrop'
 import { useTerminalClipboardPaste } from '@/hooks/useTerminalClipboardPaste'
 import { useUIStore } from '@/store/ui'
 import { getOrCreate, reThemeAllBigTerminals, updateBigTerminalAgentId, updateScrollbackAllBigTerminals, type BigTermEntry } from './bigTerminalCache'
-import { activateWebgl, disposeWebgl } from '@/components/Right/terminalCache'
+import { webglPool } from '@/lib/webglPool'
 import { TerminalSearch } from '@/components/shared/TerminalSearch'
 import { setShown } from '@/lib/ptyOutput/visibility'
 import { BranchBar } from './BranchBar'
@@ -169,27 +169,11 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, init
     entry.mobileInputLocked = locked
     entry.onDesktopInputWhileLocked = locked ? takeBack : null
 
-    // Attach xterm to DOM (open on first mount, re-append on remount).
-    if (!entry.term.element) {
-      entry.term.open(el)
-      // First mount - activate WebGL, track addon on entry.
-      entry.webglAddon = activateWebgl(entry.term, () => {
-        // Context loss callback - permanently disable WebGL for this pane.
-        console.warn('[terminal] WebGL context lost for', terminalId, '- falling back to canvas')
-        entry.webglDisabledAfterContextLoss = true
-        entry.webglAddon = null
-      })
-    } else {
-      // Re-mount after tab switch. DOM reparenting can silently invalidate
-      // WebGL context without firing contextlost, so reattach after append.
-      el.appendChild(entry.term.element)
-      if (!entry.webglDisabledAfterContextLoss && !entry.webglAddon) {
-        entry.webglAddon = activateWebgl(entry.term, () => {
-          entry.webglDisabledAfterContextLoss = true
-          entry.webglAddon = null
-        })
-      }
-    }
+    // Attach xterm to DOM (open on first mount, re-append on remount). WebGL
+    // comes from the pool: acquired when shown (visibility effect below), and
+    // disposed around DOM moves, which can silently corrupt the context.
+    if (!entry.term.element) entry.term.open(el)
+    else webglPool.move(entry.term, () => el.appendChild(entry.term.element!))
 
     // rAF-coalesced fit: ResizeObserver can fire many times during a single
     // frame (e.g. split resize drag). Coalesce into one rAF to avoid loops
@@ -230,9 +214,8 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, init
         entry.pendingFitRafId = null
       }
       // Dispose WebGL BEFORE detaching from DOM to avoid silent context
-      // corruption. Will reattach on next mount.
-      disposeWebgl(entry.webglAddon)
-      entry.webglAddon = null
+      // corruption. Re-acquired on the next mount.
+      webglPool.detach(entry.term)
       // Detach terminal element from container without disposing xterm
       if (entry.term.element && el.contains(entry.term.element)) {
         el.removeChild(entry.term.element)

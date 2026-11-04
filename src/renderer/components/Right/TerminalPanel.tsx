@@ -4,7 +4,8 @@ import * as ipc from '@/lib/ipc'
 import { createTerminalCommandObserver } from '@/lib/terminalCommandRefresh'
 import { getTerminalMinimumContrastRatio, getTerminalTheme } from '@/themes/terminal'
 import { useUIStore } from '@/store/ui'
-import { createTerminal, activateWebgl } from './terminalCache'
+import { createTerminal } from './terminalCache'
+import { webglPool } from '@/lib/webglPool'
 import { initPtyOutputRouting, registerPtyTerminal } from '@/lib/ptyOutput/router'
 import '@xterm/xterm/css/xterm.css'
 
@@ -25,7 +26,7 @@ export function TerminalPanel({ worktreePath }: Props) {
 
     const { term, fitAddon } = createTerminal()
     term.open(containerRef.current)
-    activateWebgl(term)
+    webglPool.acquire(term)
     termRef.current = term
 
     requestAnimationFrame(() => {
@@ -86,6 +87,7 @@ export function TerminalPanel({ worktreePath }: Props) {
         ipc.pty.kill(ptyIdRef.current)
         ptyIdRef.current = null
       }
+      webglPool.forget(term)
       term.dispose()
       termRef.current = null
     }

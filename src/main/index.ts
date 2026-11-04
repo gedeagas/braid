@@ -269,6 +269,10 @@ function createWindow(): void {
 // Allow embedded web apps to autoplay audio/video without a gesture.
 // Must be set before app.whenReady() to take effect.
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
+// Every terminal can hold a WebGL context; Chromium's default cap (16) makes
+// it drop the oldest silently. The renderer pools contexts (webglPool.ts), and
+// this leaves it headroom.
+app.commandLine.appendSwitch('max-active-webgl-contexts', '128')
 
 // Spoof Chrome UA only for webapp partition sessions so embedded apps serve
 // their standard Chrome-compatible bundles.

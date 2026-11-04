@@ -10,11 +10,12 @@ import { RunPanel } from './RunPanel'
 import { TerminalTabRow } from './TerminalTabRow'
 import {
   SETUP_TAB_ID, RUN_TAB_ID,
-  terminalCache, nextTabId, createTerminal, activateWebgl, saveRightTerminalTabs,
+  terminalCache, nextTabId, createTerminal, saveRightTerminalTabs,
   type TermTab, type RenameState,
 } from './terminalCache'
 import { useTerminalLifecycle } from './useTerminalLifecycle'
 import { useRightTerminalVisibility } from './useRightTerminalVisibility'
+import { webglPool } from '@/lib/webglPool'
 import { useTerminalFileDrop } from '@/hooks/useTerminalFileDrop'
 import { useTerminalClipboardPaste } from '@/hooks/useTerminalClipboardPaste'
 import { spawnRightTab } from './spawnRightTab'
@@ -163,7 +164,9 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
 
   // ── Terminal operations ─────────────────────────────────────────────────
   const attachTerm = useCallback((tab: TermTab, el: HTMLDivElement) => {
-    if (!tab.term.element) { tab.term.open(el); activateWebgl(tab.term) } else { el.appendChild(tab.term.element) }
+    // WebGL is acquired when the tab is shown (useRightTerminalVisibility).
+    if (!tab.term.element) tab.term.open(el)
+    else webglPool.move(tab.term, () => el.appendChild(tab.term.element!))
     requestAnimationFrame(() => {
       try { tab.fitAddon.fit(); if (tab.ptyId) ipc.pty.resize(tab.ptyId, tab.term.cols, tab.term.rows) }
       catch { /* ignore */ }
@@ -215,7 +218,7 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
     dispatch({ type: 'UPDATE_TABS', fn: (prev) => {
       const idx = prev.findIndex((t) => t.id === tabId)
       const tab = prev[idx]
-      if (tab) { if (tab.ptyId) ipc.pty.kill(tab.ptyId); ipc.pty.deleteScrollback(tabId); tab.commandObserver?.dispose(); tab.resizeObserver?.disconnect(); tab.term.dispose(); containerRefs.current.delete(tabId) }
+      if (tab) { if (tab.ptyId) ipc.pty.kill(tab.ptyId); ipc.pty.deleteScrollback(tabId); tab.commandObserver?.dispose(); tab.resizeObserver?.disconnect(); webglPool.forget(tab.term); tab.term.dispose(); containerRefs.current.delete(tabId) }
       const next = prev.filter((t) => t.id !== tabId)
       tabsRef.current = next
       const cached = terminalCache.get(worktreePathRef.current)
@@ -355,7 +358,7 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
                   if (pending) { pendingAttach.current.delete(tab.id); attachTerm(pending, el); setupResizeObserver(pending, el); spawnTab(pending) }
                   else if (tab.term.element && !el.contains(tab.term.element)) {
                     // Container was recreated (e.g. after collapse/uncollapse) — move the existing terminal element and re-observe
-                    el.appendChild(tab.term.element)
+                    webglPool.move(tab.term, () => el.appendChild(tab.term.element!))
                     setupResizeObserver(tab, el)
                   }
                 }

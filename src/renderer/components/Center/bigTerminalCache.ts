@@ -1,6 +1,5 @@
 import { Terminal, type IDisposable } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
-import type { WebglAddon } from '@xterm/addon-webgl'
 import type { SearchAddon } from '@xterm/addon-search'
 import * as ipc from '@/lib/ipc'
 import { getTerminalMinimumContrastRatio, getTerminalTheme } from '@/themes/terminal'
@@ -10,6 +9,7 @@ import { registerTitleDetection } from '@/lib/agentTitleDetection'
 import { isReplaying } from '@/lib/replayGuard'
 import { initPtyOutputRouting } from '@/lib/ptyOutput/router'
 import { forgetShown } from '@/lib/ptyOutput/visibility'
+import { bindWebglPoolToVisibility, webglPool } from '@/lib/webglPool'
 import { isKnownAgentType, type AgentStatusPayload, type AgentStatusState, type AgentType } from '@/lib/agentStatus'
 import { createCompletionCoordinator, type CompletionCoordinator } from '@/lib/agentCompletionCoordinator'
 import { notifyTerminalStateChange, clearTerminalNotificationState } from '@/lib/terminalNotifications'
@@ -27,10 +27,6 @@ export interface BigTermEntry {
   searchAddon: SearchAddon
   ptyId: string | null
   resizeObserver: ResizeObserver | null
-  /** Live WebGL addon instance, or null if using canvas renderer. */
-  webglAddon: WebglAddon | null
-  /** True if WebGL context was lost - prevents retry loops. */
-  webglDisabledAfterContextLoss: boolean
   /** rAF ID for pending fit(), used to coalesce ResizeObserver callbacks. */
   pendingFitRafId: number | null
   /** Completion coordinator for agent task completion detection. */
@@ -69,6 +65,7 @@ function ensureFinderRegistered(): void {
   finderRegistered = true
   // Big terminals must get output even if the right panel never mounted.
   initPtyOutputRouting()
+  bindWebglPoolToVisibility()
   registerPtyFinder((ptyId) => {
     for (const entry of cache.values()) {
       if (entry.ptyId === ptyId) return { term: entry.term }
@@ -220,8 +217,6 @@ export function getOrCreate(
     searchAddon,
     ptyId: null,
     resizeObserver: null,
-    webglAddon: null,
-    webglDisabledAfterContextLoss: false,
     pendingFitRafId: null,
     completionCoordinator,
     agentId,
@@ -378,8 +373,7 @@ function teardown(entry: BigTermEntry): void {
   entry.codexPromptWriteDisposable = null
   try { entry.commandObserver?.dispose() } catch {}
   entry.commandObserver = null
-  try { entry.webglAddon?.dispose() } catch {}
-  entry.webglAddon = null
+  webglPool.forget(entry.term)
   entry.completionCoordinator.reset()
   if (entry.ptyId) {
     try { ipc.pty.kill(entry.ptyId) } catch {}

@@ -8,7 +8,7 @@ import * as ipc from '@/lib/ipc'
 import { useUIStore } from '@/store/ui'
 import { useProjectsStore } from '@/store/projects'
 import { getTerminalMinimumContrastRatio, getTerminalTheme } from '@/themes/terminal'
-import { activateWebgl } from './terminalCache'
+import { webglPool } from '@/lib/webglPool'
 import { initPtyOutputRouting, registerPtyTerminal } from '@/lib/ptyOutput/router'
 import { IconWrench } from '@/components/shared/icons'
 import { Button, EmptyState } from '@/components/ui'
@@ -69,6 +69,7 @@ export function cleanupSetupPanel(worktreePath: string): void {
   for (const cleanup of cached.cleanupListeners) cleanup()
   cached.cleanupListeners.length = 0
   if (cached.ptyId) ipc.pty.kill(cached.ptyId)
+  webglPool.forget(cached.term)
   cached.term.dispose()
   setupCache.delete(worktreePath)
 }
@@ -144,12 +145,8 @@ export function SetupPanel({ worktreePath, projectId, hidden }: Props) {
       // Clear any previous terminal DOM before attaching the new one
       while (el.firstChild) el.removeChild(el.firstChild)
 
-      if (!cached.term.element) {
-        cached.term.open(el)
-        activateWebgl(cached.term)
-      } else {
-        el.appendChild(cached.term.element)
-      }
+      if (!cached.term.element) cached.term.open(el)
+      else webglPool.move(cached.term, () => el.appendChild(cached.term.element!))
       requestAnimationFrame(() => {
         try { cached.fitAddon.fit() } catch {}
       })
@@ -161,14 +158,22 @@ export function SetupPanel({ worktreePath, projectId, hidden }: Props) {
     return () => {
       // Detach terminal DOM but keep alive in cache
       if (el && cached.term.element && el.contains(cached.term.element)) {
+        webglPool.release(cached.term)
+        webglPool.detach(cached.term)
         el.removeChild(cached.term.element)
       }
     }
   }, [worktreePath])
 
-  // Fit on show
+  // WebGL only while shown; fit on show
   useEffect(() => {
-    if (hidden) return
+    const term = cachedRef.current?.term
+    if (!term) return
+    if (hidden) {
+      webglPool.release(term)
+      return
+    }
+    webglPool.acquire(term)
     requestAnimationFrame(() => {
       try { cachedRef.current?.fitAddon.fit() } catch {}
     })

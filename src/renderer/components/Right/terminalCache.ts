@@ -1,6 +1,5 @@
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
-import { WebglAddon } from '@xterm/addon-webgl'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { SearchAddon } from '@xterm/addon-search'
@@ -12,6 +11,7 @@ import { SK } from '@/lib/storageKeys'
 import type { TerminalCommandObserver } from '@/lib/terminalCommandRefresh'
 import { modifierFromEvent, openLink } from '@/lib/browser/linkRouter'
 import { initPtyOutputRouting, registerPtyFinder as registerOutputFinder } from '@/lib/ptyOutput/router'
+import { bindWebglPoolToVisibility, webglPool } from '@/lib/webglPool'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -84,6 +84,7 @@ export function initGlobalPtyRouting(): void {
   // parsed back to main (output flow control).
   registerOutputFinder((id) => findTabByPtyId(id)?.term)
   initPtyOutputRouting()
+  bindWebglPoolToVisibility()
   ipc.pty.onExit((id) => {
     findTabByPtyId(id)?.term.write('\r\n\x1b[2m[Process exited]\x1b[0m\r\n')
   })
@@ -98,6 +99,7 @@ export function cleanupTerminals(worktreePath: string): void {
     ipc.pty.deleteScrollback(tab.id)
     tab.commandObserver?.dispose()
     tab.resizeObserver?.disconnect()
+    webglPool.forget(tab.term)
     tab.term.dispose()
   }
   terminalCache.delete(worktreePath)
@@ -136,37 +138,6 @@ export function createTerminal(): { term: Terminal; fitAddon: FitAddon; searchAd
   try { term.loadAddon(new LigaturesAddon()) } catch { /* ignore */ }
 
   return { term, fitAddon, searchAddon }
-}
-
-/**
- * Activate GPU-accelerated WebGL renderer. Must be called AFTER term.open(el).
- * Returns the addon instance (for later dispose/reattach), or null on failure.
- */
-export function activateWebgl(term: Terminal, onContextLoss?: () => void): WebglAddon | null {
-  try {
-    const webgl = new WebglAddon()
-    webgl.onContextLoss(() => {
-      onContextLoss?.()
-      webgl.dispose()
-    })
-    term.loadAddon(webgl)
-    // Repaint immediately so the terminal isn't blank after attach
-    try { term.refresh(0, term.rows - 1) } catch { /* ignore */ }
-    console.debug('[terminal] WebGL renderer activated')
-    return webgl
-  } catch (e) {
-    console.debug('[terminal] WebGL unavailable, using canvas renderer', e)
-    return null
-  }
-}
-
-/**
- * Safely dispose a WebGL addon. Call before DOM reparenting to avoid
- * silent context corruption (Chromium can invalidate without firing contextlost).
- */
-export function disposeWebgl(addon: WebglAddon | null): void {
-  if (!addon) return
-  try { addon.dispose() } catch { /* ignore */ }
 }
 
 // ── Right-panel tab ID persistence (for daemon reattach across reloads) ──────
