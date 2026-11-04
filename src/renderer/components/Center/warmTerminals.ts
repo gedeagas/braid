@@ -73,14 +73,16 @@ export function warmableSessionIds(sessions: ReadonlyArray<{ sessionId: string; 
  */
 export async function warmLiveBigTerminals(): Promise<number> {
   const liveIds = warmableSessionIds(await ipc.pty.listSessions())
-  const tabsByWorktree = useUIStore.getState().bigTerminalsByWorktree
   try {
     const records = await ipc.pty.listAgentSessions()
-    useUIStore.getState().seedRestoredBigTerminalStatus(selectRestoredStatusSeeds(tabsByWorktree, records, liveIds))
+    const tabs = useUIStore.getState().bigTerminalsByWorktree
+    useUIStore.getState().seedRestoredBigTerminalStatus(selectRestoredStatusSeeds(tabs, records, liveIds))
   } catch {
     // Best effort: tabs still restore when opened.
   }
   if (liveIds.size === 0) return 0
+  // Read the tabs after the awaits so a tab closed meanwhile is not recreated.
+  const tabsByWorktree = useUIStore.getState().bigTerminalsByWorktree
 
   const worktreePaths = new Map<string, string>()
   for (const project of useProjectsStore.getState().projects) {
@@ -88,6 +90,8 @@ export async function warmLiveBigTerminals(): Promise<number> {
   }
 
   const targets = selectWarmTargets(tabsByWorktree, worktreePaths, liveIds)
-  for (const t of targets) getOrCreate(t.terminalId, t.worktreePath, undefined, t.agentId)
+  // Reattach only: a session that died since it was listed waits for its tab
+  // to be opened instead of spawning a shell and resuming its agent unseen.
+  for (const t of targets) getOrCreate(t.terminalId, t.worktreePath, undefined, t.agentId, undefined, { reattachOnly: true })
   return targets.length
 }

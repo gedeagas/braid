@@ -78,6 +78,18 @@ describe('cold restore in the session host', () => {
     expect(spawned[0].env.BRAID_TERMINAL).toBe('1')
   })
 
+  it('recovers the terminal id from the session id for checkpoints written before env was saved', async () => {
+    await host.restore(checkpoint(), '/bin/zsh')
+    expect(spawned[0].env.BRAID_TERMINAL_ID).toBe('bt-1-1')
+    expect(spawned[0].env.BRAID_TERMINAL).toBe('1')
+    expect(host.getCheckpoints()[0].env).toEqual({ BRAID_TERMINAL_ID: 'bt-1-1', BRAID_TERMINAL: '1' })
+  })
+
+  it('never invents a terminal id for a daemon-generated session id', async () => {
+    await host.restore(checkpoint({ sessionId: 'pty-d-1-abc' }), '/bin/zsh')
+    expect(spawned[0].env.BRAID_TERMINAL_ID).toBeUndefined()
+  })
+
   it('ignores tampered env keys and values from a checkpoint file', async () => {
     await host.restore(checkpoint({
       env: { BRAID_TERMINAL_ID: 'bt-1-1\nrm', PATH: '/evil', LD_PRELOAD: '/x.so' } as Record<string, string>,

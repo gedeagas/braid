@@ -154,7 +154,7 @@ const api = {
     consumeColdRestore: (sessionId: string) =>
       ipcRenderer.invoke('pty:consumeColdRestore', sessionId) as Promise<boolean>,
     listSessions: () =>
-      ipcRenderer.invoke('pty:listSessions') as Promise<Array<{ sessionId: string; cwd: string; cols: number; rows: number; createdAt: number; coldRestored?: boolean }>>,
+      ipcRenderer.invoke('pty:listSessions') as Promise<Array<{ sessionId: string; cwd: string; cols: number; rows: number; createdAt: number; coldRestored?: boolean; foreground?: 'shell' | 'command' }>>,
     listOrphanedBigTerminals: (knownTerminalIds: string[]) =>
       ipcRenderer.invoke('pty:listOrphanedBigTerminals', knownTerminalIds) as Promise<Array<{ terminalId: string; cwd: string; label?: string; agentId?: string }>>,
     killOrphanedBigTerminals: (terminalIds: string[]) =>

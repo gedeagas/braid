@@ -33,6 +33,18 @@ export function persistableEnv(env: Record<string, string> | undefined): Record<
   return result
 }
 
+/**
+ * Env to re-apply when restoring a checkpoint. Checkpoints written before env
+ * was saved have none; their session id is the terminal id the session was
+ * spawned with (the adapter keys sessions by BRAID_TERMINAL_ID), so recover it
+ * from there. Daemon-generated ids (`pty-d-`) never had one.
+ */
+export function restoredEnv(sessionId: string, env: Record<string, string> | undefined): Record<string, string> {
+  if (env !== undefined) return persistableEnv(env)
+  if (sessionId.startsWith('pty-d-') || !ENV_VALUE_RE.test(sessionId)) return {}
+  return { BRAID_TERMINAL_ID: sessionId, BRAID_TERMINAL: '1' }
+}
+
 /** Classify a PTY's foreground process name against the shell it runs. */
 export function classifyForeground(processName: string | undefined, shell: string): ForegroundKind | undefined {
   if (typeof processName !== 'string' || !processName) return undefined

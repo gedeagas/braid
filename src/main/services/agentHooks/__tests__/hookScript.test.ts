@@ -80,9 +80,16 @@ describe('generated hook script', () => {
     expect(body.event).toBe('Stop')
   })
 
-  it('keeps the payload valid JSON when cwd has quotes or escapes', async () => {
-    const body = await run('claude', '{"session_id":"s","cwd":"/a\\\\b\'c","hook_event_name":"Stop"}')
-    expect(typeof body.cwd).toBe('string')
-    expect(String(body.cwd)).not.toMatch(/["'\\]/)
+  it('keeps apostrophes in paths intact', async () => {
+    const body = await run('claude', JSON.stringify({ session_id: 's', cwd: "/repo/it's-app", transcript_path: "/t/it's.jsonl", hook_event_name: 'Stop' }))
+    expect(body.cwd).toBe("/repo/it's-app")
+    expect(body.transcriptPath).toBe("/t/it's.jsonl")
+  })
+
+  it('drops a path with JSON escapes instead of forwarding a corrupted one', async () => {
+    const body = await run('claude', JSON.stringify({ session_id: 's', cwd: '/a\\b"c', transcript_path: '/t/a"b.jsonl', hook_event_name: 'Stop' }))
+    expect(body.cwd).toBeUndefined()
+    expect(body.transcriptPath).toBeUndefined()
+    expect(body.event).toBe('Stop')
   })
 })

@@ -1,8 +1,35 @@
 import { describe, it, expect, vi } from 'vitest'
 
+const { ui, pty } = vi.hoisted(() => ({
+  ui: {
+    bigTerminalsByWorktree: {} as Record<string, Array<{ id: string; label: string; agentId?: string }>>,
+    seedRestoredBigTerminalStatus: vi.fn(),
+  },
+  pty: { listSessions: vi.fn(), listAgentSessions: vi.fn() },
+}))
 vi.mock('../bigTerminalCache', () => ({ getOrCreate: vi.fn() }))
+vi.mock('@/lib/ipc', () => ({ pty }))
+vi.mock('@/store/ui', () => ({ useUIStore: { getState: () => ui } }))
+vi.mock('@/store/projects', () => ({
+  useProjectsStore: { getState: () => ({ projects: [{ worktrees: [{ id: 'wt-a', path: '/repo/a' }] }] }) },
+}))
 
-import { selectRestoredStatusSeeds, selectWarmTargets, warmableSessionIds } from '../warmTerminals'
+import { getOrCreate } from '../bigTerminalCache'
+import { selectRestoredStatusSeeds, selectWarmTargets, warmableSessionIds, warmLiveBigTerminals } from '../warmTerminals'
+
+describe('warmLiveBigTerminals', () => {
+  it('reattaches only, and skips a tab closed while the session list was loading', async () => {
+    ui.bigTerminalsByWorktree = { 'wt-a': [{ id: 'bt-1', label: 'A' }, { id: 'bt-2', label: 'B' }] }
+    pty.listSessions.mockResolvedValue([{ sessionId: 'bt-1' }, { sessionId: 'bt-2' }])
+    pty.listAgentSessions.mockImplementation(async () => {
+      ui.bigTerminalsByWorktree = { 'wt-a': [{ id: 'bt-1', label: 'A' }] }
+      return []
+    })
+    expect(await warmLiveBigTerminals()).toBe(1)
+    expect(getOrCreate).toHaveBeenCalledTimes(1)
+    expect(getOrCreate).toHaveBeenCalledWith('bt-1', '/repo/a', undefined, undefined, undefined, { reattachOnly: true })
+  })
+})
 
 describe('selectWarmTargets', () => {
   const paths = new Map([

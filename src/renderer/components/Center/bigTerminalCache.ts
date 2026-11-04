@@ -182,7 +182,10 @@ function updateEntryAgentId(entry: BigTermEntry, agentId?: string): void {
  *   2. OSC 9999 / OSC 9: custom terminal sequences parsed by xterm.js.
  *   3. Title detection (fallback): watches braille spinners, Gemini markers, etc.
  */
-export function getOrCreate(terminalId: string, worktreePath: string, initialCommand?: string, agentId?: string, initialInput?: string): BigTermEntry {
+export function getOrCreate(
+  terminalId: string, worktreePath: string, initialCommand?: string, agentId?: string, initialInput?: string,
+  options: { reattachOnly?: boolean } = {},
+): BigTermEntry {
   ensureFinderRegistered()
   ensureHookListener()
   const existing = cache.get(terminalId)
@@ -245,7 +248,8 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
 
   registerAgentStatusOsc(term, (payload) => {
     const applied = updateStatus({ ...payload, source: 'hook' })
-    if (applied.stateChanged) {
+    // Replayed history sets the status but must not re-announce old events.
+    if (applied.stateChanged && !isReplaying(terminalId)) {
       completionCoordinator.observeHookStatus(payload.state, payload.interrupted)
       notifyTerminalStateChange(terminalId, payload.state)
     }
@@ -255,7 +259,7 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
     term,
     (result) => {
       const applied = updateStatus({ state: result.state, source: 'title', agentType: result.agentType ?? undefined })
-      if (applied.stateChanged) {
+      if (applied.stateChanged && !isReplaying(terminalId)) {
         completionCoordinator.observeTitleStatus(result.state)
         notifyTerminalStateChange(terminalId, result.state)
       }
@@ -267,7 +271,7 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
   // OSC 9 braid:STATE[:TOOL] payloads. Secondary to HTTP but still useful.
   registerBraidOsc9(term, (payload) => {
     const applied = updateStatus({ ...payload, source: 'hook' })
-    if (applied.stateChanged) {
+    if (applied.stateChanged && !isReplaying(terminalId)) {
       completionCoordinator.observeHookStatus(payload.state, false)
       notifyTerminalStateChange(terminalId, payload.state)
     }
@@ -275,7 +279,16 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
 
   if (expectedAgentType === 'codex') ensureCodexPromptScanListener(entry)
 
-  entry.spawnPromise = connectBigTerminal(entry, { initialCommand, initialInput })
+  // A warm-up whose session died meanwhile is dropped, unless a view mounted
+  // it in the meantime (the user opened the tab): that one restores normally.
+  const onReattachFailed = options.reattachOnly
+    ? () => {
+      if (entry.resizeObserver !== null || cache.get(terminalId) !== entry) return false
+      teardown(entry)
+      return true
+    }
+    : undefined
+  entry.spawnPromise = connectBigTerminal(entry, { initialCommand, initialInput, onReattachFailed })
 
   return entry
 }

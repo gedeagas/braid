@@ -12,7 +12,8 @@ function input(overrides: Partial<Parameters<typeof selectHibernationCandidates>
     now,
     idleMs: 30 * MIN,
     visibleTerminalId: 'bt-visible',
-    resumableIds: new Set(['bt-idle', 'bt-visible', 'bt-busy', 'bt-typed', 'bt-phone', 'bt-restored']),
+    resumableIds: new Set(['bt-idle', 'bt-visible', 'bt-busy', 'bt-typed', 'bt-phone', 'bt-restored', 'bt-exited']),
+    agentForegroundIds: new Set(['bt-idle', 'bt-visible', 'bt-busy', 'bt-typed', 'bt-phone', 'bt-restored', 'bt-noresume']),
     statusById: {
       'bt-idle': { state: 'done', source: 'hook', agentType: 'claude' },
       'bt-visible': { state: 'done', source: 'hook' },
@@ -21,6 +22,7 @@ function input(overrides: Partial<Parameters<typeof selectHibernationCandidates>
       'bt-phone': { state: 'done', source: 'hook' },
       'bt-restored': { state: 'done', source: 'restored' },
       'bt-noresume': { state: 'done', source: 'hook' },
+      'bt-exited': { state: 'done', source: 'hook' },
     },
     terminals: [
       { terminalId: 'bt-idle', lastInputAt: now - 40 * MIN, lastOutputAt: now - 35 * MIN, mobileInputLocked: false },
@@ -30,6 +32,7 @@ function input(overrides: Partial<Parameters<typeof selectHibernationCandidates>
       { terminalId: 'bt-phone', lastInputAt: 0, lastOutputAt: 0, mobileInputLocked: true },
       { terminalId: 'bt-restored', lastInputAt: 0, lastOutputAt: 0, mobileInputLocked: false },
       { terminalId: 'bt-noresume', lastInputAt: 0, lastOutputAt: 0, mobileInputLocked: false },
+      { terminalId: 'bt-exited', lastInputAt: 0, lastOutputAt: 0, mobileInputLocked: false },
     ],
     ...overrides,
   } as Parameters<typeof selectHibernationCandidates>[0]
@@ -38,6 +41,10 @@ function input(overrides: Partial<Parameters<typeof selectHibernationCandidates>
 describe('selectHibernationCandidates', () => {
   it('picks only finished, hidden, idle agents that can be resumed', () => {
     expect(selectHibernationCandidates(input())).toEqual([{ terminalId: 'bt-idle', agentType: 'claude' }])
+  })
+
+  it('never shuts down a shell the agent already exited (its status can stay done)', () => {
+    expect(selectHibernationCandidates(input({ agentForegroundIds: new Set() }))).toEqual([])
   })
 
   it('waits until output has been quiet for the whole idle window', () => {

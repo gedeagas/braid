@@ -7,7 +7,7 @@
 import { accessSync, existsSync, constants as fsConstants } from 'fs'
 import { BUFFER_MAX_LENGTH } from './protocol'
 import { resolveShellLaunchArgs } from '../../lib/shell'
-import { baseEnv, classifyForeground, normalizeForeground, persistableEnv } from './sessionEnv'
+import { baseEnv, classifyForeground, normalizeForeground, persistableEnv, restoredEnv } from './sessionEnv'
 import type { DaemonSession, CheckpointData, SessionInfo, DaemonSessionMetadata, ForegroundKind } from './types'
 
 export { persistableEnv } from './sessionEnv'
@@ -220,7 +220,7 @@ export class SessionHost {
   async restore(checkpoint: CheckpointData, shell: string): Promise<void> {
     if (this.sessions.has(checkpoint.sessionId)) return
 
-    const env = persistableEnv(checkpoint.env)
+    const env = restoredEnv(checkpoint.sessionId, checkpoint.env)
     const ptyProcess = await this.spawnPty(shell, resolveShellLaunchArgs(shell).args, {
       cols: checkpoint.cols,
       rows: checkpoint.rows,
@@ -399,6 +399,7 @@ export class SessionHost {
         metadata: entry.metadata,
         attachedClients: entry.attachedClients,
         coldRestored: entry.coldRestored,
+        ...(entry.foreground ? { foreground: entry.foreground } : {}),
       })
     }
     return result

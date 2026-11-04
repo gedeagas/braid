@@ -15,6 +15,12 @@ export interface ConnectOptions {
   /** Auto-run after the first spawn only (not on restore). */
   initialCommand?: string
   initialInput?: string
+  /**
+   * Background warm-up: when the live session can't be reattached, stop
+   * instead of spawning a shell and resuming its agent unseen. Called with no
+   * terminal spawned; returns true when the caller dropped the entry.
+   */
+  onReattachFailed?: () => boolean
 }
 
 export async function connectBigTerminal(entry: BigTermEntry, opts: ConnectOptions): Promise<void> {
@@ -65,6 +71,7 @@ export async function connectBigTerminal(entry: BigTermEntry, opts: ConnectOptio
   }
 
   if (reattached || entry.disposed) return
+  if (opts.onReattachFailed?.()) return
 
   // Fall back to scrollback file replay + fresh spawn
   try {

@@ -81,4 +81,6 @@ export interface SessionInfo {
   attachedClients: number
   /** Re-created from a checkpoint and not yet claimed (see ReattachResult). */
   coldRestored?: boolean
+  /** Last sampled foreground (every checkpoint tick). Absent until sampled. */
+  foreground?: ForegroundKind
 }

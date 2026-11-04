@@ -82,10 +82,11 @@ reason=""
 # Sanitize extracted values: strip any quotes/backslashes to prevent JSON injection
 event="\${event//[\\\\\\"\\']/}"
 tool="\${tool//[\\\\\\"\\']/}"
-cwd="\${cwd//[\\\\\\"\\']/}"
-cwd="\${cwd//[[:cntrl:]]/}"
-transcript="\${transcript//[\\\\\\"\\']/}"
-transcript="\${transcript//[[:cntrl:]]/}"
+# Paths are copied as-is (an apostrophe is valid JSON and a valid path). A
+# backslash means a JSON escape the regex can't decode, so the value would be
+# wrong: drop it, and the agent resumes from the worktree root instead.
+case "$cwd" in *\\\\*|*[[:cntrl:]]*) cwd="" ;; esac
+case "$transcript" in *\\\\*|*[[:cntrl:]]*) transcript="" ;; esac
 
 # Build JSON payload for Braid server
 json="{\\"terminalId\\":\\"$BRAID_TERMINAL_ID\\",\\"event\\":\\"$event\\""
