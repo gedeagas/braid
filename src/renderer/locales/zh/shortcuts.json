@@ -4,7 +4,8 @@
   "categories": {
     "general": "通用",
     "view": "视图",
-    "navigation": "导航"
+    "navigation": "导航",
+    "browser": "浏览器"
   },
   "openSettings": "打开设置",
   "showShortcuts": "键盘快捷键",
@@ -29,5 +30,15 @@
   "commandPaletteRun": "执行",
   "commandPaletteNoResults": "没有匹配 \"{{query}}\" 的命令",
   "noResults": "没有匹配 \"{{query}}\" 的快捷键",
-  "empty": "暂无快捷键"
+  "empty": "暂无快捷键",
+  "browserNewTab": "新建浏览器标签页",
+  "browserReopenTab": "重新打开已关闭的浏览器标签页",
+  "browserFocusAddress": "聚焦地址栏",
+  "browserFind": "在页面中查找",
+  "browserReload": "重新加载页面",
+  "browserHardReload": "强制重新加载页面",
+  "browserBack": "后退",
+  "browserForward": "前进",
+  "browserDevTools": "浏览器开发者工具",
+  "moveTabToOtherPane": "将标签页移到另一窗格"
 }

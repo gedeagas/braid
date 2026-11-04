@@ -23,6 +23,7 @@ import type { SearchFileResult, SearchMatch, SearchOptions } from '../shared/sea
 import { windowCaptureService } from './services/windowCapture'
 import { claudeConfigService, ClaudePermissions, ClaudeHookConfig, SkillDetail, McpServerEntry, McpServerConfig } from './services/claudeConfig'
 import { notesService } from './services/notes'
+import { registerBrowserIpc } from './services/browser'
 import { mobileServer, deviceStore } from './services/mobileServer'
 import { setAgentAwakeEnabled } from './services/agentAwake'
 import { mobileNgrokTunnel } from './services/mobileServer/ngrokTunnel'
@@ -100,6 +101,9 @@ export const mainSettings = {
 }
 
 export function registerIpcHandlers(): void {
+  // Browser tabs (registry, settings, downloads, permissions, design mode, cookies)
+  registerBrowserIpc()
+
   // Storage
   ipcMain.handle('storage:load', () => storageService.load())
   ipcMain.handle('storage:save', (_e, data) => storageService.save(data))

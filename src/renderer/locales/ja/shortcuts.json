@@ -4,7 +4,8 @@
   "categories": {
     "general": "一般",
     "view": "表示",
-    "navigation": "ナビゲーション"
+    "navigation": "ナビゲーション",
+    "browser": "ブラウザ"
   },
   "openSettings": "設定を開く",
   "showShortcuts": "キーボードショートカット",
@@ -29,5 +30,15 @@
   "commandPaletteRun": "実行",
   "commandPaletteNoResults": "「{{query}}」に一致するコマンドはありません",
   "noResults": "「{{query}}」に一致するショートカットはありません",
-  "empty": "ショートカットはありません"
+  "empty": "ショートカットはありません",
+  "browserNewTab": "新しいブラウザタブ",
+  "browserReopenTab": "閉じたブラウザタブを再度開く",
+  "browserFocusAddress": "アドレスバーにフォーカス",
+  "browserFind": "ページ内を検索",
+  "browserReload": "ページを再読み込み",
+  "browserHardReload": "ページをハード再読み込み",
+  "browserBack": "戻る",
+  "browserForward": "進む",
+  "browserDevTools": "ブラウザのデベロッパーツール",
+  "moveTabToOtherPane": "タブを反対側のペインに移動"
 }

@@ -21,6 +21,16 @@ vi.mock('react-i18next', () => ({
   }),
 }))
 
+// Links route through the browser link router; in these tests it forwards to the
+// mocked system browser so the assertions stay about *which* links open.
+vi.mock('@/lib/browser/linkRouter', async () => {
+  const ipc = await import('@/lib/ipc')
+  return {
+    openLink: (url: string) => ipc.shell.openExternal(url),
+    modifierFromEvent: () => ({ shift: false, platformMod: false }),
+  }
+})
+
 vi.mock('@/lib/ipc', () => ({
   github: { getReviews: vi.fn(), replyToReviewComment: vi.fn() },
   shell: { openExternal: vi.fn() },

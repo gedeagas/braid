@@ -22,6 +22,7 @@ import { RingBuffer } from './sessionHost'
 import type { BigTerminalMetadata, IPtyService, OrphanedTerminal, PtyInstanceInfo, TerminalOutput } from '../pty'
 import type { ReattachResult, SessionInfo } from './types'
 import { getTerminalScrollbackBufferMaxLength } from '../../../shared/terminal'
+import { getBrowserSettings, pathWithBridge } from '../browser'
 
 // ── Scrollback helpers (same as PtyService) ──────────────────────────────────
 
@@ -233,6 +234,8 @@ export class PtyDaemonAdapter implements IPtyService {
       TERM: 'xterm-256color',
       BRAID_TERMINAL: '1',
       ...(hookPort > 0 ? { BRAID_HOOK_PORT: String(hookPort), BRAID_HOOK_TOKEN: hookToken } : {}),
+      // braid-browser CLI for agents running in this terminal.
+      ...(getBrowserSettings().exposeToTerminalAgents ? { PATH: pathWithBridge(process.env.PATH) } : {}),
       ...envOverrides,
     }
 

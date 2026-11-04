@@ -1,4 +1,4 @@
-export type ShortcutCategory = 'general' | 'view' | 'navigation'
+export type ShortcutCategory = 'general' | 'view' | 'navigation' | 'browser'
 
 export interface ShortcutDef {
   id: string
@@ -6,7 +6,7 @@ export interface ShortcutDef {
   category: ShortcutCategory
 }
 
-export const SHORTCUT_CATEGORIES: ShortcutCategory[] = ['general', 'view', 'navigation']
+export const SHORTCUT_CATEGORIES: ShortcutCategory[] = ['general', 'view', 'navigation', 'browser']
 
 export const SHORTCUTS: ShortcutDef[] = [
   // General
@@ -33,4 +33,16 @@ export const SHORTCUTS: ShortcutDef[] = [
   { id: 'quickOpen', symbols: ['⌘', 'P'], category: 'navigation' },
   { id: 'focusChat', symbols: ['⌘', 'L'], category: 'navigation' },
   { id: 'saveFile', symbols: ['⌘', 'S'], category: 'navigation' },
+  { id: 'moveTabToOtherPane', symbols: ['⌘', '\\'], category: 'navigation' },
+
+  // Browser (while a browser tab is active)
+  { id: 'browserNewTab', symbols: ['⌘', 'T'], category: 'browser' },
+  { id: 'browserReopenTab', symbols: ['⌘', '⇧', 'T'], category: 'browser' },
+  { id: 'browserFocusAddress', symbols: ['⌘', 'L'], category: 'browser' },
+  { id: 'browserFind', symbols: ['⌘', 'F'], category: 'browser' },
+  { id: 'browserReload', symbols: ['⌘', 'R'], category: 'browser' },
+  { id: 'browserHardReload', symbols: ['⌘', '⇧', 'R'], category: 'browser' },
+  { id: 'browserBack', symbols: ['⌘', '['], category: 'browser' },
+  { id: 'browserForward', symbols: ['⌘', ']'], category: 'browser' },
+  { id: 'browserDevTools', symbols: ['⌘', '⌥', 'I'], category: 'browser' },
 ]

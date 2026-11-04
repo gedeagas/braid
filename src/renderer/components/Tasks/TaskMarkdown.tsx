@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm'
 import { parseMarkdownBlocks } from '@/lib/parseMarkdownBlocks'
 import { resolveSafeExternalUrl } from '@/lib/safeExternalUrl'
 import * as ipc from '@/lib/ipc'
+import { modifierFromEvent, openLink } from '@/lib/browser/linkRouter'
 
 const markdownPlugins = [remarkGfm]
 type TableCellAlignment = 'left' | 'center' | 'right' | 'justify'
@@ -78,7 +79,7 @@ function createMarkdownComponents(baseUrl?: string): Components {
       const onClick = (event: MouseEvent<HTMLAnchorElement>) => {
         event.preventDefault()
         event.stopPropagation()
-        if (safeUrl) ipc.shell.openExternal(safeUrl)
+        if (safeUrl) openLink(safeUrl, { modifier: modifierFromEvent(event) })
       }
       return <a href={safeUrl ?? undefined} onClick={onClick}>{children}</a>
     },
@@ -312,7 +313,7 @@ function renderSafeHtmlLink(element: HTMLAnchorElement, children: ReactNode[], b
   const onClick = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
     event.stopPropagation()
-    if (safeUrl) ipc.shell.openExternal(safeUrl)
+    if (safeUrl) openLink(safeUrl, { modifier: modifierFromEvent(event) })
   }
   return <a key={key} href={safeUrl ?? undefined} onClick={onClick}>{children}</a>
 }

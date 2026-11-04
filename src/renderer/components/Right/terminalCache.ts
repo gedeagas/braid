@@ -10,6 +10,7 @@ import { getTerminalMinimumContrastRatio, getTerminalTheme } from '@/themes/term
 import { useUIStore } from '@/store/ui'
 import { SK } from '@/lib/storageKeys'
 import type { TerminalCommandObserver } from '@/lib/terminalCommandRefresh'
+import { modifierFromEvent, openLink } from '@/lib/browser/linkRouter'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -114,8 +115,8 @@ export function createTerminal(): { term: Terminal; fitAddon: FitAddon; searchAd
   // Clickable URLs - use a custom handler because xterm's default calls
   // window.open() without a URL, which Electron's setWindowOpenHandler
   // sees as about:blank and denies.
-  term.loadAddon(new WebLinksAddon((_event, uri) => {
-    ipc.shell.openExternal(uri)
+  term.loadAddon(new WebLinksAddon((event, uri) => {
+    openLink(uri, { modifier: modifierFromEvent(event) })
   }))
 
   // Full-width CJK / emoji rendering

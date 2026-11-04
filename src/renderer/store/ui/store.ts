@@ -6,6 +6,8 @@ import { createTerminalSlice } from './terminal'
 import { createTerminalsSlice } from './terminals'
 import { createSettingsSlice } from './settings'
 import { createAppsSlice } from './apps'
+import { createBrowserTabsSlice } from './browserTabs'
+import { createCenterSplitSlice } from './centerSplit'
 
 export const useUIStore = create<UIState>((...a) => ({
   ...createThemeSlice(...a),
@@ -14,4 +16,6 @@ export const useUIStore = create<UIState>((...a) => ({
   ...createTerminalsSlice(...a),
   ...createSettingsSlice(...a),
   ...createAppsSlice(...a),
+  ...createBrowserTabsSlice(...a),
+  ...createCenterSplitSlice(...a),
 }))

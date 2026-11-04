@@ -145,6 +145,15 @@ export function createAppMenu(mainWindow: BrowserWindow): void {
           click: () => sendAction(mainWindow, 'newBigTerminal')
         },
         {
+          label: 'New Browser Tab',
+          click: () => sendAction(mainWindow, 'newBrowserTab')
+        },
+        {
+          label: 'Move Tab to Other Pane',
+          accelerator: 'CmdOrCtrl+\\',
+          click: () => sendAction(mainWindow, 'moveTabToOtherPane')
+        },
+        {
           label: 'Close Tab',
           accelerator: 'CmdOrCtrl+W',
           click: () => sendAction(mainWindow, 'closeCurrentTab')

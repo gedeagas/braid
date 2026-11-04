@@ -17,6 +17,7 @@ import { mkdirSync, writeFileSync, unlinkSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
 import { BrowserWindow } from 'electron'
+import { handleBrowserRoute, isBrowserRoute } from './browser/http'
 import type { AgentHookTarget } from './agentHooks/types'
 import { parseHookSessionUpdate, type AgentHookSessionUpdate } from '../../shared/agent-resume'
 
@@ -205,6 +206,12 @@ export async function startAgentHookServer(): Promise<{ port: number; token: str
 
   return new Promise((resolve, reject) => {
     const srv = http.createServer((req, res) => {
+      // Browser automation for terminal agents shares this port + token.
+      if (isBrowserRoute(req.url)) {
+        handleBrowserRoute(req, res, serverToken)
+        return
+      }
+
       // Only accept POST /hook/<agentId>
       if (req.method !== 'POST') {
         res.writeHead(404)

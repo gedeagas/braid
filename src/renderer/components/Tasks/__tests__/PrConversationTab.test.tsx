@@ -4,6 +4,16 @@ import { PrConversationTab } from '../PrConversationTab'
 import type { UiReviewComment } from '../types'
 import type { PrDetailController } from '../usePrDetailController'
 
+// Links route through the browser link router; in these tests it forwards to the
+// mocked system browser so the assertions stay about *which* links open.
+vi.mock('@/lib/browser/linkRouter', async () => {
+  const ipc = await import('@/lib/ipc')
+  return {
+    openLink: (url: string) => ipc.shell.openExternal(url),
+    modifierFromEvent: () => ({ shift: false, platformMod: false }),
+  }
+})
+
 vi.mock('@/lib/ipc', () => ({
   shell: {
     openExternal: vi.fn(),

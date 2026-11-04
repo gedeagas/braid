@@ -41,6 +41,8 @@ import { mobileNgrokTunnel } from './services/mobileServer/ngrokTunnel'
 import { HTML_PREVIEW_PARTITION } from '../shared/html-preview'
 import { SERVE_SIM_PARTITION, isServeSimUrl } from '../shared/serve-sim'
 import { getServeSimSession } from './services/serveSim'
+import { isBrowserPartition, isBrowsableUrl } from '../shared/browser'
+import { attachBrowserGuest, getBrowserSession, getBrowserSettings, isBrowserSession, syncAgentBrowserBridge } from './services/browser'
 
 // Prevent EPIPE errors from crashing the process when stdout/stderr pipes break
 // (common in Electron when the renderer detaches or during hot-reload).
@@ -124,7 +126,10 @@ function createWindow(): void {
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    // http(s) links from Braid's own UI (editor, markdown) follow the browser
+    // link-routing setting; the renderer decides Braid browser vs system.
+    if (isHttpUrl(details.url)) mainWindow!.webContents.send('browser:routeLink', details.url)
+    else shell.openExternal(details.url)
     return { action: 'deny' }
   })
 
@@ -141,8 +146,9 @@ function createWindow(): void {
     const isEmbeddedWebApp =
       isWebAppPartition(partition) && isHttpUrl(src)
     const isServeSim = partition === SERVE_SIM_PARTITION && isServeSimUrl(src)
+    const isBrowserTab = isBrowserPartition(partition) && isBrowsableUrl(src)
 
-    if (!isHtmlPreview && !isEmbeddedWebApp && !isServeSim) {
+    if (!isHtmlPreview && !isEmbeddedWebApp && !isServeSim && !isBrowserTab) {
       event.preventDefault()
       return
     }
@@ -161,12 +167,18 @@ function createWindow(): void {
       webPreferences.plugins = false
       configureHtmlPreviewSession(getHtmlPreviewSession())
     }
+    // Configure the profile session before the guest loads its first request.
+    if (isBrowserTab) getBrowserSession(partition)
   })
 
   // When a <webview> tries to open a new window (e.g. Slack auth, links),
   // navigate the webview in-place instead of spawning a popup.
   // Also enable native right-click context menu (copy, paste, etc.).
   mainWindow.webContents.on('did-attach-webview', (_event, webviewContents) => {
+    if (isBrowserSession(webviewContents.session)) {
+      attachBrowserGuest(webviewContents)
+      return
+    }
     const isHtmlPreview = htmlPreviewSessions.has(webviewContents.session)
     if (webviewContents.session === getServeSimSession()) {
       // The simulator preview never leaves its loopback server; links go to the browser.
@@ -287,6 +299,8 @@ app.whenReady().then(async () => {
       return
     }
     if (sess === getServeSimSession()) return
+    // Browser tab profiles have their own hardened config (services/browser/session.ts).
+    if (isBrowserSession(sess)) return
     configureWebAppSession(sess)
   })
 
@@ -338,6 +352,8 @@ app.whenReady().then(async () => {
   startAgentSessionTracking()
   startAgentHookServer()
     .then(() => ensureAllAgentHooks())
+    // Browser bridge for terminal agents (CLI + MCP registration); needs the hook server port file.
+    .then(() => syncAgentBrowserBridge(getBrowserSettings()))
     .catch((err) => console.warn('[agentHookServer] Failed to start:', err))
 
   // Bridge big-terminal agent status to paired mobile devices (main-process,

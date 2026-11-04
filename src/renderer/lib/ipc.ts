@@ -1,4 +1,8 @@
 import type { AgentResumeClaim } from '@shared/agent-resume'
+import type {
+  BrowserAgentBridgeStatus, BrowserCookieImportResult, BrowserDownload, BrowserGuestInfo, BrowserOpenTabEvent, BrowserPermissionRequest,
+  BrowserRendererRequestEnvelope, BrowserSettings, BrowserShortcutEvent, BrowserViewport, BrowserWorktreeSync, DesignModeCapture,
+} from '@shared/browser'
 // Typed IPC wrappers — thin layer over window.api
 const api = () => window.api
 
@@ -436,6 +440,40 @@ export const mobile = {
   ) => api().mobile.onCreateWorktreeRequest(callback),
   sendCreateWorktreeResult: (result: { requestId: string; ok: boolean; reason?: string; worktreePath?: string; worktreeId?: string }) =>
     api().mobile.sendCreateWorktreeResult(result),
+}
+
+export const browser = {
+  onShortcut: (cb: (event: BrowserShortcutEvent) => void): (() => void) => api().browser.onShortcut(cb),
+  onOpenTab: (cb: (event: BrowserOpenTabEvent) => void): (() => void) => api().browser.onOpenTab(cb),
+  onRequest: (cb: (event: BrowserRendererRequestEnvelope) => void): (() => void) => api().browser.onRequest(cb),
+  onDownload: (cb: (event: BrowserDownload) => void): (() => void) => api().browser.onDownload(cb),
+  onPermissionRequest: (cb: (event: BrowserPermissionRequest) => void): (() => void) => api().browser.onPermissionRequest(cb),
+  onPermissionCancel: (cb: (id: number) => void): (() => void) => api().browser.onPermissionCancel(cb),
+  onAutomationActivity: (cb: (tabId: string) => void): (() => void) => api().browser.onAutomationActivity(cb),
+  onRouteLink: (cb: (url: string) => void): (() => void) => api().browser.onRouteLink(cb),
+  respond: (id: number, ok: boolean, payload: unknown): Promise<void> => api().browser.respond(id, ok, payload),
+  registerGuest: (info: BrowserGuestInfo): Promise<void> => api().browser.registerGuest(info),
+  unregisterGuest: (tabId: string, webContentsId: number): Promise<void> => api().browser.unregisterGuest(tabId, webContentsId),
+  syncWorktree: (sync: BrowserWorktreeSync): Promise<void> => api().browser.syncWorktree(sync),
+  getSettings: (): Promise<BrowserSettings> => api().browser.getSettings(),
+  agentBridgeStatus: (): Promise<BrowserAgentBridgeStatus> => api().browser.agentBridgeStatus(),
+  setSettings: (patch: Partial<BrowserSettings>): Promise<BrowserSettings> => api().browser.setSettings(patch),
+  clearProfileData: (profileId: string): Promise<void> => api().browser.clearProfileData(profileId),
+  deleteProfile: (profileId: string): Promise<BrowserSettings> => api().browser.deleteProfile(profileId),
+  setViewport: (webContentsId: number, viewport: BrowserViewport | null, scale: number): Promise<void> =>
+    api().browser.setViewport(webContentsId, viewport, scale),
+  designPick: (webContentsId: number): Promise<DesignModeCapture | null> => api().browser.designPick(webContentsId),
+  designSave: (capture: DesignModeCapture): Promise<{ mdPath: string; pngPath: string | null }> => api().browser.designSave(capture),
+  designCancel: (webContentsId: number): Promise<void> => api().browser.designCancel(webContentsId),
+  respondPermission: (id: number, allow: boolean, remember: boolean): Promise<void> => api().browser.respondPermission(id, allow, remember),
+  downloadCancel: (id: string): Promise<void> => api().browser.downloadCancel(id),
+  downloadOpen: (id: string): Promise<void> => api().browser.downloadOpen(id),
+  downloadShow: (id: string): Promise<void> => api().browser.downloadShow(id),
+  downloadDismiss: (id: string): Promise<void> => api().browser.downloadDismiss(id),
+  listChromiumProfiles: (): Promise<Array<{ browser: 'chrome' | 'edge'; profileDir: string; label: string }>> => api().browser.listChromiumProfiles(),
+  importCookiesFromBrowser: (profileId: string, browserId: 'chrome' | 'edge', profileDir: string): Promise<BrowserCookieImportResult> =>
+    api().browser.importCookiesFromBrowser(profileId, browserId, profileDir),
+  importCookiesFromFile: (profileId: string): Promise<BrowserCookieImportResult | null> => api().browser.importCookiesFromFile(profileId),
 }
 
 export const notes = {

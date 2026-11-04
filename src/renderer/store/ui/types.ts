@@ -11,5 +11,7 @@ import type { TerminalSlice } from './terminal'
 import type { TerminalsSlice } from './terminals'
 import type { SettingsSlice } from './settings'
 import type { AppsSlice } from './apps'
+import type { BrowserTabsSlice } from './browserTabs'
+import type { CenterSplitSlice } from './centerSplit'
 
-export type UIState = ThemeSlice & LayoutSlice & TerminalSlice & TerminalsSlice & SettingsSlice & AppsSlice
+export type UIState = ThemeSlice & LayoutSlice & TerminalSlice & TerminalsSlice & SettingsSlice & AppsSlice & BrowserTabsSlice & CenterSplitSlice

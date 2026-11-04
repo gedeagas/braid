@@ -386,3 +386,8 @@ function teardown(entry: BigTermEntry): void {
 export function disposeBigTerminals(terminalIds: string[]): void {
   for (const id of terminalIds) disposeBigTerminal(id)
 }
+
+/** PTY id backing a big terminal, or null when it hasn't spawned / isn't cached. */
+export function getBigTerminalPtyId(terminalId: string): string | null {
+  return cache.get(terminalId)?.ptyId ?? null
+}

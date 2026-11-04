@@ -9,6 +9,7 @@ import {
   type ToolInstallOptions,
   type ToolInstallResult,
 } from '../../shared/tool-install'
+import { findCommand } from '../lib/cliCommandDetection'
 
 type InstallStrategy =
   | {
@@ -323,10 +324,12 @@ class ToolInstallerService {
         env: enrichedEnv(),
         encoding: 'utf8',
       })
-      return stdout.split(/\r?\n/).map((line) => line.trim()).find((line) => line.startsWith('/')) ?? null
+      const onPath = stdout.split(/\r?\n/).map((line) => line.trim()).find((line) => line.startsWith('/'))
+      if (onPath) return onPath
     } catch {
-      return null
+      // Not on the login-shell PATH; check install folders GUI apps often miss below.
     }
+    return findCommand(command, { pathEnv: enrichedEnv().PATH })
   }
 
   private adminRequiredTargetPath(strategy: InstallStrategy): string | null {

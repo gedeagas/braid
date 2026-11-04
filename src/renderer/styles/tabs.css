@@ -646,3 +646,44 @@
   border: 0;
   background: var(--bg-primary);
 }
+
+/* ─── Center panes (optional split) ─────────────────────────────────────── */
+
+.center-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.center-panes {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.center-pane {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.center-pane-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* In a split, mark the focused pane's tab bar so ⌘W / ⌘T targets are obvious. */
+.center-pane--split .tab-bar {
+  box-shadow: inset 0 -1px 0 var(--border);
+}
+
+.center-pane--split.center-pane--focused .tab-bar {
+  box-shadow: inset 0 -2px 0 var(--accent-tint-22);
+}

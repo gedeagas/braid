@@ -1,15 +1,13 @@
-import { useReducer, useRef, useEffect, useCallback, useMemo, type ReactNode } from 'react'
+import { useReducer, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSessionsStore, useSessionsForWorktree, getLastActiveForWorktree } from '@/store/sessions'
-import { useUIStore, selectChangesOpen, selectActiveCenterView, selectCodeReviewOpen } from '@/store/ui'
+import type { BigTerminalTab } from '@/store/ui/terminals'
+import { useUIStore, selectChangesOpen, selectActiveCenterView, selectCodeReviewOpen, canMoveToSecondary, type BrowserTab as BrowserTabState, type CenterView, type PaneId } from '@/store/ui'
 import { useProjectsStore } from '@/store/projects'
 import { useDragScroll } from '@/hooks/useDragScroll'
 import { useTabReorder } from '@/hooks/useTabReorder'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { ContextMenu, type ContextMenuItem } from '@/components/shared/ContextMenu'
-import { IconMessageBubble, IconTerminal, AgentIcon } from '@/components/shared/icons'
-import { useDetectedAgents } from '@/lib/agentDetection'
-import type { AgentCatalogEntry } from '@/lib/agentCatalog'
 import type { AgentSession } from '@/types'
 import { getSessionTitle } from '@/lib/sessionTitle'
 import { agentStatusToTabClass } from '@/lib/agentStatus'
@@ -20,6 +18,12 @@ import { TerminalTab } from './TerminalTab'
 import { FileTab } from './FileTab'
 import { ChangesTab } from './ChangesTab'
 import { CodeReviewTab } from './CodeReviewTab'
+import { BrowserTab } from './BrowserTab'
+import { useNewTabMenuItems } from './useNewTabMenuItems'
+
+const EMPTY_BROWSER_TABS: BrowserTabState[] = []
+const EMPTY_KEYS: string[] = []
+const EMPTY_TERMINALS: BigTerminalTab[] = []
 
 interface TabBarLocal {
   editingId: string | null
@@ -28,7 +32,7 @@ interface TabBarLocal {
   addMenu: { x: number; y: number } | null
 }
 
-export function SessionTabBar() {
+export function SessionTabBar({ pane = 'primary' }: { pane?: PaneId } = {}) {
   const { t } = useTranslation('center')
   const selectedWorktreeId = useUIStore((s) => s.selectedWorktreeId)
   const selectedProjectId = useUIStore((s) => s.selectedProjectId)
@@ -46,25 +50,50 @@ export function SessionTabBar() {
   const changesOpen = useUIStore(selectChangesOpen)
   const codeReviewOpen = useUIStore(selectCodeReviewOpen)
   const dirtyFilePaths = useUIStore((s) => s.dirtyFilePaths)
-  const activeCenterView = useUIStore(selectActiveCenterView)
+  const primaryView = useUIStore(selectActiveCenterView)
+  const split = useUIStore(useCallback((s) => (selectedWorktreeId ? s.centerSplitByWorktree[selectedWorktreeId] : undefined), [selectedWorktreeId]))
+  const secondaryKeys = split?.secondaryKeys ?? EMPTY_KEYS
+  // The view shown in *this* pane drives the active-tab highlight.
+  const activeCenterView = pane === 'secondary' ? split?.secondaryView ?? null : primaryView
   const closeFile = useUIStore((s) => s.closeFile)
   const closeChanges = useUIStore((s) => s.closeChanges)
   const closeCodeReview = useUIStore((s) => s.closeCodeReview)
-  const setActiveCenterView = useUIStore((s) => s.setActiveCenterView)
+  const setPrimaryView = useUIStore((s) => s.setActiveCenterView)
+  const setSecondaryView = useUIStore((s) => s.setSecondaryView)
+  const setSecondaryKeys = useUIStore((s) => s.setSecondaryKeys)
+  const setFocusedPane = useUIStore((s) => s.setFocusedPane)
+  const moveTabToPane = useUIStore((s) => s.moveTabToPane)
+  const closeSplit = useUIStore((s) => s.closeSplit)
+  // Activate a view in this pane (and focus the pane).
+  const setActiveCenterView = useCallback((view: CenterView | null) => {
+    if (!selectedWorktreeId) return
+    if (pane === 'secondary') { setSecondaryView(selectedWorktreeId, view); return }
+    setPrimaryView(view)
+    setFocusedPane(selectedWorktreeId, 'primary')
+  }, [pane, selectedWorktreeId, setPrimaryView, setSecondaryView, setFocusedPane])
   const tabOrder = useUIStore((s) => s.tabOrder)
   const setTabOrder = useUIStore((s) => s.setTabOrder)
 
   // Big terminal tabs - narrow selector scoped to active worktree only.
   const bigTerminals = useUIStore(
-    useCallback((s) => selectedWorktreeId ? (s.bigTerminalsByWorktree[selectedWorktreeId] ?? []) : [],
+    // Stable empty fallback: zustand 5 compares selector results by identity, so a fresh []
+    // here loops forever (React #185) whenever the worktree has no terminal entry yet.
+    useCallback((s) => selectedWorktreeId ? (s.bigTerminalsByWorktree[selectedWorktreeId] ?? EMPTY_TERMINALS) : EMPTY_TERMINALS,
     [selectedWorktreeId])
   )
-  const createBigTerminal = useUIStore((s) => s.createBigTerminal)
   const closeBigTerminalAction = useUIStore((s) => s.closeBigTerminal)
   const renameBigTerminal = useUIStore((s) => s.renameBigTerminal)
   const terminalStatuses = useUIStore((s) => s.bigTerminalStatusById)
-  const lastNewTabAction = useUIStore((s) => s.lastNewTabAction)
-  const setLastNewTabAction = useUIStore((s) => s.setLastNewTabAction)
+  const browserTabs = useUIStore(
+    useCallback((s) => selectedWorktreeId ? (s.browserTabsByWorktree[selectedWorktreeId] ?? EMPTY_BROWSER_TABS) : EMPTY_BROWSER_TABS,
+    [selectedWorktreeId])
+  )
+  const browserLoading = useUIStore((s) => s.browserLoadingById)
+  const closeBrowserTabAction = useUIStore((s) => s.closeBrowserTab)
+  const closeBrowser = useCallback(
+    (tabId: string) => { if (selectedWorktreeId) closeBrowserTabAction(selectedWorktreeId, tabId) },
+    [selectedWorktreeId, closeBrowserTabAction]
+  )
 
   // Kill the PTY + drop the tab (store reconciles the active view). No prompt -
   // used by batch closes ("Close others/all") so they don't pop a dialog per tab.
@@ -109,26 +138,31 @@ export function SessionTabBar() {
   }, [])
 
   // Unified tab order: reconciles persisted tabOrder with live sessions/files/changes/terminals.
-  // New keys are appended; stale keys dropped. Keys: s:<id>, f:<path>, changes, t:<id>.
+  // New keys are appended; stale keys dropped. Keys: s:<id>, f:<path>, changes, t:<id>, b:<id>.
   const unifiedTabs = useMemo(() => {
     const sessionKeys = sessions.map((s) => `s:${s.id}`)
     const fileKeys = openFilePaths.map((p) => `f:${p}`)
     const changesKeys = changesOpen ? ['changes'] : []
     const codeReviewKeys = codeReviewOpen ? ['codeReview'] : []
     const terminalKeys = bigTerminals.map((bt) => `t:${bt.id}`)
-    const all = [...sessionKeys, ...fileKeys, ...changesKeys, ...codeReviewKeys, ...terminalKeys]
+    const browserKeys = browserTabs.map((bw) => `b:${bw.id}`)
+    const all = [...sessionKeys, ...fileKeys, ...changesKeys, ...codeReviewKeys, ...terminalKeys, ...browserKeys]
     const allValid = new Set(all)
-    const valid = tabOrder.filter((k) => allValid.has(k))
-    const newEntries = all.filter((k) => !valid.includes(k))
+    if (pane === 'secondary') return secondaryKeys.filter((k) => allValid.has(k))
+    const valid = tabOrder.filter((k) => allValid.has(k) && !secondaryKeys.includes(k))
+    const newEntries = all.filter((k) => !valid.includes(k) && !secondaryKeys.includes(k))
     return [...valid, ...newEntries]
-  }, [tabOrder, sessions, openFilePaths, changesOpen, codeReviewOpen, bigTerminals])
+  }, [pane, secondaryKeys, tabOrder, sessions, openFilePaths, changesOpen, codeReviewOpen, bigTerminals, browserTabs])
 
-  // Persist reconciled order whenever it diverges.
+  // Persist reconciled order whenever it diverges (secondary pane: drop closed tabs).
   useEffect(() => {
-    if (selectedWorktreeId && JSON.stringify(unifiedTabs) !== JSON.stringify(tabOrder)) {
-      setTabOrder(unifiedTabs)
+    if (!selectedWorktreeId) return
+    if (pane === 'secondary') {
+      if (JSON.stringify(unifiedTabs) !== JSON.stringify(secondaryKeys)) setSecondaryKeys(selectedWorktreeId, unifiedTabs)
+      return
     }
-  }, [unifiedTabs, tabOrder, selectedWorktreeId, setTabOrder])
+    if (JSON.stringify(unifiedTabs) !== JSON.stringify(tabOrder)) setTabOrder(unifiedTabs)
+  }, [pane, unifiedTabs, tabOrder, secondaryKeys, selectedWorktreeId, setTabOrder, setSecondaryKeys])
 
   // ── Single unified drag-reorder ───────────────────────────────────────────
   const handleReorder = useCallback(
@@ -136,9 +170,10 @@ export function SessionTabBar() {
       const next = [...unifiedTabs]
       const [moved] = next.splice(fromIndex, 1)
       next.splice(toIndex, 0, moved)
-      setTabOrder(next)
+      if (pane === 'secondary') { if (selectedWorktreeId) setSecondaryKeys(selectedWorktreeId, next) }
+      else setTabOrder(next)
     },
-    [unifiedTabs, setTabOrder]
+    [pane, selectedWorktreeId, unifiedTabs, setTabOrder, setSecondaryKeys]
   )
 
   const { dragKey, overKey, onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd } =
@@ -146,7 +181,7 @@ export function SessionTabBar() {
 
   // Auto-switch activeSessionId on worktree change — restore last active tab
   useEffect(() => {
-    if (!selectedWorktreeId || sessions.length === 0) return
+    if (pane === 'secondary' || !selectedWorktreeId || sessions.length === 0) return
     const activeInWorktree = sessions.some((s) => s.id === activeSessionId)
     if (!activeInWorktree) {
       const lastActive = getLastActiveForWorktree(selectedWorktreeId)
@@ -157,7 +192,7 @@ export function SessionTabBar() {
         setActiveCenterView({ type: 'session', sessionId: target.id })
       }
     }
-  }, [selectedWorktreeId, sessions, activeSessionId, setActiveSession, setActiveCenterView])
+  }, [pane, selectedWorktreeId, sessions, activeSessionId, setActiveSession, setActiveCenterView])
 
   useEffect(() => {
     if (local.editingId && inputRef.current) {
@@ -209,9 +244,11 @@ export function SessionTabBar() {
         closeCodeReview()
       } else if (key.startsWith('t:')) {
         closeTerminalFully(key.slice(2))
+      } else if (key.startsWith('b:')) {
+        closeBrowser(key.slice(2))
       }
     },
-    [sessions, closeSession, closeFile, closeChanges, closeCodeReview, closeTerminalFully, t]
+    [sessions, closeSession, closeFile, closeChanges, closeCodeReview, closeTerminalFully, closeBrowser, t]
   )
 
   // Close multiple tabs — batches active-session confirmation into one dialog
@@ -232,9 +269,10 @@ export function SessionTabBar() {
         else if (key === 'changes') closeChanges()
         else if (key === 'codeReview') closeCodeReview()
         else if (key.startsWith('t:')) closeTerminalRaw(key.slice(2))
+        else if (key.startsWith('b:')) closeBrowser(key.slice(2))
       }
     },
-    [sessions, closeSession, closeFile, closeChanges, closeCodeReview, closeTerminalRaw, t]
+    [sessions, closeSession, closeFile, closeChanges, closeCodeReview, closeTerminalRaw, closeBrowser, t]
   )
 
   // Keyboard-accessible tab close — Delete key closes the focused tab.
@@ -262,7 +300,16 @@ export function SessionTabBar() {
   const menuItems = useMemo((): ContextMenuItem[] => {
     if (!local.menu) return []
     const targetKey = local.menu.key
+    const paneItems: ContextMenuItem[] = []
+    if (selectedWorktreeId && canMoveToSecondary(targetKey)) {
+      paneItems.push(pane === 'secondary'
+        ? { label: t('splitMoveToLeft'), onClick: () => moveTabToPane(selectedWorktreeId, targetKey, 'primary') }
+        : { label: t('splitRight'), onClick: () => moveTabToPane(selectedWorktreeId, targetKey, 'secondary') })
+    }
+    if (selectedWorktreeId && split) paneItems.push({ label: t('splitClose'), onClick: () => closeSplit(selectedWorktreeId) })
+    if (paneItems.length) paneItems.push({ label: '---', onClick: () => {} })
     return [
+      ...paneItems,
       { label: t('tabClose'), onClick: () => closeSingleTab(targetKey) },
       {
         label: t('tabCloseOthers'),
@@ -274,86 +321,9 @@ export function SessionTabBar() {
         onClick: () => closeManyTabs([...unifiedTabs])
       }
     ]
-  }, [local.menu, unifiedTabs, closeSingleTab, closeManyTabs, t])
+  }, [local.menu, unifiedTabs, closeSingleTab, closeManyTabs, t, pane, split, selectedWorktreeId, moveTabToPane, closeSplit])
 
-  // Auto-detected CLI agents
-  const detectedAgents = useDetectedAgents()
-
-  // Build + menu items: Chat, separator, detected agents, separator, Terminal.
-  // Last-used action floats to the very top.
-  const addMenuItems = useMemo((): ContextMenuItem[] => {
-    const chatItem = {
-      key: 'chat',
-      icon: <IconMessageBubble size={14} />,
-      label: t('newChat'),
-      onClick: () => {
-        setLastNewTabAction('chat')
-        const id = createSession(selectedWorktreeId!, worktree!.path)
-        setActiveCenterView({ type: 'session', sessionId: id })
-      },
-    }
-
-    const agentItems = detectedAgents.map((entry: AgentCatalogEntry) => ({
-      key: `agent:${entry.id}`,
-      icon: <AgentIcon agentId={entry.id} size={14} />,
-      label: entry.label,
-      onClick: () => {
-        if (!selectedWorktreeId) return
-        setLastNewTabAction(`agent:${entry.id}`)
-        const id = createBigTerminal(selectedWorktreeId, entry.label, entry.launchCmd, entry.id)
-        setActiveCenterView({ type: 'terminal', terminalId: id })
-      },
-    }))
-
-    const terminalItem = {
-      key: 'terminal',
-      icon: <IconTerminal size={14} />,
-      label: t('newBigTerminal'),
-      onClick: () => {
-        if (!selectedWorktreeId) return
-        setLastNewTabAction('terminal')
-        const id = createBigTerminal(selectedWorktreeId)
-        setActiveCenterView({ type: 'terminal', terminalId: id })
-      },
-    }
-
-    // Assemble: chat, separator, agents, separator, terminal
-    type MenuItem = { key: string; icon: ReactNode; label: string; onClick: () => void }
-    const sections: MenuItem[][] = [
-      [chatItem],
-      agentItems,
-      [terminalItem],
-    ]
-
-    // Float last-used action to the very top
-    const lastKey = lastNewTabAction === 'claudeCode' ? 'agent:claude' : lastNewTabAction
-    let floated: MenuItem | null = null
-    for (const section of sections) {
-      const idx = section.findIndex((item) => item.key === lastKey)
-      if (idx >= 0) {
-        [floated] = section.splice(idx, 1)
-        break
-      }
-    }
-
-    const result: ContextMenuItem[] = []
-    if (floated) {
-      result.push(floated)
-      result.push({ label: '---', onClick: () => {} })
-    }
-
-    for (let i = 0; i < sections.length; i++) {
-      if (sections[i].length === 0) continue
-      for (const item of sections[i]) result.push(item)
-      if (i < sections.length - 1) {
-        // Add separator between non-empty sections
-        const hasNext = sections.slice(i + 1).some((s) => s.length > 0)
-        if (hasNext) result.push({ label: '---', onClick: () => {} })
-      }
-    }
-
-    return result
-  }, [lastNewTabAction, selectedWorktreeId, worktree, detectedAgents, createSession, createBigTerminal, setActiveCenterView, setLastNewTabAction, t])
+  const addMenuItems = useNewTabMenuItems(selectedWorktreeId, worktree?.path, pane)
 
   if (!selectedWorktreeId || !worktree) return null
 
@@ -532,6 +502,34 @@ export function SessionTabBar() {
                 setLocal({ editingId: null })
               }}
               onCancelEdit={() => setLocal({ editingId: null })}
+            />
+          )
+        }
+
+        // ── Browser tab ──────────────────────────────────────────────────
+        if (key.startsWith('b:')) {
+          const tabId = key.slice(2)
+          const tab = browserTabs.find((bw) => bw.id === tabId)
+          if (!tab) return null
+          return (
+            <BrowserTab
+              key={key}
+              tab={tab}
+              tabKey={key}
+              isActive={activeCenterView?.type === 'browser' && activeCenterView.tabId === tabId}
+              isLoading={Boolean(browserLoading[tabId])}
+              isDragSource={isDragSource}
+              isDraggedOver={isDraggedOver}
+              newTabLabel={t('browser.newTab')}
+              onDragStart={onDragStart}
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop}
+              onDragEnd={onDragEnd}
+              onActivate={() => setActiveCenterView({ type: 'browser', tabId })}
+              onKeyDown={handleTabKeyDown}
+              onContextMenu={handleTabContextMenu}
+              onClose={() => closeBrowser(tabId)}
             />
           )
         }

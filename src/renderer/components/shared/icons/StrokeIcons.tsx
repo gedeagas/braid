@@ -105,6 +105,12 @@ export const IconGrid = ({ size = 14, ...p }: IconProps) => (
 export const IconArrowLeft = ({ size = 14, ...p }: IconProps) => (
   <svg {...strokeIcon(size, p)}><path d="M19 12H5M5 12L12 19M5 12L12 5"/></svg>
 )
+export const IconArrowRight = ({ size = 14, ...p }: IconProps) => (
+  <svg {...strokeIcon(size, p)}><path d="M5 12h14M19 12l-7 7M19 12l-7-7"/></svg>
+)
+export const IconCursorClick = ({ size = 14, ...p }: IconProps) => (
+  <svg {...strokeIcon(size, p)}><path d="M9 9l5 12 1.8-5.2L21 14Z"/><path d="M7.2 2.2 8 5.1"/><path d="m5.1 8-2.9-.8"/><path d="M14 4.1 12 6"/><path d="m6 12-1.9 2"/></svg>
+)
 export const IconArrowDown = ({ size = 14, ...p }: IconProps) => (
   <svg width={size} height={size} viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={p?.className} style={p?.style}>
     <path d="M7 2v10M3 8l4 4 4-4"/>
