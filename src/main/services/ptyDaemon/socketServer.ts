@@ -166,7 +166,8 @@ export class SocketServer {
             this.sendResponse(client, { id: req.id, type: 'error', message: `Session not found: ${req.sessionId}` })
           } else {
             client.attachedSessions.add(req.sessionId)
-            this.sendResponse(client, { id: req.id, type: 'ok', data: { snapshot } })
+            const coldRestored = this.host.isColdRestored(req.sessionId)
+            this.sendResponse(client, { id: req.id, type: 'ok', data: { snapshot, coldRestored } })
           }
           break
         }
@@ -211,6 +212,10 @@ export class SocketServer {
         case 'setMetadata':
           this.host.setMetadata(req.sessionId, req.metadata)
           this.sendResponse(client, { id: req.id, type: 'ok' })
+          break
+
+        case 'consumeColdRestore':
+          this.sendResponse(client, { id: req.id, type: 'ok', data: { claimed: this.host.consumeColdRestore(req.sessionId) } })
           break
 
         case 'ping':

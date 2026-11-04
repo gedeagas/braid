@@ -118,3 +118,14 @@ export function deleteCheckpoint(sessionId: string): void {
     // May not exist
   }
 }
+
+/**
+ * Whether a session's checkpoint should be deleted the moment its PTY exits.
+ * A shell that ended by itself (user typed `exit`) or was closed by a client
+ * must not come back after a daemon restart. One killed by a signal (logout,
+ * reboot) keeps its checkpoint so it can be restored. While the daemon itself
+ * is shutting down every checkpoint is kept.
+ */
+export function shouldDropCheckpointOnExit(opts: { clean: boolean; shuttingDown: boolean }): boolean {
+  return opts.clean && !opts.shuttingDown
+}

@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('../bigTerminalCache', () => ({ getOrCreate: vi.fn() }))
 
-import { selectWarmTargets } from '../warmTerminals'
+import { selectWarmTargets, warmableSessionIds } from '../warmTerminals'
 
 describe('selectWarmTargets', () => {
   const paths = new Map([
@@ -41,5 +41,16 @@ describe('selectWarmTargets', () => {
       new Set(['bt-1']),
     )
     expect(targets).toEqual([])
+  })
+})
+
+describe('warmableSessionIds', () => {
+  it('leaves cold-restored sessions for when their tab is opened', () => {
+    const ids = warmableSessionIds([
+      { sessionId: 'bt-live' },
+      { sessionId: 'bt-cold', coldRestored: true },
+      { sessionId: 'bt-claimed', coldRestored: false },
+    ])
+    expect([...ids]).toEqual(['bt-live', 'bt-claimed'])
   })
 })

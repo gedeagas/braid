@@ -3,11 +3,12 @@
 // Produces a bash script that:
 //   1. Reads port/token from ~/.braid/hooks/hook-server.json
 //   2. Guards on Braid terminal env (no-op outside Braid big terminals)
-//   3. Reads stdin JSON, extracts hook_event_name and tool_name
+//   3. Reads stdin JSON, extracts hook_event_name, tool_name, and the agent's
+//      own session id / cwd / end reason (used to resume after a cold restore)
 //   4. POSTs to /hook/<agentId> on the loopback server
 
 /** Current hook script version. Bump to force re-install on next app launch. */
-export const HOOK_SCRIPT_VERSION = 12
+export const HOOK_SCRIPT_VERSION = 13
 
 export interface HookScriptOptions {
   /** Agent identifier - determines the POST endpoint path */
@@ -61,14 +62,32 @@ ${toolNameFallback}
 is_interrupt="false"
 [[ "$input" =~ \\"is_interrupt\\"[[:space:]]*:[[:space:]]*true ]] && is_interrupt="true"
 
+# Agent session id (key differs per agent). The charset is restricted here AND
+# re-validated server-side: the id is later typed into a shell on resume.
+session_id=""
+[[ "$input" =~ \\"(session_id|sessionId|conversation_id|conversationId)\\"[[:space:]]*:[[:space:]]*\\"([A-Za-z0-9._:-]+)\\" ]] && session_id="\${BASH_REMATCH[2]}"
+
+# Folder the agent runs in (sessions are scoped to it)
+cwd=""
+[[ "$input" =~ \\"cwd\\"[[:space:]]*:[[:space:]]*\\"([^\\"]+)\\" ]] && cwd="\${BASH_REMATCH[1]}"
+
+# SessionEnd reason (e.g. prompt_input_exit vs clear)
+reason=""
+[[ "$input" =~ \\"reason\\"[[:space:]]*:[[:space:]]*\\"([A-Za-z_]+)\\" ]] && reason="\${BASH_REMATCH[1]}"
+
 # Sanitize extracted values: strip any quotes/backslashes to prevent JSON injection
 event="\${event//[\\\\\\"\\']/}"
 tool="\${tool//[\\\\\\"\\']/}"
+cwd="\${cwd//[\\\\\\"\\']/}"
+cwd="\${cwd//[[:cntrl:]]/}"
 
 # Build JSON payload for Braid server
 json="{\\"terminalId\\":\\"$BRAID_TERMINAL_ID\\",\\"event\\":\\"$event\\""
 [ -n "$tool" ] && json="$json,\\"toolName\\":\\"$tool\\""
 [ "$is_interrupt" = "true" ] && json="$json,\\"isInterrupt\\":true"
+[ -n "$session_id" ] && json="$json,\\"sessionId\\":\\"$session_id\\""
+[ -n "$cwd" ] && json="$json,\\"cwd\\":\\"$cwd\\""
+[ -n "$reason" ] && json="$json,\\"reason\\":\\"$reason\\""
 json="$json}"
 
 # POST to Braid's loopback server (background, non-blocking)

@@ -18,6 +18,7 @@ import { join } from 'path'
 import { homedir } from 'os'
 import { BrowserWindow } from 'electron'
 import type { AgentHookTarget } from './agentHooks/types'
+import { parseHookSessionUpdate } from '../../shared/agent-resume'
 
 /** Well-known config file path. Hook scripts read this to get the current port/token. */
 const HOOK_CONFIG_PATH = join(homedir(), '.braid', 'hooks', 'hook-server.json')
@@ -39,6 +40,10 @@ interface HookRequestBody {
   event: string
   toolName?: string
   isInterrupt?: boolean
+  /** Agent's own session id, cwd and SessionEnd reason (validated in parseHookSessionUpdate). */
+  sessionId?: string
+  cwd?: string
+  reason?: string
 }
 
 // ── Main-process status listeners ────────────────────────────────────────────
@@ -234,6 +239,14 @@ export async function startAgentHookServer(): Promise<{ port: number; token: str
         try {
           const parsed = JSON.parse(body) as HookRequestBody
           if (!parsed.terminalId || !parsed.event) return
+
+          // Session tracking runs before status mapping: SessionEnd has no
+          // status, but a deliberate exit must still clear the saved session.
+          const sessionUpdate = parseHookSessionUpdate(agentId, parsed)
+          if (sessionUpdate) {
+            const win = BrowserWindow.getAllWindows()[0]
+            if (win && !win.isDestroyed()) win.webContents.send('agent-hook:session', sessionUpdate)
+          }
 
           const state = mapHookEventToState(agentId, parsed.event, parsed.toolName)
           if (!state) return

@@ -104,10 +104,23 @@ export class DaemonClient extends EventEmitter<DaemonClientEvents> {
     this.attachedSessions.add(sessionId)
   }
 
-  async attach(sessionId: string): Promise<{ snapshot: string }> {
+  async attach(sessionId: string): Promise<{ snapshot: string; coldRestored?: boolean }> {
     const result = await this.request({ type: 'attach', sessionId } as Omit<DaemonRequest, 'id'> & { type: 'attach' })
     this.attachedSessions.add(sessionId)
-    return result as { snapshot: string }
+    return result as { snapshot: string; coldRestored?: boolean }
+  }
+
+  /**
+   * Claim a cold-restored session. True for exactly one caller. A daemon that
+   * predates this request answers with an error, which reads as "not claimed".
+   */
+  async consumeColdRestore(sessionId: string): Promise<boolean> {
+    try {
+      const result = await this.request({ type: 'consumeColdRestore', sessionId } as Omit<DaemonRequest, 'id'> & { type: 'consumeColdRestore' })
+      return (result as { claimed?: boolean } | undefined)?.claimed === true
+    } catch {
+      return false
+    }
   }
 
   write(sessionId: string, data: string): void {

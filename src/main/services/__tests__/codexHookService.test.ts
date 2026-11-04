@@ -64,7 +64,8 @@ describe('codex hook service', () => {
     expect(configToml).toContain('trusted_hash = "sha256:')
 
     const script = readFileSync(join(tmpHome, '.braid', 'hooks', 'agent-status-codex.sh'), 'utf-8')
-    expect(script).toContain('BRAID_HOOK_VERSION=12')
+    const { HOOK_SCRIPT_VERSION } = await import('../agentHooks/hookScript')
+    expect(script).toContain(`BRAID_HOOK_VERSION=${HOOK_SCRIPT_VERSION}`)
     expect(script).toContain('if [ -z "$BRAID_HOOK_PORT" ] || [ -z "$BRAID_HOOK_TOKEN" ] || [ -z "$BRAID_TERMINAL_ID" ]; then')
     expect(script).toContain('\\"name\\"')
   })

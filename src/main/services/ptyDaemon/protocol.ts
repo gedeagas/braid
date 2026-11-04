@@ -115,6 +115,13 @@ export interface SetMetadataRequest {
   metadata: DaemonSessionMetadata
 }
 
+/** Atomically claim a cold-restored session (one-shot; see SessionHost). */
+export interface ConsumeColdRestoreRequest {
+  id: string
+  type: 'consumeColdRestore'
+  sessionId: string
+}
+
 export interface PingRequest {
   id: string
   type: 'ping'
@@ -135,6 +142,7 @@ export type DaemonRequest =
   | ListRequest
   | SetBufferMaxLengthRequest
   | SetMetadataRequest
+  | ConsumeColdRestoreRequest
   | PingRequest
   | ShutdownRequest
 

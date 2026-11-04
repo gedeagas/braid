@@ -34,6 +34,15 @@ export function selectWarmTargets(
 }
 
 /**
+ * Daemon sessions safe to reattach in the background. Cold-restored ones wait
+ * for the user to open their tab: warming one would relaunch its agent unseen,
+ * and with many tabs after a reboot that is a resume storm.
+ */
+export function warmableSessionIds(sessions: ReadonlyArray<{ sessionId: string; coldRestored?: boolean }>): Set<string> {
+  return new Set(sessions.filter((s) => !s.coldRestored).map((s) => s.sessionId))
+}
+
+/**
  * Reattach every live big terminal in the background on startup, the same way
  * clicking its worktree does. Agent status (and the sidebar agent count) comes
  * from title/OSC detection on the reattached stream, plus hook callbacks that
@@ -42,8 +51,7 @@ export function selectWarmTargets(
  * paths can be resolved.
  */
 export async function warmLiveBigTerminals(): Promise<number> {
-  const sessions = await ipc.pty.listSessions()
-  const liveIds = new Set(sessions.map((s) => s.sessionId))
+  const liveIds = warmableSessionIds(await ipc.pty.listSessions())
   if (liveIds.size === 0) return 0
 
   const worktreePaths = new Map<string, string>()

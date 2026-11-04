@@ -25,6 +25,8 @@ const EVENTS = [
   'PostToolUseFailure',
   'PermissionRequest',
   'Stop',
+  // Not a status: lets a deliberate exit clear the saved resume session.
+  'SessionEnd',
 ] as const
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

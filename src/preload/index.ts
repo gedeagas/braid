@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer, webFrame, webUtils } from 'electron'
+import type { AgentHookSessionUpdate } from '../shared/agent-resume'
 import type { TemplateKind, CreateTemplateArgs, CreateTemplateResult, TemplateLogEntry } from '../shared/templates'
 import type { ToolInstallKey, ToolInstallOptions, ToolInstallResult } from '../shared/tool-install'
 
@@ -149,9 +150,11 @@ const api = {
     deleteScrollback: (terminalId: string) =>
       ipcRenderer.send('pty:deleteScrollback', terminalId),
     reattach: (sessionId: string) =>
-      ipcRenderer.invoke('pty:reattach', sessionId) as Promise<{ sessionId: string; snapshot: string } | null>,
+      ipcRenderer.invoke('pty:reattach', sessionId) as Promise<{ sessionId: string; snapshot: string; coldRestored?: boolean } | null>,
+    consumeColdRestore: (sessionId: string) =>
+      ipcRenderer.invoke('pty:consumeColdRestore', sessionId) as Promise<boolean>,
     listSessions: () =>
-      ipcRenderer.invoke('pty:listSessions') as Promise<Array<{ sessionId: string; cwd: string; cols: number; rows: number; createdAt: number }>>,
+      ipcRenderer.invoke('pty:listSessions') as Promise<Array<{ sessionId: string; cwd: string; cols: number; rows: number; createdAt: number; coldRestored?: boolean }>>,
     listOrphanedBigTerminals: (knownTerminalIds: string[]) =>
       ipcRenderer.invoke('pty:listOrphanedBigTerminals', knownTerminalIds) as Promise<Array<{ terminalId: string; cwd: string; label?: string; agentId?: string }>>,
     killOrphanedBigTerminals: (terminalIds: string[]) =>
@@ -162,6 +165,11 @@ const api = {
       const handler = (_event: Electron.IpcRendererEvent, status: { terminalId: string; state: string; agentType: string; toolName?: string; interrupted?: boolean }) => callback(status)
       ipcRenderer.on('agent-hook:status', handler)
       return () => ipcRenderer.removeListener('agent-hook:status', handler)
+    },
+    onAgentHookSession: (callback: (update: AgentHookSessionUpdate) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, update: AgentHookSessionUpdate) => callback(update)
+      ipcRenderer.on('agent-hook:session', handler)
+      return () => ipcRenderer.removeListener('agent-hook:session', handler)
     },
     onMobileTerminalActive: (callback: (status: { terminalId: string; active: boolean }) => void) => {
       const handler = (_event: Electron.IpcRendererEvent, status: { terminalId: string; active: boolean }) => callback(status)

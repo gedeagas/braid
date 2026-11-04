@@ -514,9 +514,19 @@ export class PtyDaemonAdapter implements IPtyService {
           // Non-fatal - readTerminalOutput() just won't match this session
         }
       }
-      return { sessionId, snapshot: result.snapshot }
+      return { sessionId, snapshot: result.snapshot, coldRestored: result.coldRestored === true }
     } catch {
       return null
+    }
+  }
+
+  /** One-shot claim of a cold-restored session (see SessionHost.consumeColdRestore). */
+  async consumeColdRestore(sessionId: string): Promise<boolean> {
+    try {
+      await this.ensureDaemon()
+      return await this.client.consumeColdRestore(sessionId)
+    } catch {
+      return false
     }
   }
 

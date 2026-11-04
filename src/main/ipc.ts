@@ -296,6 +296,8 @@ export function registerIpcHandlers(): void {
     }
     return null
   })
+  ipcMain.handle('pty:consumeColdRestore', (_e, sessionId: string) =>
+    ptyService.consumeColdRestore?.(sessionId) ?? false)
   ipcMain.handle('pty:listSessions', () => {
     if ('listSessions' in ptyService && typeof ptyService.listSessions === 'function') {
       return ptyService.listSessions()

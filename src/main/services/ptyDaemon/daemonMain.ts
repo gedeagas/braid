@@ -11,7 +11,7 @@ import { join } from 'path'
 import { SessionHost } from './sessionHost'
 import { SocketServer } from './socketServer'
 import { writePidFile, removePidFile } from './lifecycle'
-import { startCheckpointing, stopCheckpointing, loadCheckpoints } from './checkpoint'
+import { startCheckpointing, stopCheckpointing, loadCheckpoints, deleteCheckpoint, shouldDropCheckpointOnExit } from './checkpoint'
 import { IDLE_SHUTDOWN_MS, SOCKET_PATH, DAEMON_DIR } from './protocol'
 import { defaultShellPath } from '../../lib/shell'
 
@@ -38,6 +38,13 @@ function logSystemInfo(): void {
 async function main(): Promise<void> {
   logSystemInfo()
   const host = new SessionHost()
+
+  // A shell the user exited must not come back after a daemon restart. Drop
+  // its checkpoint right away instead of waiting for the next flush, which a
+  // crash in the next 5s would skip.
+  host.on('exit', (sessionId, _exitCode, clean) => {
+    if (shouldDropCheckpointOnExit({ clean, shuttingDown })) deleteCheckpoint(sessionId)
+  })
 
   let idleTimer: ReturnType<typeof setTimeout> | null = null
 

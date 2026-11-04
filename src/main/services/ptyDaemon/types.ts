@@ -38,12 +38,20 @@ export interface CheckpointData {
   lastOutputAt?: number
   checkpointedAt: number
   metadata?: DaemonSessionMetadata
+  /** Allowlisted Braid env (terminal id) re-applied on restore. */
+  env?: Record<string, string>
 }
 
 /** Result of a reattach operation returned to the renderer. */
 export interface ReattachResult {
   sessionId: string
   snapshot: string
+  /**
+   * The daemon re-created this session from a checkpoint (the original shell
+   * and anything running in it are gone). Claim it with consumeColdRestore
+   * before relaunching the agent.
+   */
+  coldRestored?: boolean
 }
 
 /** Information about a session returned by list(). */
@@ -58,4 +66,6 @@ export interface SessionInfo {
   /** Number of clients currently attached (viewing) this session. 0 = nobody is
    *  looking at it right now, which is the safety signal for orphan cleanup. */
   attachedClients: number
+  /** Re-created from a checkpoint and not yet claimed (see ReattachResult). */
+  coldRestored?: boolean
 }
