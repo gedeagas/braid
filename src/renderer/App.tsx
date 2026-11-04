@@ -35,6 +35,7 @@ import * as actions from '@/lib/appActions'
 import { initAgentDetection } from '@/lib/agentDetection'
 import { UsageStatusBar } from '@/components/StatusBar/UsageStatusBar'
 import { reapOrphanedTerminals } from '@/lib/orphanedTerminals'
+import { warmLiveBigTerminals } from '@/components/Center/warmTerminals'
 
 export default function App() {
   const autoUpdate = useAutoUpdate()
@@ -121,7 +122,12 @@ export default function App() {
       })
       .catch((e) => console.error('[Braid] Failed to reap orphaned terminals:', e))
     loadProjects()
-      .then(() => console.log('[Braid] Projects loaded'))
+      .then(() => {
+        console.log('[Braid] Projects loaded')
+        // Reattach live terminals in every worktree so sidebar agent counts
+        // and statuses show without clicking each worktree first.
+        return warmLiveBigTerminals().catch((e) => console.error('[Braid] Failed to warm terminals:', e))
+      })
       .catch((e) => console.error('[Braid] Failed to load projects:', e))
     loadPersistedSessions()
       .then(() => {

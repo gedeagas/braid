@@ -95,7 +95,7 @@ export function getAllPersistedBigTerminals(): PersistedBigTerminal[] {
  * Push every persisted big terminal's metadata (label/agent/worktree) to the
  * daemon once on startup. loadInitial() only hydrates renderer state, and
  * restoreBigTerminalsForWorktree only fires on an explicit worktree select - so
- * without this the last-selected worktree's terminals would have a name on the
+ * without this persisted terminals would have a name on the
  * desktop but none in the daemon, leaving the mobile app (and cold-start
  * hydrate) showing unnamed terminals. setMetadata is a no-op on the daemon for
  * sessions that no longer exist, so this can't resurrect orphans.
@@ -178,13 +178,24 @@ function killAndForgetBigTerminal(terminalId: string): void {
   } catch {}
 }
 
-/** Initial hydration for the last-selected worktree (mirrors layout.ts openFilePaths pattern). */
+/**
+ * Initial hydration for EVERY worktree with persisted tabs. Sidebar rows and
+ * Mission Control read bigTerminalsByWorktree for all worktrees, so hydrating
+ * only the last-selected one left every other row's agent count empty until
+ * the user clicked it.
+ */
 function loadInitial(): Record<string, BigTerminalTab[]> {
+  const result: Record<string, BigTerminalTab[]> = {}
   try {
-    const wtId = localStorage.getItem(SK.selectedWorktreeId)
-    if (wtId) return { [wtId]: loadBigTerminalsFor(wtId) }
+    const prefix = SK.bigTerminalTabsPrefix
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (!key?.startsWith(prefix)) continue
+      const worktreeId = key.slice(prefix.length)
+      if (worktreeId) result[worktreeId] = loadBigTerminalsFor(worktreeId)
+    }
   } catch {}
-  return {}
+  return result
 }
 
 // Persist the active center view for a worktree, mirroring layout.setActiveCenterView's
@@ -196,7 +207,7 @@ function persistActiveView(worktreeId: string, view: CenterView | null): void {
 }
 
 // Read the persisted active center view for a worktree. The store only hydrates
-// activeCenterViewByWorktree for the last-selected worktree (see loadInitial), so
+// activeCenterViewByWorktree for the last-selected worktree (see layout.ts), so
 // for any other worktree the in-memory entry is absent even when localStorage has
 // one. Returns undefined when nothing is persisted. Mirrors loadBigTerminalsFor.
 function loadActiveViewFor(worktreeId: string): CenterView | null | undefined {

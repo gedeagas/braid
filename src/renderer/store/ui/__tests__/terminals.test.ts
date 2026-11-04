@@ -403,4 +403,20 @@ describe('terminalsSlice', () => {
       expect(selectBigTerminalsForActiveWorktree(state)).toEqual([])
     })
   })
+  describe('initial hydration', () => {
+    it('hydrates persisted tabs for every worktree, not just the selected one', () => {
+      // Sidebar agent counts read bigTerminalsByWorktree for every row, so a
+      // worktree that isn't the last-selected one must still have its tabs at
+      // startup - otherwise its badge stays empty until the user clicks it.
+      localStorage.setItem(SK.selectedWorktreeId, WT)
+      localStorage.setItem(SK.bigTerminalTabsPrefix + WT, JSON.stringify([{ id: 'bt-1', label: 'one' }]))
+      localStorage.setItem(
+        SK.bigTerminalTabsPrefix + OTHER_WT,
+        JSON.stringify([{ id: 'bt-2', label: 'Claude', agentId: 'claude' }]),
+      )
+      const { read } = makeSlice()
+      expect(read()[WT]).toEqual([{ id: 'bt-1', label: 'one' }])
+      expect(read()[OTHER_WT]).toEqual([{ id: 'bt-2', label: 'Claude', agentId: 'claude' }])
+    })
+  })
 })
