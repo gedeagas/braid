@@ -15,6 +15,7 @@ import { sessionStorageService, PersistedSession } from './services/sessionStora
 import { filesService } from './services/files'
 import { searchService } from './services/search'
 import { simulatorService } from './services/simulator'
+import { serveSimService } from './services/serveSim'
 import { detectScripts } from './services/scriptDetector'
 import { templatesService } from './services/templates'
 import type { TemplateKind, CreateTemplateArgs } from '../shared/templates'
@@ -577,6 +578,9 @@ export function registerIpcHandlers(): void {
     simulatorService.sendKeyCombo(deviceId, platform, combo))
   ipcMain.handle('simulator:flutterSignal', (_e, signal: string) =>
     simulatorService.flutterSignal(signal))
+  ipcMain.handle('simulator:serveSimAvailable', () => serveSimService.isAvailable())
+  ipcMain.handle('simulator:serveSimStart', (_e, deviceId: string) => serveSimService.start(deviceId))
+  ipcMain.handle('simulator:serveSimStop', (_e, deviceId: string) => serveSimService.stop(deviceId))
 
   // Scripts
   ipcMain.handle('scripts:detect', (_e, projectPath: string, forceRefresh?: boolean) => detectScripts(projectPath, forceRefresh))

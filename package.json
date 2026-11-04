@@ -78,6 +78,7 @@
     "react-virtuoso": "^4.18.3",
     "rehype-highlight": "^7.0.2",
     "remark-gfm": "^4.0.1",
+    "serve-sim": "0.1.47",
     "shiki": "^4.0.2",
     "simple-git": "^3.27.0",
     "tiptap-markdown": "^0.9.0",

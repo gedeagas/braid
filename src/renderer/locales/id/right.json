@@ -229,6 +229,7 @@
   "simulatorConnecting": "Menghubungkan…",
   "simulatorDisconnect": "Putuskan",
   "simulatorShutdown": "Matikan",
+  "simulatorActions": "Tindakan simulator",
   "simulatorRefresh": "Muat Ulang",
   "simulatorOnline": "Online",
   "simulatorOffline": "Offline",

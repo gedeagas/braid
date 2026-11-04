@@ -229,6 +229,7 @@
   "simulatorConnecting": "接続中\u2026",
   "simulatorDisconnect": "切断",
   "simulatorShutdown": "シャットダウン",
+  "simulatorActions": "シミュレーターの操作",
   "simulatorRefresh": "更新",
   "simulatorOnline": "オンライン",
   "simulatorOffline": "オフライン",
