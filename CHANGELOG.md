@@ -5,6 +5,21 @@ All notable changes to Braid are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [26.4.0] - 2026-11-04
+
+### Added
+
+- add built-in browser with tab management, automation, and agent integration (#133)
+- warm live big terminals on startup for agent status (#132)
+- increase icon sizing polish and accessibility improvements (#131)
+- switch from update.electronjs.org to self-hosted Hazel server (#130)
+
+### Contributors
+
+Thanks to [@gedeagas](https://github.com/gedeagas) for their contributions to this release!
+
+---
+
 ## [26.3.3] - 2026-11-04
 
 ### Added
