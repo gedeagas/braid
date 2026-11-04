@@ -6,7 +6,7 @@
  */
 import { connect, type Socket } from 'net'
 import { EventEmitter } from 'events'
-import { SOCKET_PATH, encode, decode, type DaemonFeature, type DaemonMessage, type DaemonRequest, type DaemonResponse, type DataEvent, type ExitEvent } from './protocol'
+import { SOCKET_PATH, encode, decode, type AgentStatusEvent, type DaemonFeature, type DaemonMessage, type DaemonRequest, type DaemonResponse, type DataEvent, type ExitEvent, type HeadlessSnapshot, type TerminalColors } from './protocol'
 import type { DaemonSessionMetadata, SessionInfo } from './types'
 
 const REQUEST_TIMEOUT_MS = 10_000
@@ -20,7 +20,9 @@ interface PendingRequest {
 }
 
 export interface DaemonClientEvents {
-  data: [sessionId: string, data: string]
+  /** `seq` is 0 from a daemon without headless-snapshot. */
+  data: [sessionId: string, data: string, seq: number]
+  status: [event: AgentStatusEvent]
   exit: [sessionId: string, exitCode: number, selfExit: boolean]
   connected: []
   disconnected: []
@@ -115,13 +117,14 @@ export class DaemonClient extends EventEmitter<DaemonClientEvents> {
 
   // ── High-level operations ──────────────────────────────────────────────
 
-  async spawn(sessionId: string, cwd: string, cols: number, rows: number, shell: string, env?: Record<string, string>, bufferMaxLength?: number): Promise<void> {
-    await this.request({ type: 'spawn', sessionId, cwd, cols, rows, shell, env, bufferMaxLength } as Omit<DaemonRequest, 'id'> & { type: 'spawn' })
+  async spawn(sessionId: string, cwd: string, cols: number, rows: number, shell: string, env?: Record<string, string>, bufferMaxLength?: number, extras: { scrollback?: number; visible?: boolean } = {}): Promise<void> {
+    // Optional fields an older daemon ignores.
+    await this.request({ type: 'spawn', sessionId, cwd, cols, rows, shell, env, bufferMaxLength, ...extras } as Omit<DaemonRequest, 'id'> & { type: 'spawn' })
     this.attachedSessions.add(sessionId)
   }
 
-  async attach(sessionId: string): Promise<{ snapshot: string; coldRestored?: boolean; foregroundAtLoss?: 'shell' | 'command' }> {
-    const result = await this.request({ type: 'attach', sessionId } as Omit<DaemonRequest, 'id'> & { type: 'attach' })
+  async attach(sessionId: string, extras: { visible?: boolean; snapshotFollows?: boolean } = {}): Promise<{ snapshot: string; coldRestored?: boolean; foregroundAtLoss?: 'shell' | 'command' }> {
+    const result = await this.request({ type: 'attach', sessionId, ...extras } as Omit<DaemonRequest, 'id'> & { type: 'attach' })
     this.attachedSessions.add(sessionId)
     return result as { snapshot: string; coldRestored?: boolean; foregroundAtLoss?: 'shell' | 'command' }
   }
@@ -164,8 +167,36 @@ export class DaemonClient extends EventEmitter<DaemonClientEvents> {
     return (result as { sessions: SessionInfo[] }).sessions
   }
 
-  async setBufferMaxLength(maxLength: number): Promise<void> {
-    await this.request({ type: 'setBufferMaxLength', maxLength } as Omit<DaemonRequest, 'id'> & { type: 'setBufferMaxLength' })
+  async setBufferMaxLength(maxLength: number, scrollback?: number): Promise<void> {
+    await this.request({ type: 'setBufferMaxLength', maxLength, scrollback } as Omit<DaemonRequest, 'id'> & { type: 'setBufferMaxLength' })
+  }
+
+  /** Screen snapshot from the headless terminal. Null without the feature. */
+  async headlessSnapshot(sessionId: string): Promise<HeadlessSnapshot | null> {
+    if (!this.hasFeature('headless-snapshot')) return null
+    const result = await this.request({ type: 'headlessSnapshot', sessionId })
+    return result as HeadlessSnapshot
+  }
+
+  /** The renderer's terminal colours, for OSC 10/11/12 replies. No-op without the feature. */
+  setColors(colors: TerminalColors): void {
+    if (!this.hasFeature('headless-snapshot')) return
+    this.send({ type: 'setColors', colors })
+  }
+
+  /**
+   * Tell the daemon whether we deliver this session to a renderer. Resolves
+   * with the show point: live output numbered up to it is the daemon's to
+   * answer. Null without the feature.
+   */
+  async setVisible(
+    sessionId: string,
+    visible: boolean,
+    opts: { snapshotFollows?: boolean; deliveredThrough?: number } = {},
+  ): Promise<{ seq: number } | null> {
+    if (!this.hasFeature('headless-snapshot')) return null
+    const result = await this.request({ type: 'setVisible', sessionId, visible, ...opts }) as { seq?: number } | undefined
+    return { seq: typeof result?.seq === 'number' ? result.seq : 0 }
   }
 
   /** Persist big-terminal display metadata on the daemon session (fire-and-forget). */
@@ -288,7 +319,9 @@ export class DaemonClient extends EventEmitter<DaemonClientEvents> {
         }
       } else if (msg.type === 'data') {
         const event = msg as DataEvent
-        this.emit('data', event.sessionId, event.data)
+        this.emit('data', event.sessionId, event.data, typeof event.seq === 'number' ? event.seq : 0)
+      } else if (msg.type === 'status') {
+        this.emit('status', msg as AgentStatusEvent)
       } else if (msg.type === 'exit') {
         const event = msg as ExitEvent
         this.attachedSessions.delete(event.sessionId)

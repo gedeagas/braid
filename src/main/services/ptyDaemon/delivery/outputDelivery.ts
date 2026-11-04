@@ -25,8 +25,11 @@ const MB = 1024 * KB
 const SYNC_MARK = '\x1b[?2026'
 
 export interface DeliverySink {
-  /** Send output to the renderer. Returns false when no renderer received it. */
-  send(id: string, data: string): boolean
+  /**
+   * Send output to the renderer. Returns false when no renderer received it.
+   * `noReply`: the daemon answers this output's terminal queries; the renderer must not.
+   */
+  send(id: string, data: string, noReply?: boolean): boolean
   pause(id: string): void
   resume(id: string): void
 }
@@ -129,8 +132,9 @@ export class OutputDelivery {
     if (!data) return
     const q = this.queue(id)
     // Keystroke echo: send now, unless older output is still queued (order).
-    if (q.length === 0 && this.canDeliver(id) && this.fastPath.take(id, data)) {
+    if (q.length === 0 && this.canDeliver(id) && seq > this.noReplyThrough(id) && this.fastPath.take(id, data)) {
       this.sendSlice(id, data)
+      q.markDelivered(seq)
       return
     }
     q.push(data, seq)
@@ -162,7 +166,7 @@ export class OutputDelivery {
   /** Send everything still queued (the terminal exited), then forget it. */
   drain(id: string): void {
     const q = this.queues.get(id)
-    while (q && q.length > 0) this.sendSlice(id, q.take(this.config.sliceChars))
+    while (q && q.length > 0) this.sendFromQueue(id, q, this.config.sliceChars)
     this.remove(id)
   }
 
@@ -216,10 +220,24 @@ export class OutputDelivery {
     for (const id of this.queues.keys()) if (this.hidden.has(id)) yield id
   }
 
-  protected sendSlice(id: string, data: string): void {
+  protected sendSlice(id: string, data: string, noReply = false): void {
     // A page without a listener would never ack it (drain on exit, mid-reload).
     if (!this.rendererReady) return
-    if (data && this.sink.send(id, data)) this.budget.onSent(id, data.length)
+    if (!data) return
+    const ok = noReply ? this.sink.send(id, data, true) : this.sink.send(id, data)
+    if (ok) this.budget.onSent(id, data.length)
+  }
+
+  /** Output numbered up to this goes out marked no-reply (the daemon answers its queries). */
+  protected noReplyThrough(_id: string): number {
+    return -Infinity
+  }
+
+  /** Send up to `n` characters from the head, never mixing no-reply output with the rest. */
+  private sendFromQueue(id: string, q: OutputQueue, n: number): void {
+    const through = this.noReplyThrough(id)
+    const noReply = q.headSeq <= through
+    this.sendSlice(id, q.take(noReply ? Math.min(n, q.charsThrough(through)) : n), noReply)
   }
 
   /** Gets the extra room: the terminal the user is typing into, while on screen. */
@@ -251,6 +269,11 @@ export class OutputDelivery {
     return slice.length
   }
 
+  /** The queue shrank outside a flush (dropped): let Stage B resume the producer. */
+  protected queueChanged(id: string): void {
+    this.pauser.update(id, this.queued(id))
+  }
+
   /** Whether output for this terminal may go to the renderer right now. */
   protected canDeliver(_id: string): boolean {
     return this.rendererReady
@@ -276,7 +299,7 @@ export class OutputDelivery {
           holdUntil = Math.min(holdUntil, (q.holdSince ?? now) + syncHoldMs)
           break
         }
-        this.sendSlice(id, q.take(n))
+        this.sendFromQueue(id, q, n)
         slices++
       }
       this.pauser.update(id, q.length)

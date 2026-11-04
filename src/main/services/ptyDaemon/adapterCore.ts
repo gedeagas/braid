@@ -20,7 +20,7 @@ import { RingBuffer } from './ringBuffer'
 import { deleteScrollbackFile, readScrollbackFile, writeScrollbackFile } from './scrollbackFiles'
 import { runScriptInPty } from './runScript'
 import { createRendererDelivery, sendToRenderer } from './delivery/rendererSink'
-import type { OutputDelivery } from './delivery/outputDelivery'
+import type { DeliveringInfo, OffloadingDelivery } from './delivery/offloadDelivery'
 import type { BigTerminalMetadata, IPtyService, PtyInstanceInfo, TerminalOutput } from '../pty'
 import { getTerminalScrollbackBufferMaxLength } from '../../../shared/terminal'
 
@@ -55,30 +55,53 @@ export abstract class DaemonAdapterCore implements IPtyService {
   protected sessionEndedListeners = new Set<(sessionId: string, selfExit: boolean) => void>()
   /** Stops respawning a daemon that keeps dying on start. */
   private spawnThrottle = new RespawnThrottle()
+  /** Last colours the renderer pushed, re-sent to a (re)connected daemon. */
+  protected terminalColors: import('./protocol').TerminalColors | null = null
   /** Batches output to the renderer with flow control (see delivery/). */
-  protected delivery: OutputDelivery
+  protected delivery: OffloadingDelivery
 
   constructor() {
     this.client = new DaemonClient()
     this.delivery = createRendererDelivery({
       pause: (id) => this.client.pause(id),
       resume: (id) => this.client.resume(id),
+    }, (id, delivering, info) => {
+      // The daemon's headless terminal answers the terminal queries in the
+      // output no renderer receives. Only for sessions this process is
+      // attached to (buffers = spawned or reattached here).
+      if (!this.buffers.has(id)) {
+        this.delivery.clearShowPoint(id)
+        return
+      }
+      this.syncVisible(id, delivering, info)
     })
 
     // Mirror output into local RingBuffers for readTerminalOutput(), hand every
     // byte to external listeners (mobile companion), and queue it for the
     // renderer, which receives it in batches.
-    this.client.on('data', (sessionId, data) => {
+    this.client.on('data', (sessionId, data, seq) => {
       this.buffers.get(sessionId)?.push(data)
       this.listeners.emitData(sessionId, data)
-      this.delivery.push(sessionId, data)
+      this.delivery.push(sessionId, data, seq)
     })
 
     // Producer pause only where the daemon supports it (an older daemon kept
     // across an app update does not).
     this.client.on('features', () => {
       this.delivery.setProducerPause(this.client.hasFeature('flow-control'))
+      this.delivery.setOffload(this.offloadCapable())
+      if (this.terminalColors) this.client.setColors(this.terminalColors)
+      // A (re)connected daemon must know which sessions we deliver.
+      if (this.delivery.isOffloading()) {
+        for (const id of this.buffers.keys()) {
+          this.syncVisible(id, this.delivery.isDelivering(id), this.delivery.restartShow(id))
+        }
+      }
       sendToRenderer('pty:featuresChanged', [...this.client.getFeatures()])
+    })
+    // Agent status detected by the daemon, for the renderer's stores.
+    this.client.on('status', (event) => {
+      sendToRenderer('pty:agentStatus', { terminalId: event.sessionId, kind: event.kind, status: event.status, replayed: event.replayed })
     })
     // The daemon resumes the sessions a disconnected client paused.
     this.client.on('disconnected', () => this.delivery.forgetProducerPauses())
@@ -185,6 +208,8 @@ export abstract class DaemonAdapterCore implements IPtyService {
         shell,
         env,
         getTerminalScrollbackBufferMaxLength(mainSettings.terminalScrollback),
+        // A new terminal is on screen from the start (renderer reports otherwise).
+        { scrollback: mainSettings.terminalScrollback, visible: this.delivery.isDelivering(sessionId) },
       )
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -203,6 +228,29 @@ export abstract class DaemonAdapterCore implements IPtyService {
   /** Renderer shows (or hid) this terminal: visible ones are served first. */
   setVisible(id: string, visible: boolean): void {
     this.delivery.setVisible(id, visible)
+  }
+
+  /** The daemon keeps screen state and agent status: hidden terminals get no output. */
+  /** Shows that announced a snapshot to the daemon, until it is requested. */
+  protected announcedSnapshots = new Set<string>()
+
+  /** Tell the daemon whether we deliver `id`; on show, give delivery its show point. */
+  protected syncVisible(id: string, delivering: boolean, info: DeliveringInfo): void {
+    const show = 'token' in info ? info : null
+    if (show?.snapshotFollows) this.announcedSnapshots.add(id)
+    else this.announcedSnapshots.delete(id)
+    const opts = show
+      ? { snapshotFollows: show.snapshotFollows }
+      : 'deliveredThrough' in info && info.deliveredThrough !== undefined ? { deliveredThrough: info.deliveredThrough } : {}
+    this.client.setVisible(id, delivering, opts).then((reply) => {
+      if (!show) return
+      if (reply) this.delivery.setShowPoint(id, reply.seq, show.token)
+      else this.delivery.clearShowPoint(id)
+    }, () => { if (show) this.delivery.clearShowPoint(id) })
+  }
+
+  protected offloadCapable(): boolean {
+    return this.client.hasFeature('headless-snapshot') && this.client.hasFeature('status-events')
   }
 
   // ── Output flow control (renderer side) ────────────────────────────────
@@ -308,7 +356,7 @@ export abstract class DaemonAdapterCore implements IPtyService {
 
     if (!this.client.connected && !isDaemonRunning()) return
     this.ensureDaemon()
-      .then(() => this.client.setBufferMaxLength(maxLength))
+      .then(() => this.client.setBufferMaxLength(maxLength, mainSettings.terminalScrollback))
       .catch(() => {
         // Best effort. New sessions still receive the current limit on spawn.
       })

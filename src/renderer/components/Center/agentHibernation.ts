@@ -70,7 +70,8 @@ async function findCandidates(): Promise<Array<{ terminalId: string; agentType?:
     resumableIds: new Set(records.map((r) => r.terminalId)),
     agentForegroundIds: new Set(sessions.filter((s) => s.foreground === 'command').map((s) => s.sessionId)),
     statusById: fresh.bigTerminalStatusById,
-    terminals: listBigTerminalActivity(),
+    // Warm terminals without an xterm report their last output via the daemon.
+    terminals: listBigTerminalActivity(new Map(sessions.map((s) => [s.sessionId, s.lastOutputAt ?? 0]))),
   })
 }
 

@@ -11,7 +11,10 @@ import { SK } from '@/lib/storageKeys'
 import type { TerminalCommandObserver } from '@/lib/terminalCommandRefresh'
 import { modifierFromEvent, openLink } from '@/lib/browser/linkRouter'
 import { initPtyOutputRouting, registerPtyFinder as registerOutputFinder } from '@/lib/ptyOutput/router'
+import { openTerminalLink } from '@/lib/ptyOutput/restoredLinks'
 import { bindWebglPoolToVisibility, webglPool } from '@/lib/webglPool'
+import { bindRevealOnShow } from '@/lib/ptyOutput/revealOnShow'
+import { initPtyFeatures } from '@/lib/ptyFeatures'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -85,6 +88,8 @@ export function initGlobalPtyRouting(): void {
   registerOutputFinder((id) => findTabByPtyId(id)?.term)
   initPtyOutputRouting()
   bindWebglPoolToVisibility()
+  bindRevealOnShow()
+  void initPtyFeatures()
   ipc.pty.onExit((id) => {
     findTabByPtyId(id)?.term.write('\r\n\x1b[2m[Process exited]\x1b[0m\r\n')
   })
@@ -113,7 +118,11 @@ export function createTerminal(): { term: Terminal; fitAddon: FitAddon; searchAd
     scrollback: useUIStore.getState().terminalScrollback,
     minimumContrastRatio: getTerminalMinimumContrastRatio(),
     cursorBlink: true,
-    allowProposedApi: true
+    allowProposedApi: true,
+    // OSC 8 hyperlinks: xterm's default handler opens a blank window, which
+    // Electron's window-open handler denies. Route http(s) links like plain
+    // URLs and restored snapshot links.
+    linkHandler: { activate: (event, uri) => openTerminalLink(uri, event) },
   })
   const fitAddon = new FitAddon()
   term.loadAddon(fitAddon)

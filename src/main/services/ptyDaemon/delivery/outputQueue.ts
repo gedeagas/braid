@@ -19,9 +19,30 @@ export class OutputQueue {
   headInFrame = false
   /** When an unfinished frame at the head started being held. */
   holdSince: number | null = null
+  /** seq of the last chunk sent in full (taken, or sent without queueing). */
+  deliveredSeq = 0
 
   get length(): number {
     return this.size
+  }
+
+  /** seq of the chunk at the head (Infinity when empty). */
+  get headSeq(): number {
+    return this.chunks[0]?.seq ?? Infinity
+  }
+
+  /** Characters from the head in chunks numbered up to `seq`. */
+  charsThrough(seq: number): number {
+    let n = 0
+    for (let i = 0; i < this.chunks.length && this.chunks[i].seq <= seq; i++) {
+      n += this.chunks[i].data.length - (i === 0 ? this.head : 0)
+    }
+    return n
+  }
+
+  /** A chunk went out without being queued (typing fast path). */
+  markDelivered(seq: number): void {
+    if (seq > this.deliveredSeq) this.deliveredSeq = seq
   }
 
   push(data: string, seq = 0): void {
@@ -54,6 +75,7 @@ export class OutputQueue {
       const avail = this.chunks[0].data.length - this.head
       if (avail <= left) {
         left -= avail
+        this.markDelivered(this.chunks[0].seq)
         this.chunks.shift()
         this.head = 0
       } else {

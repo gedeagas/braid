@@ -83,4 +83,11 @@ export interface SessionInfo {
   coldRestored?: boolean
   /** Last sampled foreground (every checkpoint tick). Absent until sampled. */
   foreground?: ForegroundKind
+  /** Last agent status the daemon detected (daemons with status-events). */
+  agentStatus?: {
+    state: 'working' | 'blocked' | 'waiting' | 'done'
+    agentType?: string
+    toolName?: string
+    source: 'hook' | 'title' | 'terminal_scan'
+  }
 }

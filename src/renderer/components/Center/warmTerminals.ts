@@ -3,7 +3,10 @@ import { useUIStore } from '@/store/ui'
 import { useProjectsStore } from '@/store/projects'
 import * as ipc from '@/lib/ipc'
 import { isKnownAgentType, type AgentType } from '@/lib/agentStatus'
-import { getOrCreate } from './bigTerminalCache'
+import { ensureBigTerminalStatusListeners, getOrCreate, hasBigTerminal, registerWarmBigTerminal } from './bigTerminalCache'
+import { applyTerminalStatus } from './bigTerminalStatus'
+import { initPtyFeatures, isOffloadEnabled } from '@/lib/ptyFeatures'
+import { syncShown } from '@/lib/ptyOutput/visibility'
 
 export interface WarmTarget {
   terminalId: string
@@ -64,15 +67,24 @@ export function warmableSessionIds(sessions: ReadonlyArray<{ sessionId: string; 
 }
 
 /**
- * Reattach every live big terminal in the background on startup, the same way
- * clicking its worktree does. Agent status (and the sidebar agent count) comes
+ * Reattach every live big terminal in the background on startup. With an
+ * older daemon this builds each xterm, the same way clicking its worktree does. Agent status (and the sidebar agent count) comes
  * from title/OSC detection on the reattached stream, plus hook callbacks that
  * are only routed to cached terminals, so without this a worktree showed no
  * agents until it was opened. Call after projects have loaded so worktree
  * paths can be resolved.
  */
 export async function warmLiveBigTerminals(): Promise<number> {
-  const liveIds = warmableSessionIds(await ipc.pty.listSessions())
+  await initPtyFeatures()
+  const offload = isOffloadEnabled()
+  const sessions = await ipc.pty.listSessions()
+  const liveIds = warmableSessionIds(sessions)
+  if (offload) {
+    // Warm terminals get no xterm, so nothing else would subscribe to status.
+    ensureBigTerminalStatusListeners()
+    // A daemon with status-events already knows each terminal's agent status.
+    seedDaemonStatuses(sessions, liveIds)
+  }
   try {
     const records = await ipc.pty.listAgentSessions()
     const tabs = useUIStore.getState().bigTerminalsByWorktree
@@ -90,8 +102,43 @@ export async function warmLiveBigTerminals(): Promise<number> {
   }
 
   const targets = selectWarmTargets(tabsByWorktree, worktreePaths, liveIds)
+  if (offload) {
+    // Status comes from the daemon: attach in main only (output mirror for
+    // scrollback, mobile), no xterm and no WebGL. The xterm is built when the
+    // tab is opened, from the daemon's screen snapshot.
+    await Promise.all(targets.map((t) => warmWithoutXterm(t.terminalId)))
+    return targets.length
+  }
   // Reattach only: a session that died since it was listed waits for its tab
   // to be opened instead of spawning a shell and resuming its agent unseen.
   for (const t of targets) getOrCreate(t.terminalId, t.worktreePath, undefined, t.agentId, undefined, { reattachOnly: true })
   return targets.length
+}
+
+type ListedSession = Awaited<ReturnType<typeof ipc.pty.listSessions>>[number]
+
+/** Show the last status the daemon detected for each live tab, right at startup. */
+function seedDaemonStatuses(sessions: readonly ListedSession[], liveIds: ReadonlySet<string>): void {
+  for (const s of sessions) {
+    const status = s.agentStatus
+    if (!status || !liveIds.has(s.sessionId) || !s.sessionId.startsWith('bt-')) continue
+    const agentType = isKnownAgentType(status.agentType) ? status.agentType : undefined
+    applyTerminalStatus(s.sessionId, { state: status.state, source: status.source, agentType, toolName: status.toolName })
+  }
+}
+
+async function warmWithoutXterm(terminalId: string): Promise<void> {
+  // Opened by the user (before or while this attaches): its own connect owns
+  // the session, and reporting it hidden here would stop its live output.
+  if (hasBigTerminal(terminalId)) return
+  try {
+    const result = await ipc.pty.reattach(terminalId, { snapshot: false })
+    if (!result || hasBigTerminal(terminalId)) return
+    // Hidden: main sends none of its output (the daemon keeps the screen).
+    syncShown({ ptyId: result.sessionId, shown: false })
+    ipc.pty.registerBigTerminal(result.sessionId, terminalId)
+    registerWarmBigTerminal(terminalId, result.sessionId)
+  } catch {
+    // Best effort: the tab still restores when opened.
+  }
 }

@@ -2,6 +2,8 @@
 
 import type { AgentResumeClaim } from '@shared/agent-resume'
 
+import type { DaemonAgentStatusEvent, HeadlessSnapshotResult } from '@shared/terminal-offload'
+
 const api = () => window.api
 
 export const pty = {
@@ -13,14 +15,23 @@ export const pty = {
   ackData: (id: string, processedTotal: number) => api().pty.ackData(id, processedTotal),
   /** The terminal is shown (true) or hidden (false) in the UI. */
   setVisible: (id: string, visible: boolean) => api().pty.setVisible(id, visible),
+  /** Snapshot to show a hidden terminal (null: legacy daemon or session gone). */
+  headlessSnapshot: (sessionId: string) => api().pty.headlessSnapshot(sessionId) as Promise<HeadlessSnapshotResult | null>,
+  snapshotApplied: (sessionId: string, seq: number) => api().pty.snapshotApplied(sessionId, seq),
+  /** Terminal colours, for OSC 10/11/12 replies from hidden terminals. */
+  setTerminalColors: (colors: { foreground?: string; background?: string; cursor?: string }) => api().pty.setTerminalColors(colors),
+  /** Keep receiving a hidden terminal's output (e.g. until its initial command is typed). */
+  setDeliveryInterest: (sessionId: string, interested: boolean) => api().pty.setDeliveryInterest(sessionId, interested),
+  /** Agent status detected by the daemon (daemons with status-events). */
+  onAgentStatus: (callback: (event: DaemonAgentStatusEvent) => void) => api().pty.onAgentStatus(callback) as () => void,
   /** Terminal backend capabilities (daemon hello features); empty for an older daemon. */
-  getFeatures: () => api().pty.getFeatures(),
-  onFeaturesChanged: (callback: (features: string[]) => void) => api().pty.onFeaturesChanged(callback),
+  getFeatures: () => api().pty.getFeatures() as Promise<string[]>,
+  onFeaturesChanged: (callback: (features: string[]) => void) => api().pty.onFeaturesChanged(callback) as () => void,
   resize: (id: string, cols: number, rows: number) => api().pty.resize(id, cols, rows),
   kill: (id: string) => api().pty.kill(id),
   runScript: (cwd: string, command: string) => api().pty.runScript(cwd, command),
   readTerminalOutput: (worktreePath: string) => api().pty.readTerminalOutput(worktreePath),
-  onData: (callback: (id: string, data: string) => void) => api().pty.onData(callback),
+  onData: (callback: (id: string, data: string, noReply?: boolean) => void) => api().pty.onData(callback),
   onExit: (callback: (id: string, exitCode: number) => void) => api().pty.onExit(callback),
   registerBigTerminal: (ptyId: string, terminalId: string) => api().pty.registerBigTerminal(ptyId, terminalId),
   setBigTerminalMetadata: (metadata: { terminalId: string; worktreeId?: string; label?: string; agentId?: string }) =>
@@ -34,9 +45,14 @@ export const pty = {
   setMobileDisplayMode: (terminalId: string, mode: 'phone' | 'desktop') =>
     api().pty.setMobileDisplayMode(terminalId, mode),
   deleteScrollback: (terminalId: string) => api().pty.deleteScrollback(terminalId),
-  reattach: (sessionId: string) => api().pty.reattach(sessionId) as Promise<{ sessionId: string; snapshot: string; coldRestored?: boolean; foregroundAtLoss?: 'shell' | 'command' } | null>,
+  reattach: (sessionId: string, opts?: { snapshot?: boolean }) => api().pty.reattach(sessionId, opts) as Promise<{ sessionId: string; snapshot: string; coldRestored?: boolean; foregroundAtLoss?: 'shell' | 'command' } | null>,
   consumeColdRestore: (sessionId: string) => api().pty.consumeColdRestore(sessionId) as Promise<boolean>,
-  listSessions: () => api().pty.listSessions() as Promise<Array<{ sessionId: string; cwd: string; cols: number; rows: number; createdAt: number; coldRestored?: boolean; foreground?: 'shell' | 'command' }>>,
+  listSessions: () => api().pty.listSessions() as Promise<Array<{
+    sessionId: string; cwd: string; cols: number; rows: number; createdAt: number; lastOutputAt?: number
+    coldRestored?: boolean; foreground?: 'shell' | 'command'
+    /** Last status the daemon detected (daemons with status-events). */
+    agentStatus?: { state: 'working' | 'blocked' | 'waiting' | 'done'; agentType?: string; toolName?: string; source: 'hook' | 'title' | 'terminal_scan' }
+  }>>,
   listOrphanedBigTerminals: (knownTerminalIds: string[]) =>
     api().pty.listOrphanedBigTerminals(knownTerminalIds) as Promise<Array<{ terminalId: string; cwd: string; label?: string; agentId?: string }>>,
   killOrphanedBigTerminals: (terminalIds: string[]) =>

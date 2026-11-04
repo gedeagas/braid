@@ -108,8 +108,10 @@ describe('SessionHost', () => {
     const nodePty = await import('node-pty')
     const mockPty = (nodePty as unknown as { __getMockPty: () => ReturnType<typeof createMockPty> }).__getMockPty()
     mockPty._emitData('hello')
+    mockPty._emitData('world')
 
-    expect(dataSpy).toHaveBeenCalledWith('s1', 'hello')
+    // Each chunk carries a running sequence number (screen snapshot handoff).
+    expect(dataSpy.mock.calls).toEqual([['s1', 'hello', 1], ['s1', 'world', 2]])
   })
 
   it('writes data to session', async () => {

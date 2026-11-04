@@ -8,8 +8,10 @@ import { replayIntoTerminal, isReplaying, POST_REPLAY_MODE_RESET } from '@/lib/r
 import { createTerminalCommandObserver } from '@/lib/terminalCommandRefresh'
 import { shouldResumeAfterLoss, startAgentResume, terminalStatusLine } from '@/lib/agentResumeRestore'
 import { useUIStore } from '@/store/ui'
-import { writeInitialAgentInput } from './bigTerminalInitialInput'
+import { typeInitialCommand } from './bigTerminalInitialInput'
 import { syncShown } from '@/lib/ptyOutput/visibility'
+import { revealTerminal } from '@/lib/ptyOutput/reveal'
+import { initPtyFeatures, isOffloadEnabled } from '@/lib/ptyFeatures'
 import type { BigTermEntry } from './bigTerminalCache'
 
 export interface ConnectOptions {
@@ -32,8 +34,12 @@ export async function connectBigTerminal(entry: BigTermEntry, opts: ConnectOptio
   // Attempt warm reattach to daemon session first
   let reattached = false
   try {
-    const result = await ipc.pty.reattach(terminalId)
-    if (result && result.snapshot) {
+    await initPtyFeatures()
+    // A daemon that keeps screen state restores the exact screen and modes
+    // from its headless terminal; an older one sends its raw ring buffer.
+    const offload = isOffloadEnabled()
+    const result = await ipc.pty.reattach(terminalId, offload ? { snapshot: false } : undefined)
+    if (result && (offload || result.snapshot)) {
       reattached = true
       hasScrollback = true
       entry.ptyId = result.sessionId
@@ -44,9 +50,14 @@ export async function connectBigTerminal(entry: BigTermEntry, opts: ConnectOptio
       // from a checkpoint after the old one died. Claim it (one-shot, so a
       // second window or the phone can't also relaunch) before resuming.
       const claimed = result.coldRestored === true && await ipc.pty.consumeColdRestore(terminalId)
-      replayIntoTerminal(terminalId, term, result.snapshot)
-      replayIntoTerminal(terminalId, term, '\r\n' + terminalStatusLine(claimed ? 'terminalRestoreHistory' : 'terminalRestoreReconnected'))
-      replayIntoTerminal(terminalId, term, POST_REPLAY_MODE_RESET)
+      if (offload) {
+        await revealTerminal({ ptyId: result.sessionId, guardId: terminalId, term })
+        replayIntoTerminal(terminalId, term, '\r\n' + terminalStatusLine(claimed ? 'terminalRestoreHistory' : 'terminalRestoreReconnected'))
+      } else {
+        replayIntoTerminal(terminalId, term, result.snapshot)
+        replayIntoTerminal(terminalId, term, '\r\n' + terminalStatusLine(claimed ? 'terminalRestoreHistory' : 'terminalRestoreReconnected'))
+        replayIntoTerminal(terminalId, term, POST_REPLAY_MODE_RESET)
+      }
       ipc.pty.registerBigTerminal(result.sessionId, terminalId)
       if (claimed && !shouldResumeAfterLoss(result.foregroundAtLoss)) {
         ipc.pty.forgetAgentResume(terminalId)
@@ -117,9 +128,7 @@ export async function connectBigTerminal(entry: BigTermEntry, opts: ConnectOptio
     })
     // Auto-run initialCommand only on fresh terminals (no restored scrollback)
     if (initialCommand && !hasScrollback) {
-      commandObserver.accept(initialCommand + '\n')
-      ipc.pty.write(ptyId, initialCommand + '\n')
-      if (initialInput) void writeInitialAgentInput(entry, ptyId, initialInput)
+      void typeInitialCommand(entry, ptyId, initialCommand, initialInput, (c) => commandObserver.accept(c))
     } else {
       // The daemon session is gone and its checkpoint too (hibernated, daemon
       // wiped or unavailable). Relaunch the agent conversation that was

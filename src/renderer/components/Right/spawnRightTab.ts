@@ -6,13 +6,19 @@ import * as ipc from '@/lib/ipc'
 import { createTerminalCommandObserver } from '@/lib/terminalCommandRefresh'
 import { replayIntoTerminal, isReplaying, POST_REPLAY_MODE_RESET } from '@/lib/replayGuard'
 import { syncShown } from '@/lib/ptyOutput/visibility'
+import { revealTerminal } from '@/lib/ptyOutput/reveal'
+import { initPtyFeatures, isOffloadEnabled } from '@/lib/ptyFeatures'
 import type { TermTab } from './terminalCache'
 
 export async function spawnRightTab(tab: TermTab, worktreePath: string, pendingCommandRef: MutableRefObject<string | null>): Promise<void> {
   // Attempt warm reattach to daemon session first
   try {
-    const result = await ipc.pty.reattach(tab.id)
-    if (result && result.snapshot) {
+    await initPtyFeatures()
+    // A daemon that keeps screen state restores the exact screen and modes
+    // from its headless terminal; an older one sends its raw ring buffer.
+    const offload = isOffloadEnabled()
+    const result = await ipc.pty.reattach(tab.id, offload ? { snapshot: false } : undefined)
+    if (result && (offload || result.snapshot)) {
       tab.ptyId = result.sessionId
       syncShown(tab)
       const observer = createTerminalCommandObserver(worktreePath, { refreshWorktrees: true })
@@ -20,11 +26,16 @@ export async function spawnRightTab(tab: TermTab, worktreePath: string, pendingC
       // Register for daemon-side scrollback persistence so this tab survives a
       // daemon death (cold app restart), matching big-terminal behavior.
       ipc.pty.registerBigTerminal(result.sessionId, tab.id)
-      // Replay under guard to suppress xterm auto-replies (DA1, DECRQM, etc.)
-      // leaking back into the reconnected shell as keystrokes.
-      replayIntoTerminal(tab.id, tab.term, result.snapshot)
-      replayIntoTerminal(tab.id, tab.term, '\r\n\x1b[2m[session reconnected]\x1b[0m\r\n')
-      replayIntoTerminal(tab.id, tab.term, POST_REPLAY_MODE_RESET)
+      if (offload) {
+        await revealTerminal({ ptyId: result.sessionId, guardId: tab.id, term: tab.term })
+        replayIntoTerminal(tab.id, tab.term, '\r\n\x1b[2m[session reconnected]\x1b[0m\r\n')
+      } else {
+        // Replay under guard to suppress xterm auto-replies (DA1, DECRQM, etc.)
+        // leaking back into the reconnected shell as keystrokes.
+        replayIntoTerminal(tab.id, tab.term, result.snapshot)
+        replayIntoTerminal(tab.id, tab.term, '\r\n\x1b[2m[session reconnected]\x1b[0m\r\n')
+        replayIntoTerminal(tab.id, tab.term, POST_REPLAY_MODE_RESET)
+      }
       tab.term.onData((data: string) => {
         if (isReplaying(tab.id)) return
         observer.accept(data)

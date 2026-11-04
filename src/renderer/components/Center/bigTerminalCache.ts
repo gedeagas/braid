@@ -4,19 +4,18 @@ import type { SearchAddon } from '@xterm/addon-search'
 import * as ipc from '@/lib/ipc'
 import { getTerminalMinimumContrastRatio, getTerminalTheme } from '@/themes/terminal'
 import { createTerminal, registerPtyFinder } from '@/components/Right/terminalCache'
-import { registerAgentStatusOsc, registerBraidOsc9 } from '@/lib/agentStatusOsc'
-import { registerTitleDetection } from '@/lib/agentTitleDetection'
-import { isReplaying } from '@/lib/replayGuard'
 import { initPtyOutputRouting } from '@/lib/ptyOutput/router'
 import { forgetShown } from '@/lib/ptyOutput/visibility'
 import { bindWebglPoolToVisibility, webglPool } from '@/lib/webglPool'
-import { isKnownAgentType, type AgentStatusPayload, type AgentStatusState, type AgentType } from '@/lib/agentStatus'
+import { bindRevealOnShow } from '@/lib/ptyOutput/revealOnShow'
+import { initPtyFeatures } from '@/lib/ptyFeatures'
+import { isKnownAgentType, type AgentType } from '@/lib/agentStatus'
 import { createCompletionCoordinator, type CompletionCoordinator } from '@/lib/agentCompletionCoordinator'
-import { notifyTerminalStateChange, clearTerminalNotificationState } from '@/lib/terminalNotifications'
-import { isCodexUserInputPromptText, readTerminalBufferTail } from '@/lib/codexTerminalDetection'
+import { clearTerminalNotificationState } from '@/lib/terminalNotifications'
 import type { TerminalCommandObserver } from '@/lib/terminalCommandRefresh'
 import { useUIStore } from '@/store/ui'
 import { connectBigTerminal } from './bigTerminalConnect'
+import { ensureStatusListeners, registerRendererDetectors, updateEntryAgentId } from './bigTerminalStatus'
 import { useToastsStore } from '@/store/toasts'
 
 export interface BigTermEntry {
@@ -66,6 +65,8 @@ function ensureFinderRegistered(): void {
   // Big terminals must get output even if the right panel never mounted.
   initPtyOutputRouting()
   bindWebglPoolToVisibility()
+  bindRevealOnShow()
+  void initPtyFeatures()
   registerPtyFinder((ptyId) => {
     for (const entry of cache.values()) {
       if (entry.ptyId === ptyId) return { term: entry.term }
@@ -74,105 +75,37 @@ function ensureFinderRegistered(): void {
   })
 }
 
-// ── Hook status IPC listener (singleton) ─────────────────────────────────────
-// The main process HTTP server forwards agent hook callbacks here.
-// We route each status update to the matching terminal's store entry.
-
-const VALID_STATES = new Set<string>(['working', 'blocked', 'waiting', 'done'])
-
-interface StatusApplyResult {
-  stateChanged: boolean
-}
-
-function applyTerminalStatus(terminalId: string, payload: AgentStatusPayload): StatusApplyResult {
-  const before = useUIStore.getState().bigTerminalStatusById[terminalId]
-  useUIStore.getState().updateBigTerminalStatus(terminalId, payload)
-  const after = useUIStore.getState().bigTerminalStatusById[terminalId]
-
-  return {
-    stateChanged: after !== before && after != null && before?.state !== after.state,
-  }
-}
-
-let hookListenerRegistered = false
-function ensureHookListener(): void {
-  if (hookListenerRegistered) return
-  hookListenerRegistered = true
-  ipc.pty.onAgentHookStatus((status) => {
-    const { terminalId, state, agentType, toolName, interrupted } = status
-    if (!VALID_STATES.has(state)) return
-
-    const entry = cache.get(terminalId)
-    if (!entry) return
-
-    const payload: AgentStatusPayload = {
-      state: state as AgentStatusState,
-      source: 'hook',
-      agentType: (agentType as AgentStatusPayload['agentType']) ?? 'claude',
-      toolName: toolName ?? undefined,
-    }
-    const applied = applyTerminalStatus(terminalId, payload)
-    if (payload.agentType === 'codex') {
-      ensureCodexPromptScanListener(entry)
-      scheduleCodexUserInputScan(entry)
-    }
-    if (applied.stateChanged) {
-      entry.completionCoordinator.observeHookStatus(
-        payload.state,
-        interrupted ?? false
-      )
-      notifyTerminalStateChange(terminalId, payload.state)
-    }
-  })
-}
-
 function normalizeAgentType(agentId?: string): AgentType | undefined {
   return isKnownAgentType(agentId) ? agentId : undefined
 }
 
-function isKnownCodexTerminal(entry: BigTermEntry): boolean {
-  if (entry.agentId === 'codex') return true
-  const status = useUIStore.getState().bigTerminalStatusById[entry.terminalId]
-  return status?.agentType === 'codex'
+// ── Warm terminals without an xterm ─────────────────────────────────────────
+// With a daemon that offloads hidden terminals, startup warm-up attaches live
+// big terminals in main only (status comes from the daemon). The xterm is
+// built when the tab is opened. These records keep them visible to agent
+// hibernation meanwhile.
+
+interface WarmRecord { terminalId: string; ptyId: string; lastInputAt: number; lastOutputAt: number }
+const warm = new Map<string, WarmRecord>()
+
+export function registerWarmBigTerminal(terminalId: string, ptyId: string): void {
+  if (cache.has(terminalId)) return
+  const now = Date.now()
+  warm.set(terminalId, { terminalId, ptyId, lastInputAt: now, lastOutputAt: now })
 }
 
-function scanCodexUserInputPrompt(entry: BigTermEntry): void {
-  entry.codexPromptScanTimer = null
-  if (entry.disposed) return
-  if (isReplaying(entry.terminalId)) return
-  if (!isKnownCodexTerminal(entry)) return
-  if (!isCodexUserInputPromptText(readTerminalBufferTail(entry.term))) return
-
-  const current = useUIStore.getState().bigTerminalStatusById[entry.terminalId]
-  if (current?.state === 'waiting' && current.agentType === 'codex') return
-
-  const payload: AgentStatusPayload = { state: 'waiting', source: 'terminal_scan', agentType: 'codex' }
-  const applied = applyTerminalStatus(entry.terminalId, payload)
-  if (applied.stateChanged) notifyTerminalStateChange(entry.terminalId, payload.state)
+export function isWarmBigTerminal(terminalId: string): boolean {
+  return warm.has(terminalId)
 }
 
-function scheduleCodexUserInputScan(entry: BigTermEntry): void {
-  if (entry.disposed || isReplaying(entry.terminalId)) return
-  if (!isKnownCodexTerminal(entry)) return
-  if (entry.codexPromptScanTimer) return
-
-  entry.codexPromptScanTimer = setTimeout(() => {
-    scanCodexUserInputPrompt(entry)
-  }, 80)
+/** The tab has an xterm (opened, or being opened). */
+export function hasBigTerminal(terminalId: string): boolean {
+  return cache.has(terminalId)
 }
 
-function ensureCodexPromptScanListener(entry: BigTermEntry): void {
-  if (entry.codexPromptWriteDisposable) return
-  entry.codexPromptWriteDisposable = entry.term.onWriteParsed(() => scheduleCodexUserInputScan(entry))
-}
-
-function updateEntryAgentId(entry: BigTermEntry, agentId?: string): void {
-  if (!agentId) return
-  entry.agentId = agentId
-  if (agentId === 'codex') {
-    ensureCodexPromptScanListener(entry)
-    scheduleCodexUserInputScan(entry)
-  }
+/** Hook and daemon status for every big terminal, with or without an xterm. */
+export function ensureBigTerminalStatusListeners(): void {
+  ensureStatusListeners((id) => cache.get(id))
 }
 
 /**
@@ -190,7 +123,9 @@ export function getOrCreate(
   options: { reattachOnly?: boolean } = {},
 ): BigTermEntry {
   ensureFinderRegistered()
-  ensureHookListener()
+  ensureBigTerminalStatusListeners()
+  // Opening a warm tab builds its xterm now (reattach restores the screen).
+  warm.delete(terminalId)
   const existing = cache.get(terminalId)
   if (existing) {
     existing.term.options.scrollback = useUIStore.getState().terminalScrollback
@@ -234,51 +169,8 @@ export function getOrCreate(
   term.onData(() => { entry.lastInputAt = Date.now() })
   term.onWriteParsed(() => { entry.lastOutputAt = Date.now() })
 
-  // Register agent status tracking on ALL terminals.
-  // OSC 9999: handles any agent that emits custom hook sequences.
-  // Title detection: handles Claude (braille spinners), Gemini (✦/◇/✋),
-  // Codex, Aider, and any agent with keyword-based titles.
-  const updateStatus = (payload: AgentStatusPayload) => {
-    const applied = applyTerminalStatus(terminalId, payload)
-    if (payload.agentType === 'codex') {
-      ensureCodexPromptScanListener(entry)
-      scheduleCodexUserInputScan(entry)
-    }
-    return applied
-  }
-
-  registerAgentStatusOsc(term, (payload) => {
-    const applied = updateStatus({ ...payload, source: 'hook' })
-    // Replayed history sets the status but must not re-announce old events.
-    if (applied.stateChanged && !isReplaying(terminalId)) {
-      completionCoordinator.observeHookStatus(payload.state, payload.interrupted)
-      notifyTerminalStateChange(terminalId, payload.state)
-    }
-  })
-
-  registerTitleDetection(
-    term,
-    (result) => {
-      const applied = updateStatus({ state: result.state, source: 'title', agentType: result.agentType ?? undefined })
-      if (applied.stateChanged && !isReplaying(terminalId)) {
-        completionCoordinator.observeTitleStatus(result.state)
-        notifyTerminalStateChange(terminalId, result.state)
-      }
-    },
-    { expectedAgentType }
-  )
-
-  // OSC 9 (Braid hooks): Claude Code hooks return terminalSequence with
-  // OSC 9 braid:STATE[:TOOL] payloads. Secondary to HTTP but still useful.
-  registerBraidOsc9(term, (payload) => {
-    const applied = updateStatus({ ...payload, source: 'hook' })
-    if (applied.stateChanged && !isReplaying(terminalId)) {
-      completionCoordinator.observeHookStatus(payload.state, false)
-      notifyTerminalStateChange(terminalId, payload.state)
-    }
-  })
-
-  if (expectedAgentType === 'codex') ensureCodexPromptScanListener(entry)
+  // Renderer-side status detection (only while the daemon doesn't provide it).
+  registerRendererDetectors(entry, expectedAgentType)
 
   // A warm-up whose session died meanwhile is dropped, unless a view mounted
   // it in the meantime (the user opened the tab): that one restores normally.
@@ -320,6 +212,13 @@ export function updateScrollbackAllBigTerminals(lines: number): void {
 /** Kill PTY, dispose xterm, remove from cache, and delete persisted scrollback. */
 export function disposeBigTerminal(terminalId: string): void {
   const entry = cache.get(terminalId)
+  const warmRecord = warm.get(terminalId)
+  if (warmRecord) {
+    warm.delete(terminalId)
+    try { ipc.pty.kill(warmRecord.ptyId) } catch {}
+    forgetShown(warmRecord.ptyId)
+    try { useUIStore.getState().clearBigTerminalStatus(terminalId) } catch {}
+  }
   if (!entry) {
     // Still attempt to delete any orphaned scrollback file
     try { ipc.pty.deleteScrollback(terminalId) } catch {}
@@ -335,10 +234,20 @@ export function disposeBigTerminal(terminalId: string): void {
 }
 
 /** Snapshot of a cached terminal, for the idle hibernation sweep. */
-export function listBigTerminalActivity(): Array<{ terminalId: string; lastInputAt: number; lastOutputAt: number; mobileInputLocked: boolean }> {
-  return [...cache.values()].map((e) => ({
+export function listBigTerminalActivity(
+  lastOutputById?: ReadonlyMap<string, number>,
+): Array<{ terminalId: string; lastInputAt: number; lastOutputAt: number; mobileInputLocked: boolean }> {
+  const live = [...cache.values()].map((e) => ({
     terminalId: e.terminalId, lastInputAt: e.lastInputAt, lastOutputAt: e.lastOutputAt, mobileInputLocked: e.mobileInputLocked,
   }))
+  // Warm terminals have no xterm: their last output comes from the daemon.
+  const background = [...warm.values()].map((w) => ({
+    terminalId: w.terminalId,
+    lastInputAt: w.lastInputAt,
+    lastOutputAt: Math.max(w.lastOutputAt, lastOutputById?.get(w.terminalId) ?? 0),
+    mobileInputLocked: false,
+  }))
+  return [...live, ...background]
 }
 
 /**
@@ -349,9 +258,18 @@ export function listBigTerminalActivity(): Array<{ terminalId: string; lastInput
  */
 export function hibernateBigTerminal(terminalId: string, agentType?: AgentType): boolean {
   const entry = cache.get(terminalId)
-  if (!entry || !entry.ptyId) return false
-  // Leave the cache first so the exit event finds no terminal to print into.
-  teardown(entry)
+  const warmRecord = warm.get(terminalId)
+  if (warmRecord && !entry) {
+    // Main writes the scrollback file on kill, from its mirror of the output.
+    warm.delete(terminalId)
+    try { ipc.pty.kill(warmRecord.ptyId) } catch {}
+    forgetShown(warmRecord.ptyId)
+  } else if (!entry || !entry.ptyId) {
+    return false
+  } else {
+    // Leave the cache first so the exit event finds no terminal to print into.
+    teardown(entry)
+  }
   try { useUIStore.getState().clearBigTerminalStatus(terminalId) } catch {}
   try { useUIStore.getState().seedRestoredBigTerminalStatus([{ terminalId, agentType }]) } catch {}
   return true
@@ -388,7 +306,7 @@ export function disposeBigTerminals(terminalIds: string[]): void {
   for (const id of terminalIds) disposeBigTerminal(id)
 }
 
-/** PTY id backing a big terminal, or null when it hasn't spawned / isn't cached. */
+/** PTY id backing a big terminal (open, or warm without an xterm), or null when it hasn't spawned. */
 export function getBigTerminalPtyId(terminalId: string): string | null {
-  return cache.get(terminalId)?.ptyId ?? null
+  return cache.get(terminalId)?.ptyId ?? warm.get(terminalId)?.ptyId ?? null
 }

@@ -2,6 +2,7 @@
 
 import { ipcRenderer } from 'electron'
 import type { AgentResumeClaim } from '../shared/agent-resume'
+import type { DaemonAgentStatusEvent, HeadlessSnapshotResult } from '../shared/terminal-offload'
 
 export const ptyBridge = {
   spawn: (cwd: string, envOverrides?: Record<string, string>) => ipcRenderer.invoke('pty:spawn', cwd, envOverrides),
@@ -12,6 +13,16 @@ export const ptyBridge = {
   ackData: (id: string, processedTotal: number) => ipcRenderer.send('pty:ackData', id, processedTotal),
   /** The terminal is shown (true) or hidden (false) in the UI. */
   setVisible: (id: string, visible: boolean) => ipcRenderer.send('pty:setVisible', id, visible),
+  headlessSnapshot: (sessionId: string) =>
+    ipcRenderer.invoke('pty:headlessSnapshot', sessionId) as Promise<HeadlessSnapshotResult | null>,
+  snapshotApplied: (sessionId: string, seq: number) => ipcRenderer.send('pty:snapshotApplied', sessionId, seq),
+  setDeliveryInterest: (sessionId: string, interested: boolean) => ipcRenderer.send('pty:setDeliveryInterest', sessionId, interested),
+  setTerminalColors: (colors: { foreground?: string; background?: string; cursor?: string }) => ipcRenderer.send('pty:setTerminalColors', colors),
+  onAgentStatus: (callback: (event: DaemonAgentStatusEvent) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, event: DaemonAgentStatusEvent) => callback(event)
+    ipcRenderer.on('pty:agentStatus', handler)
+    return () => ipcRenderer.removeListener('pty:agentStatus', handler)
+  },
   /** Terminal backend capabilities (daemon hello features). */
   getFeatures: () => ipcRenderer.invoke('pty:getFeatures') as Promise<string[]>,
   onFeaturesChanged: (callback: (features: string[]) => void) => {
@@ -23,8 +34,8 @@ export const ptyBridge = {
   kill: (id: string) => ipcRenderer.invoke('pty:kill', id),
   runScript: (cwd: string, command: string) => ipcRenderer.invoke('pty:runScript', cwd, command) as Promise<{ exitCode: number }>,
   readTerminalOutput: (worktreePath: string) => ipcRenderer.invoke('pty:readTerminalOutput', worktreePath) as Promise<Array<{ ptyId: string; output: string }>>,
-  onData: (callback: (id: string, data: string) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, id: string, data: string) => callback(id, data)
+  onData: (callback: (id: string, data: string, noReply?: boolean) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, id: string, data: string, noReply?: boolean) => callback(id, data, noReply === true)
     ipcRenderer.on('pty:data', handler)
     return () => ipcRenderer.removeListener('pty:data', handler)
   },
@@ -53,8 +64,8 @@ export const ptyBridge = {
     ipcRenderer.send('pty:setMobileDisplayMode', terminalId, mode),
   deleteScrollback: (terminalId: string) =>
     ipcRenderer.send('pty:deleteScrollback', terminalId),
-  reattach: (sessionId: string) =>
-    ipcRenderer.invoke('pty:reattach', sessionId) as Promise<{ sessionId: string; snapshot: string; coldRestored?: boolean; foregroundAtLoss?: 'shell' | 'command' } | null>,
+  reattach: (sessionId: string, opts?: { snapshot?: boolean }) =>
+    ipcRenderer.invoke('pty:reattach', sessionId, opts) as Promise<{ sessionId: string; snapshot: string; coldRestored?: boolean; foregroundAtLoss?: 'shell' | 'command' } | null>,
   consumeColdRestore: (sessionId: string) =>
     ipcRenderer.invoke('pty:consumeColdRestore', sessionId) as Promise<boolean>,
   listSessions: () =>

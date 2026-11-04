@@ -88,12 +88,24 @@ export function registerPtyIpcHandlers(): void {
   ipcMain.on('pty:setMobileDisplayMode', (_e, terminalId: string, mode: MobileDisplayMode) =>
     setMobileDisplayMode(terminalId, mode))
   ipcMain.on('pty:deleteScrollback', (_e, terminalId: string) => ptyService.deleteScrollback(terminalId))
-  ipcMain.handle('pty:reattach', (_e, sessionId: string) => {
+  ipcMain.handle('pty:reattach', (_e, sessionId: string, opts?: { snapshot?: boolean }) => {
     if ('reattach' in ptyService && typeof ptyService.reattach === 'function') {
-      return ptyService.reattach(sessionId)
+      return ptyService.reattach(sessionId, opts?.snapshot === false ? { snapshot: false } : {})
     }
     return null
   })
+  // Showing a hidden terminal (daemon with headless-snapshot): snapshot, then
+  // the renderer confirms it wrote it, and live output newer than it resumes.
+  ipcMain.handle('pty:headlessSnapshot', (_e, sessionId: string) => ptyService.headlessSnapshot?.(sessionId) ?? null)
+  ipcMain.on('pty:snapshotApplied', (_e, sessionId: string, seq: number) => {
+    if (typeof seq === 'number') ptyService.snapshotApplied?.(sessionId, seq)
+  })
+  // Terminal colours: hidden terminals answer OSC 10/11/12 queries with them.
+  ipcMain.on('pty:setTerminalColors', (_e, colors: { foreground?: string; background?: string; cursor?: string }) =>
+    ptyService.setTerminalColors?.(colors))
+  // Keep delivering a hidden terminal's output while the renderer needs it.
+  ipcMain.on('pty:setDeliveryInterest', (_e, sessionId: string, interested: boolean) =>
+    ptyService.setDeliveryInterest?.(sessionId, interested === true))
   ipcMain.handle('pty:consumeColdRestore', (_e, sessionId: string) =>
     ptyService.consumeColdRestore?.(sessionId) ?? false)
   ipcMain.handle('pty:listSessions', () => {
