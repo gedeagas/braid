@@ -93,7 +93,7 @@ export const BROWSER_TOOLS: readonly BrowserToolSpec[] = [
   },
   {
     name: 'browser_screenshot',
-    description: 'PNG screenshot of the visible page, a single element (ref) or the full page.',
+    description: 'PNG screenshot of the visible page, a single element (ref) or the full page. The tab must be shown in Braid (open or select it with show: true).',
     params: { ref: { ...ref, optional: true }, full_page: { type: 'boolean', optional: true, description: 'Capture beyond the viewport.' }, tab_id: tabId },
   },
   {

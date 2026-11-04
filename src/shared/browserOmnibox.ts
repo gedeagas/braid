@@ -59,8 +59,8 @@ export function resolveOmniboxInput(raw: string, engine: SearchEngineId = DEFAUL
 
   if (/\s/.test(input)) return searchUrl(input, engine)
 
-  const slash = input.indexOf('/')
-  const host = slash === -1 ? input : input.slice(0, slash)
+  // Authority ends at the first path, query or fragment delimiter (`example.com?x=1`).
+  const host = input.split(/[/?#]/, 1)[0]
 
   if (LOCAL_HOST.test(host) || PRIVATE_IPV4.test(host) || HOST_WITH_PORT.test(host)) {
     return normalize(`http://${input}`) ?? searchUrl(input, engine)

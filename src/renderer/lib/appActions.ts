@@ -189,7 +189,9 @@ export function focusChat(): void {
 }
 
 export function saveFile(): void {
-  if (getFocusedView()?.type === 'file') {
-    window.dispatchEvent(new CustomEvent('braid:saveFile'))
+  const view = getFocusedView()
+  // Two file panes can be mounted side by side; only the focused one saves.
+  if (view?.type === 'file') {
+    window.dispatchEvent(new CustomEvent<{ path: string }>('braid:saveFile', { detail: { path: view.path } }))
   }
 }

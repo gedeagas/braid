@@ -4,7 +4,7 @@
  * on every call (no captured snapshots).
  */
 import type { BrowserWebview } from './webviewTypes'
-import type { BrowserShortcutAction } from '@shared/browser'
+import { DEFAULT_BROWSER_PROFILE_ID, type BrowserShortcutAction } from '@shared/browser'
 import { useUIStore, type PaneId } from '@/store/ui'
 import { getFocusedView, placeTabInPane } from '@/lib/centerPanes'
 
@@ -112,6 +112,16 @@ export function reopenClosedBrowserTab(): string | null {
 
 export function closeBrowserTab(worktreeId: string, tabId: string): void {
   useUIStore.getState().closeBrowserTab(worktreeId, tabId)
+}
+
+/** Move every tab using `profileId` to the default profile (their pages reload there). */
+export function moveProfileTabsToDefault(profileId: string): void {
+  const ui = useUIStore.getState()
+  for (const [worktreeId, tabs] of Object.entries(ui.browserTabsByWorktree)) {
+    for (const tab of tabs) {
+      if (tab.profileId === profileId) ui.updateBrowserTab(worktreeId, tab.id, { profileId: DEFAULT_BROWSER_PROFILE_ID })
+    }
+  }
 }
 
 // ─── In-page actions ─────────────────────────────────────────────────────────

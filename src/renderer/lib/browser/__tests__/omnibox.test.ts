@@ -31,6 +31,12 @@ describe('resolveOmniboxInput', () => {
     expect(resolveOmniboxInput('docs.github.com/en/rest')).toBe('https://docs.github.com/en/rest')
   })
 
+  it('navigates bare hosts followed by a query or fragment', () => {
+    expect(resolveOmniboxInput('example.com?x=1')).toBe('https://example.com/?x=1')
+    expect(resolveOmniboxInput('localhost:3000?token=abc')).toBe('http://localhost:3000/?token=abc')
+    expect(resolveOmniboxInput('example.com#top')).toBe('https://example.com/#top')
+  })
+
   it('treats any host:port as a URL', () => {
     expect(resolveOmniboxInput('devbox:8080')).toBe('http://devbox:8080/')
   })

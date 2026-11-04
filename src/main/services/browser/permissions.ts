@@ -65,13 +65,28 @@ export function handlePermissionRequest(
   const host = wc.hostWebContents ?? BrowserWindow.getAllWindows()[0]?.webContents
   if (!host || host.isDestroyed()) { callback(false); return }
   const id = nextId++
+  // A main-frame navigation or a closed tab abandons the prompt.
+  const onNavigate = (details: { isMainFrame: boolean; isSameDocument: boolean }) => {
+    if (details.isMainFrame && !details.isSameDocument) abandon()
+  }
+  const detach = () => {
+    if (wc.isDestroyed()) return
+    wc.off('did-start-navigation', onNavigate)
+    wc.off('destroyed', abandon)
+  }
+  const abandon = () => {
+    const fn = pending.get(id)
+    if (!fn) return
+    pending.delete(id)
+    fn(false, false)
+    if (!host.isDestroyed()) host.send('browser:permissionCancel', id)
+  }
   pending.set(id, (allow, remember) => {
+    detach()
     if (remember) remembered(sess).set(key, allow)
     callback(allow)
   })
-  // A navigation or a closed tab abandons the prompt.
-  const abandon = () => { const fn = pending.get(id); if (fn) { pending.delete(id); fn(false, false) } }
-  wc.once('did-start-navigation', abandon)
+  wc.on('did-start-navigation', onNavigate)
   wc.once('destroyed', abandon)
   const request: BrowserPermissionRequest = { id, webContentsId: wc.id, origin, permission }
   host.send('browser:permissionRequest', request)

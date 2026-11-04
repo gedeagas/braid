@@ -30,6 +30,8 @@ interface BrowserStoreState {
   dismissDownload: (id: string) => void
   addPermissionRequest: (r: BrowserPermissionRequest) => void
   resolvePermissionRequest: (id: number, allow: boolean, remember: boolean) => void
+  /** Main abandoned the request (page navigated or closed). */
+  dropPermissionRequest: (id: number) => void
 }
 
 export const useBrowserStore = create<BrowserStoreState>((set, get) => ({
@@ -80,4 +82,6 @@ export const useBrowserStore = create<BrowserStoreState>((set, get) => ({
     void ipc.browser.respondPermission(id, allow, remember).catch(() => {})
     set((s) => ({ permissionRequests: s.permissionRequests.filter((r) => r.id !== id) }))
   },
+
+  dropPermissionRequest: (id) => set((s) => ({ permissionRequests: s.permissionRequests.filter((r) => r.id !== id) })),
 }))

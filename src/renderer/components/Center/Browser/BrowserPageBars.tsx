@@ -45,9 +45,9 @@ export const DownloadShelf = memo(function DownloadShelf({ webContentsId }: { we
   const all = useBrowserStore(useShallow((s) => s.downloads.filter((d) => d.webContentsId === webContentsId)))
   const dismiss = useBrowserStore((s) => s.dismissDownload)
   const now = useNow(all.length > 0, 5000)
-  // Finished items age out of the shelf; running ones always show.
+  // Finished items age out of the shelf (counted from when they finished); others always show.
   const visible = useMemo(
-    () => all.filter((d) => d.state === 'progressing' || d.startedAt > now - DOWNLOAD_SHELF_LINGER_MS),
+    () => all.filter((d) => d.finishedAt === undefined || d.finishedAt > now - DOWNLOAD_SHELF_LINGER_MS),
     [all, now],
   )
   if (visible.length === 0) return null

@@ -5,6 +5,7 @@
 import type { IncomingMessage, ServerResponse } from 'http'
 import { BROWSER_TOOLS } from '../../../shared/browserTools'
 import { runBrowserTool } from './automation/tools'
+import { getBrowserSettings } from './settings'
 
 const MAX_BODY_BYTES = 1_000_000
 
@@ -19,6 +20,12 @@ export function isBrowserRoute(url: string | undefined): boolean {
 
 export function handleBrowserRoute(req: IncomingMessage, res: ServerResponse, token: string): void {
   if (!token || req.headers['x-braid-token'] !== token) { send(res, 403, { error: 'forbidden' }); return }
+  // Checked per request: terminals started before the setting was turned off keep
+  // the CLI on PATH, so the switch must take effect here too.
+  if (!getBrowserSettings().exposeToTerminalAgents) {
+    send(res, 403, { error: 'Browser access for terminal agents is turned off in Braid Settings > Browser.' })
+    return
+  }
   if (req.url === '/browser/tools') {
     if (req.method !== 'GET') { send(res, 405, { error: 'method not allowed' }); return }
     send(res, 200, { tools: BROWSER_TOOLS })
@@ -42,7 +49,9 @@ export function handleBrowserRoute(req: IncomingMessage, res: ServerResponse, to
     if (rejected) return
     let parsed: { name?: unknown; args?: unknown; cwd?: unknown }
     try {
-      parsed = JSON.parse(Buffer.concat(chunks).toString('utf8')) as typeof parsed
+      const body: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+      if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('not an object')
+      parsed = body as typeof parsed
     } catch {
       send(res, 400, { error: 'invalid JSON' })
       return

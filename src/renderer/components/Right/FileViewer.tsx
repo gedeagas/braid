@@ -146,6 +146,8 @@ export function FileViewer({ filePath, projectRoot = null, onDirtyChange }: Prop
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE)
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const handleSaveRef = useRef<() => void>(() => {})
+  const filePathRef = useRef(filePath)
+  filePathRef.current = filePath
   const markersRef = useRef<editor.IMarker[]>([])
   const { t } = useTranslation('right')
 
@@ -267,7 +269,11 @@ export function FileViewer({ filePath, projectRoot = null, onDirtyChange }: Prop
 
   // Listen for save events dispatched via Electron menu shortcut (⌘S)
   useEffect(() => {
-    const handler = () => handleSaveRef.current()
+    const handler = (e: Event) => {
+      const target = (e as CustomEvent<{ path?: string } | null>).detail?.path
+      if (target && target !== filePathRef.current) return
+      handleSaveRef.current()
+    }
     window.addEventListener('braid:saveFile', handler)
     return () => window.removeEventListener('braid:saveFile', handler)
   }, [])

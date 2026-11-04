@@ -27,9 +27,16 @@ export function activeBrowserTabFor(tabs: BrowserTab[], recent: string[], viewTa
 
 const lastSent = new Map<string, string>()
 
+const NO_TABS: BrowserTab[] = []
+
 function pushSyncs(): void {
   const ui = useUIStore.getState()
-  for (const [worktreeId, tabs] of Object.entries(ui.browserTabsByWorktree)) {
+  // Every open worktree, tabs or not: a terminal agent's first `open` in a fresh
+  // worktree resolves the worktree by its path.
+  const ids = new Set(Object.keys(ui.browserTabsByWorktree))
+  for (const p of useProjectsStore.getState().projects) for (const wt of p.worktrees) ids.add(wt.id)
+  for (const worktreeId of ids) {
+    const tabs = ui.browserTabsByWorktree[worktreeId] ?? NO_TABS
     const view = ui.activeCenterViewByWorktree[worktreeId]
     const summaries: BrowserTabSummary[] = tabs.map((t) => ({ id: t.id, url: t.url, title: t.title, profileId: t.profileId }))
     const sync: BrowserWorktreeSync = {
@@ -106,11 +113,12 @@ export function startBrowserMainBridge(): () => void {
   })
   const offDownload = ipc.browser.onDownload((d) => useBrowserStore.getState().upsertDownload(d))
   const offPermission = ipc.browser.onPermissionRequest((r) => useBrowserStore.getState().addPermissionRequest(r))
+  const offPermissionCancel = ipc.browser.onPermissionCancel((id) => useBrowserStore.getState().dropPermissionRequest(id))
   const offRouteLink = ipc.browser.onRouteLink((url) => openLink(url))
   const offAutomation = ipc.browser.onAutomationActivity((tabId) => useBrowserStore.getState().noteAutomation(tabId))
   const stopAgentTracking = startAgentTabTracking()
   return () => {
     started = false
-    unsubUi(); unsubProjects(); offRequest(); offDownload(); offPermission(); offRouteLink(); offAutomation(); stopAgentTracking()
+    unsubUi(); unsubProjects(); offRequest(); offDownload(); offPermission(); offPermissionCancel(); offRouteLink(); offAutomation(); stopAgentTracking()
   }
 }

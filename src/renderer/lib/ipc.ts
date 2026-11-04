@@ -448,6 +448,7 @@ export const browser = {
   onRequest: (cb: (event: BrowserRendererRequestEnvelope) => void): (() => void) => api().browser.onRequest(cb),
   onDownload: (cb: (event: BrowserDownload) => void): (() => void) => api().browser.onDownload(cb),
   onPermissionRequest: (cb: (event: BrowserPermissionRequest) => void): (() => void) => api().browser.onPermissionRequest(cb),
+  onPermissionCancel: (cb: (id: number) => void): (() => void) => api().browser.onPermissionCancel(cb),
   onAutomationActivity: (cb: (tabId: string) => void): (() => void) => api().browser.onAutomationActivity(cb),
   onRouteLink: (cb: (url: string) => void): (() => void) => api().browser.onRouteLink(cb),
   respond: (id: number, ok: boolean, payload: unknown): Promise<void> => api().browser.respond(id, ok, payload),

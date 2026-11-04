@@ -67,6 +67,12 @@ export const BrowserPage = memo(function BrowserPage({ tab, worktreeId, pane, re
   // loadURL - rebinding src on every did-navigate would reload the page.
   const initialSrcRef = useRef<string | null>(null)
   if (hasUrl && initialSrcRef.current === null) initialSrcRef.current = tab.url
+  // The keyed <webview> remounts on a profile change; load the tab's latest URL there.
+  const srcProfileRef = useRef(tab.profileId)
+  if (srcProfileRef.current !== tab.profileId) {
+    srcProfileRef.current = tab.profileId
+    initialSrcRef.current = tab.url || null
+  }
 
   const webviewRef = useCallback((el: HTMLWebViewElement | null) => {
     setWebview(el as BrowserWebview | null)

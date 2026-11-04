@@ -64,6 +64,7 @@ export function attachDownloadTracking(sess: Session): void {
     item.once('done', (_e, state) => {
       info.receivedBytes = item.getReceivedBytes()
       info.state = state === 'completed' || state === 'cancelled' ? state : 'interrupted'
+      info.finishedAt = Date.now()
       broadcast({ ...info })
     })
   })

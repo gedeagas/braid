@@ -5,6 +5,7 @@ import { useBrowserStore } from '@/store/browser'
 import { Button } from '@/components/ui'
 import { ContextMenu, type ContextMenuItem } from '@/components/shared/ContextMenu'
 import * as ipc from '@/lib/ipc'
+import { moveProfileTabsToDefault } from '@/lib/browser/browserCommands'
 
 interface State {
   newName: string
@@ -75,6 +76,8 @@ export function SettingsBrowserProfiles() {
 
   const deleteProfile = useCallback(async (profileId: string) => {
     if (!window.confirm(t('browser.deleteProfileConfirm'))) return
+    // Move its tabs off the profile first so their guests leave the partition before it is wiped.
+    moveProfileTabsToDefault(profileId)
     try { applySettings(await ipc.browser.deleteProfile(profileId)) } catch { /* default profile */ }
   }, [applySettings, t])
 

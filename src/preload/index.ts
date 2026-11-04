@@ -522,6 +522,11 @@ const api = {
       ipcRenderer.on('browser:permissionRequest', handler)
       return () => { ipcRenderer.removeListener('browser:permissionRequest', handler) }
     },
+    onPermissionCancel: (callback: (id: number) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, id: number) => callback(id)
+      ipcRenderer.on('browser:permissionCancel', handler)
+      return () => { ipcRenderer.removeListener('browser:permissionCancel', handler) }
+    },
     onAutomationActivity: (callback: (event: string) => void) => {
       const handler = (_e: Electron.IpcRendererEvent, event: string) => callback(event)
       ipcRenderer.on('browser:automationActivity', handler)

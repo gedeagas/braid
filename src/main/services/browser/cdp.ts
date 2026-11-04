@@ -74,10 +74,30 @@ export async function captureGuestPng(
   // them); give captures the white canvas a normal browser would.
   await cdpSend(wc, 'Emulation.setDefaultBackgroundColorOverride', { color: { r: 255, g: 255, b: 255, a: 1 } }).catch(() => {})
   const params: Record<string, unknown> = { format: 'png', captureBeyondViewport: fullPage }
-  if (clip) params.clip = { ...clip, scale: 1 }
-  const shot = await cdpSend<{ data: string }>(wc, 'Page.captureScreenshot', params)
-  return shot.data
+  if (clip) {
+    params.clip = { ...clip, scale: 1 }
+  } else if (fullPage) {
+    // captureBeyondViewport only allows a clip past the viewport; the clip must cover the document.
+    const metrics = await cdpSend<{ cssContentSize?: { width: number; height: number }; contentSize: { width: number; height: number } }>(
+      wc, 'Page.getLayoutMetrics')
+    const size = metrics.cssContentSize ?? metrics.contentSize
+    params.clip = { x: 0, y: 0, width: Math.ceil(size.width), height: Math.ceil(size.height), scale: 1 }
+  }
+  // A tab that isn't on screen paints no frames, and the capture would wait forever.
+  let timer: NodeJS.Timeout | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(
+      'Screenshot timed out: the tab is probably in the background. Show it first with browser_select_tab (show: true), or open it with browser_open (show: true).')), SCREENSHOT_TIMEOUT_MS)
+  })
+  try {
+    const shot = await Promise.race([cdpSend<{ data: string }>(wc, 'Page.captureScreenshot', params), timeout])
+    return shot.data
+  } finally {
+    clearTimeout(timer)
+  }
 }
+
+const SCREENSHOT_TIMEOUT_MS = 10_000
 
 export function consoleLog(wc: WebContents): ConsoleEntry[] {
   return state.get(wc)?.console ?? []

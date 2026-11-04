@@ -161,6 +161,8 @@ export interface BrowserDownload {
   totalBytes: number
   state: BrowserDownloadState
   startedAt: number
+  /** Set once the download reaches a final state. */
+  finishedAt?: number
 }
 
 // ─── Permissions ─────────────────────────────────────────────────────────────
