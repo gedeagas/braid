@@ -2,6 +2,7 @@ import type { BigTerminalTab } from '@/store/ui/terminals'
 import { useUIStore } from '@/store/ui'
 import { useProjectsStore } from '@/store/projects'
 import * as ipc from '@/lib/ipc'
+import { isKnownAgentType, type AgentType } from '@/lib/agentStatus'
 import { getOrCreate } from './bigTerminalCache'
 
 export interface WarmTarget {
@@ -34,6 +35,26 @@ export function selectWarmTargets(
 }
 
 /**
+ * Tabs to show with their last-known agent although they are not reattached:
+ * the agent recorded a resumable session and the terminal is cold (restored
+ * by the daemon, or gone), so it will come back when the tab is opened.
+ */
+export function selectRestoredStatusSeeds(
+  tabsByWorktree: Record<string, BigTerminalTab[]>,
+  records: ReadonlyArray<{ terminalId: string; session?: { agent?: string } }>,
+  warmIds: ReadonlySet<string>,
+): Array<{ terminalId: string; agentType?: AgentType }> {
+  const tabIds = new Set(Object.values(tabsByWorktree).flatMap((tabs) => tabs.map((t) => t.id)))
+  const seeds: Array<{ terminalId: string; agentType?: AgentType }> = []
+  for (const record of records) {
+    if (!tabIds.has(record.terminalId) || warmIds.has(record.terminalId)) continue
+    const agent = record.session?.agent
+    seeds.push(isKnownAgentType(agent) ? { terminalId: record.terminalId, agentType: agent } : { terminalId: record.terminalId })
+  }
+  return seeds
+}
+
+/**
  * Daemon sessions safe to reattach in the background. Cold-restored ones wait
  * for the user to open their tab: warming one would relaunch its agent unseen,
  * and with many tabs after a reboot that is a resume storm.
@@ -52,6 +73,13 @@ export function warmableSessionIds(sessions: ReadonlyArray<{ sessionId: string; 
  */
 export async function warmLiveBigTerminals(): Promise<number> {
   const liveIds = warmableSessionIds(await ipc.pty.listSessions())
+  const tabsByWorktree = useUIStore.getState().bigTerminalsByWorktree
+  try {
+    const records = await ipc.pty.listAgentSessions()
+    useUIStore.getState().seedRestoredBigTerminalStatus(selectRestoredStatusSeeds(tabsByWorktree, records, liveIds))
+  } catch {
+    // Best effort: tabs still restore when opened.
+  }
   if (liveIds.size === 0) return 0
 
   const worktreePaths = new Map<string, string>()
@@ -59,7 +87,7 @@ export async function warmLiveBigTerminals(): Promise<number> {
     for (const wt of project.worktrees) worktreePaths.set(wt.id, wt.path)
   }
 
-  const targets = selectWarmTargets(useUIStore.getState().bigTerminalsByWorktree, worktreePaths, liveIds)
+  const targets = selectWarmTargets(tabsByWorktree, worktreePaths, liveIds)
   for (const t of targets) getOrCreate(t.terminalId, t.worktreePath, undefined, t.agentId)
   return targets.length
 }

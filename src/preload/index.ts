@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webFrame, webUtils } from 'electron'
-import type { AgentResumeSession } from '../shared/agent-resume'
+import type { AgentResumeClaim } from '../shared/agent-resume'
 import type { TemplateKind, CreateTemplateArgs, CreateTemplateResult, TemplateLogEntry } from '../shared/templates'
 import type { ToolInstallKey, ToolInstallOptions, ToolInstallResult } from '../shared/tool-install'
 
@@ -167,7 +167,9 @@ const api = {
       return () => ipcRenderer.removeListener('agent-hook:status', handler)
     },
     claimAgentResume: (terminalId: string) =>
-      ipcRenderer.invoke('agentSessions:claimResume', terminalId) as Promise<AgentResumeSession | null>,
+      ipcRenderer.invoke('agentSessions:claimResume', terminalId) as Promise<AgentResumeClaim | null>,
+    listAgentSessions: () =>
+      ipcRenderer.invoke('agentSessions:list') as Promise<Array<{ terminalId: string; session: { agent: string; id: string }; state?: string }>>,
     forgetAgentResume: (terminalId: string) =>
       ipcRenderer.send('agentSessions:forget', terminalId),
     onMobileTerminalActive: (callback: (status: { terminalId: string; active: boolean }) => void) => {

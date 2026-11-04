@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  buildFreshLaunchCommand,
   buildResumeCommand,
   isDeliberateSessionEnd,
   isResumableAgent,
@@ -107,7 +108,7 @@ describe('buildResumeCommand', () => {
   it('builds the per-agent resume invocation from the launch command', () => {
     const cases: Array<[string, string, string]> = [
       ['claude', 'claude', "claude --resume 'S1'"],
-      ['codex', 'codex', "codex resume 'S1'"],
+      ['codex', 'codex', "codex -c disable_paste_burst=true resume 'S1'"],
       ['gemini', 'gemini', "gemini --resume 'S1'"],
       ['cursor', 'cursor-agent', "cursor-agent --resume 'S1'"],
       ['copilot', 'copilot', "copilot '--resume=S1'"],
@@ -139,6 +140,14 @@ describe('buildResumeCommand', () => {
 
   it('returns null without a launch command', () => {
     expect(buildResumeCommand({ agent: 'claude', id: 'S1' }, '', wt)).toBeNull()
+  })
+})
+
+describe('buildFreshLaunchCommand', () => {
+  it('starts the agent fresh, in the session folder when inside the worktree', () => {
+    expect(buildFreshLaunchCommand({ agent: 'claude', id: 'S1' }, 'claude', '/wt')).toBe('claude')
+    expect(buildFreshLaunchCommand({ agent: 'claude', id: 'S1', cwd: '/wt/pkg' }, 'claude', '/wt')).toBe("cd '/wt/pkg' && claude")
+    expect(buildFreshLaunchCommand({ agent: 'claude', id: 'S1' }, ' ', '/wt')).toBeNull()
   })
 })
 

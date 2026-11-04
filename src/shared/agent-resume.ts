@@ -20,10 +20,14 @@ export interface AgentResumeSession {
   transcriptPath?: string
 }
 
-/** CLI arguments that resume a given session, per agent. */
+/**
+ * CLI arguments that resume a given session, per agent. The id is always in
+ * the last word, which is the only one quoted. Codex gets paste bursts off so
+ * the resumed TUI doesn't swallow fast input as a paste.
+ */
 const RESUME_ARGS: Record<string, (id: string) => string[]> = {
   claude: (id) => ['--resume', id],
-  codex: (id) => ['resume', id],
+  codex: (id) => ['-c', 'disable_paste_burst=true', 'resume', id],
   gemini: (id) => ['--resume', id],
   cursor: (id) => ['--resume', id],
   // Copilot documents the joined spelling.
@@ -111,17 +115,38 @@ export function buildResumeCommand(
   const base = launchCmd.trim()
   if (!args || !id || !base) return null
 
-  const [first, ...rest] = args(id)
-  // Flags are fixed literals; only the id-bearing word needs quoting.
-  const words = rest.length > 0 ? [first, shellQuote(rest[0])] : [shellQuote(first)]
-  const command = `${base} ${words.join(' ')}`
+  const words = args(id)
+  // Flags are fixed literals; only the id-bearing (last) word needs quoting.
+  words[words.length - 1] = shellQuote(words[words.length - 1])
+  return inSessionFolder(session, worktreePath, `${base} ${words.join(' ')}`)
+}
 
+/**
+ * Command that starts the agent fresh in the folder its lost session ran in.
+ * Used when the saved conversation no longer exists.
+ */
+export function buildFreshLaunchCommand(session: AgentResumeSession, launchCmd: string, worktreePath: string): string | null {
+  const base = launchCmd.trim()
+  return base ? inSessionFolder(session, worktreePath, base) : null
+}
+
+/** Prefix `cd` when the agent ran in a subfolder of the worktree. */
+function inSessionFolder(session: AgentResumeSession, worktreePath: string, command: string): string {
   const cwd = session.cwd ? normalizeSessionCwd(session.cwd) : null
   const worktree = normalizeSessionCwd(worktreePath)
   if (cwd && worktree && cwd !== worktree && isInside(cwd, worktree)) {
     return `cd ${shellQuote(cwd)} && ${command}`
   }
   return command
+}
+
+/** Whether the saved conversation was found before resuming (see main verify). */
+export type ResumeVerdict = 'ok' | 'missing' | 'unverifiable'
+
+/** What the main process hands a cold-restored terminal to relaunch. */
+export interface AgentResumeClaim {
+  session: AgentResumeSession
+  verdict: ResumeVerdict
 }
 
 /**

@@ -1,4 +1,4 @@
-import type { AgentResumeSession } from '@shared/agent-resume'
+import type { AgentResumeClaim } from '@shared/agent-resume'
 // Typed IPC wrappers — thin layer over window.api
 const api = () => window.api
 
@@ -139,7 +139,8 @@ export const pty = {
   onAgentHookStatus: (callback: (status: { terminalId: string; state: string; agentType: string; toolName?: string; interrupted?: boolean }) => void) =>
     api().pty.onAgentHookStatus(callback),
   /** Saved agent conversation to relaunch in this terminal (one claim per provider session). */
-  claimAgentResume: (terminalId: string) => api().pty.claimAgentResume(terminalId) as Promise<AgentResumeSession | null>,
+  claimAgentResume: (terminalId: string) => api().pty.claimAgentResume(terminalId) as Promise<AgentResumeClaim | null>,
+  listAgentSessions: () => api().pty.listAgentSessions() as Promise<Array<{ terminalId: string; session: { agent: string; id: string }; state?: string }>>,
   /** The user had left the agent before the terminal was lost: never resume it. */
   forgetAgentResume: (terminalId: string) => api().pty.forgetAgentResume(terminalId),
   onMobileTerminalActive: (callback: (status: { terminalId: string; active: boolean }) => void) =>

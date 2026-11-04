@@ -1,8 +1,8 @@
 import { type StateCreator } from 'zustand'
 import type { UIState } from './types'
 import type { CenterView } from './layout'
-import type { AgentStatusEntry, AgentStatusPayload } from '@/lib/agentStatus'
-import { createAgentStatusEntry, updateAgentStatusEntry } from '@/lib/agentStatus'
+import type { AgentStatusEntry, AgentStatusPayload, AgentType } from '@/lib/agentStatus'
+import { createAgentStatusEntry, createRestoredStatusEntry, isRestoredUnconfirmed, updateAgentStatusEntry } from '@/lib/agentStatus'
 import { SK } from '@/lib/storageKeys'
 
 import {
@@ -64,6 +64,10 @@ export interface TerminalsSlice {
   /** Update agent status for a big terminal. Creates entry if not present, merges otherwise. */
   updateBigTerminalStatus: (terminalId: string, payload: AgentStatusPayload) => void
   clearBigTerminalStatus: (terminalId: string) => void
+  /** Show last-known agents for cold-restored terminals (never overwrites a live entry). */
+  seedRestoredBigTerminalStatus: (items: ReadonlyArray<{ terminalId: string; agentType?: AgentType }>) => void
+  /** Drop a terminal's placeholder status once it turns out no agent is coming back. */
+  clearRestoredBigTerminalStatus: (terminalId: string) => void
   /** Called internally by layout.selectWorktree to hydrate when switching worktrees. */
   restoreBigTerminalsForWorktree: (worktreeId: string) => void
   /** Called on worktree removal. */
@@ -224,6 +228,25 @@ export const createTerminalsSlice: StateCreator<UIState, [], [], TerminalsSlice>
 
   clearBigTerminalStatus: (terminalId) => {
     set((s) => {
+      const next = { ...s.bigTerminalStatusById }
+      delete next[terminalId]
+      return { bigTerminalStatusById: next }
+    })
+  },
+
+  seedRestoredBigTerminalStatus: (items) => {
+    set((s) => {
+      const fresh = items.filter((i) => !s.bigTerminalStatusById[i.terminalId])
+      if (fresh.length === 0) return s
+      const next = { ...s.bigTerminalStatusById }
+      for (const i of fresh) next[i.terminalId] = createRestoredStatusEntry(i.agentType)
+      return { bigTerminalStatusById: next }
+    })
+  },
+
+  clearRestoredBigTerminalStatus: (terminalId) => {
+    set((s) => {
+      if (!isRestoredUnconfirmed(s.bigTerminalStatusById[terminalId])) return s
       const next = { ...s.bigTerminalStatusById }
       delete next[terminalId]
       return { bigTerminalStatusById: next }

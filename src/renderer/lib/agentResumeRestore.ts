@@ -3,13 +3,21 @@
 // The main process owns the saved sessions; the renderer claims one per tab.
 
 import * as ipc from '@/lib/ipc'
+import i18n from '@/lib/i18n'
 import { getAgentEntry } from '@/lib/agentCatalog'
-import { buildResumeCommand, normalizeResumeSession } from '@shared/agent-resume'
+import { buildFreshLaunchCommand, buildResumeCommand, normalizeResumeSession } from '@shared/agent-resume'
 
 export interface ColdRestoreResume {
   command: string
-  /** Agent display name, for the "[resuming ...]" line. */
+  /** Agent display name, for the status line. */
   label: string
+  /** The saved conversation is gone: this starts the agent fresh instead. */
+  fresh: boolean
+}
+
+/** Dim one-line status written into a terminal (not sent to the PTY). */
+export function terminalStatusLine(key: 'terminalRestoreResuming' | 'terminalRestoreUnavailable' | 'terminalRestoreHistory' | 'terminalRestoreReconnected', agent = ''): string {
+  return `\x1b[2m[${i18n.t(key, { ns: 'center', agent })}]\x1b[0m\r\n`
 }
 
 /**
@@ -19,19 +27,22 @@ export interface ColdRestoreResume {
  * the user started an agent by hand is resumable too.
  */
 export async function claimResumeCommand(terminalId: string, worktreePath: string): Promise<ColdRestoreResume | null> {
-  let raw: unknown = null
+  let claim: Awaited<ReturnType<typeof ipc.pty.claimAgentResume>> = null
   try {
-    raw = await ipc.pty.claimAgentResume(terminalId)
+    claim = await ipc.pty.claimAgentResume(terminalId)
   } catch {
     return null
   }
   // Crosses a process boundary and is typed into a shell: validate again.
-  const session = normalizeResumeSession(raw)
+  const session = normalizeResumeSession(claim?.session)
   if (!session) return null
   const entry = getAgentEntry(session.agent)
   if (!entry) return null
-  const command = buildResumeCommand(session, entry.launchCmd, worktreePath)
-  return command ? { command, label: entry.label } : null
+  const fresh = claim?.verdict === 'missing'
+  const command = fresh
+    ? buildFreshLaunchCommand(session, entry.launchCmd, worktreePath)
+    : buildResumeCommand(session, entry.launchCmd, worktreePath)
+  return command ? { command, label: entry.label, fresh } : null
 }
 
 /**
@@ -74,7 +85,7 @@ export async function startAgentResume(target: AgentResumeTarget): Promise<boole
   const resume = await claimResumeCommand(target.terminalId, target.worktreePath)
   if (!resume || (target.isAlive && !target.isAlive())) return false
   target.paint(blankViewportSequence(target.rows))
-  target.paint(`\x1b[2m[resuming ${resume.label} session]\x1b[0m\r\n`)
+  target.paint(terminalStatusLine(resume.fresh ? 'terminalRestoreUnavailable' : 'terminalRestoreResuming', resume.label))
   target.run(resume.command + '\n')
   return true
 }

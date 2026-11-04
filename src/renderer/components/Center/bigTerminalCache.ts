@@ -14,7 +14,7 @@ import { notifyTerminalStateChange, clearTerminalNotificationState } from '@/lib
 import { isCodexUserInputPromptText, readTerminalBufferTail } from '@/lib/codexTerminalDetection'
 import { createTerminalCommandObserver, type TerminalCommandObserver } from '@/lib/terminalCommandRefresh'
 import { useUIStore } from '@/store/ui'
-import { shouldResumeAfterLoss, startAgentResume } from '@/lib/agentResumeRestore'
+import { shouldResumeAfterLoss, startAgentResume, terminalStatusLine } from '@/lib/agentResumeRestore'
 import { writeInitialAgentInput } from './bigTerminalInitialInput'
 import { useToastsStore } from '@/store/toasts'
 
@@ -287,11 +287,12 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
         // second window or the phone can't also relaunch) before resuming.
         const claimed = result.coldRestored === true && await ipc.pty.consumeColdRestore(terminalId)
         replayIntoTerminal(terminalId, term, result.snapshot)
-        replayIntoTerminal(terminalId, term, `\r\n\x1b[2m[${claimed ? 'history restored' : 'session reconnected'}]\x1b[0m\r\n`)
+        replayIntoTerminal(terminalId, term, '\r\n' + terminalStatusLine(claimed ? 'terminalRestoreHistory' : 'terminalRestoreReconnected'))
         replayIntoTerminal(terminalId, term, POST_REPLAY_MODE_RESET)
         ipc.pty.registerBigTerminal(result.sessionId, terminalId)
         if (claimed && !shouldResumeAfterLoss(result.foregroundAtLoss)) {
           ipc.pty.forgetAgentResume(terminalId)
+          useUIStore.getState().clearRestoredBigTerminalStatus(terminalId)
         } else if (claimed && !entry.disposed) {
           const ptyId = result.sessionId
           void startAgentResume({
@@ -299,7 +300,7 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
             paint: (d) => replayIntoTerminal(terminalId, term, d),
             run: (c) => { commandObserver.accept(c); ipc.pty.write(ptyId, c) },
             isAlive: () => !entry.disposed && entry.ptyId === ptyId,
-          })
+          }).then((started) => { if (!started) useUIStore.getState().clearRestoredBigTerminalStatus(terminalId) })
         }
         term.onData((d) => {
           if (isReplaying(terminalId)) return
@@ -322,7 +323,7 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
         hasScrollback = true
         // Replay under guard to suppress xterm auto-replies (DA1, DECRQM, etc.)
         replayIntoTerminal(terminalId, term, scrollback)
-        replayIntoTerminal(terminalId, term, '\r\n\x1b[2m[history restored]\x1b[0m\r\n')
+        replayIntoTerminal(terminalId, term, '\r\n' + terminalStatusLine('terminalRestoreHistory'))
         // Clear stale terminal modes (cursor, mouse, focus, bracketed paste)
         replayIntoTerminal(terminalId, term, POST_REPLAY_MODE_RESET)
       }
@@ -368,7 +369,7 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
           paint: (d) => replayIntoTerminal(terminalId, term, d),
           run: (c) => { commandObserver.accept(c); ipc.pty.write(ptyId, c) },
           isAlive: () => !entry.disposed && entry.ptyId === ptyId,
-        })
+        }).then((started) => { if (!started) useUIStore.getState().clearRestoredBigTerminalStatus(terminalId) })
       }
     } catch (err) {
       if (!entry.disposed) {
