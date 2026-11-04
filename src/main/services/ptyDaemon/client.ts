@@ -157,6 +157,23 @@ export class DaemonClient extends EventEmitter<DaemonClientEvents> {
     this.send({ type: 'setMetadata', sessionId, metadata } as Omit<DaemonRequest, 'id'> & { type: 'setMetadata' })
   }
 
+  /**
+   * Which build the daemon came from. A daemon older than this request
+   * answers with an error: reported as an unknown version.
+   */
+  async hello(): Promise<{ version?: string; sessionCount?: number }> {
+    try {
+      const result = await this.request({ type: 'hello' } as Omit<DaemonRequest, 'id'> & { type: 'hello' })
+      const data = (result ?? {}) as { version?: unknown; sessionCount?: unknown }
+      return {
+        version: typeof data.version === 'string' ? data.version : undefined,
+        sessionCount: typeof data.sessionCount === 'number' ? data.sessionCount : undefined,
+      }
+    } catch {
+      return {}
+    }
+  }
+
   async ping(): Promise<void> {
     await this.request({ type: 'ping' } as Omit<DaemonRequest, 'id'> & { type: 'ping' })
   }

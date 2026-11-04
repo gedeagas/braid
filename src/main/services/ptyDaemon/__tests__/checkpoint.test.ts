@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import type { CheckpointData } from '../types'
@@ -108,5 +108,30 @@ describe('checkpoint', () => {
 
   it('deleteCheckpoint does not throw for missing file', () => {
     expect(() => deleteCheckpoint('nonexistent')).not.toThrow()
+  })
+
+  it('skips rewriting a session whose checkpoint has not changed (idle terminals)', () => {
+    const cp: CheckpointData = { sessionId: 'idle', cwd: '/tmp', cols: 80, rows: 24, scrollback: 'same', createdAt: 1, lastOutputAt: 5, checkpointedAt: 1 }
+    flushCheckpoints(createMockHost([cp]))
+    const path = join(TEST_DIR, 'idle.json')
+    writeFileSync(path, 'sentinel')
+    flushCheckpoints(createMockHost([{ ...cp, checkpointedAt: 2 }]))
+    expect(readFileSync(path, 'utf8')).toBe('sentinel')
+
+    flushCheckpoints(createMockHost([{ ...cp, lastOutputAt: 6, checkpointedAt: 3 }]))
+    expect(JSON.parse(readFileSync(path, 'utf8')).lastOutputAt).toBe(6)
+  })
+
+  it('rewrites everything on a forced (shutdown) flush, and after a delete', () => {
+    const cp: CheckpointData = { sessionId: 'f', cwd: '/tmp', cols: 80, rows: 24, scrollback: 'x', createdAt: 1, lastOutputAt: 1, checkpointedAt: 1 }
+    flushCheckpoints(createMockHost([cp]))
+    const path = join(TEST_DIR, 'f.json')
+    writeFileSync(path, 'sentinel')
+    flushCheckpoints(createMockHost([cp]), { force: true })
+    expect(readFileSync(path, 'utf8')).not.toBe('sentinel')
+
+    deleteCheckpoint('f')
+    flushCheckpoints(createMockHost([cp]))
+    expect(existsSync(path)).toBe(true)
   })
 })

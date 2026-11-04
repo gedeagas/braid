@@ -65,7 +65,7 @@ async function main(): Promise<void> {
 
     // Flush final checkpoints before killing PTYs
     const { flushCheckpoints } = await import('./checkpoint')
-    flushCheckpoints(host)
+    flushCheckpoints(host, { force: true })
 
     host.killAll()
     await server.close()

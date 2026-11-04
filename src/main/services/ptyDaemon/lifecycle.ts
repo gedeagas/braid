@@ -126,3 +126,56 @@ export function stopDaemon(): boolean {
     return false
   }
 }
+
+// ── Crash-loop protection ────────────────────────────────────────────────────
+
+/**
+ * Limits how often the app (re)spawns the daemon, so a daemon that crashes on
+ * start surfaces an error instead of spinning forever.
+ */
+export class RespawnThrottle {
+  private stamps: number[] = []
+
+  constructor(
+    private readonly max = 5,
+    private readonly windowMs = 60_000,
+    private readonly now: () => number = Date.now,
+  ) {}
+
+  tryAcquire(): boolean {
+    const t = this.now()
+    this.stamps = this.stamps.filter((s) => t - s < this.windowMs)
+    if (this.stamps.length >= this.max) return false
+    this.stamps.push(t)
+    return true
+  }
+}
+
+// ── Version skew ─────────────────────────────────────────────────────────────
+
+function parseVersion(v: string | undefined): number[] | null {
+  if (!v || !/^\d+(\.\d+)*$/.test(v)) return null
+  return v.split('.').map(Number)
+}
+
+function compareVersions(a: number[], b: number[]): number {
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const d = (a[i] ?? 0) - (b[i] ?? 0)
+    if (d !== 0) return d
+  }
+  return 0
+}
+
+/**
+ * Whether an already-running daemon from another app build should be shut
+ * down and replaced by this build's daemon. Only when it holds no sessions:
+ * replacing it otherwise would kill running agents (or, with a second daemon,
+ * duplicate them). A daemon from a newer build is never replaced.
+ */
+export function shouldReplaceDaemon(opts: { running: string | undefined; expected: string; sessionCount: number }): boolean {
+  if (opts.running === opts.expected || opts.sessionCount > 0) return false
+  const running = parseVersion(opts.running)
+  const expected = parseVersion(opts.expected)
+  if (running && expected && compareVersions(running, expected) > 0) return false
+  return true
+}

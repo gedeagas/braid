@@ -8,7 +8,7 @@
 import { createServer, type Server, type Socket } from 'net'
 import { existsSync, unlinkSync, mkdirSync } from 'fs'
 import { dirname } from 'path'
-import { SOCKET_PATH, SOCKET_IS_FILE, encode, decode, type DaemonRequest, type DaemonEvent } from './protocol'
+import { DAEMON_VERSION_ENV, PROTOCOL_VERSION, SOCKET_PATH, SOCKET_IS_FILE, encode, decode, type DaemonRequest, type DaemonEvent } from './protocol'
 import { defaultShellPath } from '../../lib/shell'
 import type { SessionHost } from './sessionHost'
 
@@ -215,6 +215,14 @@ export class SocketServer {
 
         case 'consumeColdRestore':
           this.sendResponse(client, { id: req.id, type: 'ok', data: { claimed: this.host.consumeColdRestore(req.sessionId) } })
+          break
+
+        case 'hello':
+          this.sendResponse(client, {
+            id: req.id,
+            type: 'ok',
+            data: { protocol: PROTOCOL_VERSION, version: process.env[DAEMON_VERSION_ENV] || undefined, sessionCount: this.host.size },
+          })
           break
 
         case 'ping':

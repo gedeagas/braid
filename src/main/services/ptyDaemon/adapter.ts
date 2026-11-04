@@ -5,7 +5,7 @@
  * The renderer is completely unaware of the daemon - it uses the same
  * IPC protocol (pty:spawn, pty:write, pty:data, etc.).
  */
-import { BrowserWindow } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
@@ -15,7 +15,9 @@ import { resolveShellPath, resolveShellLaunchArgs } from '../../lib/shell'
 import { getHookServerPort, getHookServerToken } from '../agentHookServer'
 import { DaemonClient } from './client'
 import { isReapableTerminalId } from './orphan'
-import { isDaemonRunning, removeSocketFile, waitForDaemonListening } from './lifecycle'
+import { isDaemonRunning, removeSocketFile, waitForDaemonListening, RespawnThrottle } from './lifecycle'
+import { DAEMON_VERSION_ENV } from './protocol'
+import { replaceOutdatedDaemon } from './versionSkew'
 import { RingBuffer } from './sessionHost'
 import type { BigTerminalMetadata, IPtyService, OrphanedTerminal, PtyInstanceInfo, TerminalOutput } from '../pty'
 import type { ReattachResult, SessionInfo } from './types'
@@ -61,6 +63,8 @@ export class PtyDaemonAdapter implements IPtyService {
   private sizeBySession = new Map<string, { cols: number; rows: number }>()
   /** Serializes concurrent ensureDaemon() calls to prevent spawning duplicate daemons. */
   private pendingEnsure: Promise<void> | null = null
+  /** Stops respawning a daemon that keeps dying on start. */
+  private spawnThrottle = new RespawnThrottle()
 
   constructor() {
     this.client = new DaemonClient()
@@ -121,7 +125,10 @@ export class PtyDaemonAdapter implements IPtyService {
   private async doEnsureDaemon(): Promise<void> {
     if (this.client.connected) return
 
-    const pid = isDaemonRunning()
+    let pid = isDaemonRunning()
+    // After an app update the old build's daemon may still be running. Swap
+    // it for ours only when it holds no sessions (see shouldReplaceDaemon).
+    if (pid && await replaceOutdatedDaemon(app.getVersion())) pid = isDaemonRunning()
     if (!pid) {
       await this.spawnDaemon()
     }
@@ -174,6 +181,9 @@ export class PtyDaemonAdapter implements IPtyService {
   }
 
   private async spawnDaemon(): Promise<void> {
+    if (!this.spawnThrottle.tryAcquire()) {
+      throw new Error('Terminal daemon keeps exiting on start; paused restarting it for a minute (see ~/Braid/daemon/daemon.log)')
+    }
     // Find the daemon entry point - adjacent to this file in the build output
     const daemonPath = join(__dirname, 'daemonMain.js')
 
@@ -184,6 +194,8 @@ export class PtyDaemonAdapter implements IPtyService {
         ...process.env,
         // Pass through the shell so the daemon uses the same shell
         SHELL: resolveShell(),
+        // Lets a later app build tell whether this daemon is outdated.
+        [DAEMON_VERSION_ENV]: app.getVersion(),
       },
     })
     child.unref()

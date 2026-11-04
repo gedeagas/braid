@@ -18,6 +18,8 @@ import type { DaemonSessionMetadata } from './types'
 // ── Constants ────────────────────────────────────────────────────────────────
 
 export const PROTOCOL_VERSION = 1
+/** Env var carrying the spawning app's version into the daemon process. */
+export const DAEMON_VERSION_ENV = 'BRAID_DAEMON_VERSION'
 export const DAEMON_DIR = join(homedir(), 'Braid', 'daemon')
 
 /**
@@ -122,6 +124,12 @@ export interface ConsumeColdRestoreRequest {
   sessionId: string
 }
 
+/** Ask the daemon which app build spawned it (for version-skew handling). */
+export interface HelloRequest {
+  id: string
+  type: 'hello'
+}
+
 export interface PingRequest {
   id: string
   type: 'ping'
@@ -143,6 +151,7 @@ export type DaemonRequest =
   | SetBufferMaxLengthRequest
   | SetMetadataRequest
   | ConsumeColdRestoreRequest
+  | HelloRequest
   | PingRequest
   | ShutdownRequest
 

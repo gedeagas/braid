@@ -12,6 +12,17 @@ import type { CheckpointData } from './types'
 
 let intervalHandle: ReturnType<typeof setInterval> | null = null
 
+/**
+ * What each checkpoint file last held, minus the timestamp. Idle terminals
+ * produce identical checkpoints every tick; skipping those avoids rewriting
+ * megabytes of scrollback every 5 seconds.
+ */
+const lastWritten = new Map<string, string>()
+
+function signature(cp: CheckpointData): string {
+  return JSON.stringify([cp.scrollback.length, cp.lastOutputAt, cp.cols, cp.rows, cp.cwd, cp.metadata, cp.env, cp.foreground])
+}
+
 /** Start periodic checkpointing. */
 export function startCheckpointing(host: SessionHost): void {
   if (intervalHandle) return
@@ -38,8 +49,11 @@ export function stopCheckpointing(): void {
   }
 }
 
-/** Write all session checkpoints to disk atomically. */
-export function flushCheckpoints(host: SessionHost): void {
+/**
+ * Write all changed session checkpoints to disk atomically. `force` rewrites
+ * every one (final flush on shutdown).
+ */
+export function flushCheckpoints(host: SessionHost, opts: { force?: boolean } = {}): void {
   const checkpoints = host.getCheckpoints()
   const activeIds = new Set(checkpoints.map((cp) => cp.sessionId))
 
@@ -47,7 +61,12 @@ export function flushCheckpoints(host: SessionHost): void {
 
   // Write active session checkpoints
   for (const cp of checkpoints) {
-    writeCheckpoint(cp)
+    const sig = signature(cp)
+    if (!opts.force && lastWritten.get(cp.sessionId) === sig) continue
+    if (writeCheckpoint(cp)) lastWritten.set(cp.sessionId, sig)
+  }
+  for (const id of lastWritten.keys()) {
+    if (!activeIds.has(id)) lastWritten.delete(id)
   }
 
   // Remove checkpoints for sessions that no longer exist
@@ -74,16 +93,18 @@ function safeFileName(sessionId: string): string {
   return sessionId.replace(/[^a-zA-Z0-9-]/g, '_')
 }
 
-/** Write a single checkpoint atomically. */
-function writeCheckpoint(data: CheckpointData): void {
+/** Write a single checkpoint atomically. Returns whether it was written. */
+function writeCheckpoint(data: CheckpointData): boolean {
   const filePath = join(CHECKPOINT_DIR, `${safeFileName(data.sessionId)}.json`)
   const tmpPath = filePath + '.tmp'
   try {
     writeFileSync(tmpPath, JSON.stringify(data), { mode: 0o600 })
     renameSync(tmpPath, filePath)
+    return true
   } catch {
     // Best effort - don't crash the daemon over a checkpoint failure
     try { unlinkSync(tmpPath) } catch { /* ignore */ }
+    return false
   }
 }
 
@@ -114,6 +135,7 @@ export function loadCheckpoints(): CheckpointData[] {
 
 /** Delete a specific checkpoint file. */
 export function deleteCheckpoint(sessionId: string): void {
+  lastWritten.delete(sessionId)
   try {
     unlinkSync(join(CHECKPOINT_DIR, `${safeFileName(sessionId)}.json`))
   } catch {
