@@ -90,6 +90,14 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
 
   const rowRef = useRef<HTMLDivElement>(null)
   const deleteInFlightRef = useRef(false)
+  // removeWorktree drops the worktree from the projects store before it resolves,
+  // so this row unmounts mid-flight. Skip post-await dispatches when that happens.
+  const isMountedRef = useRef(true)
+
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => { isMountedRef.current = false }
+  }, [])
 
   useEffect(() => {
     const el = rowRef.current
@@ -134,14 +142,15 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
     rowDispatch({ type: 'SET_DELETING', value: true })
     try {
       await removeWorktree(worktree.projectId, worktree.id)
+      // Store actions and flash are global, so they stay outside the mounted guard.
       if (skipFutureConfirmations) setSkipDeleteConfirm(true)
-      rowDispatch({ type: 'HIDE_DELETE_CONFIRM' })
+      if (isMountedRef.current) rowDispatch({ type: 'HIDE_DELETE_CONFIRM' })
     } catch (err) {
       console.error('[WorktreeRow] removeWorktree failed:', err)
       flash('error', cleanIpcError(err, t('deleteWorktreeFailed')), 5_000)
     } finally {
       deleteInFlightRef.current = false
-      rowDispatch({ type: 'SET_DELETING', value: false })
+      if (isMountedRef.current) rowDispatch({ type: 'SET_DELETING', value: false })
     }
   }
 

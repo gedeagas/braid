@@ -171,4 +171,43 @@ describe('WorktreeRow deletion', () => {
 
     await waitFor(() => expect(row.getAttribute('aria-busy')).toBe('false'))
   })
+
+  it('ignores repeat delete triggers while a deletion is in flight', async () => {
+    const removal = deferred<void>()
+    mocks.removeWorktree.mockReturnValue(removal.promise)
+    mocks.skipDeleteWorktreeConfirm = true
+    renderRow()
+
+    const row = screen.getByRole('option')
+    fireEvent.keyDown(row, { key: 'Delete' })
+    await waitFor(() => expect(mocks.removeWorktree).toHaveBeenCalledTimes(1))
+
+    // Both the isDeleting render guard and deleteInFlightRef must keep this at one call.
+    fireEvent.keyDown(row, { key: 'Delete' })
+    fireEvent.keyDown(row, { key: 'Backspace', metaKey: true })
+    fireEvent.contextMenu(row)
+    expect(screen.queryByText('contextMenuDeleteWorktree')).toBeNull()
+    expect(mocks.removeWorktree).toHaveBeenCalledTimes(1)
+
+    await act(async () => removal.resolve())
+    await waitFor(() => expect(row.getAttribute('aria-busy')).toBe('false'))
+  })
+
+  it('ignores a second confirm click while the first deletion is in flight', async () => {
+    const removal = deferred<void>()
+    mocks.removeWorktree.mockReturnValue(removal.promise)
+    renderRow()
+
+    const dialog = openDeleteDialog()
+    const deleteButton = within(dialog).getByRole('button', { name: 'deleteWorktreeConfirm' })
+
+    fireEvent.click(deleteButton)
+    await waitFor(() => expect(mocks.removeWorktree).toHaveBeenCalledTimes(1))
+
+    fireEvent.click(deleteButton)
+    expect(mocks.removeWorktree).toHaveBeenCalledTimes(1)
+
+    await act(async () => removal.resolve())
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  })
 })
