@@ -9,3 +9,6 @@ export type { CenterView, ToolMessageStyle, ActivityIndicatorStyle, DiffFileSele
 export type { PendingTaskPrRequest, SidebarGroupBy, SidebarSortBy } from './layout'
 export { selectChangesOpen, selectSelectedDiffFile, selectActiveCenterView, selectCodeReviewOpen } from './layout'
 export type { SupportedLanguage } from './theme'
+export type { BrowserTab } from './browserTabs'
+export type { CenterSplit, PaneId } from './centerSplit'
+export { canMoveToSecondary, keyToView } from './centerSplit'

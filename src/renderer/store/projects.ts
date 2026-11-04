@@ -5,6 +5,7 @@ import { cleanupWorktreeRefresh } from '@/lib/worktreeRefresh'
 import { useUIStore } from './ui'
 import { useSessionsStore } from './sessions'
 import { SK } from '@/lib/storageKeys'
+import { clearBrowserHistory } from '@/lib/browser/historyStore'
 
 export function createDefaultProjectSettings(): ProjectSettings {
   return {
@@ -416,6 +417,9 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
     const bigTerminalIds = (uiSnapshot.bigTerminalsByWorktree[worktreeId] ?? []).map((bt) => bt.id)
     disposeBigTerminals(bigTerminalIds)
     uiSnapshot.clearBigTerminalsForWorktree(worktreeId)
+    // Browser tabs + history for this worktree (webviews unmount with the tabs).
+    uiSnapshot.clearBrowserTabsForWorktree(worktreeId)
+    clearBrowserHistory(worktreeId)
 
     // Cascade-delete all sessions tied to this worktree (memory + disk)
     useSessionsStore.getState().closeSessionsByWorktree(worktreeId)

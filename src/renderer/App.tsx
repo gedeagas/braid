@@ -38,6 +38,7 @@ import { UsageStatusBar } from '@/components/StatusBar/UsageStatusBar'
 import { reapOrphanedTerminals } from '@/lib/orphanedTerminals'
 import { warmLiveBigTerminals } from '@/components/Center/warmTerminals'
 import { startAgentHibernation } from '@/components/Center/agentHibernation'
+import { startBrowserMainBridge } from '@/lib/browser/mainBridge'
 
 export default function App() {
   const autoUpdate = useAutoUpdate()
@@ -322,6 +323,9 @@ export default function App() {
     }
   }, [loadProjects, loadPersistedSessions])
 
+  // Browser tabs <-> main (agent automation, downloads, permissions, link routing).
+  useEffect(() => startBrowserMainBridge(), [])
+
   // Listen for menu actions from Electron application menu.
   // Action implementations live in `@/lib/appActions` so they can be shared
   // between the Electron menu (here) and the Command Palette UI.
@@ -340,6 +344,8 @@ export default function App() {
       zoomReset: actions.zoomReset,
       newChatTab: actions.newChatTab,
       newBigTerminal: actions.newBigTerminal,
+      newBrowserTab: actions.newBrowserTab,
+      moveTabToOtherPane: actions.moveTabToOtherPane,
       closeCurrentTab: actions.closeCurrentTab,
       previousTab: actions.previousTab,
       nextTab: actions.nextTab,

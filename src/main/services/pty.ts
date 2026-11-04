@@ -184,6 +184,8 @@ class PtyService implements IPtyService {
       TERM: 'xterm-256color',
       BRAID_TERMINAL: '1',
       ...(hookPort > 0 ? { BRAID_HOOK_PORT: String(hookPort), BRAID_HOOK_TOKEN: hookToken } : {}),
+      // braid-browser CLI for agents running in this terminal.
+      ...(getBrowserSettings().exposeToTerminalAgents ? { PATH: pathWithBridge(process.env.PATH) } : {}),
       ...envOverrides,
     }
 
@@ -462,6 +464,7 @@ class PtyService implements IPtyService {
 // ── Service creation with daemon fallback ────────────────────────────────────
 
 import { PtyDaemonAdapter } from './ptyDaemon'
+import { getBrowserSettings, pathWithBridge } from './browser'
 
 /**
  * Create the PTY service. Uses PtyDaemonAdapter by default, which spawns

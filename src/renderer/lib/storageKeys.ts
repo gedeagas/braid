@@ -132,6 +132,12 @@ export const SK = {
   webAppsEnabled:             `${prefix}:webAppsEnabled`,
   embeddedApps:               `${prefix}:embeddedApps`,
   webAppLastUrls:             `${prefix}:webAppLastUrls`,
+  /** Prefix - append worktreeId for the per-worktree browser tab list. */
+  browserTabsPrefix:          `${prefix}:browserTabs:`,
+  /** Prefix - append worktreeId for the per-worktree browser history. */
+  browserHistoryPrefix:       `${prefix}:browserHistory:`,
+  /** Prefix - append worktreeId for the center split (secondary pane) layout. */
+  centerSplitPrefix:          `${prefix}:centerSplit:`,
 
   // ── Mobile Companion ────────────────────────────────────────────────────
   mobileServerEnabled:        `${prefix}:mobileServerEnabled`,

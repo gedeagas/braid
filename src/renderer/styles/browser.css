@@ -1,0 +1,426 @@
+/* ─── Per-worktree browser tabs ───────────────────────────────────────────── */
+
+.browser-host {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.browser-page {
+  position: absolute;
+  flex-direction: column;
+  pointer-events: auto;
+  background: var(--bg-primary);
+}
+
+.browser-slot {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ─── Toolbar ─────────────────────────────────────────────────────────────── */
+
+.browser-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-8);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.browser-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.browser-icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+  background: transparent;
+}
+
+/* Thin indeterminate bar under the toolbar while the page loads. */
+.browser-progress {
+  height: 2px;
+  flex-shrink: 0;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  background-size: 50% 100%;
+  background-repeat: no-repeat;
+  animation: browser-progress var(--duration-shimmer) ease-in-out infinite;
+}
+
+@keyframes browser-progress {
+  from { background-position: -50% 0; }
+  to { background-position: 150% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .browser-progress { animation: none; background: var(--accent-tint-22); }
+}
+
+/* ─── Address bar ─────────────────────────────────────────────────────────── */
+
+.browser-omnibox {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  margin: 0 var(--space-4);
+}
+
+.browser-omnibox-input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 26px;
+  padding: 0 var(--space-10);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--text-md);
+  font-family: var(--font-sans);
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
+}
+
+.browser-omnibox-input::placeholder {
+  color: var(--text-muted);
+}
+
+.browser-omnibox-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-focus);
+}
+
+.browser-omnibox-suggestions {
+  position: absolute;
+  top: calc(100% + var(--space-4));
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: var(--space-4);
+  list-style: none;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-elevation-lg);
+  z-index: var(--z-dropdown);
+}
+
+.browser-omnibox-suggestion {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-6) var(--space-8);
+  border-radius: var(--radius);
+  font-size: var(--text-md);
+  color: var(--text-primary);
+  cursor: pointer;
+  min-width: 0;
+}
+
+.browser-omnibox-suggestion:hover,
+.browser-omnibox-suggestion--active {
+  background: var(--bg-hover);
+}
+
+.browser-omnibox-suggestion-icon {
+  display: flex;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.browser-omnibox-suggestion-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.browser-omnibox-suggestion-detail {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
+}
+
+/* ─── Find bar ────────────────────────────────────────────────────────────── */
+
+.browser-find-bar {
+  position: absolute;
+  top: var(--space-8);
+  right: var(--space-16);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6) var(--space-4) var(--space-10);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-elevation-md);
+  z-index: var(--z-sticky);
+}
+
+.browser-find-input {
+  width: 200px;
+  flex: none;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--text-md);
+  font-family: var(--font-sans);
+}
+
+.browser-find-input:focus {
+  outline: none;
+}
+
+.browser-find-count {
+  min-width: 64px;
+  text-align: right;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Page area ───────────────────────────────────────────────────────────── */
+
+.browser-viewport {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  position: relative;
+  background: var(--bg-primary);
+}
+
+.browser-webview {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: flex;
+  /* Web pages assume a white canvas; the guest is transparent by default. */
+  background: #fff;
+}
+
+.browser-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  z-index: var(--z-base);
+}
+
+/* ─── Tab strip ───────────────────────────────────────────────────────────── */
+
+.tab-browser-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.tab-browser-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.tab-browser-icon img {
+  width: 12px;
+  height: 12px;
+  object-fit: contain;
+  border-radius: var(--radius-xs);
+}
+
+/* ─── Toolbar extras ──────────────────────────────────────────────────────── */
+
+.browser-icon-btn--active {
+  color: var(--accent);
+  background: var(--accent-tint-10);
+}
+
+.browser-profile-select {
+  width: auto;
+  max-width: 140px;
+  padding: var(--space-2) var(--space-6);
+  font-size: var(--text-sm);
+}
+
+.browser-viewport-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.browser-viewport-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.browser-popover {
+  position: absolute;
+  top: calc(100% + var(--space-4));
+  right: 0;
+  min-width: 220px;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-elevation-lg);
+  z-index: var(--z-dropdown);
+}
+
+.browser-popover-item {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-12);
+  padding: var(--space-6) var(--space-8);
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--text-md);
+  text-align: left;
+  cursor: pointer;
+}
+
+.browser-popover-item:hover {
+  background: var(--bg-hover);
+}
+
+.browser-popover-item--active {
+  color: var(--accent);
+}
+
+.browser-popover-meta {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.browser-popover-custom {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-4) var(--space-2);
+  border-top: 1px solid var(--border);
+  margin-top: var(--space-4);
+}
+
+.browser-popover-custom .settings-input {
+  width: 64px;
+  padding: var(--space-2) var(--space-6);
+}
+
+/* ─── Page bars (permission prompt, agent activity) + downloads shelf ────── */
+
+.browser-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-6) var(--space-12);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-md);
+  flex-shrink: 0;
+}
+
+.browser-bar-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browser-bar--permission {
+  background: var(--bg-tertiary);
+}
+
+.browser-bar--agent {
+  background: var(--accent-tint-10);
+  color: var(--accent);
+  font-size: var(--text-sm);
+  padding-block: var(--space-4);
+}
+
+.browser-downloads {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-12);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.browser-download {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  font-size: var(--text-sm);
+}
+
+.browser-download-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.browser-download-meta {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.browser-download--interrupted .browser-download-meta {
+  color: var(--red);
+}
+
+/* ─── Viewport emulation / Design Mode ───────────────────────────────────── */
+
+.browser-viewport--emulated {
+  background: var(--bg-tertiary);
+}
+
+.browser-viewport--design {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+/* ─── Settings ────────────────────────────────────────────────────────────── */
+
+.browser-profile-card .settings-field {
+  margin: 0;
+}
+
+.browser-profile-actions {
+  display: flex;
+  gap: var(--space-6);
+}
+
+.settings-hint--error {
+  color: var(--red);
+}

@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => {
     } as Record<string, Array<{ id: string }>>,
     selectWorktree: vi.fn(),
     clearBigTerminalsForWorktree: vi.fn(),
+    clearBrowserTabsForWorktree: vi.fn(),
     cleanupWorktreeState: vi.fn(),
   }
 
@@ -168,6 +169,7 @@ describe('projects store removeWorktree', () => {
     expect(mocks.cleanupWorktreeRefresh).toHaveBeenCalledWith('/repo/wt/delete-me')
     expect(mocks.disposeBigTerminals).toHaveBeenCalledWith(['bt-1'])
     expect(mocks.uiState.clearBigTerminalsForWorktree).toHaveBeenCalledWith('wt-feature')
+    expect(mocks.uiState.clearBrowserTabsForWorktree).toHaveBeenCalledWith('wt-feature')
     expect(mocks.closeSessionsByWorktree).toHaveBeenCalledWith('wt-feature')
     expect(mocks.uiState.selectWorktree).toHaveBeenCalledWith('proj-1', 'wt-main')
     expect(mocks.uiState.cleanupWorktreeState).toHaveBeenCalledWith('wt-feature', '/repo/wt/delete-me')

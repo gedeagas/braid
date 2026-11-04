@@ -62,6 +62,7 @@
 @import './window-capture.css';
 @import './notes.css';
 @import './apps.css';
+@import './browser.css';
 @import './lsp.css';
 @import './analytics.css';
 @import './onboarding.css';

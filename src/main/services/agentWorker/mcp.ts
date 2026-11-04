@@ -36,7 +36,8 @@ export async function prepareMcpServers(
   mobileFramework: string | undefined
 ): Promise<Record<string, unknown> | undefined> {
   const userServers = claudeConfigService.getMcpServers()
-    .filter((s) => s.enabled)
+    // The stdio browser bridge is for terminal agents; chat sessions get the same tools in-process.
+    .filter((s) => s.enabled && s.name !== 'braid-browser')
     .reduce<Record<string, unknown>>((acc, s) => { acc[s.name] = s.config; return acc }, {})
 
   const braidMcp = await prepareBraidMcp(worktreeId, worktreePath, projectName, braidEmit)

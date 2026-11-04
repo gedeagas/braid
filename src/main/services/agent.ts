@@ -7,6 +7,7 @@ import type { WorkerEvent, AgentSettings, SlashCommand } from './agentTypes'
 import type { WorkerCommand, WorkerResult } from './agentProcessTypes'
 import { ptyService } from './pty'
 import { enrichedEnv } from '../lib/enrichedEnv'
+import { runBrowserTool } from './browser'
 
 /** Metadata cached in the coordinator (no cross-process call needed). */
 interface SessionMeta { sessionName: string; cwd: string; branch: string; projectName: string }
@@ -228,6 +229,16 @@ class AgentCoordinator {
     if (!requestId || !dataType) return
     const child = this.sessionProcesses.get(sessionId)
     if (!child) return
+
+    if (dataType === 'browser_tool') {
+      // Async: drives the worktree's browser tab in main (may wait on page loads).
+      runBrowserTool(String(params.name), params.args, { worktreeId: String(params.worktreeId ?? '') })
+        .then((value) => child.postMessage({ type: 'braidDataResponse', requestId, value } satisfies WorkerCommand))
+        .catch((err: unknown) => child.postMessage({
+          type: 'braidDataError', requestId, message: err instanceof Error ? err.message : String(err),
+        } satisfies WorkerCommand))
+      return
+    }
 
     try {
       let value: unknown

@@ -4,7 +4,8 @@
   "categories": {
     "general": "Umum",
     "view": "Tampilan",
-    "navigation": "Navigasi"
+    "navigation": "Navigasi",
+    "browser": "Browser"
   },
   "openSettings": "Buka Pengaturan",
   "showShortcuts": "Pintasan Keyboard",
@@ -29,5 +30,15 @@
   "commandPaletteRun": "jalankan",
   "commandPaletteNoResults": "Tidak ada perintah yang cocok dengan \"{{query}}\"",
   "noResults": "Tidak ada pintasan yang cocok dengan \"{{query}}\"",
-  "empty": "Tidak ada pintasan"
+  "empty": "Tidak ada pintasan",
+  "browserNewTab": "Tab Browser Baru",
+  "browserReopenTab": "Buka Lagi Tab Browser yang Ditutup",
+  "browserFocusAddress": "Fokus ke Bilah Alamat",
+  "browserFind": "Cari di Halaman",
+  "browserReload": "Muat Ulang Halaman",
+  "browserHardReload": "Muat Ulang Paksa Halaman",
+  "browserBack": "Kembali",
+  "browserForward": "Maju",
+  "browserDevTools": "Alat Pengembang Browser",
+  "moveTabToOtherPane": "Pindahkan Tab ke Panel Lain"
 }

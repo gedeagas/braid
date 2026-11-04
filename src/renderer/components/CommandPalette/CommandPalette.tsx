@@ -113,6 +113,8 @@ export function CommandPalette() {
     { id: 'quickOpen', category: 'navigation', execute: actions.openQuickOpen },
     { id: 'focusChat', category: 'navigation', execute: actions.focusChat },
     { id: 'saveFile', category: 'navigation', execute: actions.saveFile },
+    { id: 'browserNewTab', category: 'browser', execute: actions.newBrowserTab },
+    { id: 'moveTabToOtherPane', category: 'navigation', execute: actions.moveTabToOtherPane },
   ], [])
 
   // Filter and sort commands

@@ -16,6 +16,7 @@ import { EmptyState, Spinner } from '@/components/ui'
 import { IconFile } from '@/components/shared/icons'
 import { useShikiHighlight } from '@/hooks/useShikiHighlight'
 import type { PrReview, PrReviewComment, PrReviewData, ReviewState } from '@/types'
+import { modifierFromEvent, openLink } from '@/lib/browser/linkRouter'
 
 // ─── State ──────────────────────────────────────────────────────────────────
 
@@ -54,7 +55,7 @@ function createMarkdownComponents(baseUrl: string): Components {
       const onClick = (e: MouseEvent<HTMLAnchorElement>) => {
         e.preventDefault()
         e.stopPropagation()
-        if (safeUrl) ipc.shell.openExternal(safeUrl)
+        if (safeUrl) openLink(safeUrl, { modifier: modifierFromEvent(e) })
       }
       return <a href={safeUrl ?? undefined} onClick={onClick}>{children}</a>
     },

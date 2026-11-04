@@ -25,6 +25,7 @@ import { SettingsAnalytics } from './SettingsAnalytics'
 import { SettingsAbout } from './SettingsAbout'
 import { SettingsExperimental } from './SettingsExperimental'
 import { SettingsMobile } from './SettingsMobile'
+import { SettingsBrowser } from './SettingsBrowser'
 
 /**
  * Maps nav section keys → their rendered page component.
@@ -56,6 +57,7 @@ const sectionMap: Record<string, React.ReactNode> = {
   analytics: <SettingsAnalytics />,
   about: <SettingsAbout />,
   mobile: <SettingsMobile />,
+  browser: <SettingsBrowser />,
   experimental: <SettingsExperimental />,
 }
 

@@ -14,7 +14,9 @@
 import { useUIStore } from '@/store/ui'
 import { useSessionsStore } from '@/store/sessions'
 import { useProjectsStore } from '@/store/projects'
-import { navigateTab, getUnifiedTabs, activateTab, activateTabByIndex } from '@/lib/tabNavigation'
+import { navigateTab, getPaneTabs, activateTab, activateTabByIndex, getActiveTabKey } from '@/lib/tabNavigation'
+import { getFocusedView } from '@/lib/centerPanes'
+import { getActiveBrowserTabId, newBrowserTab as openNewBrowserTab, reopenClosedBrowserTab, runBrowserAction } from '@/lib/browser/browserCommands'
 import { disposeBigTerminal } from '@/components/Center/bigTerminalCache'
 import i18n from '@/lib/i18n'
 import { appWindow } from '@/lib/ipc'
@@ -79,6 +81,8 @@ export function zoomReset(): void {
 // ─── Tab management ──────────────────────────────────────────────────────────
 
 export function newChatTab(): void {
+  // ⌘T inside the browser opens another browser tab (Chrome muscle memory).
+  if (getActiveBrowserTabId()) { openNewBrowserTab(); return }
   const { selectedWorktreeId, selectedProjectId, setActiveCenterView } = useUIStore.getState()
   if (!selectedWorktreeId || !selectedProjectId) return
   const project = useProjectsStore.getState().projects.find((p) => p.id === selectedProjectId)
@@ -89,10 +93,16 @@ export function newChatTab(): void {
 }
 
 export function newBigTerminal(): void {
+  // ⌘⇧T inside the browser reopens the last closed browser tab.
+  if (getActiveBrowserTabId()) { reopenClosedBrowserTab(); return }
   const ui = useUIStore.getState()
   if (!ui.selectedWorktreeId) return
   const id = ui.createBigTerminal(ui.selectedWorktreeId)
   ui.setActiveCenterView({ type: 'terminal', terminalId: id })
+}
+
+export function newBrowserTab(): void {
+  openNewBrowserTab()
 }
 
 export function newClaudeCode(): void {
@@ -109,14 +119,7 @@ export function newClaudeCode(): void {
  */
 export function closeCurrentTab(): void {
   const ui = useUIStore.getState()
-  const wtId = ui.selectedWorktreeId ?? ''
-  const acv = ui.activeCenterViewByWorktree[wtId] ?? null
-
-  let activeKey: string | null = null
-  if (acv?.type === 'session') activeKey = `s:${acv.sessionId}`
-  else if (acv?.type === 'file') activeKey = `f:${acv.path}`
-  else if (acv?.type === 'changes') activeKey = 'changes'
-  else if (acv?.type === 'terminal') activeKey = `t:${acv.terminalId}`
+  const activeKey = getActiveTabKey()
 
   if (!activeKey) {
     appWindow.closeWindow()
@@ -124,7 +127,7 @@ export function closeCurrentTab(): void {
   }
 
   // Determine adjacent tab to activate after close
-  const tabs = getUnifiedTabs()
+  const tabs = getPaneTabs()
   const closingIndex = tabs.indexOf(activeKey)
   const adjacentKey = closingIndex >= 0
     ? tabs[closingIndex + 1] ?? tabs[closingIndex - 1] ?? null
@@ -147,9 +150,21 @@ export function closeCurrentTab(): void {
     const terminalId = activeKey.slice(2)
     disposeBigTerminal(terminalId)
     if (ui.selectedWorktreeId) ui.closeBigTerminal(ui.selectedWorktreeId, terminalId)
+  } else if (activeKey.startsWith('b:')) {
+    if (ui.selectedWorktreeId) ui.closeBrowserTab(ui.selectedWorktreeId, activeKey.slice(2))
   }
 
   if (adjacentKey) activateTab(adjacentKey)
+}
+
+/** ⌘\ - move the focused tab to the other center pane (splitting if needed). */
+export function moveTabToOtherPane(): void {
+  const ui = useUIStore.getState()
+  const wt = ui.selectedWorktreeId
+  const key = getActiveTabKey()
+  if (!wt || !key) return
+  const from = ui.centerSplitByWorktree[wt]?.focused ?? 'primary'
+  ui.moveTabToPane(wt, key, from === 'primary' ? 'secondary' : 'primary')
 }
 
 export function previousTab(): void {
@@ -167,13 +182,14 @@ export function goToTab(n: number): void {
 // ─── Focus / Save ────────────────────────────────────────────────────────────
 
 export function focusChat(): void {
+  // ⌘L inside the browser focuses the address bar.
+  const browserTabId = getActiveBrowserTabId()
+  if (browserTabId) { runBrowserAction(browserTabId, 'focusAddress'); return }
   window.dispatchEvent(new CustomEvent('braid:focusChat'))
 }
 
 export function saveFile(): void {
-  const wtId = useUIStore.getState().selectedWorktreeId ?? ''
-  const acv = useUIStore.getState().activeCenterViewByWorktree[wtId] ?? null
-  if (acv?.type === 'file') {
+  if (getFocusedView()?.type === 'file') {
     window.dispatchEvent(new CustomEvent('braid:saveFile'))
   }
 }

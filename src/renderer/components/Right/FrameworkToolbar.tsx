@@ -1,6 +1,7 @@
 import { memo, useCallback, useReducer } from 'react'
 import { useTranslation } from 'react-i18next'
 import * as ipc from '@/lib/ipc'
+import { modifierFromEvent, openLink } from '@/lib/browser/linkRouter'
 
 interface Props {
   deviceId: string
@@ -56,7 +57,7 @@ export const FrameworkToolbar = memo(function FrameworkToolbar({ deviceId, platf
   }, [deviceId, platform, runAction])
 
   const handleRnDevTools = useCallback(() => {
-    ipc.shell.openExternal('http://localhost:8081')
+    openLink('http://localhost:8081')
   }, [])
 
   // ─── Flutter actions ───────────────────────────────────────────────────
@@ -70,7 +71,7 @@ export const FrameworkToolbar = memo(function FrameworkToolbar({ deviceId, platf
   }, [runAction])
 
   const handleFlutterDevTools = useCallback(() => {
-    ipc.shell.openExternal('http://localhost:9100')
+    openLink('http://localhost:9100')
   }, [])
 
   // ─── Render ────────────────────────────────────────────────────────────

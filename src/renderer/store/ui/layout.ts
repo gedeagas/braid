@@ -19,6 +19,7 @@ export type CenterView =
   | { type: 'changes' }
   | { type: 'terminal'; terminalId: string }
   | { type: 'codeReview' }
+  | { type: 'browser'; tabId: string }
 
 export type ToolMessageStyle = 'funny' | 'boring'
 export type ActivityIndicatorStyle = 'spinner' | 'dots' | 'waveform'

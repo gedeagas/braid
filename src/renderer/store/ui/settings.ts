@@ -14,7 +14,7 @@ const DEFAULT_AGENT_ID = 'claude'
 export type MobileNgrokRegion = 'auto' | 'us' | 'eu' | 'au' | 'ap' | 'sa' | 'jp' | 'in' | 'us-cal-1' | 'eu-lon-1'
 const VALID_MOBILE_NGROK_REGIONS = new Set<string>(['auto', 'us', 'eu', 'au', 'ap', 'sa', 'jp', 'in', 'us-cal-1', 'eu-lon-1'])
 function isValidNewTabAction(v: string): boolean {
-  if (v === 'chat' || v === 'claudeCode' || v === 'terminal') return true
+  if (v === 'chat' || v === 'claudeCode' || v === 'terminal' || v === 'browser') return true
   return /^agent:[a-zA-Z0-9-]+$/.test(v)
 }
 

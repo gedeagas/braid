@@ -24,6 +24,7 @@ import { DATA_DIR_NAME } from '../appBrand'
 import { getStatus } from './git/status'
 import { githubService } from './github'
 import { addWorktree } from './git/worktrees'
+import { createBrowserTools } from './braidMcpBrowser'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -64,14 +65,15 @@ const DATA_REQUEST_TIMEOUT_MS = 10_000
 function requestData(
   emit: (event: BraidAction) => void,
   dataType: string,
-  params: Record<string, unknown>
+  params: Record<string, unknown>,
+  timeoutMs = DATA_REQUEST_TIMEOUT_MS,
 ): Promise<unknown> {
   const requestId = crypto.randomUUID()
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       pendingDataRequests.delete(requestId)
       reject(new Error(`Braid data request timed out: ${dataType}`))
-    }, DATA_REQUEST_TIMEOUT_MS)
+    }, timeoutMs)
 
     pendingDataRequests.set(requestId, {
       resolve: (value) => { clearTimeout(timer); resolve(value) },
@@ -331,6 +333,9 @@ export async function createBraidServer(
           return { content: [{ type: 'text' as const, text: sections.join('\n\n') }] }
         },
       ),
+
+      // ── Browser (per-worktree Braid browser tabs) ─────────────────────
+      ...createBrowserTools(_tool, (dataType, params, timeoutMs) => requestData(emit, dataType, { worktreeId, ...params }, timeoutMs)),
     ],
   })
 }

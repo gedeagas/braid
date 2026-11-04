@@ -12,6 +12,7 @@ import { activateWebgl } from './terminalCache'
 import { IconWrench } from '@/components/shared/icons'
 import { Button, EmptyState } from '@/components/ui'
 import '@xterm/xterm/css/xterm.css'
+import { modifierFromEvent, openLink } from '@/lib/browser/linkRouter'
 
 interface Props {
   worktreePath: string
@@ -47,8 +48,8 @@ function getOrCreateCache(worktreePath: string): CachedSetup {
   })
   const fitAddon = new FitAddon()
   term.loadAddon(fitAddon)
-  term.loadAddon(new WebLinksAddon((_event, uri) => {
-    ipc.shell.openExternal(uri)
+  term.loadAddon(new WebLinksAddon((event, uri) => {
+    openLink(uri, { modifier: modifierFromEvent(event) })
   }))
   const unicode11 = new Unicode11Addon()
   term.loadAddon(unicode11)

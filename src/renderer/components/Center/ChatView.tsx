@@ -27,6 +27,7 @@ import { flash } from '@/store/flash'
 import { useTranslation } from 'react-i18next'
 import { useMentionAutocomplete } from './useMentionAutocomplete'
 import { BranchBar } from './BranchBar'
+import { CHAT_IMAGES_QUEUED_EVENT, drainChatImages } from '@/lib/chatImageQueue'
 
 const DiffReviewView = lazy(() => import('./DiffReviewView').then((m) => ({ default: m.DiffReviewView })))
 
@@ -208,6 +209,22 @@ export function ChatView({ worktreePath = '' }: ChatViewProps) {
   }, [worktreePath])
 
   // ─── Image management ──────────────────────────────────────────────────────
+
+  // Images queued for this session from elsewhere (Design Mode picks).
+  const activeSessionIdForQueue = activeSession?.id
+  useEffect(() => {
+    if (!activeSessionIdForQueue) return
+    const drain = () => {
+      const uris = drainChatImages(activeSessionIdForQueue)
+      if (uris.length) dispatch({ type: 'APPEND_IMAGES', uris })
+    }
+    drain()
+    const onQueued = (e: Event) => {
+      if ((e as CustomEvent<{ sessionId: string }>).detail?.sessionId === activeSessionIdForQueue) drain()
+    }
+    window.addEventListener(CHAT_IMAGES_QUEUED_EVENT, onQueued)
+    return () => window.removeEventListener(CHAT_IMAGES_QUEUED_EVENT, onQueued)
+  }, [activeSessionIdForQueue])
 
   const addImages = useCallback(async (files: File[]) => {
     const imageFiles = files.filter((f) => ACCEPTED_IMAGE_TYPES.includes(f.type))

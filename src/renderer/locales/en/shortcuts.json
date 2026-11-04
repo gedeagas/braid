@@ -4,7 +4,8 @@
   "categories": {
     "general": "General",
     "view": "View",
-    "navigation": "Navigation"
+    "navigation": "Navigation",
+    "browser": "Browser"
   },
   "openSettings": "Open Settings",
   "showShortcuts": "Keyboard Shortcuts",
@@ -29,5 +30,15 @@
   "commandPaletteRun": "run",
   "commandPaletteNoResults": "No commands matching \"{{query}}\"",
   "noResults": "No shortcuts matching \"{{query}}\"",
-  "empty": "No shortcuts"
+  "empty": "No shortcuts",
+  "browserNewTab": "New Browser Tab",
+  "browserReopenTab": "Reopen Closed Browser Tab",
+  "browserFocusAddress": "Focus Address Bar",
+  "browserFind": "Find in Page",
+  "browserReload": "Reload Page",
+  "browserHardReload": "Hard Reload Page",
+  "browserBack": "Back",
+  "browserForward": "Forward",
+  "browserDevTools": "Browser Developer Tools",
+  "moveTabToOtherPane": "Move Tab to Other Pane"
 }

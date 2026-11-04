@@ -1,23 +1,21 @@
-import { memo, useCallback, useRef, useMemo, lazy, Suspense } from 'react'
+import { memo, useCallback, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { SessionTabBar } from './SessionTabBar'
-import { ChatView } from './ChatView'
-import { BigTerminalView } from './BigTerminalView'
 import { useUIStore, selectChangesOpen, selectActiveCenterView } from '@/store/ui'
 import { useProjectsStore } from '@/store/projects'
 import { useSessionsStore, useSessionsForWorktree } from '@/store/sessions'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { OpenInDropdown } from '@/components/shared/OpenInDropdown'
-import { IconSidebarRight, IconMessagePlus, IconPencil, IconArrowLeft, IconTerminal, AgentIcon } from '@/components/shared/icons'
+import { ResizeHandle } from '@/components/shared/ResizeHandle'
+import { IconSidebarRight, IconMessagePlus, IconPencil, IconArrowLeft, IconTerminal, IconGlobe, AgentIcon } from '@/components/shared/icons'
 import { getAgentEntry } from '@/lib/agentCatalog'
 import { BottomTerminalStrip } from '@/components/shared/BottomTerminalStrip'
-import { Button, EmptyState, Spinner } from '@/components/ui'
+import { Button, EmptyState } from '@/components/ui'
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation'
 import { navigateTab } from '@/lib/tabNavigation'
-
-// Lazy-loaded: FileViewer pulls in Monaco editor + react-markdown
-const FileViewer = lazy(() => import('@/components/Right/FileViewer').then((m) => ({ default: m.FileViewer })))
-const CodeReviewView = lazy(() => import('./CodeReviewView').then((m) => ({ default: m.CodeReviewView })))
+import { placeTabInPane } from '@/lib/centerPanes'
+import { openBrowserTab } from '@/lib/browser/browserCommands'
+import { BrowserHost } from './Browser/BrowserHost'
+import { CenterPane } from './CenterPane'
 
 export const CenterPanel = memo(function CenterPanel() {
   const { t } = useTranslation('center')
@@ -25,12 +23,12 @@ export const CenterPanel = memo(function CenterPanel() {
   const selectedWorktreeId = useUIStore((s) => s.selectedWorktreeId)
   const activeCenterView = useUIStore(selectActiveCenterView)
   const openFilePaths = useUIStore((s) => s.openFilePaths)
-  const setFileDirty = useUIStore((s) => s.setFileDirty)
-  const setActiveCenterView = useUIStore((s) => s.setActiveCenterView)
   const sidebarPanelOpen = useUIStore((s) => s.sidebarPanelOpen)
   const rightPanelVisible = useUIStore((s) => s.rightPanelVisible)
   const toggleRightPanel = useUIStore((s) => s.toggleRightPanel)
   const bottomTerminalEnabled = useUIStore((s) => s.bottomTerminalEnabled)
+  const split = useUIStore((s) => (s.selectedWorktreeId ? s.centerSplitByWorktree[s.selectedWorktreeId] : undefined))
+  const setSplitRatio = useUIStore((s) => s.setSplitRatio)
   const project = useProjectsStore((s) => s.projects.find((p) => p.id === selectedProjectId))
   const worktree = project?.worktrees.find((w) => w.id === selectedWorktreeId)
 
@@ -40,6 +38,7 @@ export const CenterPanel = memo(function CenterPanel() {
 
   const magicTrackpad = useUIStore((s) => s.magicTrackpad)
   const panelRef = useRef<HTMLDivElement>(null)
+  const panesRef = useRef<HTMLDivElement>(null)
   const noRef = useRef<HTMLDivElement>(null)
   const handleSwipeNavigate = useCallback((direction: -1 | 1) => {
     navigateTab(direction)
@@ -47,19 +46,14 @@ export const CenterPanel = memo(function CenterPanel() {
   useSwipeNavigation(magicTrackpad ? panelRef : noRef, handleSwipeNavigate)
 
   const changesOpen = useUIStore(selectChangesOpen)
-  const showFile = activeCenterView?.type === 'file'
-  const showTerminal = activeCenterView?.type === 'terminal'
   const showCodeReview = activeCenterView?.type === 'codeReview'
+  const browserTabIds = useUIStore((s) => s.browserTabsByWorktree[s.selectedWorktreeId ?? ''])
+  // A stale persisted view can point at a closed tab; the pane falls back to its default view then.
+  const tabExists = useCallback((view: typeof activeCenterView) =>
+    view?.type === 'browser' && Boolean(browserTabIds?.some((tab) => tab.id === view.tabId)), [browserTabIds])
+  const hasBrowserTabs = (browserTabIds?.length ?? 0) > 0
   const hasBigTerminals = useUIStore((s) => selectedWorktreeId ? (s.bigTerminalsByWorktree[selectedWorktreeId]?.length ?? 0) > 0 : false)
-  const activeTerminalId = showTerminal ? activeCenterView.terminalId : null
-  const activeTerminalTab = useUIStore((s) => {
-    if (!activeTerminalId || !selectedWorktreeId) return undefined
-    return s.bigTerminalsByWorktree[selectedWorktreeId]?.find((t) => t.id === activeTerminalId)
-  })
-  const initialCommand = activeTerminalTab?.initialCommand
-  const initialInput = activeTerminalTab?.initialInput
-  const terminalAgentId = activeTerminalTab?.agentId
-  const hasNoTabs = sessionsLoaded && sessions.length === 0 && openFilePaths.length === 0 && !changesOpen && !hasBigTerminals && !showCodeReview
+  const hasNoTabs = sessionsLoaded && sessions.length === 0 && openFilePaths.length === 0 && !changesOpen && !hasBigTerminals && !hasBrowserTabs && !showCodeReview && !split
 
   const lastNewTabAction = useUIStore((s) => s.lastNewTabAction)
   const createBigTerminal = useUIStore((s) => s.createBigTerminal)
@@ -69,22 +63,21 @@ export const CenterPanel = memo(function CenterPanel() {
     // Handle agent:* actions (including legacy 'claudeCode')
     const agentAction = lastNewTabAction === 'claudeCode' ? 'agent:claude' : lastNewTabAction
     if (agentAction.startsWith('agent:')) {
-      const agentId = agentAction.slice(6)
-      const entry = getAgentEntry(agentId)
+      const entry = getAgentEntry(agentAction.slice(6))
       if (entry) {
         const id = createBigTerminal(selectedWorktreeId, entry.label, entry.launchCmd, entry.id)
-        setActiveCenterView({ type: 'terminal', terminalId: id })
+        placeTabInPane(selectedWorktreeId, `t:${id}`, 'primary')
         return
       }
     }
     if (lastNewTabAction === 'terminal') {
-      const id = createBigTerminal(selectedWorktreeId)
-      setActiveCenterView({ type: 'terminal', terminalId: id })
+      placeTabInPane(selectedWorktreeId, `t:${createBigTerminal(selectedWorktreeId)}`, 'primary')
+    } else if (lastNewTabAction === 'browser') {
+      openBrowserTab(selectedWorktreeId, { pane: 'primary' })
     } else {
-      const id = createSession(selectedWorktreeId, worktree.path)
-      setActiveCenterView({ type: 'session', sessionId: id })
+      placeTabInPane(selectedWorktreeId, `s:${createSession(selectedWorktreeId, worktree.path)}`, 'primary')
     }
-  }, [selectedWorktreeId, worktree, lastNewTabAction, createSession, createBigTerminal, setActiveCenterView])
+  }, [selectedWorktreeId, worktree, lastNewTabAction, createSession, createBigTerminal])
 
   const emptyStateProps = useMemo(() => {
     const agentAction = lastNewTabAction === 'claudeCode' ? 'agent:claude' : lastNewTabAction
@@ -96,12 +89,20 @@ export const CenterPanel = memo(function CenterPanel() {
     if (lastNewTabAction === 'terminal') {
       return { icon: <IconTerminal size={28} />, label: t('newBigTerminal') }
     }
+    if (lastNewTabAction === 'browser') {
+      return { icon: <IconGlobe size={13} />, label: t('browser.newBrowserTab') }
+    }
     return { icon: <IconPencil size={13} />, label: t('newChat') }
   }, [lastNewTabAction, t])
 
-  const handleDirtyChange = useCallback((path: string, dirty: boolean) => {
-    setFileDirty(path, dirty)
-  }, [setFileDirty])
+  const handleSplitResize = useCallback((delta: number) => {
+    const width = panesRef.current?.getBoundingClientRect().width ?? 0
+    if (!width || !selectedWorktreeId || !split) return
+    setSplitRatio(selectedWorktreeId, split.ratio + delta / width)
+  }, [selectedWorktreeId, split, setSplitRatio])
+
+  const worktreePath = worktree?.path ?? ''
+  const projectRoot = worktree?.path ?? project?.path ?? null
 
   return (
     <div className="center-panel" data-tour="chat-panel" ref={panelRef}>
@@ -110,7 +111,7 @@ export const CenterPanel = memo(function CenterPanel() {
         style={!sidebarPanelOpen ? { paddingLeft: 30 } : undefined}
       >
         {worktree && <OpenInDropdown path={worktree.path} label={worktree.path.split('/').filter(Boolean).at(-1) ?? worktree.branch} />}
-        <Tooltip content={`${t('toggleRightPanel')} (\u2318\u21E7B)`} position="bottom">
+        <Tooltip content={`${t('toggleRightPanel')} (⌘⇧B)`} position="bottom">
           <button
             className="drag-region-toggle"
             onClick={toggleRightPanel}
@@ -121,44 +122,49 @@ export const CenterPanel = memo(function CenterPanel() {
         </Tooltip>
       </div>
       {selectedWorktreeId && worktree ? (
-        <>
-          <SessionTabBar />
-          {/* Content area - min-height: 0 lets it shrink when bottom terminal expands */}
-          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            {hasNoTabs ? (
-              <EmptyState
-                variant="hero"
-                icon={<IconMessagePlus />}
-                title={t('emptyStateHeading')}
-                hint={t('emptyStateHint')}
-                action={<Button variant="primary" onClick={handleNewTab}>{emptyStateProps.icon}{emptyStateProps.label}</Button>}
-              />
-            ) : showFile ? (
-              <Suspense fallback={<Spinner size="md" />}>
-                <FileViewer
-                  filePath={activeCenterView.path}
-                  projectRoot={worktree?.path ?? project?.path ?? null}
-                  onDirtyChange={handleDirtyChange}
+        <div className="center-body">
+          <div className="center-panes" ref={panesRef}>
+            <CenterPane
+              pane="primary"
+              worktreeId={selectedWorktreeId}
+              worktreePath={worktreePath}
+              projectRoot={projectRoot}
+              view={activeCenterView}
+              browserTabExists={tabExists(activeCenterView)}
+              split={Boolean(split)}
+              focused={!split || split.focused === 'primary'}
+              style={split ? { flex: split.ratio } : undefined}
+              emptyState={hasNoTabs ? (
+                <EmptyState
+                  variant="hero"
+                  icon={<IconMessagePlus />}
+                  title={t('emptyStateHeading')}
+                  hint={t('emptyStateHint')}
+                  action={<Button variant="primary" onClick={handleNewTab}>{emptyStateProps.icon}{emptyStateProps.label}</Button>}
                 />
-              </Suspense>
-            ) : showTerminal ? (
-              <BigTerminalView
-                terminalId={activeCenterView.terminalId}
-                worktreePath={worktree?.path ?? ''}
-                initialCommand={initialCommand}
-                initialInput={initialInput}
-                agentId={terminalAgentId}
-              />
-            ) : showCodeReview ? (
-              <Suspense fallback={<Spinner size="md" />}>
-                <CodeReviewView worktreePath={worktree?.path ?? ''} />
-              </Suspense>
-            ) : (
-              <ChatView worktreePath={worktree?.path ?? ''} />
+              ) : undefined}
+            />
+            {split && (
+              <>
+                <ResizeHandle direction="horizontal" onResize={handleSplitResize} />
+                <CenterPane
+                  pane="secondary"
+                  worktreeId={selectedWorktreeId}
+                  worktreePath={worktreePath}
+                  projectRoot={projectRoot}
+                  view={split.secondaryView}
+                  browserTabExists={tabExists(split.secondaryView)}
+                  split
+                  focused={split.focused === 'secondary'}
+                  style={{ flex: 1 - split.ratio }}
+                />
+              </>
             )}
           </div>
           {bottomTerminalEnabled && <BottomTerminalStrip />}
-        </>
+          {/* Always mounted so live pages survive tab, pane and worktree switches. */}
+          <BrowserHost />
+        </div>
       ) : (
         <EmptyState variant="panel" icon={<IconArrowLeft size={28} />} title={t('selectWorktreeHint')} />
       )}
