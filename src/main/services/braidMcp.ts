@@ -273,7 +273,7 @@ export async function createBraidServer(
         {
           worktree_path: z.string().describe('Absolute path to the target worktree'),
           prompt: z.string().describe('Initial prompt/instructions for the new session'),
-          model: z.string().optional().describe('Model to use (defaults to claude-sonnet-4-6)'),
+          model: z.string().optional().describe('Model to use (defaults to claude-sonnet-5-5)'),
           session_name: z.string().optional().describe('Display name for the session'),
         },
         async ({ worktree_path, prompt, model, session_name }) => {
@@ -285,7 +285,7 @@ export async function createBraidServer(
               sessionId: newSessionId,
               worktreePath: worktree_path,
               prompt,
-              model: model ?? 'claude-sonnet-4-6',
+              model: model ?? 'claude-sonnet-5-5',
               sessionName: session_name ?? 'Delegated Task',
             },
           })

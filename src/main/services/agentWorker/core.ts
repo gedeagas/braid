@@ -8,6 +8,7 @@
  */
 
 import { generateCommitMessage, generateSessionTitle } from '../agentGenerate'
+import { canDisableThinking, effortToSend } from '../../../shared/claude-models'
 import {
   loadPlugins,
   BRAID_SYSTEM_PROMPT,
@@ -197,7 +198,7 @@ export class AgentWorker {
 
       const betas = (extendedContext && needsExtendedContextBeta(model))
         ? [CONTEXT_1M_BETA] : undefined
-      const effort = effortLevel && effortLevel !== 'high' ? effortLevel : undefined
+      const effort = effortToSend(model, effortLevel)
 
       const captureStderr = (data: string): void => {
         const trimmed = data.trim()
@@ -215,7 +216,8 @@ export class AgentWorker {
           canUseTool: createCanUseTool(sessionId, worktreePath, settings.bypassPermissions, this.emit, this.pendingUserInput, this.log.bind(this)),
           onElicitation: this.createOnElicitation(sessionId),
           includePartialMessages: true,
-          maxThinkingTokens: thinking ? undefined : 0,
+          // Newer models reject disabled thinking (400): leave it to effort there.
+          maxThinkingTokens: thinking || !canDisableThinking(model, effortLevel) ? undefined : 0,
           permissionMode: planMode ? 'plan' : undefined,
           settingSources: ['user', 'project', 'local'],
           plugins: loadPlugins(worktreePath),
@@ -405,7 +407,7 @@ export class AgentWorker {
         : effectiveMessage
       const betas = (state.extendedContext && needsExtendedContextBeta(state.model))
         ? [CONTEXT_1M_BETA] : undefined
-      const effort = state.effortLevel && state.effortLevel !== 'high' ? state.effortLevel : undefined
+      const effort = effortToSend(state.model, state.effortLevel ?? '')
 
       const captureStderr = (data: string): void => {
         const trimmed = data.trim()

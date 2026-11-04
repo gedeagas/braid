@@ -28,7 +28,15 @@ type ModelPricing = {
   cacheWrite: number
 }
 
+// $/MTok. Cache writes are 1.25x input and cache reads 0.1x input, except
+// where Anthropic lists a different read price (Fable 5.1).
 const MODEL_PRICING: Record<string, ModelPricing> = {
+  'claude-fable-5-1': { input: 10, output: 50, cacheRead: 0.25, cacheWrite: 12.5 },
+  'claude-opus-5-5': { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 },
+  'claude-opus-5': { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 },
+  'claude-sonnet-5-5': { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 },
+  // Prompts up to 100K tokens; longer prompts cost more ($0.50 / $2.50).
+  'claude-haiku-5-5': { input: 0.1, output: 0.5, cacheRead: 0.01, cacheWrite: 0.125 },
   'claude-fable-5': { input: 10, output: 50, cacheRead: 1, cacheWrite: 12.5 },
   'claude-opus-4-8': { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 },
   'claude-opus-4-7': { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 },
@@ -45,7 +53,13 @@ function normalizeModelForPricing(model: string | null): string | null {
   if (!model) return null
   const lower = model.toLowerCase().trim().replace(/^anthropic[/:]/, '')
 
+  // Most specific first: "opus-5-5" also contains "opus-5".
+  if (lower.includes('fable-5-1')) return 'claude-fable-5-1'
   if (lower.includes('fable-5')) return 'claude-fable-5'
+  if (lower.includes('opus-5-5')) return 'claude-opus-5-5'
+  if (lower.includes('opus-5')) return 'claude-opus-5'
+  if (lower.includes('sonnet-5-5')) return 'claude-sonnet-5-5'
+  if (lower.includes('haiku-5-5')) return 'claude-haiku-5-5'
   if (lower.includes('opus-4-8')) return 'claude-opus-4-8'
   if (lower.includes('opus-4-7')) return 'claude-opus-4-7'
   if (lower.includes('opus-4-6')) return 'claude-opus-4-6'

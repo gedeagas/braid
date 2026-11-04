@@ -10,16 +10,9 @@ import { Toggle } from '@/components/shared/Toggle'
 import { IconSparkle, IconCheckmark, IconChevronDown, IconStar, IconStarFilled } from '@/components/shared/icons'
 import { supportsExtendedContext, getEffortLevelsForModel, EFFORT_LEVELS, DEFAULT_EFFORT } from '@/lib/constants'
 import type { ModelId, EffortLevel } from '@/types'
+import { CLAUDE_MODELS } from '@shared/claude-models'
 
-export const MODELS: { id: ModelId; label: string }[] = [
-  { id: 'claude-fable-5', label: 'Fable 5' },
-  { id: 'claude-opus-4-8', label: 'Opus 4.8' },
-  { id: 'claude-sonnet-5', label: 'Sonnet 5' },
-  { id: 'claude-opus-4-7', label: 'Opus 4.7' },
-  { id: 'claude-sonnet-4-6', label: 'Sonnet 4.6' },
-  { id: 'claude-opus-4-6', label: 'Opus 4.6' },
-  { id: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5' },
-]
+export const MODELS: readonly { id: ModelId; label: string }[] = CLAUDE_MODELS
 
 interface ModelSelectorProps {
   currentModelId: ModelId

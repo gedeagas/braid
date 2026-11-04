@@ -16,7 +16,7 @@ export function getContextWindow(model: string, extendedContext: boolean): numbe
 
 /** Returns true if the model supports extended (1M) context. */
 export function supportsExtendedContext(model: string): boolean {
-  return model.includes('sonnet') || model.includes('opus') || model.includes('fable') || model.includes('mythos')
+  return model.includes('sonnet') || model.includes('opus') || model.includes('fable') || model.includes('mythos') || model.includes('haiku-5-5')
 }
 
 /**
@@ -49,8 +49,8 @@ export const EFFORT_LEVELS: readonly { id: EffortLevel; label: string }[] = [
 
 /** Returns the effort levels supported by a given model. */
 export function getEffortLevelsForModel(model: string): EffortLevel[] {
-  if (model.includes('opus') || model.includes('sonnet') || model.includes('fable')) return ['low', 'medium', 'high', 'max']
-  return [] // Haiku and others: effort not supported
+  if (model.includes('opus') || model.includes('sonnet') || model.includes('fable') || model.includes('haiku-5-5')) return ['low', 'medium', 'high', 'max']
+  return [] // Haiku 4.5 and older: effort not supported
 }
 
 /** Returns true if the model supports the effort parameter. */
