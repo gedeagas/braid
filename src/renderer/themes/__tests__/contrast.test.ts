@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { contrastRatio, ensureContrast, MIN_TEXT_CONTRAST, MIN_SUBTLE_CONTRAST } from '../contrast'
+import { contrastRatio, ensureContrast, MIN_TEXT_CONTRAST } from '../contrast'
 import { deriveTextColors } from '../apply'
 import { builtinThemes } from '../palettes'
 
@@ -52,11 +52,13 @@ describe('builtin palettes meet text contrast minimums', () => {
     it(`${theme.id}`, () => {
       const c = theme.colors
       const text = deriveTextColors(c)
-      for (const bg of [c.bgPrimary, c.bgSecondary]) {
+      for (const bg of [c.bgPrimary, c.bgSecondary, c.bgTertiary]) {
         expect(contrastRatio(text.secondary, bg)).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST)
         expect(contrastRatio(text.muted, bg)).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST)
-        expect(contrastRatio(text.tertiary, bg)).toBeGreaterThanOrEqual(MIN_SUBTLE_CONTRAST)
+        expect(contrastRatio(text.tertiary, bg)).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST)
       }
+      // Hierarchy survives the correction: tertiary is never more prominent than muted.
+      expect(contrastRatio(text.tertiary, c.bgPrimary)).toBeLessThanOrEqual(contrastRatio(text.muted, c.bgPrimary) + 0.01)
     })
   }
 })

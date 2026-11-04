@@ -544,12 +544,12 @@
   margin: 18px 0 var(--space-8) 0;
 }
 
-.chat-msg-assistant-content h1 { font-size: var(--text-4xl); }
-.chat-msg-assistant-content h2 { font-size: var(--text-3xl); }
-.chat-msg-assistant-content h3 { font-size: var(--text-2xl); }
-.chat-msg-assistant-content h4 { font-size: var(--text-xl); }
+.chat-msg-assistant-content h1 { font-size: 1.43em; }
+.chat-msg-assistant-content h2 { font-size: 1.21em; }
+.chat-msg-assistant-content h3 { font-size: 1.14em; }
+.chat-msg-assistant-content h4 { font-size: 1.07em; }
 .chat-msg-assistant-content h5,
-.chat-msg-assistant-content h6 { font-size: var(--text-lg); color: var(--text-secondary); }
+.chat-msg-assistant-content h6 { font-size: 1em; color: var(--text-secondary); }
 
 .chat-msg-assistant-content hr {
   border: none;
@@ -562,7 +562,7 @@
   width: 100%;
   border-collapse: collapse;
   margin: var(--space-14) 0;
-  font-size: var(--text-lg);
+  font-size: inherit;
   overflow-x: auto;
   display: block;
 }

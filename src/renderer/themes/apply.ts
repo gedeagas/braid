@@ -1,6 +1,6 @@
 import type { ThemePalette } from './palettes'
 import { deriveTerminalColors } from './deriveTerminal'
-import { ensureContrast, MIN_SUBTLE_CONTRAST, MIN_TEXT_CONTRAST } from './contrast'
+import { ensureContrast, MIN_TEXT_CONTRAST } from './contrast'
 
 /** Convert hex color + opacity (0-100) to hex with alpha channel */
 export function hexAlpha(hex: string, opacity: number): string {
@@ -26,16 +26,19 @@ function blendHex(a: string, b: string, t: number): string {
 
 /**
  * Secondary/muted/tertiary text colors, corrected so they stay readable on
- * both main surfaces. Palettes (especially imported VS Code themes) often ship
- * muted greys well below WCAG AA; we nudge them toward textPrimary only as far
- * as needed so each theme keeps its character.
+ * every surface text sits on (primary, secondary, tertiary backgrounds).
+ * Palettes (especially imported VS Code themes) often ship muted greys well
+ * below WCAG AA; we nudge them toward textPrimary only as far as needed so
+ * each theme keeps its character. Tertiary is anchored to the corrected muted
+ * color so it can never become more prominent than muted.
  */
 export function deriveTextColors(c: ThemePalette['colors']): { secondary: string; muted: string; tertiary: string } {
-  const bgs = [c.bgPrimary, c.bgSecondary]
+  const bgs = [c.bgPrimary, c.bgSecondary, c.bgTertiary]
+  const muted = ensureContrast(c.textMuted, bgs, MIN_TEXT_CONTRAST, c.textPrimary)
   return {
     secondary: ensureContrast(c.textSecondary, bgs, MIN_TEXT_CONTRAST, c.textPrimary),
-    muted: ensureContrast(c.textMuted, bgs, MIN_TEXT_CONTRAST, c.textPrimary),
-    tertiary: ensureContrast(blendHex(c.textMuted, c.bgPrimary, 0.35), bgs, MIN_SUBTLE_CONTRAST, c.textPrimary)
+    muted,
+    tertiary: ensureContrast(blendHex(c.textMuted, c.bgPrimary, 0.35), bgs, MIN_TEXT_CONTRAST, muted)
   }
 }
 

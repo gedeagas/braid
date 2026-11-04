@@ -4,10 +4,8 @@
  * palette is active.
  */
 
-/** WCAG AA minimum for normal-size text. */
+/** WCAG AA minimum for normal-size text. Applies to de-emphasized text too. */
 export const MIN_TEXT_CONTRAST = 4.5
-/** WCAG minimum for large text and non-text UI; used for de-emphasized text. */
-export const MIN_SUBTLE_CONTRAST = 3
 
 const HEX6 = /^#[0-9a-fA-F]{6}$/
 
