@@ -7,6 +7,7 @@ import { useUIStore } from '@/store/ui'
 import { getOrCreate, reThemeAllBigTerminals, updateBigTerminalAgentId, updateScrollbackAllBigTerminals, type BigTermEntry } from './bigTerminalCache'
 import { activateWebgl, disposeWebgl } from '@/components/Right/terminalCache'
 import { TerminalSearch } from '@/components/shared/TerminalSearch'
+import { setShown } from '@/lib/ptyOutput/visibility'
 import { BranchBar } from './BranchBar'
 import '@xterm/xterm/css/xterm.css'
 
@@ -238,6 +239,16 @@ export function BigTerminalView({ terminalId, worktreePath, initialCommand, init
       }
     }
   }, [terminalId, worktreePath, locked, takeBack])
+
+  // This terminal is on screen while the view is mounted. Kept apart from the
+  // mount effect above, which re-runs on lock changes, so the terminal never
+  // flips hidden and back while staying on screen.
+  useEffect(() => {
+    const entry = entryRef.current
+    if (!entry) return
+    setShown(entry, true)
+    return () => setShown(entry, false)
+  }, [terminalId])
 
   // Robust restore when the pane stops being locked (take back / restore). The
   // mount effect's single rAF fit() can silently no-op if it measured the

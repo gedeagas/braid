@@ -19,6 +19,8 @@ export function registerPtyIpcHandlers(): void {
   // Capabilities of the terminal backend (daemon hello features). The renderer
   // branches on these, never on app version: a daemon from an older build can
   // outlive an app update and keep serving its sessions.
+  // Which terminals the user can see: their output is delivered first.
+  ipcMain.on('pty:setVisible', (_e, id: string, visible: boolean) => ptyService.setVisible?.(id, visible === true))
   ipcMain.handle('pty:getFeatures', () => ptyService.getFeatures?.() ?? [])
   ipcMain.on('pty:resize', (_e, id: string, cols: number, rows: number) => {
     // Suppress desktop-driven resizes while a mobile device owns this terminal's

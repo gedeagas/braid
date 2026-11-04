@@ -169,7 +169,7 @@ describe('OutputDelivery renderer limit (Stage A)', () => {
     vi.advanceTimersByTime(50)
     // Total limit 64KB reached by a and b.
     expect(textFor('a').length + textFor('b').length + textFor('c').length).toBe(64 * KB)
-    delivery.setFocused('c')
+    delivery.noteInput('c')
     delivery.push('c', 'y')
     vi.advanceTimersByTime(50)
     expect(textFor('c').length).toBe(32 * KB) // the interactive total reserve
@@ -210,8 +210,8 @@ describe('OutputDelivery renderer limit (Stage A)', () => {
   it('never counts output sent before the renderer listens (no leaked credit)', () => {
     const { delivery, sink } = harness({ budget, rendererReadyWatchdogMs: 60_000 })
     delivery.reset()
-    delivery.setFocused('a')
-    delivery.push('a', 'k')
+    delivery.noteInput('a')
+    delivery.push('a', 'k') // even the typing fast path waits
     vi.advanceTimersByTime(10)
     expect(sink.send).not.toHaveBeenCalled()
     expect(delivery.unacked('a')).toBe(0)

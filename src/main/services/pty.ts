@@ -100,6 +100,8 @@ export interface IPtyService {
   resetDelivery?(): void
   /** The renderer's output listener is up: output may be sent (and counted). */
   setRendererReady?(): void
+  /** The renderer shows (true) or hid (false) this terminal. */
+  setVisible?(ptyId: string, visible: boolean): void
   /** Capabilities of the PTY backend (daemon `hello` features). Empty in-process. */
   getFeatures?(): Promise<string[]>
 }
@@ -195,8 +197,12 @@ class PtyService implements IPtyService {
   }
 
   write(id: string, data: string): void {
-    this.delivery.setFocused(id)
+    this.delivery.noteInput(id)
     this.instances.get(id)?.process.write(data)
+  }
+
+  setVisible(id: string, visible: boolean): void {
+    this.delivery.setVisible(id, visible)
   }
 
   ackData(id: string, processedTotal: number): void {

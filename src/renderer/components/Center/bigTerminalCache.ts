@@ -9,6 +9,7 @@ import { registerAgentStatusOsc, registerBraidOsc9 } from '@/lib/agentStatusOsc'
 import { registerTitleDetection } from '@/lib/agentTitleDetection'
 import { isReplaying } from '@/lib/replayGuard'
 import { initPtyOutputRouting } from '@/lib/ptyOutput/router'
+import { forgetShown } from '@/lib/ptyOutput/visibility'
 import { isKnownAgentType, type AgentStatusPayload, type AgentStatusState, type AgentType } from '@/lib/agentStatus'
 import { createCompletionCoordinator, type CompletionCoordinator } from '@/lib/agentCompletionCoordinator'
 import { notifyTerminalStateChange, clearTerminalNotificationState } from '@/lib/terminalNotifications'
@@ -56,6 +57,8 @@ export interface BigTermEntry {
   /** Last keystroke / last rendered output (ms), for idle hibernation. */
   lastInputAt: number
   lastOutputAt: number
+  /** A BigTerminalView shows this terminal (see lib/ptyOutput/visibility). */
+  shown?: boolean
 }
 
 const cache = new Map<string, BigTermEntry>()
@@ -380,6 +383,7 @@ function teardown(entry: BigTermEntry): void {
   entry.completionCoordinator.reset()
   if (entry.ptyId) {
     try { ipc.pty.kill(entry.ptyId) } catch {}
+    forgetShown(entry.ptyId)
   }
   cache.delete(terminalId)
   try { entry.term.dispose() } catch {}

@@ -10,6 +10,8 @@ export const ptyBridge = {
   rendererReady: () => ipcRenderer.send('pty:rendererReady'),
   /** Flow control: running total of output characters processed for `id`. */
   ackData: (id: string, processedTotal: number) => ipcRenderer.send('pty:ackData', id, processedTotal),
+  /** The terminal is shown (true) or hidden (false) in the UI. */
+  setVisible: (id: string, visible: boolean) => ipcRenderer.send('pty:setVisible', id, visible),
   /** Terminal backend capabilities (daemon hello features). */
   getFeatures: () => ipcRenderer.invoke('pty:getFeatures') as Promise<string[]>,
   onFeaturesChanged: (callback: (features: string[]) => void) => {

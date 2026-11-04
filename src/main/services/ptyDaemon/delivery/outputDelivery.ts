@@ -8,6 +8,8 @@
 //    has acknowledged enough of what it already got.
 //  - Stage B (producer pause, ProducerPause): when a terminal's queue backs up,
 //    pause the program writing to it. Only with a producer that supports it.
+//  - Typing fast path (TypingFastPath): a keystroke echo is sent at once.
+//  - Visible terminals are served before hidden ones in every flush.
 //
 // Used by both the daemon adapter and the in-process PtyService.
 
@@ -15,6 +17,7 @@ import { OutputQueue } from './outputQueue'
 import { ProducerPause, type PauseLimits } from './producerPause'
 import { RendererBudget, type BudgetLimits } from './rendererBudget'
 import { nextSlice, SYNC_END } from './sliceOutput'
+import { TypingFastPath, DEFAULT_FAST_PATH, type FastPathLimits } from './typingFastPath'
 
 const KB = 1024
 const MB = 1024 * KB
@@ -45,6 +48,7 @@ export interface DeliveryConfig {
    * paused (a daemon without flow control).
    */
   bypassQueue: number
+  fastPath: FastPathLimits
   /**
    * After a reset (reload, crash) nothing is sent until the new page says its
    * pty:data listener is up; output sent before that is never acknowledged and
@@ -63,6 +67,7 @@ export const DEFAULT_DELIVERY_CONFIG: DeliveryConfig = {
   budget: { perTerminal: 512 * KB, total: 8 * MB, interactivePerTerminal: 512 * KB, interactiveTotal: 256 * KB },
   pause: { high: 256 * KB, low: 32 * KB, repeatMs: 5_000 },
   bypassQueue: 8 * MB,
+  fastPath: DEFAULT_FAST_PATH,
   rendererReadyWatchdogMs: 10_000,
 }
 
@@ -70,6 +75,9 @@ export class OutputDelivery {
   protected queues = new Map<string, OutputQueue>()
   protected budget: RendererBudget
   private pauser: ProducerPause
+  private fastPath: TypingFastPath
+  /** Terminals the renderer reported hidden. Unknown terminals count as visible. */
+  protected hidden = new Set<string>()
   private timer: ReturnType<typeof setTimeout> | null = null
   private timerAt = Infinity
   /** Terminal the user last typed into. */
@@ -80,6 +88,22 @@ export class OutputDelivery {
   constructor(protected sink: DeliverySink, protected config: DeliveryConfig = DEFAULT_DELIVERY_CONFIG) {
     this.budget = new RendererBudget(config.budget)
     this.pauser = new ProducerPause(sink, config.pause)
+    this.fastPath = new TypingFastPath(config.fastPath)
+  }
+
+  /** The user typed into `id`: it becomes the focused terminal and its echo skips the batch. */
+  noteInput(id: string): void {
+    this.fastPath.noteInput(id)
+    this.focused = id
+  }
+
+  setVisible(id: string, visible: boolean): void {
+    if (visible) this.hidden.delete(id)
+    else this.hidden.add(id)
+  }
+
+  isVisible(id: string): boolean {
+    return !this.hidden.has(id)
   }
 
   /** The renderer's pty:data listener is up: start (or resume) sending. */
@@ -104,6 +128,11 @@ export class OutputDelivery {
   push(id: string, data: string, seq = 0): void {
     if (!data) return
     const q = this.queue(id)
+    // Keystroke echo: send now, unless older output is still queued (order).
+    if (q.length === 0 && this.canDeliver(id) && this.fastPath.take(id, data)) {
+      this.sendSlice(id, data)
+      return
+    }
     q.push(data, seq)
     this.pauser.update(id, q.length)
     this.schedule(this.config.flushMs)
@@ -142,6 +171,8 @@ export class OutputDelivery {
     this.queues.delete(id)
     this.budget.remove(id)
     this.pauser.forget(id)
+    this.fastPath.forget(id)
+    this.hidden.delete(id)
   }
 
   /** Renderer reloaded or crashed: start over and let every producer run. */
@@ -180,8 +211,9 @@ export class OutputDelivery {
   }
 
   /** Terminals in the order a flush serves them. */
-  protected order(): Iterable<string> {
-    return this.queues.keys()
+  protected *order(): Iterable<string> {
+    for (const id of this.queues.keys()) if (!this.hidden.has(id)) yield id
+    for (const id of this.queues.keys()) if (this.hidden.has(id)) yield id
   }
 
   protected sendSlice(id: string, data: string): void {
@@ -190,9 +222,9 @@ export class OutputDelivery {
     if (data && this.sink.send(id, data)) this.budget.onSent(id, data.length)
   }
 
-  /** Gets the extra room for the terminal the user is interacting with. */
+  /** Gets the extra room: the terminal the user is typing into, while on screen. */
   protected isInteractive(id: string): boolean {
-    return id === this.focused
+    return id === this.focused && this.isVisible(id)
   }
 
   protected schedule(delayMs: number): void {

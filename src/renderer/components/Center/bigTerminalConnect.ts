@@ -9,6 +9,7 @@ import { createTerminalCommandObserver } from '@/lib/terminalCommandRefresh'
 import { shouldResumeAfterLoss, startAgentResume, terminalStatusLine } from '@/lib/agentResumeRestore'
 import { useUIStore } from '@/store/ui'
 import { writeInitialAgentInput } from './bigTerminalInitialInput'
+import { syncShown } from '@/lib/ptyOutput/visibility'
 import type { BigTermEntry } from './bigTerminalCache'
 
 export interface ConnectOptions {
@@ -36,6 +37,7 @@ export async function connectBigTerminal(entry: BigTermEntry, opts: ConnectOptio
       reattached = true
       hasScrollback = true
       entry.ptyId = result.sessionId
+      syncShown(entry)
       const commandObserver = createTerminalCommandObserver(worktreePath, { refreshWorktrees: true })
       entry.commandObserver = commandObserver
       // A cold-restored session is a fresh shell the new daemon re-created
@@ -101,6 +103,7 @@ export async function connectBigTerminal(entry: BigTermEntry, opts: ConnectOptio
       return
     }
     entry.ptyId = ptyId
+    syncShown(entry)
     const commandObserver = createTerminalCommandObserver(worktreePath, { refreshWorktrees: true })
     entry.commandObserver = commandObserver
     ipc.pty.registerBigTerminal(ptyId, terminalId)

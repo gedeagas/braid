@@ -11,6 +11,8 @@ export const pty = {
   rendererReady: () => api().pty.rendererReady(),
   /** Flow control: running total of output characters processed for `id`. */
   ackData: (id: string, processedTotal: number) => api().pty.ackData(id, processedTotal),
+  /** The terminal is shown (true) or hidden (false) in the UI. */
+  setVisible: (id: string, visible: boolean) => api().pty.setVisible(id, visible),
   /** Terminal backend capabilities (daemon hello features); empty for an older daemon. */
   getFeatures: () => api().pty.getFeatures(),
   onFeaturesChanged: (callback: (features: string[]) => void) => api().pty.onFeaturesChanged(callback),

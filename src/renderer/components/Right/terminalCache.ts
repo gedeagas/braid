@@ -23,6 +23,8 @@ export interface TermTab {
   fitAddon: FitAddon
   resizeObserver: ResizeObserver | null
   commandObserver?: TerminalCommandObserver | null
+  /** The tab is on screen (see lib/ptyOutput/visibility). */
+  shown?: boolean
 }
 
 export interface CachedTerminals {

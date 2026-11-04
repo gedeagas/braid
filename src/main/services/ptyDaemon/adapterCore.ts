@@ -196,8 +196,13 @@ export abstract class DaemonAdapterCore implements IPtyService {
   }
 
   write(id: string, data: string): void {
-    this.delivery.setFocused(id)
+    this.delivery.noteInput(id)
     this.client.write(id, data)
+  }
+
+  /** Renderer shows (or hid) this terminal: visible ones are served first. */
+  setVisible(id: string, visible: boolean): void {
+    this.delivery.setVisible(id, visible)
   }
 
   // ── Output flow control (renderer side) ────────────────────────────────
