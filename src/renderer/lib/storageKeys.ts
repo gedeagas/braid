@@ -125,6 +125,8 @@ export const SK = {
   /** Prefix - append worktreeId for right-panel terminal tab IDs (daemon reattach). */
   rightTerminalTabsPrefix:    `${prefix}:rightTerminalTabs:`,
   rollbackHistory:            `${prefix}:rollbackHistory`,
+  agentHibernation:           `${prefix}:agentHibernation`,
+  agentHibernationMinutes:    `${prefix}:agentHibernationMinutes`,
   lastNewTabAction:           `${prefix}:lastNewTabAction`,
   webAppsEnabled:             `${prefix}:webAppsEnabled`,
   embeddedApps:               `${prefix}:embeddedApps`,

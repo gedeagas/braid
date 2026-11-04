@@ -35,6 +35,11 @@ export function SettingsExperimental() {
   const setExperimentalNoVirtualization = useUIStore((s) => s.setExperimentalNoVirtualization)
   const rollbackHistory = useUIStore((s) => s.rollbackHistory)
   const setRollbackHistory = useUIStore((s) => s.setRollbackHistory)
+  const agentHibernation = useUIStore((s) => s.agentHibernation)
+  const setAgentHibernation = useUIStore((s) => s.setAgentHibernation)
+  const hibernationMinutes = useUIStore((s) => s.agentHibernationMinutes)
+  const setHibernationMinutes = useUIStore((s) => s.setAgentHibernationMinutes)
+  const minuteStep = hibernationMinutes <= 5 ? 1 : 5
 
   const selected = FEATURES.find((f) => f.id === selectedId) ?? FEATURES[0]
 
@@ -105,6 +110,21 @@ export function SettingsExperimental() {
         <FormField label={t('general.rollbackHistory')} hint={t('general.rollbackHistoryHint')} horizontal>
           <Toggle checked={rollbackHistory} onChange={setRollbackHistory} />
         </FormField>
+
+        <FormField label={t('general.agentHibernation')} hint={t('general.agentHibernationHint')} horizontal>
+          <Toggle checked={agentHibernation} onChange={setAgentHibernation} />
+        </FormField>
+
+        {agentHibernation && (
+          <div className="settings-field settings-field--row">
+            <label className="settings-label">{t('general.agentHibernationMinutes')}</label>
+            <div className="settings-stepper">
+              <button className="btn" onClick={() => setHibernationMinutes(hibernationMinutes - minuteStep)}>−</button>
+              <span className="settings-stepper-value">{hibernationMinutes}</span>
+              <button className="btn" onClick={() => setHibernationMinutes(hibernationMinutes + (hibernationMinutes < 5 ? 1 : 5))}>+</button>
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   )

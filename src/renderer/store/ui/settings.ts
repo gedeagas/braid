@@ -24,6 +24,10 @@ const DEFAULT_DISCOVERY_PATTERNS = [
   '.sentryclirc', 'local.properties', '.claude*',
 ]
 
+function clampMinutes(minutes: number): number {
+  return Number.isFinite(minutes) ? Math.min(1440, Math.max(1, Math.round(minutes))) : 30
+}
+
 function loadDefaultModel(): ModelId {
   try {
     const raw = localStorage.getItem(SK.defaultModel)
@@ -97,6 +101,9 @@ export interface SettingsSlice {
   magicTrackpad: boolean
   bigTerminalEnabled: boolean
   rollbackHistory: boolean
+  /** Experimental: shut idle finished agents down and resume them on open. */
+  agentHibernation: boolean
+  agentHibernationMinutes: number
 
   // Power
   keepAwakeWhileAgentsRun: boolean
@@ -160,6 +167,8 @@ export interface SettingsSlice {
   setMagicTrackpad: (v: boolean) => void
   setBigTerminalEnabled: (v: boolean) => void
   setRollbackHistory: (v: boolean) => void
+  setAgentHibernation: (v: boolean) => void
+  setAgentHibernationMinutes: (minutes: number) => void
 }
 
 export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> = (set) => ({
@@ -234,6 +243,8 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   magicTrackpad: loadBool(SK.magicTrackpad, false),
   bigTerminalEnabled: loadBool(SK.bigTerminalEnabled, true),
   rollbackHistory: loadBool(SK.rollbackHistory, false),
+  agentHibernation: loadBool(SK.agentHibernation, false),
+  agentHibernationMinutes: clampMinutes(loadInt(SK.agentHibernationMinutes, 30)),
 
   keepAwakeWhileAgentsRun: loadBool(SK.keepAwakeWhileAgentsRun, false),
 
@@ -345,6 +356,12 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   setMagicTrackpad: (v) => { localStorage.setItem(SK.magicTrackpad, String(v)); set({ magicTrackpad: v }) },
   setBigTerminalEnabled: (v) => { localStorage.setItem(SK.bigTerminalEnabled, String(v)); set({ bigTerminalEnabled: v }) },
   setRollbackHistory: (v) => { localStorage.setItem(SK.rollbackHistory, String(v)); set({ rollbackHistory: v }) },
+  setAgentHibernation: (v) => { localStorage.setItem(SK.agentHibernation, String(v)); set({ agentHibernation: v }) },
+  setAgentHibernationMinutes: (v) => {
+    const minutes = clampMinutes(v)
+    localStorage.setItem(SK.agentHibernationMinutes, String(minutes))
+    set({ agentHibernationMinutes: minutes })
+  },
   setKeepAwakeWhileAgentsRun: (v) => { localStorage.setItem(SK.keepAwakeWhileAgentsRun, String(v)); set({ keepAwakeWhileAgentsRun: v }) },
   setMobileServerEnabled: (v) => { localStorage.setItem(SK.mobileServerEnabled, String(v)); set({ mobileServerEnabled: v }) },
   setMobileNgrokRegion: (v) => { localStorage.setItem(SK.mobileNgrokRegion, v); set({ mobileNgrokRegion: v }) },

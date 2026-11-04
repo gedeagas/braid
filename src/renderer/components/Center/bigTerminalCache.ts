@@ -7,15 +7,14 @@ import { getTerminalMinimumContrastRatio, getTerminalTheme } from '@/themes/term
 import { createTerminal, registerPtyFinder } from '@/components/Right/terminalCache'
 import { registerAgentStatusOsc, registerBraidOsc9 } from '@/lib/agentStatusOsc'
 import { registerTitleDetection } from '@/lib/agentTitleDetection'
-import { replayIntoTerminal, isReplaying, POST_REPLAY_MODE_RESET } from '@/lib/replayGuard'
+import { isReplaying } from '@/lib/replayGuard'
 import { isKnownAgentType, type AgentStatusPayload, type AgentStatusState, type AgentType } from '@/lib/agentStatus'
 import { createCompletionCoordinator, type CompletionCoordinator } from '@/lib/agentCompletionCoordinator'
 import { notifyTerminalStateChange, clearTerminalNotificationState } from '@/lib/terminalNotifications'
 import { isCodexUserInputPromptText, readTerminalBufferTail } from '@/lib/codexTerminalDetection'
-import { createTerminalCommandObserver, type TerminalCommandObserver } from '@/lib/terminalCommandRefresh'
+import type { TerminalCommandObserver } from '@/lib/terminalCommandRefresh'
 import { useUIStore } from '@/store/ui'
-import { shouldResumeAfterLoss, startAgentResume, terminalStatusLine } from '@/lib/agentResumeRestore'
-import { writeInitialAgentInput } from './bigTerminalInitialInput'
+import { connectBigTerminal } from './bigTerminalConnect'
 import { useToastsStore } from '@/store/toasts'
 
 export interface BigTermEntry {
@@ -53,6 +52,9 @@ export interface BigTermEntry {
   mobileInputLocked: boolean
   /** Invoked when the desktop types while locked - typing = desktop take-back. */
   onDesktopInputWhileLocked: (() => void) | null
+  /** Last keystroke / last rendered output (ms), for idle hibernation. */
+  lastInputAt: number
+  lastOutputAt: number
 }
 
 const cache = new Map<string, BigTermEntry>()
@@ -220,9 +222,13 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
     spawnPromise: Promise.resolve(),
     disposed: false,
     mobileInputLocked: false,
-    onDesktopInputWhileLocked: null
+    onDesktopInputWhileLocked: null,
+    lastInputAt: Date.now(),
+    lastOutputAt: Date.now(),
   }
   cache.set(terminalId, entry)
+  term.onData(() => { entry.lastInputAt = Date.now() })
+  term.onWriteParsed(() => { entry.lastOutputAt = Date.now() })
 
   // Register agent status tracking on ALL terminals.
   // OSC 9999: handles any agent that emits custom hook sequences.
@@ -269,114 +275,7 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
 
   if (expectedAgentType === 'codex') ensureCodexPromptScanListener(entry)
 
-  entry.spawnPromise = (async () => {
-    let hasScrollback = false
-
-    // Attempt warm reattach to daemon session first
-    let reattached = false
-    try {
-      const result = await ipc.pty.reattach(terminalId)
-      if (result && result.snapshot) {
-        reattached = true
-        hasScrollback = true
-        entry.ptyId = result.sessionId
-        const commandObserver = createTerminalCommandObserver(worktreePath, { refreshWorktrees: true })
-        entry.commandObserver = commandObserver
-        // A cold-restored session is a fresh shell the new daemon re-created
-        // from a checkpoint after the old one died. Claim it (one-shot, so a
-        // second window or the phone can't also relaunch) before resuming.
-        const claimed = result.coldRestored === true && await ipc.pty.consumeColdRestore(terminalId)
-        replayIntoTerminal(terminalId, term, result.snapshot)
-        replayIntoTerminal(terminalId, term, '\r\n' + terminalStatusLine(claimed ? 'terminalRestoreHistory' : 'terminalRestoreReconnected'))
-        replayIntoTerminal(terminalId, term, POST_REPLAY_MODE_RESET)
-        ipc.pty.registerBigTerminal(result.sessionId, terminalId)
-        if (claimed && !shouldResumeAfterLoss(result.foregroundAtLoss)) {
-          ipc.pty.forgetAgentResume(terminalId)
-          useUIStore.getState().clearRestoredBigTerminalStatus(terminalId)
-        } else if (claimed && !entry.disposed) {
-          const ptyId = result.sessionId
-          void startAgentResume({
-            terminalId, worktreePath, rows: term.rows,
-            paint: (d) => replayIntoTerminal(terminalId, term, d),
-            run: (c) => { commandObserver.accept(c); ipc.pty.write(ptyId, c) },
-            isAlive: () => !entry.disposed && entry.ptyId === ptyId,
-          }).then((started) => { if (!started) useUIStore.getState().clearRestoredBigTerminalStatus(terminalId) })
-        }
-        term.onData((d) => {
-          if (isReplaying(terminalId)) return
-          // Phone owns input: don't forward to the PTY; typing is a take-back.
-          if (entry.mobileInputLocked) { entry.onDesktopInputWhileLocked?.(); return }
-          commandObserver.accept(d)
-          if (entry.ptyId && !entry.disposed) ipc.pty.write(entry.ptyId, d)
-        })
-      }
-    } catch {
-      // Reattach not available or failed - fall through to normal spawn
-    }
-
-    if (reattached || entry.disposed) return
-
-    // Fall back to scrollback file replay + fresh spawn
-    try {
-      const scrollback = await ipc.pty.readScrollback(terminalId)
-      if (scrollback && scrollback.length > 0) {
-        hasScrollback = true
-        // Replay under guard to suppress xterm auto-replies (DA1, DECRQM, etc.)
-        replayIntoTerminal(terminalId, term, scrollback)
-        replayIntoTerminal(terminalId, term, '\r\n' + terminalStatusLine('terminalRestoreHistory'))
-        // Clear stale terminal modes (cursor, mouse, focus, bracketed paste)
-        replayIntoTerminal(terminalId, term, POST_REPLAY_MODE_RESET)
-      }
-    } catch {
-      // ignore: best-effort replay
-    }
-
-    // Bail out if disposed while scrollback was loading
-    if (entry.disposed) return
-
-    try {
-      // Pass BRAID_TERMINAL_ID so the hook script can identify this terminal
-      // when POSTing to the loopback HTTP server.
-      const ptyId = await ipc.pty.spawn(worktreePath, { BRAID_TERMINAL_ID: terminalId })
-      // If disposed while spawn was in flight, kill the orphaned PTY immediately
-      if (entry.disposed) {
-        try { ipc.pty.kill(ptyId) } catch {}
-        return
-      }
-      entry.ptyId = ptyId
-      const commandObserver = createTerminalCommandObserver(worktreePath, { refreshWorktrees: true })
-      entry.commandObserver = commandObserver
-      ipc.pty.registerBigTerminal(ptyId, terminalId)
-      term.onData((d) => {
-        // Suppress xterm auto-replies during scrollback replay
-        if (isReplaying(terminalId)) return
-        // Phone owns input: don't forward to the PTY; typing is a take-back.
-        if (entry.mobileInputLocked) { entry.onDesktopInputWhileLocked?.(); return }
-        commandObserver.accept(d)
-        if (entry.ptyId && !entry.disposed) ipc.pty.write(entry.ptyId, d)
-      })
-      // Auto-run initialCommand only on fresh terminals (no restored scrollback)
-      if (initialCommand && !hasScrollback) {
-        commandObserver.accept(initialCommand + '\n')
-        ipc.pty.write(ptyId, initialCommand + '\n')
-        if (initialInput) void writeInitialAgentInput(entry, ptyId, initialInput)
-      } else if (!initialCommand) {
-        // The daemon session is gone and its checkpoint too (daemon wiped or
-        // unavailable). Relaunch the agent conversation that was running here
-        // instead of leaving a dead shell under the replayed history.
-        void startAgentResume({
-          terminalId, worktreePath, rows: term.rows,
-          paint: (d) => replayIntoTerminal(terminalId, term, d),
-          run: (c) => { commandObserver.accept(c); ipc.pty.write(ptyId, c) },
-          isAlive: () => !entry.disposed && entry.ptyId === ptyId,
-        }).then((started) => { if (!started) useUIStore.getState().clearRestoredBigTerminalStatus(terminalId) })
-      }
-    } catch (err) {
-      if (!entry.disposed) {
-        term.write(`\r\n\x1b[31m[failed to spawn pty]\x1b[0m\r\n`)
-      }
-    }
-  })()
+  entry.spawnPromise = connectBigTerminal(entry, { initialCommand, initialInput })
 
   return entry
 }
@@ -412,6 +311,40 @@ export function disposeBigTerminal(terminalId: string): void {
     try { ipc.pty.deleteScrollback(terminalId) } catch {}
     return
   }
+  teardown(entry)
+  try { ipc.pty.deleteScrollback(terminalId) } catch {}
+  // Clear ephemeral agent status from store
+  try { useUIStore.getState().clearBigTerminalStatus(terminalId) } catch {}
+  // Dismiss any toasts and clear dedup state for this terminal
+  try { useToastsStore.getState().dismissByTerminal(terminalId) } catch {}
+  clearTerminalNotificationState(terminalId)
+}
+
+/** Snapshot of a cached terminal, for the idle hibernation sweep. */
+export function listBigTerminalActivity(): Array<{ terminalId: string; lastInputAt: number; lastOutputAt: number; mobileInputLocked: boolean }> {
+  return [...cache.values()].map((e) => ({
+    terminalId: e.terminalId, lastInputAt: e.lastInputAt, lastOutputAt: e.lastOutputAt, mobileInputLocked: e.mobileInputLocked,
+  }))
+}
+
+/**
+ * Shut an idle agent terminal down to free its processes, keeping everything
+ * needed to bring it back: the tab, its saved scrollback (written by main on
+ * kill) and the agent's saved session. Opening the tab again replays the
+ * history and resumes the agent through the normal cold path.
+ */
+export function hibernateBigTerminal(terminalId: string, agentType?: AgentType): boolean {
+  const entry = cache.get(terminalId)
+  if (!entry || !entry.ptyId) return false
+  // Leave the cache first so the exit event finds no terminal to print into.
+  teardown(entry)
+  try { useUIStore.getState().clearBigTerminalStatus(terminalId) } catch {}
+  try { useUIStore.getState().seedRestoredBigTerminalStatus([{ terminalId, agentType }]) } catch {}
+  return true
+}
+
+function teardown(entry: BigTermEntry): void {
+  const terminalId = entry.terminalId
   entry.disposed = true
   try { entry.resizeObserver?.disconnect() } catch {}
   if (entry.pendingFitRafId !== null) {
@@ -432,14 +365,8 @@ export function disposeBigTerminal(terminalId: string): void {
   if (entry.ptyId) {
     try { ipc.pty.kill(entry.ptyId) } catch {}
   }
-  try { entry.term.dispose() } catch {}
   cache.delete(terminalId)
-  try { ipc.pty.deleteScrollback(terminalId) } catch {}
-  // Clear ephemeral agent status from store
-  try { useUIStore.getState().clearBigTerminalStatus(terminalId) } catch {}
-  // Dismiss any toasts and clear dedup state for this terminal
-  try { useToastsStore.getState().dismissByTerminal(terminalId) } catch {}
-  clearTerminalNotificationState(terminalId)
+  try { entry.term.dispose() } catch {}
 }
 
 /** Dispose many at once (e.g. on worktree removal). */
