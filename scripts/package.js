@@ -24,7 +24,8 @@
 
 const path = require('path')
 const fs = require('fs')
-const { execSync } = require('child_process')
+const { execSync, execFileSync } = require('child_process')
+const { findEvsPython } = require('./lib/evsPython')
 
 const ROOT = path.resolve(__dirname, '..')
 
@@ -221,9 +222,17 @@ function createIgnore(arch) {
 
 function vmpSign(appOutDir) {
   step('vmp', `Signing at: ${appOutDir}`)
+  const python = findEvsPython()
+  if (!python) {
+    throw new Error(
+      'castlabs-evs not found in any Python. Run `pip3 install castlabs-evs` and ' +
+        '`python3 -m castlabs_evs.account login`, or set BRAID_EVS_PYTHON.',
+    )
+  }
+  log(`Using ${python}`)
   const stop = timer('VMP signing')
   try {
-    execSync(`python3 -m castlabs_evs.vmp sign-pkg "${appOutDir}"`, { stdio: 'inherit' })
+    execFileSync(python, ['-m', 'castlabs_evs.vmp', 'sign-pkg', appOutDir], { stdio: 'inherit' })
     const elapsed = stop()
     log(`VMP signing complete in ${elapsed}s`)
   } catch (err) {

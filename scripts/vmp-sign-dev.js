@@ -1,5 +1,6 @@
-const { execSync } = require('child_process')
+const { execFileSync } = require('child_process')
 const path = require('path')
+const { findEvsPython } = require('./lib/evsPython')
 
 /**
  * VMP-sign the local Electron.app so Widevine DRM works in dev mode.
@@ -8,7 +9,9 @@ const path = require('path')
 const distDir = path.join(__dirname, '../node_modules/electron/dist')
 
 try {
-  execSync(`python3 -m castlabs_evs.vmp sign-pkg "${distDir}"`, { stdio: 'inherit' })
+  const python = findEvsPython()
+  if (!python) throw new Error('castlabs-evs not found')
+  execFileSync(python, ['-m', 'castlabs_evs.vmp', 'sign-pkg', distDir], { stdio: 'inherit' })
   console.log('[VMP] Dev Electron signed for Widevine.')
 } catch {
   console.warn('[VMP] Dev signing skipped — run `pip3 install castlabs-evs` and `python3 -m castlabs_evs.account login` to enable Widevine in dev mode.')
