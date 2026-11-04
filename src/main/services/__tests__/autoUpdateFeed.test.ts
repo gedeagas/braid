@@ -2,13 +2,19 @@ import { describe, expect, it } from 'vitest'
 import { buildUpdateFeedUrl, parseUpdateFeedRelease } from '../autoUpdateFeed'
 
 describe('auto-update feed helpers', () => {
-  it('builds an architecture-specific Electron update service URL', () => {
-    expect(buildUpdateFeedUrl('gedeagas', 'braid', 'darwin', 'arm64', '26.3.1')).toBe(
-      'https://update.electronjs.org/gedeagas/braid/darwin-arm64/26.3.1'
+  it('builds a Hazel URL for Apple Silicon', () => {
+    expect(buildUpdateFeedUrl('darwin', 'arm64', '26.3.1')).toBe(
+      'https://hazel-phi-indol.vercel.app/update/darwin_arm64/26.3.1'
     )
   })
 
-  it('parses a release returned by update.electronjs.org', () => {
+  it('builds a Hazel URL for Intel Macs', () => {
+    expect(buildUpdateFeedUrl('darwin', 'x64', '26.3.1')).toBe(
+      'https://hazel-phi-indol.vercel.app/update/darwin/26.3.1'
+    )
+  })
+
+  it('parses a release returned by Hazel', () => {
     expect(parseUpdateFeedRelease({
       name: 'v26.3.2',
       notes: '## Fixed\n\n- Update checks',

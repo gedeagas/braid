@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Auto-update service - discovers releases through update.electronjs.org and
+// Auto-update service - discovers releases through a self-hosted Hazel server and
 // delegates download/install to Electron's built-in Squirrel.Mac updater.
 // ---------------------------------------------------------------------------
 
@@ -14,8 +14,6 @@ import {
 const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000
 const CHECK_TIMEOUT_MS = 20_000
 const INITIAL_CHECK_DELAY_MS = 10_000
-const REPOSITORY_OWNER = 'gedeagas'
-const REPOSITORY_NAME = 'braid'
 
 let checkTimer: ReturnType<typeof setTimeout> | null = null
 let checkInterval: ReturnType<typeof setInterval> | null = null
@@ -28,13 +26,7 @@ let downloadingVersion: string | null = null
 let activeWindow: BrowserWindow | null = null
 
 function getFeedUrl(): string {
-  return buildUpdateFeedUrl(
-    REPOSITORY_OWNER,
-    REPOSITORY_NAME,
-    process.platform,
-    process.arch,
-    app.getVersion()
-  )
+  return buildUpdateFeedUrl(process.platform, process.arch, app.getVersion())
 }
 
 function getActiveWindow(): BrowserWindow | null {

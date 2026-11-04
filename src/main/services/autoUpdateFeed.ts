@@ -1,4 +1,5 @@
-const UPDATE_SERVICE_URL = 'https://update.electronjs.org'
+// Self-hosted Hazel instance (vercel/hazel) that proxies gedeagas/braid GitHub Releases.
+const UPDATE_SERVICE_URL = 'https://hazel-phi-indol.vercel.app'
 const SEMVER_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/
 
 export interface UpdateFeedRelease {
@@ -6,16 +7,18 @@ export interface UpdateFeedRelease {
   releaseNotes: string
 }
 
+/** Hazel names Apple Silicon `darwin_arm64`; every other target uses the bare platform. */
+function toHazelPlatform(platform: NodeJS.Platform, arch: string): string {
+  return platform === 'darwin' && arch === 'arm64' ? 'darwin_arm64' : platform
+}
+
 export function buildUpdateFeedUrl(
-  owner: string,
-  repo: string,
   platform: NodeJS.Platform,
   arch: string,
   version: string
 ): string {
-  const repository = `${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`
-  const target = `${encodeURIComponent(platform)}-${encodeURIComponent(arch)}`
-  return `${UPDATE_SERVICE_URL}/${repository}/${target}/${encodeURIComponent(version)}`
+  const target = encodeURIComponent(toHazelPlatform(platform, arch))
+  return `${UPDATE_SERVICE_URL}/update/${target}/${encodeURIComponent(version)}`
 }
 
 export function parseUpdateFeedRelease(value: unknown): UpdateFeedRelease {
