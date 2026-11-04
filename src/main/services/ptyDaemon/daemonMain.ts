@@ -11,7 +11,7 @@ import { join } from 'path'
 import { SessionHost } from './sessionHost'
 import { SocketServer } from './socketServer'
 import { writePidFile, removePidFile } from './lifecycle'
-import { startCheckpointing, stopCheckpointing, loadCheckpoints, deleteCheckpoint, shouldDropCheckpointOnExit } from './checkpoint'
+import { startCheckpointing, stopCheckpointing, loadCheckpoints, deleteCheckpoint, retainCheckpoint, shouldDropCheckpointOnExit } from './checkpoint'
 import { IDLE_SHUTDOWN_MS, SOCKET_PATH, DAEMON_DIR } from './protocol'
 import { defaultShellPath } from '../../lib/shell'
 
@@ -44,6 +44,7 @@ async function main(): Promise<void> {
   // crash in the next 5s would skip.
   host.on('exit', (sessionId, _exitCode, clean) => {
     if (shouldDropCheckpointOnExit({ clean, shuttingDown })) deleteCheckpoint(sessionId)
+    else if (!clean) retainCheckpoint(sessionId)
   })
 
   let idleTimer: ReturnType<typeof setTimeout> | null = null

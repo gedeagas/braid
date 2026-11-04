@@ -334,6 +334,8 @@ app.whenReady().then(async () => {
 
   // Start the agent hook HTTP server, then install hooks for all supported agents.
   // The server must be running before hooks are installed so the port is known.
+  // Before the hook server, so no hook-reported session is missed.
+  startAgentSessionTracking()
   startAgentHookServer()
     .then(() => ensureAllAgentHooks())
     .catch((err) => console.warn('[agentHookServer] Failed to start:', err))

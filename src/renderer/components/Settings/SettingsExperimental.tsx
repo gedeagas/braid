@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/store/ui'
 import { Toggle } from '@/components/shared/Toggle'
-import { Card, FormField } from '@/components/ui'
+import { Button, Card, FormField } from '@/components/ui'
 import { SwipePreview } from './SwipePreview'
 
 interface Feature {
@@ -119,9 +119,9 @@ export function SettingsExperimental() {
           <div className="settings-field settings-field--row">
             <label className="settings-label">{t('general.agentHibernationMinutes')}</label>
             <div className="settings-stepper">
-              <button className="btn" onClick={() => setHibernationMinutes(hibernationMinutes - minuteStep)}>−</button>
+              <Button onClick={() => setHibernationMinutes(hibernationMinutes - minuteStep)}>−</Button>
               <span className="settings-stepper-value">{hibernationMinutes}</span>
-              <button className="btn" onClick={() => setHibernationMinutes(hibernationMinutes + (hibernationMinutes < 5 ? 1 : 5))}>+</button>
+              <Button onClick={() => setHibernationMinutes(hibernationMinutes + (hibernationMinutes < 5 ? 1 : 5))}>+</Button>
             </div>
           </div>
         )}

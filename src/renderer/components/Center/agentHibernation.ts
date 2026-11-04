@@ -5,15 +5,12 @@
 import * as ipc from '@/lib/ipc'
 import { isKnownAgentType, type AgentType } from '@/lib/agentStatus'
 import { useUIStore } from '@/store/ui'
+import { clampHibernationMinutes } from '@/lib/agentHibernationConfig'
 import { hibernateBigTerminal, listBigTerminalActivity } from './bigTerminalCache'
 
 const SWEEP_INTERVAL_MS = 60_000
-export const DEFAULT_HIBERNATION_MINUTES = 30
 
-export function clampHibernationMinutes(minutes: number): number {
-  if (!Number.isFinite(minutes)) return DEFAULT_HIBERNATION_MINUTES
-  return Math.min(1440, Math.max(1, Math.round(minutes)))
-}
+export { clampHibernationMinutes } from '@/lib/agentHibernationConfig'
 
 export interface HibernationInput {
   now: number

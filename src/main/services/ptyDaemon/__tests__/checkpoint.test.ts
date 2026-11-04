@@ -17,7 +17,7 @@ vi.mock('../protocol', async () => {
 })
 
 // Must import AFTER the mock is set up
-const { flushCheckpoints, loadCheckpoints, deleteCheckpoint } = await import('../checkpoint')
+const { flushCheckpoints, loadCheckpoints, deleteCheckpoint, retainCheckpoint } = await import('../checkpoint')
 
 // Minimal mock SessionHost
 function createMockHost(checkpoints: CheckpointData[]) {
@@ -133,5 +133,16 @@ describe('checkpoint', () => {
     deleteCheckpoint('f')
     flushCheckpoints(createMockHost([cp]))
     expect(existsSync(path)).toBe(true)
+  })
+
+  it('keeps the checkpoint of a signal-killed session through later flushes, until deleted', () => {
+    const cp: CheckpointData = { sessionId: 'bt-9-9', cwd: '/tmp', cols: 80, rows: 24, scrollback: 'x', createdAt: 1, checkpointedAt: 1 }
+    flushCheckpoints(createMockHost([cp]))
+    retainCheckpoint('bt-9-9')
+    flushCheckpoints(createMockHost([]))
+    expect(existsSync(join(TEST_DIR, 'bt-9-9.json'))).toBe(true)
+    deleteCheckpoint('bt-9-9')
+    flushCheckpoints(createMockHost([]))
+    expect(existsSync(join(TEST_DIR, 'bt-9-9.json'))).toBe(false)
   })
 })

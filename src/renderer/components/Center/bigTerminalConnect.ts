@@ -110,10 +110,12 @@ export async function connectBigTerminal(entry: BigTermEntry, opts: ConnectOptio
       commandObserver.accept(initialCommand + '\n')
       ipc.pty.write(ptyId, initialCommand + '\n')
       if (initialInput) void writeInitialAgentInput(entry, ptyId, initialInput)
-    } else if (!initialCommand) {
-      // The daemon session is gone and its checkpoint too (daemon wiped or
-      // unavailable). Relaunch the agent conversation that was running here
-      // instead of leaving a dead shell under the replayed history.
+    } else {
+      // The daemon session is gone and its checkpoint too (hibernated, daemon
+      // wiped or unavailable). Relaunch the agent conversation that was
+      // running here instead of leaving a dead shell under the replayed
+      // history. A shell the user exited has no saved session (main forgets
+      // it on a self exit), so nothing is relaunched there.
       void startAgentResume({
         terminalId, worktreePath, rows: term.rows,
         paint: (d) => replayIntoTerminal(terminalId, term, d),

@@ -19,6 +19,18 @@ let intervalHandle: ReturnType<typeof setInterval> | null = null
  */
 const lastWritten = new Map<string, string>()
 
+/**
+ * Sessions killed by a signal while this daemon kept running. Their
+ * checkpoint must survive the stale-file cleanup so the next daemon can
+ * restore them (see shouldDropCheckpointOnExit).
+ */
+const retained = new Set<string>()
+
+/** Keep a dead session's checkpoint on disk for the next daemon start. */
+export function retainCheckpoint(sessionId: string): void {
+  retained.add(safeFileName(sessionId))
+}
+
 function signature(cp: CheckpointData): string {
   return JSON.stringify([cp.scrollback.length, cp.lastOutputAt, cp.cols, cp.rows, cp.cwd, cp.metadata, cp.env, cp.foreground])
 }
@@ -75,7 +87,7 @@ export function flushCheckpoints(host: SessionHost, opts: { force?: boolean } = 
     for (const file of files) {
       if (!file.endsWith('.json')) continue
       const sessionId = file.replace(/\.json$/, '')
-      if (!activeIds.has(sessionId)) {
+      if (!activeIds.has(sessionId) && !retained.has(safeFileName(sessionId))) {
         try {
           unlinkSync(join(CHECKPOINT_DIR, file))
         } catch {
@@ -136,6 +148,7 @@ export function loadCheckpoints(): CheckpointData[] {
 /** Delete a specific checkpoint file. */
 export function deleteCheckpoint(sessionId: string): void {
   lastWritten.delete(sessionId)
+  retained.delete(safeFileName(sessionId))
   try {
     unlinkSync(join(CHECKPOINT_DIR, `${safeFileName(sessionId)}.json`))
   } catch {

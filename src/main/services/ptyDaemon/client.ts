@@ -21,7 +21,7 @@ interface PendingRequest {
 
 export interface DaemonClientEvents {
   data: [sessionId: string, data: string]
-  exit: [sessionId: string, exitCode: number]
+  exit: [sessionId: string, exitCode: number, selfExit: boolean]
   connected: []
   disconnected: []
 }
@@ -244,7 +244,7 @@ export class DaemonClient extends EventEmitter<DaemonClientEvents> {
       } else if (msg.type === 'exit') {
         const event = msg as ExitEvent
         this.attachedSessions.delete(event.sessionId)
-        this.emit('exit', event.sessionId, event.exitCode)
+        this.emit('exit', event.sessionId, event.exitCode, event.selfExit === true)
       }
     }
   }

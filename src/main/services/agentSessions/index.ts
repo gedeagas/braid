@@ -5,6 +5,7 @@ import { app, ipcMain } from 'electron'
 import { homedir } from 'os'
 import { join } from 'path'
 import { onHookSessionUpdate, onHookStatus } from '../agentHookServer'
+import { ptyService } from '../pty'
 import { AgentSessionStore } from './store'
 import { verifyAgentSession } from './verify'
 import type { AgentResumeClaim } from '../../../shared/agent-resume'
@@ -39,6 +40,10 @@ export function startAgentSessionTracking(): void {
   onHookSessionUpdate((update) => agentSessionStore.applySessionUpdate(update))
   onHookStatus((status) => agentSessionStore.noteState(status.terminalId, status.state))
   app.on('before-quit', () => agentSessionStore.markQuitAndFlush())
+  // A shell the user exited must not relaunch its agent later.
+  ptyService.onSessionEnded?.((sessionId, selfExit) => {
+    if (selfExit) agentSessionStore.forget(sessionId)
+  })
 
   ipcMain.handle('agentSessions:claimResume', (_e, terminalId: unknown) =>
     typeof terminalId === 'string' ? claimAndVerify(terminalId) : null)

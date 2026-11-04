@@ -167,6 +167,8 @@ export interface ExitEvent {
   type: 'exit'
   sessionId: string
   exitCode: number
+  /** The shell ended on its own (user typed `exit`). Absent from older daemons. */
+  selfExit?: boolean
 }
 
 export type DaemonEvent = DataEvent | ExitEvent

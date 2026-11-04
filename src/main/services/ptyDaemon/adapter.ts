@@ -63,6 +63,8 @@ export class PtyDaemonAdapter implements IPtyService {
   private sizeBySession = new Map<string, { cols: number; rows: number }>()
   /** Serializes concurrent ensureDaemon() calls to prevent spawning duplicate daemons. */
   private pendingEnsure: Promise<void> | null = null
+  /** Notified when any daemon session ends (see onSessionEnded). */
+  private sessionEndedListeners = new Set<(sessionId: string, selfExit: boolean) => void>()
   /** Stops respawning a daemon that keeps dying on start. */
   private spawnThrottle = new RespawnThrottle()
 
@@ -80,7 +82,10 @@ export class PtyDaemonAdapter implements IPtyService {
       for (const cb of this.dataListeners.get(sessionId) ?? []) cb(sessionId, data)
     })
 
-    this.client.on('exit', (sessionId, exitCode) => {
+    this.client.on('exit', (sessionId, exitCode, selfExit) => {
+      for (const cb of this.sessionEndedListeners) {
+        try { cb(sessionId, selfExit) } catch { /* listeners must not break exit handling */ }
+      }
       // Persist scrollback for big terminals before cleaning up (matches legacy behavior)
       const terminalId = this.bigTerminalBySession.get(sessionId)
       const buffer = this.buffers.get(sessionId)
@@ -531,6 +536,12 @@ export class PtyDaemonAdapter implements IPtyService {
     } catch {
       return null
     }
+  }
+
+  /** Any session ended. `selfExit`: the shell exited on its own (user typed `exit`). */
+  onSessionEnded(cb: (sessionId: string, selfExit: boolean) => void): () => void {
+    this.sessionEndedListeners.add(cb)
+    return () => { this.sessionEndedListeners.delete(cb) }
   }
 
   /** One-shot claim of a cold-restored session (see SessionHost.consumeColdRestore). */

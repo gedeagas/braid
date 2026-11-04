@@ -89,7 +89,7 @@ export interface SessionHostEvents {
    * `clean` is true when the shell ended by itself (user typed `exit`) or a
    * client asked for the kill, false when a signal killed it (logout, reboot).
    */
-  exit: (sessionId: string, exitCode: number, clean: boolean) => void
+  exit: (sessionId: string, exitCode: number, clean: boolean, selfExit: boolean) => void
 }
 
 type EventKey = keyof SessionHostEvents
@@ -260,7 +260,9 @@ export class SessionHost {
 
     entry.pty.onExit(({ exitCode, signal }: { exitCode: number; signal?: number }) => {
       this.sessions.delete(sessionId)
-      this.emit('exit', sessionId, exitCode, entry.killRequested || !signal)
+      // selfExit: the shell ended on its own (user typed `exit`), not by a
+      // signal and not by a client kill (tab close, hibernation).
+      this.emit('exit', sessionId, exitCode, entry.killRequested || !signal, !signal && !entry.killRequested)
     })
 
     this.sessions.set(sessionId, entry)

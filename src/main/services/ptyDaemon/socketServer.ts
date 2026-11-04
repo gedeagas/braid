@@ -60,8 +60,8 @@ export class SocketServer {
     this.host.on('data', (sessionId, data) => {
       this.broadcast({ type: 'data', sessionId, data })
     })
-    this.host.on('exit', (sessionId, exitCode) => {
-      this.broadcast({ type: 'exit', sessionId, exitCode })
+    this.host.on('exit', (sessionId, exitCode, _clean, selfExit) => {
+      this.broadcast({ type: 'exit', sessionId, exitCode, selfExit })
       // Remove session from all clients' attached sets
       for (const client of this.clients) {
         client.attachedSessions.delete(sessionId)

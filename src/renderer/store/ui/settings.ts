@@ -4,6 +4,7 @@ import type { UIState } from './types'
 import { SK } from '@/lib/storageKeys'
 import { DEFAULT_EFFORT, EFFORT_LEVELS } from '@/lib/constants'
 import { loadStr, loadBool, loadInt, loadFloat } from './helpers'
+import { clampHibernationMinutes, DEFAULT_HIBERNATION_MINUTES } from '@/lib/agentHibernationConfig'
 
 const VALID_MODEL_IDS: readonly string[] = ['claude-fable-5', 'claude-opus-4-8', 'claude-sonnet-5', 'claude-opus-4-7', 'claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5-20251001']
 const VALID_EFFORT_LEVELS = new Set<string>(EFFORT_LEVELS.map((l) => l.id))
@@ -23,10 +24,6 @@ const DEFAULT_DISCOVERY_PATTERNS = [
   'google-services.json', 'GoogleService-Info.plist',
   '.sentryclirc', 'local.properties', '.claude*',
 ]
-
-function clampMinutes(minutes: number): number {
-  return Number.isFinite(minutes) ? Math.min(1440, Math.max(1, Math.round(minutes))) : 30
-}
 
 function loadDefaultModel(): ModelId {
   try {
@@ -244,7 +241,7 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   bigTerminalEnabled: loadBool(SK.bigTerminalEnabled, true),
   rollbackHistory: loadBool(SK.rollbackHistory, false),
   agentHibernation: loadBool(SK.agentHibernation, false),
-  agentHibernationMinutes: clampMinutes(loadInt(SK.agentHibernationMinutes, 30)),
+  agentHibernationMinutes: clampHibernationMinutes(loadInt(SK.agentHibernationMinutes, DEFAULT_HIBERNATION_MINUTES)),
 
   keepAwakeWhileAgentsRun: loadBool(SK.keepAwakeWhileAgentsRun, false),
 
@@ -358,7 +355,7 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   setRollbackHistory: (v) => { localStorage.setItem(SK.rollbackHistory, String(v)); set({ rollbackHistory: v }) },
   setAgentHibernation: (v) => { localStorage.setItem(SK.agentHibernation, String(v)); set({ agentHibernation: v }) },
   setAgentHibernationMinutes: (v) => {
-    const minutes = clampMinutes(v)
+    const minutes = clampHibernationMinutes(v)
     localStorage.setItem(SK.agentHibernationMinutes, String(minutes))
     set({ agentHibernationMinutes: minutes })
   },

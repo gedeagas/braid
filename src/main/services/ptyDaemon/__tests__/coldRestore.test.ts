@@ -109,6 +109,18 @@ describe('cold restore in the session host', () => {
     expect(exits).toEqual([['a', 0, true], ['b', 0, false]])
   })
 
+  it('marks only a shell that ended on its own as a self exit (its agent must not come back)', async () => {
+    const selfExits: Array<[string, boolean]> = []
+    host.on('exit', (id, _code, _clean, selfExit) => { selfExits.push([id, selfExit]) })
+    await host.spawn('typed-exit', '/repo', 80, 24, '/bin/zsh')
+    await host.spawn('signalled', '/repo', 80, 24, '/bin/zsh')
+    await host.spawn('closed', '/repo', 80, 24, '/bin/zsh')
+    spawned[0].pty._emitExit(0)
+    spawned[1].pty._emitExit(0, 1)
+    host.kill('closed')
+    expect(selfExits).toEqual([['typed-exit', true], ['signalled', false], ['closed', false]])
+  })
+
   it('treats a kill the client asked for (tab closed) as a clean end', async () => {
     const exits: boolean[] = []
     host.on('exit', (_id, _code, clean) => { exits.push(clean) })
