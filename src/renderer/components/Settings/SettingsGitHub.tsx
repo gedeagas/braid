@@ -153,7 +153,7 @@ export function SettingsGitHub() {
               </Button>
             )}
             <Button size="sm" onClick={openDocs}>
-              {t('github.docs')} <IconExternalLink size={10} />
+              {t('github.docs')} <IconExternalLink size={12} />
             </Button>
           </div>
         )}

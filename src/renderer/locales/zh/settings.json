@@ -69,6 +69,9 @@
   "appearance": {
     "uiZoom": "界面缩放",
     "uiZoomReset": "重置",
+    "chatFontSize": "聊天字体大小",
+    "chatFontSizeDecrease": "减小聊天字体",
+    "chatFontSizeIncrease": "增大聊天字体",
     "builtinThemes": "内置主题",
     "customThemes": "自定义主题",
     "groupDefault": "默认",

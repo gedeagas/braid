@@ -16,6 +16,7 @@ export const SK = {
   activeThemeId:              `${prefix}:activeThemeId`,
   customThemes:               `${prefix}:customThemes`,
   uiZoom:                     `${prefix}:uiZoom`,
+  chatFontSize:               `${prefix}:chatFontSize`,
 
   // ── Layout ─────────────────────────────────────────────────────────────
   expandedProjects:           `${prefix}:expandedProjects`,

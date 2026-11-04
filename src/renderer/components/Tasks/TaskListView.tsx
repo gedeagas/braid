@@ -160,7 +160,7 @@ export function TaskListView(props: TaskListViewProps) {
             aria-autocomplete="list"
             aria-activedescendant={showSuggestions ? `task-filter-suggestion-${highlightedSuggestion}` : undefined}
           />
-          {query && <button className="pr-search-clear" onClick={handleClearQuery} aria-label={t('clearSearch')}><IconClose size={8} /></button>}
+          {query && <button className="pr-search-clear" onClick={handleClearQuery} aria-label={t('clearSearch')}><IconClose size={12} /></button>}
           {showSuggestions && (
             <div className="task-filter-suggestions" id="task-filter-suggestions" role="listbox" aria-label={t('filters.suggestionsAria')}>
               {filterSuggestions.map((suggestion, index) => (
@@ -196,13 +196,13 @@ export function TaskListView(props: TaskListViewProps) {
         {activeFilterPills.map((pill) => (
           <button key={`${pill.key}:${pill.value}`} className="task-filter-pill" onClick={pill.clear} aria-label={t('filters.clearFilterAria', { filter: pill.label })}>
             <span>{pill.label}:{pill.value}</span>
-            <IconClose size={8} />
+            <IconClose size={12} />
           </button>
         ))}
         {repoFilters.length > 0 && (
           <button className="task-filter-pill" onClick={handleClearRepoFilters} aria-label={t('filters.clearRepositoryFilter')}>
             <span>repo:{repoFilters.join(', ')}</span>
-            <IconClose size={8} />
+            <IconClose size={12} />
           </button>
         )}
         {errorCount > 0 && <Badge variant="warning" size="sm">{t('repoFailureCount', { count: errorCount })}</Badge>}
@@ -275,7 +275,7 @@ function TaskTable({ rows, loading, tableWrapClass, creatingWorktreeForRowId, ha
               <td className="pr-col-title" data-label={t('table.title')}>
                 <div className="pr-title-line" title={row.item.title}>{row.item.title}</div>
                 <div className="pr-context-line" title={[row.projectName, row.matchingBranch].filter(Boolean).join(' / ')}>
-                  <IconGitBranch size={11} />
+                  <IconGitBranch size={12} />
                   <span className="pr-context-repo">{row.projectName}</span>
                   {row.matchingBranch && <span className="pr-context-branch">{row.matchingBranch}</span>}
                 </div>
@@ -322,7 +322,7 @@ function TaskTable({ rows, loading, tableWrapClass, creatingWorktreeForRowId, ha
                   {row.item.url && (
                     <button className="pr-open-github" onClick={(event) => handleOpenGitHub(event, row.item.url)} aria-label={t('table.openInGitHub')} title={t('table.openInGitHub')}>
                       <IconGitHub size={13} />
-                      <IconExternalLinkSmall size={9} />
+                      <IconExternalLinkSmall size={12} />
                     </button>
                   )}
                 </div>

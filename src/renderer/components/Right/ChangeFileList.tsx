@@ -75,7 +75,7 @@ function ChangeSectionHeader({ id, title, changes, collapsed, onToggle, actions 
         aria-controls={id}
         onClick={onToggle}
       >
-        <IconChevronDown className="changes-section-chevron" size={11} />
+        <IconChevronDown className="changes-section-chevron" size={12} />
         <span className="changes-section-title">{title}</span>
         <span className="changes-section-count">{changes.length}</span>
         <SectionStats changes={changes} />
@@ -139,7 +139,7 @@ function ChangeRow({
           onClick={(e) => staged ? onUnstageFile(e, change.file) : onStageFile(e, change.file)}
           disabled={stagingInProgress}
         >
-          {staged && <IconCheckmark size={10} />}
+          {staged && <IconCheckmark size={12} />}
         </button>
       </Tooltip>
       <button

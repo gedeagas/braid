@@ -68,7 +68,7 @@ export function SearchInput({
           onClick={onToggleReplace}
           title={t('searchToggleReplace')}
         >
-          {showReplace ? <IconChevronDown size={10} /> : <IconChevronRight size={10} />}
+          {showReplace ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />}
         </button>
         <div className="search-input-stack">
           <div className="search-input-wrap">
@@ -99,7 +99,7 @@ export function SearchInput({
                 aria-label={t('searchClear')}
                 title={t('searchClear')}
               >
-                <IconClose size={8} />
+                <IconClose size={12} />
               </button>
             )}
             <div className="search-modifier-group">
@@ -175,7 +175,7 @@ export function SearchInput({
         <IconSliders size={13} />
         <span>{t('searchFiltersSection')}</span>
         <span className="search-filter-toggle-chevron" aria-hidden="true">
-          {showFilters ? <IconChevronDown size={10} /> : <IconChevronRight size={10} />}
+          {showFilters ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />}
         </span>
         {hasActiveFilters && <span className="search-filter-active-dot" aria-hidden="true" />}
       </button>

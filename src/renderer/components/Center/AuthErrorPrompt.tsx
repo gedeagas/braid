@@ -64,7 +64,7 @@ export function AuthErrorPrompt({ pendingAuthError, onRetry, onDismiss }: Props)
   return (
     <div className="auth-error-prompt" ref={promptRef}>
       <div className="auth-error-header">
-        <IconLock size={11} className="auth-error-header-icon" />
+        <IconLock size={12} className="auth-error-header-icon" />
         <span className="auth-error-header-text">{t('authErrorTitle')}</span>
       </div>
 

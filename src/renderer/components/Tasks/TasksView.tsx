@@ -133,7 +133,7 @@ export function TasksView() {
         <div className="drag-region" />
         <span className="pull-requests-title">{tSidebar('tasks')}</span>
         <button className="btn-icon" onClick={toggleTasks} aria-label={tSidebar('closeTasks')}>
-          <IconClose size={11} />
+          <IconClose size={12} />
         </button>
       </div>
 

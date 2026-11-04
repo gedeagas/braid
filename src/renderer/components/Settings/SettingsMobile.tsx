@@ -339,7 +339,7 @@ export function SettingsMobile() {
               <p className="mobile-pair-sub">{t('mobile.enableServerDesc')}</p>
             </div>
             <span className="mobile-secure-chip">
-              <IconLock size={11} />
+              <IconLock size={12} />
               E2EE
             </span>
           </header>
@@ -437,7 +437,7 @@ export function SettingsMobile() {
                     <StatusDot state="success" />
                     <IconSmartphone size={13} />
                     <span className="mobile-paired-device-name">{state.justPaired.name || t('mobile.unnamed')}</span>
-                    <span className="mobile-paired-e2ee"><IconLock size={10} />E2EE</span>
+                    <span className="mobile-paired-e2ee"><IconLock size={12} />E2EE</span>
                   </span>
                   <p className="mobile-pair-cta-text">{t('mobile.pairedDesc', { name: state.justPaired.name || t('mobile.unnamed') })}</p>
                   <div className="mobile-paired-actions">

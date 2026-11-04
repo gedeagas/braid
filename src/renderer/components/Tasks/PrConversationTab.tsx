@@ -74,7 +74,7 @@ function IssueCommentEntry({ detail, comment }: { detail: PrDetailController; co
           <strong>{comment.author || t('unknown')}</strong>
           <em>{comment.pending ? t('conversation.sending') : comment.createdAt ? formatRelativeTime(comment.createdAt) : ''}</em>
           {comment.error && <Badge variant="danger" size="sm">{t('conversation.failed')}</Badge>}
-          {comment.htmlUrl && <button onClick={() => ipc.shell.openExternal(comment.htmlUrl)} aria-label={t('conversation.openCommentOnGitHub')}><IconExternalLinkSmall size={9} /></button>}
+          {comment.htmlUrl && <button onClick={() => ipc.shell.openExternal(comment.htmlUrl)} aria-label={t('conversation.openCommentOnGitHub')}><IconExternalLinkSmall size={12} /></button>}
         </div>
         <TaskMarkdown body={comment.body} baseUrl={detail.detailMarkdownBaseUrl} />
         <TaskReactions comment={comment} reactingSubjectIds={detail.review.reactingSubjectIds} onToggleReaction={detail.actions.handleToggleReaction} />
@@ -131,7 +131,7 @@ export function ReviewCommentEntry({ detail, comment, replies, compact = false }
       {!compact && comment.diffHunk && (
         <div className="task-review-diff-wrap">
           <button className="task-review-diff-toggle" onClick={() => review.toggleDiffExpansion(comment.id)}>
-            <IconFile size={11} />
+            <IconFile size={12} />
             <span>{review.expandedDiffCommentIds.has(comment.id) ? t('conversation.hideContext') : t('conversation.showContext')}</span>
             <em>{t('conversation.lineCount', { count: comment.diffHunk.split('\n').length })}</em>
           </button>
@@ -190,7 +190,7 @@ function ReviewCommentHeader({ detail, comment }: { detail: PrDetailController; 
       {comment.isOutdated && <Badge variant="muted" size="sm">{t('conversation.outdated')}</Badge>}
       <em>{comment.createdAt ? formatRelativeTime(comment.createdAt) : ''}</em>
       {comment.threadId && <button onClick={() => actions.handleResolveThread(comment, !comment.isResolved)} disabled={review.resolvingThreadIds.has(comment.threadId)}>{comment.isResolved ? t('conversation.reopen') : t('conversation.resolve')}</button>}
-      {comment.htmlUrl && <button onClick={() => ipc.shell.openExternal(comment.htmlUrl)} aria-label={t('conversation.openCommentOnGitHub')}><IconExternalLinkSmall size={9} /></button>}
+      {comment.htmlUrl && <button onClick={() => ipc.shell.openExternal(comment.htmlUrl)} aria-label={t('conversation.openCommentOnGitHub')}><IconExternalLinkSmall size={12} /></button>}
     </div>
   )
 }
@@ -207,7 +207,7 @@ function ReplyEntry({ detail, reply, replies }: { detail: PrDetailController; re
           <strong>{reply.author || t('unknown')}</strong>
           <em>{reply.pending ? t('conversation.sending') : reply.createdAt ? formatRelativeTime(reply.createdAt) : ''}</em>
           {reply.error && <Badge variant="danger" size="sm">{t('conversation.failed')}</Badge>}
-          {reply.htmlUrl && <button onClick={() => ipc.shell.openExternal(reply.htmlUrl)} aria-label={t('conversation.openReplyOnGitHub')}><IconExternalLinkSmall size={9} /></button>}
+          {reply.htmlUrl && <button onClick={() => ipc.shell.openExternal(reply.htmlUrl)} aria-label={t('conversation.openReplyOnGitHub')}><IconExternalLinkSmall size={12} /></button>}
           {!reply.pending && reply.id > 0 && (
             <button className="task-reply-inline-action" onClick={() => startReviewReply(review, reply)} type="button">
               {t('conversation.reply')}

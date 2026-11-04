@@ -100,7 +100,7 @@ export function SettingsJira() {
               {t('jira.install')}
             </Button>
             <Button size="sm" onClick={() => shell.openExternal(ACLI_DOCS_URL)}>
-              {t('jira.docs')} <IconExternalLink size={10} />
+              {t('jira.docs')} <IconExternalLink size={12} />
             </Button>
           </div>
         )}

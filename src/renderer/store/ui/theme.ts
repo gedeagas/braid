@@ -7,16 +7,27 @@ import { loadFloat } from './helpers'
 
 export type SupportedLanguage = 'en' | 'ja' | 'id' | 'zh'
 
+export const CHAT_FONT_SIZE_DEFAULT = 14
+export const CHAT_FONT_SIZE_MIN = 12
+export const CHAT_FONT_SIZE_MAX = 20
+
+/** Apply the chat body font size (px) as a CSS variable consumed by chat-messages.css. */
+export function applyChatFontSize(px: number): void {
+  try { document.documentElement.style.setProperty('--chat-font-size', `${px}px`) } catch {}
+}
+
 export interface ThemeSlice {
   activeThemeId: string
   customThemes: ThemePalette[]
   language: SupportedLanguage
   uiZoom: number
+  chatFontSize: number
   setTheme: (themeId: string) => void
   addCustomTheme: (theme: ThemePalette) => void
   removeCustomTheme: (themeId: string) => void
   setLanguage: (lang: SupportedLanguage) => void
   setUIZoom: (zoom: number) => void
+  setChatFontSize: (px: number) => void
 }
 
 function loadActiveThemeId(): string {
@@ -48,6 +59,7 @@ export const createThemeSlice: StateCreator<UIState, [], [], ThemeSlice> = (set,
   customThemes: loadCustomThemes(),
   language: loadLanguage(),
   uiZoom: loadFloat(SK.uiZoom, 1.0),
+  chatFontSize: loadFloat(SK.chatFontSize, CHAT_FONT_SIZE_DEFAULT),
 
   setTheme: (themeId) => {
     localStorage.setItem(SK.activeThemeId, themeId)
@@ -82,5 +94,12 @@ export const createThemeSlice: StateCreator<UIState, [], [], ThemeSlice> = (set,
     localStorage.setItem(SK.uiZoom, String(clamped))
     try { window.api.window.setZoomFactor(clamped) } catch {}
     set({ uiZoom: clamped })
+  },
+
+  setChatFontSize: (px) => {
+    const clamped = Math.round(Math.max(CHAT_FONT_SIZE_MIN, Math.min(CHAT_FONT_SIZE_MAX, px)))
+    try { localStorage.setItem(SK.chatFontSize, String(clamped)) } catch {}
+    applyChatFontSize(clamped)
+    set({ chatFontSize: clamped })
   },
 })

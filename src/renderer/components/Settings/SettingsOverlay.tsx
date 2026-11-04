@@ -108,7 +108,7 @@ function SettingsContent() {
           onClick={closeSettings}
           aria-label={t('close', { ns: 'common' })}
         >
-          <IconClose size={10} />
+          <IconClose size={12} />
         </button>
       </div>
       <div className="settings-body">

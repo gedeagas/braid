@@ -9,6 +9,7 @@ import { useProjectsStore } from '@/store/projects'
 import { initAgentEventListener, useSessionsStore } from '@/store/sessions'
 import { useUIStore, selectActiveCenterView } from '@/store/ui'
 import { getAllPersistedBigTerminalIds, syncAllPersistedBigTerminalMetadata } from '@/store/ui/terminals'
+import { applyChatFontSize } from '@/store/ui/theme'
 import { getAllPersistedRightTerminalIds } from '@/components/Right/terminalCache'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { applyTheme } from '@/themes/apply'
@@ -95,9 +96,10 @@ export default function App() {
     return unsub
   }, [])
 
-  // Apply UI zoom on mount
+  // Apply UI zoom and chat font size on mount
   useEffect(() => {
     try { appWindow.setZoomFactor(useUIStore.getState().uiZoom) } catch {}
+    applyChatFontSize(useUIStore.getState().chatFontSize)
   }, [])
 
   // Re-clamp persisted panel widths on mount and window resize

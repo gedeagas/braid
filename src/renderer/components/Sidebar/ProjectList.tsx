@@ -461,7 +461,7 @@ export function ProjectList({ onAddWorktree }: Props) {
       <div className="sidebar-empty-state">
         <div className="sidebar-empty-state-text">{tSidebar('noProjectsMatchFilters')}</div>
         <button className="sidebar-empty-clear-btn" onClick={clearSidebarFilters}>
-          <IconClose size={8} />
+          <IconClose size={12} />
           {tSidebar('clearProjectFilters')}
         </button>
       </div>

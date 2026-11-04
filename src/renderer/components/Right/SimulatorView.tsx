@@ -423,7 +423,7 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
                   {t('simulatorRefresh')}
                 </Button>
                 <button className="simulator-cli-docs-link" onClick={() => ipc.shell.openExternal(MOBILECLI_REPO)}>
-                  {t('simulatorCliManual')} <IconExternalLink size={10} />
+                  {t('simulatorCliManual')} <IconExternalLink size={12} />
                 </button>
               </div>
             }
@@ -440,10 +440,10 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
             action={
               <div className="simulator-cli-actions">
                 <Button size="sm" onClick={() => ipc.shell.openExternal(NODEJS_URL)}>
-                  Node.js <IconExternalLink size={10} />
+                  Node.js <IconExternalLink size={12} />
                 </Button>
                 <button className="simulator-cli-docs-link" onClick={() => ipc.shell.openExternal(MOBILECLI_REPO)}>
-                  {t('simulatorCliManual')} <IconExternalLink size={10} />
+                  {t('simulatorCliManual')} <IconExternalLink size={12} />
                 </button>
               </div>
             }
@@ -461,7 +461,7 @@ export const SimulatorView = memo(function SimulatorView({ isActive, mobileFrame
               </Button>
               {state.cliInstallAttempted && (
                 <button className="simulator-cli-docs-link" onClick={() => ipc.shell.openExternal(MOBILECLI_REPO)}>
-                  {t('simulatorCliManual')} <IconExternalLink size={10} />
+                  {t('simulatorCliManual')} <IconExternalLink size={12} />
                 </button>
               )}
             </div>

@@ -350,7 +350,7 @@ function FilesReviewSubmitPanel({ detail }: { detail: PrDetailController }) {
         aria-label={t('review.closeForm')}
         title={t('review.closeForm')}
       >
-        <IconClose size={9} />
+        <IconClose size={12} />
       </button>
       <PrReviewSubmitForm detail={detail} className="task-review-submit task-review-submit--files" />
     </div>
@@ -374,13 +374,13 @@ function FileRow({ item, active, onSelect }: { item: FileReviewItem; active: boo
       <span className="task-file-row-meta">
         {viewed && (
           <em className="task-file-row-pill task-file-row-pill--viewed">
-            <IconCheckmark size={11} />
+            <IconCheckmark size={12} />
             {t('files.viewed')}
           </em>
         )}
         {commentCount > 0 && (
           <em className="task-file-row-pill">
-            <IconMessageBubble size={11} />
+            <IconMessageBubble size={12} />
             {commentCount}
           </em>
         )}
@@ -432,7 +432,7 @@ function DiffHeader({ detail }: { detail: PrDetailController }) {
             />
             {hasSearchTerm && (
               <button type="button" onClick={() => review.setDiffSearch('')} aria-label={t('files.clearDiffSearch')} title={t('files.clearDiffSearch')}>
-                <IconClose size={8} />
+                <IconClose size={12} />
               </button>
             )}
           </label>
@@ -440,10 +440,10 @@ function DiffHeader({ detail }: { detail: PrDetailController }) {
             <div className={matchCount > 0 ? 'task-diff-search-results' : 'task-diff-search-results task-diff-search-results--empty'}>
               <span>{matchCount > 0 ? `${activeMatchNumber}/${matchCount}` : t('files.noMatches')}</span>
               <button type="button" onClick={() => goToSearchMatch(-1)} disabled={matchCount === 0} aria-label={t('files.previousSearchMatch')} title={t('files.previousSearchMatch')}>
-                <IconArrowUp size={11} />
+                <IconArrowUp size={12} />
               </button>
               <button type="button" onClick={() => goToSearchMatch(1)} disabled={matchCount === 0} aria-label={t('files.nextSearchMatch')} title={t('files.nextSearchMatch')}>
-                <IconArrowDown size={11} />
+                <IconArrowDown size={12} />
               </button>
             </div>
           )}
@@ -466,7 +466,7 @@ function DiffHeader({ detail }: { detail: PrDetailController }) {
           </button>
           {fileUrl && (
             <button type="button" className="task-diff-open-file-button" onClick={() => ipc.shell.openExternal(fileUrl)} aria-label={t('files.openFileOnGitHub')} title={t('files.openFileOnGitHub')}>
-              <IconExternalLinkSmall size={10} />
+              <IconExternalLinkSmall size={12} />
             </button>
           )}
           <Badge variant="muted" size="sm" className="task-file-diff-stat">+{selectedPrFile.additions} / -{selectedPrFile.deletions}</Badge>
@@ -491,7 +491,7 @@ function FilePreview({ detail }: { detail: PrDetailController }) {
         </div>
         {fileUrl && (
           <button type="button" onClick={() => ipc.shell.openExternal(fileUrl)}>
-            <IconExternalLinkSmall size={10} />
+            <IconExternalLinkSmall size={12} />
             {t('files.openFile')}
           </button>
         )}

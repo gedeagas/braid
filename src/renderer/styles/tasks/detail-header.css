@@ -712,7 +712,7 @@
 .task-detail-hero h1 {
   margin: var(--space-14) 0 var(--space-12);
   color: var(--text-primary);
-  font-size: 23px;
+  font-size: var(--text-display);
   line-height: 1.28;
   font-weight: var(--weight-semibold);
   letter-spacing: 0;
@@ -1046,7 +1046,7 @@
   align-items: center;
   justify-content: center;
   color: var(--text-secondary);
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: var(--weight-semibold);
 }
 

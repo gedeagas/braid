@@ -30,7 +30,7 @@
 }
 
 .task-reaction-symbol {
-  font-size: 14px;
+  font-size: var(--text-lg);
   line-height: 1;
 }
 
@@ -69,7 +69,7 @@
   width: 26px;
   height: 26px;
   padding: 0;
-  font-size: 16px;
+  font-size: var(--text-2xl);
   line-height: 1;
 }
 
@@ -95,7 +95,7 @@
   height: 30px;
   padding: 0;
   border-radius: var(--radius-sm);
-  font-size: 15px;
+  font-size: var(--text-xl);
   line-height: 1;
 }
 

@@ -345,3 +345,48 @@ body.resizing .right-panel {
   color: var(--text-primary);
   opacity: 1 !important;
 }
+
+/* ── Keyboard focus ─────────────────────────────────────────────────
+ * Zero-specificity default ring so every interactive element shows focus
+ * for keyboard users. Component-level :focus-visible rules still win.
+ */
+:where(button, a[href], summary, [role='button'], [role='tab'], [role='menuitem'], [role='option'], [tabindex]:not([tabindex='-1'])):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ── Expanded hit areas ─────────────────────────────────────────────
+ * Compact icon buttons keep their visual footprint but get an invisible
+ * pointer target of at least --hit-target-min, centered on the glyph.
+ */
+.tab-close,
+.terminal-tab__action,
+.change-discard-btn,
+.change-row-checkbox,
+.snippet-chip-remove,
+.linked-worktree-chip-remove,
+.mention-file-chip-remove,
+.task-diff-line-action button,
+.pr-search-clear,
+.btn-icon-sm {
+  position: relative;
+}
+
+.tab-close::after,
+.terminal-tab__action::after,
+.change-discard-btn::after,
+.change-row-checkbox::after,
+.snippet-chip-remove::after,
+.linked-worktree-chip-remove::after,
+.mention-file-chip-remove::after,
+.task-diff-line-action button::after,
+.pr-search-clear::after,
+.btn-icon-sm::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100%, var(--hit-target-min));
+  height: max(100%, var(--hit-target-min));
+  transform: translate(-50%, -50%);
+}

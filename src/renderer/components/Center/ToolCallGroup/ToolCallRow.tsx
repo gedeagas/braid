@@ -317,7 +317,7 @@ function TodoList({ todos }: { todos: TodoItem[] }) {
             {todo.status === 'completed'
               ? <IconCheckmark size={12} />
               : todo.status === 'in_progress'
-                ? <IconPlay size={11} />
+                ? <IconPlay size={12} />
                 : <IconCircle size={12} />}
           </span>
           <span className="tcg-todo-content">{todo.content}</span>
