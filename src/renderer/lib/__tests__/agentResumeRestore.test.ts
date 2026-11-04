@@ -6,7 +6,7 @@ vi.mock('@/lib/ipc', () => ({
   pty: { claimAgentResume: (id: string) => claimAgentResume(id) },
 }))
 
-import { blankViewportSequence, claimResumeCommand, startAgentResume } from '../agentResumeRestore'
+import { blankViewportSequence, claimResumeCommand, shouldResumeAfterLoss, startAgentResume } from '../agentResumeRestore'
 
 beforeEach(() => {
   claimAgentResume.mockReset()
@@ -36,6 +36,17 @@ describe('claimResumeCommand', () => {
     expect(await claimResumeCommand('bt-1', '/repo')).toBeNull()
     claimAgentResume.mockResolvedValue({ agent: 'claude', id: '$(id)' })
     expect(await claimResumeCommand('bt-1', '/repo')).toBeNull()
+  })
+})
+
+describe('shouldResumeAfterLoss', () => {
+  it('resumes when the agent was in the foreground, or when unknown', () => {
+    expect(shouldResumeAfterLoss('command')).toBe(true)
+    expect(shouldResumeAfterLoss(undefined)).toBe(true)
+  })
+
+  it('does not resume when the user had already returned to the shell', () => {
+    expect(shouldResumeAfterLoss('shell')).toBe(false)
   })
 })
 

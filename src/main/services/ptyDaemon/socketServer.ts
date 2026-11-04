@@ -166,8 +166,7 @@ export class SocketServer {
             this.sendResponse(client, { id: req.id, type: 'error', message: `Session not found: ${req.sessionId}` })
           } else {
             client.attachedSessions.add(req.sessionId)
-            const coldRestored = this.host.isColdRestored(req.sessionId)
-            this.sendResponse(client, { id: req.id, type: 'ok', data: { snapshot, coldRestored } })
+            this.sendResponse(client, { id: req.id, type: 'ok', data: { snapshot, ...this.host.coldRestoreInfo(req.sessionId) } })
           }
           break
         }

@@ -27,6 +27,12 @@ export interface DaemonSessionMetadata {
   totalRunDurationMs?: number
 }
 
+/**
+ * What a PTY had in the foreground: the bare shell at its prompt, or a command
+ * (typically the agent). Sampled with each periodic checkpoint.
+ */
+export type ForegroundKind = 'shell' | 'command'
+
 /** Checkpoint data persisted to disk for cold restore. */
 export interface CheckpointData {
   sessionId: string
@@ -40,6 +46,8 @@ export interface CheckpointData {
   metadata?: DaemonSessionMetadata
   /** Allowlisted Braid env (terminal id) re-applied on restore. */
   env?: Record<string, string>
+  /** Foreground at the last periodic sample before the checkpoint. */
+  foreground?: ForegroundKind
 }
 
 /** Result of a reattach operation returned to the renderer. */
@@ -52,6 +60,11 @@ export interface ReattachResult {
    * before relaunching the agent.
    */
   coldRestored?: boolean
+  /**
+   * Foreground when the old daemon died. `shell` means the user had already
+   * left the agent, so it must not be relaunched. Absent when unknown.
+   */
+  foregroundAtLoss?: ForegroundKind
 }
 
 /** Information about a session returned by list(). */

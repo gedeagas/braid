@@ -13,6 +13,7 @@ interface MockPty {
   write: ReturnType<typeof vi.fn>
   resize: ReturnType<typeof vi.fn>
   kill: ReturnType<typeof vi.fn>
+  process: string
   _emitExit: (exitCode: number, signal?: number) => void
 }
 
@@ -27,6 +28,7 @@ vi.mock('node-pty', () => ({
       write: vi.fn(),
       resize: vi.fn(),
       kill: vi.fn(() => { for (const cb of exits) cb({ exitCode: 0, signal: 1 }) }),
+      process: 'zsh',
       _emitExit: (exitCode, signal) => { for (const cb of exits) cb({ exitCode, signal }) },
     }
     spawned.push({ pty, env: opts.env })
@@ -113,6 +115,58 @@ describe('cold restore in the session host', () => {
     await host.spawn('a', '/repo', 80, 24, '/bin/zsh')
     host.kill('a')
     expect(exits).toEqual([true])
+  })
+})
+
+describe('foreground at the time of loss', () => {
+  let host: SessionHost
+
+  beforeEach(() => {
+    host = new SessionHost()
+    spawned.length = 0
+  })
+
+  it('records whether a command (the agent) or the bare shell was in the foreground', async () => {
+    await host.spawn('a', '/repo', 80, 24, '/bin/zsh')
+    await host.spawn('b', '/repo', 80, 24, '/bin/zsh')
+    spawned[0].pty.process = 'claude'
+    spawned[1].pty.process = '-zsh'
+    host.sampleForeground()
+    const fg = Object.fromEntries(host.getCheckpoints().map((c) => [c.sessionId, c.foreground]))
+    expect(fg).toEqual({ a: 'command', b: 'shell' })
+  })
+
+  it('is unknown until sampled, and keeps the last sample (shutdown flushes do not resample)', async () => {
+    await host.spawn('a', '/repo', 80, 24, '/bin/zsh')
+    expect(host.getCheckpoints()[0].foreground).toBeUndefined()
+    spawned[0].pty.process = 'codex'
+    host.sampleForeground()
+    // During a reboot the agent can die first and hand the foreground back to
+    // the shell; the next checkpoint must still say the agent was running.
+    spawned[0].pty.process = 'zsh'
+    expect(host.getCheckpoints()[0].foreground).toBe('command')
+  })
+
+  it('survives a cold restore and is not overwritten before the user opens the tab', async () => {
+    await host.restore(checkpoint({ foreground: 'command' }), '/bin/zsh')
+    // The re-created shell sits at its prompt, but nobody has claimed it yet:
+    // a second loss now must still resume the agent.
+    host.sampleForeground()
+    expect(host.getCheckpoints()[0].foreground).toBe('command')
+    expect(host.coldRestoreInfo('bt-1-1')).toEqual({ coldRestored: true, foregroundAtLoss: 'command' })
+    host.consumeColdRestore('bt-1-1')
+    host.sampleForeground()
+    expect(host.getCheckpoints()[0].foreground).toBe('shell')
+  })
+
+  it('ignores a tampered foreground value', async () => {
+    await host.restore(checkpoint({ foreground: 'rm -rf' as never }), '/bin/zsh')
+    expect(host.coldRestoreInfo('bt-1-1')).toEqual({ coldRestored: true })
+  })
+
+  it('reports nothing for live sessions', async () => {
+    await host.spawn('a', '/repo', 80, 24, '/bin/zsh')
+    expect(host.coldRestoreInfo('a')).toEqual({ coldRestored: false })
   })
 })
 

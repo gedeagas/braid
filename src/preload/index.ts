@@ -150,7 +150,7 @@ const api = {
     deleteScrollback: (terminalId: string) =>
       ipcRenderer.send('pty:deleteScrollback', terminalId),
     reattach: (sessionId: string) =>
-      ipcRenderer.invoke('pty:reattach', sessionId) as Promise<{ sessionId: string; snapshot: string; coldRestored?: boolean } | null>,
+      ipcRenderer.invoke('pty:reattach', sessionId) as Promise<{ sessionId: string; snapshot: string; coldRestored?: boolean; foregroundAtLoss?: 'shell' | 'command' } | null>,
     consumeColdRestore: (sessionId: string) =>
       ipcRenderer.invoke('pty:consumeColdRestore', sessionId) as Promise<boolean>,
     listSessions: () =>
@@ -168,6 +168,8 @@ const api = {
     },
     claimAgentResume: (terminalId: string) =>
       ipcRenderer.invoke('agentSessions:claimResume', terminalId) as Promise<AgentResumeSession | null>,
+    forgetAgentResume: (terminalId: string) =>
+      ipcRenderer.send('agentSessions:forget', terminalId),
     onMobileTerminalActive: (callback: (status: { terminalId: string; active: boolean }) => void) => {
       const handler = (_event: Electron.IpcRendererEvent, status: { terminalId: string; active: boolean }) => callback(status)
       ipcRenderer.on('pty:mobileTerminalActive', handler)

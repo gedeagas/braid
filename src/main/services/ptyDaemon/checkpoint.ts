@@ -19,6 +19,8 @@ export function startCheckpointing(host: SessionHost): void {
   mkdirSync(CHECKPOINT_DIR, { recursive: true, mode: 0o700 })
 
   intervalHandle = setInterval(() => {
+    // Sample only on the periodic tick; the shutdown flush must not resample.
+    host.sampleForeground()
     flushCheckpoints(host)
   }, CHECKPOINT_INTERVAL_MS)
 

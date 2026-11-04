@@ -127,7 +127,7 @@ export const pty = {
   setMobileDisplayMode: (terminalId: string, mode: 'phone' | 'desktop') =>
     api().pty.setMobileDisplayMode(terminalId, mode),
   deleteScrollback: (terminalId: string) => api().pty.deleteScrollback(terminalId),
-  reattach: (sessionId: string) => api().pty.reattach(sessionId) as Promise<{ sessionId: string; snapshot: string; coldRestored?: boolean } | null>,
+  reattach: (sessionId: string) => api().pty.reattach(sessionId) as Promise<{ sessionId: string; snapshot: string; coldRestored?: boolean; foregroundAtLoss?: 'shell' | 'command' } | null>,
   consumeColdRestore: (sessionId: string) => api().pty.consumeColdRestore(sessionId) as Promise<boolean>,
   listSessions: () => api().pty.listSessions() as Promise<Array<{ sessionId: string; cwd: string; cols: number; rows: number; createdAt: number; coldRestored?: boolean }>>,
   listOrphanedBigTerminals: (knownTerminalIds: string[]) =>
@@ -140,6 +140,8 @@ export const pty = {
     api().pty.onAgentHookStatus(callback),
   /** Saved agent conversation to relaunch in this terminal (one claim per provider session). */
   claimAgentResume: (terminalId: string) => api().pty.claimAgentResume(terminalId) as Promise<AgentResumeSession | null>,
+  /** The user had left the agent before the terminal was lost: never resume it. */
+  forgetAgentResume: (terminalId: string) => api().pty.forgetAgentResume(terminalId),
   onMobileTerminalActive: (callback: (status: { terminalId: string; active: boolean }) => void) =>
     api().pty.onMobileTerminalActive(callback),
   onMobileDisplayMode: (callback: (status: { terminalId: string; mode: 'phone' | 'desktop' }) => void) =>

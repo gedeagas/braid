@@ -14,7 +14,7 @@ import { notifyTerminalStateChange, clearTerminalNotificationState } from '@/lib
 import { isCodexUserInputPromptText, readTerminalBufferTail } from '@/lib/codexTerminalDetection'
 import { createTerminalCommandObserver, type TerminalCommandObserver } from '@/lib/terminalCommandRefresh'
 import { useUIStore } from '@/store/ui'
-import { startAgentResume } from '@/lib/agentResumeRestore'
+import { shouldResumeAfterLoss, startAgentResume } from '@/lib/agentResumeRestore'
 import { writeInitialAgentInput } from './bigTerminalInitialInput'
 import { useToastsStore } from '@/store/toasts'
 
@@ -290,7 +290,9 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
         replayIntoTerminal(terminalId, term, `\r\n\x1b[2m[${claimed ? 'history restored' : 'session reconnected'}]\x1b[0m\r\n`)
         replayIntoTerminal(terminalId, term, POST_REPLAY_MODE_RESET)
         ipc.pty.registerBigTerminal(result.sessionId, terminalId)
-        if (claimed && !entry.disposed) {
+        if (claimed && !shouldResumeAfterLoss(result.foregroundAtLoss)) {
+          ipc.pty.forgetAgentResume(terminalId)
+        } else if (claimed && !entry.disposed) {
           const ptyId = result.sessionId
           void startAgentResume({
             terminalId, worktreePath, rows: term.rows,

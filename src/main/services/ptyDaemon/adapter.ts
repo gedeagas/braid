@@ -514,7 +514,8 @@ export class PtyDaemonAdapter implements IPtyService {
           // Non-fatal - readTerminalOutput() just won't match this session
         }
       }
-      return { sessionId, snapshot: result.snapshot, coldRestored: result.coldRestored === true }
+      const foregroundAtLoss = result.foregroundAtLoss === 'shell' || result.foregroundAtLoss === 'command' ? result.foregroundAtLoss : undefined
+      return { sessionId, snapshot: result.snapshot, coldRestored: result.coldRestored === true, ...(foregroundAtLoss ? { foregroundAtLoss } : {}) }
     } catch {
       return null
     }

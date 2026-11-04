@@ -7,7 +7,10 @@
 import { accessSync, existsSync, constants as fsConstants } from 'fs'
 import { BUFFER_MAX_LENGTH } from './protocol'
 import { resolveShellLaunchArgs } from '../../lib/shell'
-import type { DaemonSession, CheckpointData, SessionInfo, DaemonSessionMetadata } from './types'
+import { baseEnv, classifyForeground, normalizeForeground, persistableEnv } from './sessionEnv'
+import type { DaemonSession, CheckpointData, SessionInfo, DaemonSessionMetadata, ForegroundKind } from './types'
+
+export { persistableEnv } from './sessionEnv'
 
 // ── RingBuffer ───────────────────────────────────────────────────────────────
 
@@ -72,38 +75,10 @@ interface SessionEntry {
   coldRestored: boolean
   /** A client asked for this kill (tab closed), so the end is deliberate. */
   killRequested: boolean
-}
-
-// ── Persisted env ────────────────────────────────────────────────────────────
-
-/**
- * Env keys that identify a Braid terminal and must survive a cold restore so
- * agent hooks keep reporting for it. Secrets (the hook token) are never
- * persisted: the hook script reads them from its own config file.
- */
-const PERSISTED_ENV_KEYS = ['BRAID_TERMINAL_ID', 'BRAID_TERMINAL'] as const
-const ENV_VALUE_RE = /^[A-Za-z0-9._:-]{1,256}$/
-
-/**
- * The daemon's own env minus inherited Braid terminal identity. If Braid was
- * started from inside a Braid terminal, its env carries that terminal's id;
- * a new or restored shell must never report hooks under someone else's id.
- */
-function baseEnv(): Record<string, string> {
-  const env: Record<string, string> = { ...process.env as Record<string, string>, TERM: 'xterm-256color' }
-  for (const key of PERSISTED_ENV_KEYS) delete env[key]
-  return env
-}
-
-/** Pick the env worth persisting. Also re-validates env read back from disk. */
-export function persistableEnv(env: Record<string, string> | undefined): Record<string, string> {
-  const result: Record<string, string> = {}
-  if (!env || typeof env !== 'object') return result
-  for (const key of PERSISTED_ENV_KEYS) {
-    const value = env[key]
-    if (typeof value === 'string' && ENV_VALUE_RE.test(value)) result[key] = value
-  }
-  return result
+  /** Shell binary the PTY runs, to tell "at the prompt" from "running something". */
+  shell: string
+  /** Last sampled foreground (see sampleForeground). Undefined until sampled. */
+  foreground?: ForegroundKind
 }
 
 // ── Events ───────────────────────────────────────────────────────────────────
@@ -233,6 +208,7 @@ export class SessionHost {
       env: persistableEnv(env),
       coldRestored: false,
       killRequested: false,
+      shell,
     })
   }
 
@@ -269,6 +245,8 @@ export class SessionHost {
       env,
       coldRestored: true,
       killRequested: false,
+      shell,
+      foreground: normalizeForeground(checkpoint.foreground),
     })
   }
 
@@ -291,6 +269,32 @@ export class SessionHost {
   /** Whether the session was cold-restored and nobody has claimed it yet. */
   isColdRestored(sessionId: string): boolean {
     return this.sessions.get(sessionId)?.coldRestored ?? false
+  }
+
+  /** Cold-restore state for a session, as reported on attach. */
+  coldRestoreInfo(sessionId: string): { coldRestored: boolean; foregroundAtLoss?: ForegroundKind } {
+    const entry = this.sessions.get(sessionId)
+    if (!entry?.coldRestored) return { coldRestored: false }
+    return entry.foreground ? { coldRestored: true, foregroundAtLoss: entry.foreground } : { coldRestored: true }
+  }
+
+  /**
+   * Record what each PTY has in the foreground: the bare shell (user is at the
+   * prompt, e.g. after quitting the agent) or a command (the agent). Called on
+   * the periodic checkpoint tick only, never during shutdown: on a reboot the
+   * agent can die first and hand the foreground back to the shell, which must
+   * not read as "the user quit it". Unclaimed cold-restored sessions keep the
+   * value from before the loss.
+   */
+  sampleForeground(): void {
+    for (const entry of this.sessions.values()) {
+      if (entry.coldRestored) continue
+      try {
+        entry.foreground = classifyForeground(entry.pty.process, entry.shell)
+      } catch {
+        // PTY gone or platform without process info: keep the last sample.
+      }
+    }
   }
 
   /**
@@ -414,6 +418,7 @@ export class SessionHost {
         checkpointedAt: now,
         metadata: entry.metadata,
         env: entry.env,
+        foreground: entry.foreground,
       })
     }
     return result

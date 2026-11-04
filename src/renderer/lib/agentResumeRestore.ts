@@ -35,6 +35,16 @@ export async function claimResumeCommand(terminalId: string, worktreePath: strin
 }
 
 /**
+ * Whether a cold-restored terminal should relaunch its agent. The daemon
+ * samples the PTY's foreground every few seconds: if the bare shell was in
+ * front when it died, the user had already quit the agent (/exit, Ctrl+D, q)
+ * and gets a plain shell back. Unknown (older daemon) falls back to resuming.
+ */
+export function shouldResumeAfterLoss(foregroundAtLoss: 'shell' | 'command' | undefined): boolean {
+  return foregroundAtLoss !== 'shell'
+}
+
+/**
  * Escape sequence that pushes the replayed history up into scrollback and
  * homes the cursor, so a freshly launched TUI paints on a blank viewport
  * instead of overdrawing the old screen.

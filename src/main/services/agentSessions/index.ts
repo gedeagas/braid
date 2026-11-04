@@ -28,4 +28,8 @@ export function startAgentSessionTracking(): void {
   ipcMain.handle('agentSessions:claimResume', (_e, terminalId: unknown) =>
     typeof terminalId === 'string' ? agentSessionStore.claimResume(terminalId) : null)
   ipcMain.handle('agentSessions:list', () => agentSessionStore.list())
+  // The renderer learned the user had left the agent before the loss.
+  ipcMain.on('agentSessions:forget', (_e, terminalId: unknown) => {
+    if (typeof terminalId === 'string') agentSessionStore.forget(terminalId)
+  })
 }
