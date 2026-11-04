@@ -175,8 +175,8 @@
 
 
 .tab-close {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -381,7 +381,7 @@
 }
 
 .terminal-tab__action {
-  width: 20px;
+  width: 22px;
   height: 22px;
   display: inline-flex;
   align-items: center;

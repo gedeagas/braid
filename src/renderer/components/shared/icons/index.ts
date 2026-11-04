@@ -1,4 +1,5 @@
 export type { IconProps, ColorIconProps } from './types'
+export { ICON_SIZE, MIN_ICON_SIZE } from './types'
 export * from './StrokeIcons'
 export * from './FillIcons'
 export * from './AgentIcons'

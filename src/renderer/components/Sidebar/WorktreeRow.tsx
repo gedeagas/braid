@@ -246,7 +246,7 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
             {worktreeName(worktree.path, worktree.branch)}
           </span>
           <span className="worktree-branch-secondary">
-            <IconGitBranch size={9} />
+            <IconGitBranch size={12} />
             <span>{projectName ? `${projectName} / ${worktree.branch}` : worktree.branch}</span>
           </span>
         </div>

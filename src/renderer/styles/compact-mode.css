@@ -11,12 +11,12 @@
 /* ── Chat container / wrapper ──────────────────────────────────────── */
 [data-density="compact"] .chat-container {
   padding: var(--space-10) var(--space-16);
-  font-size: var(--text-md);
+  font-size: calc(var(--chat-font-size, var(--text-lg)) - 1px);
   line-height: 1.4;
 }
 
 [data-density="compact"] .chat-virtuoso-wrapper {
-  font-size: var(--text-md);
+  font-size: calc(var(--chat-font-size, var(--text-lg)) - 1px);
   line-height: 1.4;
 }
 
@@ -38,13 +38,13 @@
 /* ── User bubble ───────────────────────────────────────────────────── */
 [data-density="compact"] .chat-msg-user-bubble {
   padding: var(--space-7) var(--space-12);
-  font-size: var(--text-md);
+  font-size: calc(var(--chat-font-size, var(--text-lg)) - 1px);
   line-height: 1.4;
 }
 
 /* ── Assistant content ─────────────────────────────────────────────── */
 [data-density="compact"] .chat-msg-assistant-content {
-  font-size: var(--text-md);
+  font-size: calc(var(--chat-font-size, var(--text-lg)) - 1px);
   line-height: 1.4;
 }
 

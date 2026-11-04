@@ -180,7 +180,7 @@ export function SidebarFilterMenu() {
               <span>{t('sortBy')}</span>
               <span className="sidebar-filter-sort-value">
                 {activeSortLabel}
-                <IconChevronDown size={9} />
+                <IconChevronDown size={12} />
               </span>
             </button>
             {sortOpen && (
@@ -225,7 +225,7 @@ export function SidebarFilterMenu() {
                   searchRef.current?.focus()
                 }}
               >
-                <IconClose size={8} />
+                <IconClose size={12} />
               </button>
             )}
           </div>

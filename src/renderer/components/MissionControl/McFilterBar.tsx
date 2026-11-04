@@ -112,7 +112,7 @@ export const McFilterBar = memo(function McFilterBar({ projects }: Props) {
             onClick={handleClearSearch}
             tabIndex={-1}
           >
-            <IconClose size={8} />
+            <IconClose size={12} />
           </button>
         )}
       </div>
@@ -125,7 +125,7 @@ export const McFilterBar = memo(function McFilterBar({ projects }: Props) {
           >
             {projectLabel}
             <span className={`mc-filter-chevron${dropdownOpen ? ' mc-filter-chevron--open' : ''}`}>
-              <IconChevronDown size={8} />
+              <IconChevronDown size={12} />
             </span>
           </button>
           {dropdownOpen && (
@@ -147,7 +147,7 @@ export const McFilterBar = memo(function McFilterBar({ projects }: Props) {
 
       {hasActiveFilters && (
         <Button size="sm" className="mc-filter-clear" onClick={clearFilters}>
-          <IconClose size={8} />
+          <IconClose size={12} />
           {t('filterClear')}
         </Button>
       )}

@@ -291,7 +291,7 @@
   border: 1px solid var(--border);
   padding: var(--space-2) var(--space-6);
   border-radius: var(--radius-sm);
-  font-size: 12.5px;
+  font-size: var(--text-md);
   font-family: var(--font-mono);
 }
 

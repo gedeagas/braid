@@ -441,7 +441,7 @@ export function AddWorktreeDialog({ projectId, repoPath, onClose, prefill, onCre
               onClose()
             }}
           >
-            <IconSettings size={11} />
+            <IconSettings size={12} />
             {t('configureInSettings')}
           </button>
         )}

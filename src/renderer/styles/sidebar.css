@@ -567,7 +567,7 @@
 }
 
 .btn-icon-sm {
-  padding: var(--space-3) var(--space-5);
+  padding: var(--space-4) var(--space-6);
   font-size: var(--text-xl);
   opacity: 0;
   transition: opacity var(--duration-instant);

@@ -1,5 +1,13 @@
 import type { CSSProperties } from 'react'
 
+/**
+ * Icon size scale. Below 12px glyphs (especially close/chevron strokes) stop
+ * being legible at 1x zoom, so `xs` is the floor. Enforced by
+ * styles/__tests__/sizingGuards.test.ts.
+ */
+export const ICON_SIZE = { xs: 12, sm: 14, md: 16, lg: 20 } as const
+export const MIN_ICON_SIZE = ICON_SIZE.xs
+
 export interface IconProps {
   size?: number
   className?: string

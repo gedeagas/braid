@@ -371,7 +371,7 @@
   justify-content: space-between;
   gap: var(--space-10);
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: var(--text-base);
   font-weight: 600;
 }
 
@@ -1021,7 +1021,7 @@
   border-radius: var(--radius);
   background: color-mix(in srgb, var(--bg-secondary) 90%, transparent);
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 8px; /* scaled phone mockup, intentionally below the UI type floor */
   line-height: 1.1;
 }
 
@@ -1035,7 +1035,7 @@
   display: block;
   margin-top: var(--space-4);
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 8px; /* scaled phone mockup, intentionally below the UI type floor */
   font-weight: var(--weight-bold);
   letter-spacing: 0;
   text-transform: uppercase;
@@ -1087,7 +1087,7 @@
 
 .mobile-app-preview-row-copy small {
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: 8px; /* scaled phone mockup, intentionally below the UI type floor */
 }
 
 .mobile-feature-list {

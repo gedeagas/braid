@@ -123,7 +123,7 @@ export function SettingsProjectCopyFiles({ projectPath, copyFiles, onUpdate }: P
                 onClick={() => handleRemove(file.path)}
                 aria-label={t('common:remove')}
               >
-                <IconClose size={8} />
+                <IconClose size={12} />
               </button>
             </div>
           ))}

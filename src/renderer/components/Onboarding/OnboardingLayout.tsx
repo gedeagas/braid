@@ -90,7 +90,7 @@ export function OnboardingLayout({
               aria-current={i === currentStep ? 'step' : undefined}
             >
               <span className="ob-rail-node">
-                {i < currentStep ? <IconCheckFill size={10} /> : i + 1}
+                {i < currentStep ? <IconCheckFill size={12} /> : i + 1}
               </span>
               <span className="ob-rail-label">
                 {STEP_LABEL_KEYS[i] ? t(STEP_LABEL_KEYS[i]) : ''}

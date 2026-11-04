@@ -40,9 +40,10 @@
   --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --font-mono: 'Menlo', 'Monaco', 'Courier New', monospace;
 
-  --text-2xs: 9px;
-  --text-xs: 10px;
-  --text-sm: 11px;
+  /* Floor is 10px: anything smaller is unreadable in IBM Plex at 1x zoom. */
+  --text-2xs: 10px;
+  --text-xs: 11px;
+  --text-sm: 11.5px;
   --text-base: 12px;
   --text-md: 13px;
   --text-lg: 14px;
@@ -50,6 +51,7 @@
   --text-2xl: 16px;
   --text-3xl: 17px;
   --text-4xl: 20px;
+  --text-display: 24px;
   --text-5xl: 28px;
 
   --weight-normal: 400;
@@ -110,4 +112,7 @@
   /* ── Layout ───────────────────────────────────────────────────────── */
   --safe-area-top: 48px;
   --toolbar-height: 38px;
+
+  /* Minimum pointer target for compact icon buttons (macOS HIG compact size). */
+  --hit-target-min: 24px;
 }

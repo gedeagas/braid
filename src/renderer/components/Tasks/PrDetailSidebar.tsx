@@ -203,7 +203,7 @@ function ReviewDecisionRow({ review }: { review: NonNullable<PrDetailController[
         </span>
         {body && <span className="task-review-decision-note">{body}</span>}
       </span>
-      {review.htmlUrl && <IconExternalLinkSmall size={9} />}
+      {review.htmlUrl && <IconExternalLinkSmall size={12} />}
     </button>
   )
 }
@@ -317,7 +317,7 @@ function PullRequestActionCard({ detail }: { detail: PrDetailController }) {
                 aria-label={t('prAction.chooseMergeStrategy')}
                 aria-expanded={menuOpen}
               >
-                <IconChevronDownSmall size={11} />
+                <IconChevronDownSmall size={12} />
               </button>
               {menuOpen && (
                 <div className="task-pr-action-menu" role="menu">
@@ -616,7 +616,7 @@ function LabelChip({ label, removable = false, busy = false, disabled = false, o
   const content = (
     <>
       <span>{label.name}</span>
-      {busy ? <span className="task-reviewer-saving-dot" /> : removable ? <IconClose size={8} /> : null}
+      {busy ? <span className="task-reviewer-saving-dot" /> : removable ? <IconClose size={12} /> : null}
     </>
   )
   if (!removable) {
@@ -767,7 +767,7 @@ function ReviewerSection({ detail }: { detail: PrDetailController }) {
           >
             <ReviewerAvatar login={reviewer} />
             <span>{reviewer}</span>
-            <IconClose size={8} />
+            <IconClose size={12} />
           </button>
         ))}
       </div>

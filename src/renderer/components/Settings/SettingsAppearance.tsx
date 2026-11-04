@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { useUIStore } from '@/store/ui'
+import { CHAT_FONT_SIZE_DEFAULT, CHAT_FONT_SIZE_MAX, CHAT_FONT_SIZE_MIN } from '@/store/ui/theme'
 import { groupBuiltinThemes } from '@/themes/palettes'
 import { applyTheme } from '@/themes/apply'
 import { SegmentedControl } from '@/components/shared/SegmentedControl'
@@ -60,6 +61,8 @@ export function SettingsAppearance() {
   const removeCustomTheme = useUIStore((s) => s.removeCustomTheme)
   const uiZoom = useUIStore((s) => s.uiZoom)
   const setUIZoom = useUIStore((s) => s.setUIZoom)
+  const chatFontSize = useUIStore((s) => s.chatFontSize)
+  const setChatFontSize = useUIStore((s) => s.setChatFontSize)
   const tabDisplayMode = useUIStore((s) => s.tabDisplayMode)
   const setTabDisplayMode = useUIStore((s) => s.setTabDisplayMode)
   const activityIndicatorStyle = useUIStore((s) => s.activityIndicatorStyle)
@@ -102,6 +105,20 @@ export function SettingsAppearance() {
           <button className="btn" onClick={() => setUIZoom(uiZoom + 0.1)}>+</button>
           {uiZoom !== 1.0 && (
             <button className="btn" onClick={() => setUIZoom(1.0)} style={{ marginLeft: 8 }}>
+              {t('appearance.uiZoomReset')}
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="settings-field">
+        <label className="settings-label">{t('appearance.chatFontSize')}</label>
+        <div className="settings-stepper">
+          <button className="btn" onClick={() => setChatFontSize(chatFontSize - 1)} disabled={chatFontSize <= CHAT_FONT_SIZE_MIN} aria-label={t('appearance.chatFontSizeDecrease')}>−</button>
+          <span className="settings-stepper-value">{chatFontSize}px</span>
+          <button className="btn" onClick={() => setChatFontSize(chatFontSize + 1)} disabled={chatFontSize >= CHAT_FONT_SIZE_MAX} aria-label={t('appearance.chatFontSizeIncrease')}>+</button>
+          {chatFontSize !== CHAT_FONT_SIZE_DEFAULT && (
+            <button className="btn" onClick={() => setChatFontSize(CHAT_FONT_SIZE_DEFAULT)} style={{ marginLeft: 8 }}>
               {t('appearance.uiZoomReset')}
             </button>
           )}

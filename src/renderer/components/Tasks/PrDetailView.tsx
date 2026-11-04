@@ -77,7 +77,7 @@ export function PrDetailView({ selectedRow, setSelectedRow, detail }: PrDetailVi
       {review.prActionError && (
         <div className="task-detail-action-error">
           <span>{review.prActionError}</span>
-          <button onClick={() => review.setPrActionError(null)} aria-label={t('detail.dismissActionError')}><IconClose size={8} /></button>
+          <button onClick={() => review.setPrActionError(null)} aria-label={t('detail.dismissActionError')}><IconClose size={12} /></button>
         </div>
       )}
 

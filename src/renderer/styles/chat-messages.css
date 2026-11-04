@@ -5,7 +5,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   padding: var(--space-20) var(--space-28);
-  font-size: var(--text-lg);
+  font-size: var(--chat-font-size, var(--text-lg));
   line-height: 1.65;
   min-width: 0;
   box-sizing: border-box;
@@ -18,7 +18,7 @@
   min-height: 0;
   min-width: 0;
   overflow: hidden;
-  font-size: var(--text-lg);
+  font-size: var(--chat-font-size, var(--text-lg));
   line-height: 1.65;
   position: relative;
 }
@@ -131,7 +131,7 @@
   border-radius: var(--radius-xl) 16px 4px 16px;
   padding: var(--space-12) 18px;
   max-width: 75%;
-  font-size: var(--text-lg);
+  font-size: var(--chat-font-size, var(--text-lg));
   line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
@@ -302,7 +302,7 @@
 
 .chat-msg-system-content {
   color: var(--red);
-  font-size: var(--text-lg);
+  font-size: var(--chat-font-size, var(--text-lg));
   background: var(--red-tint-8);
   border: 1px solid var(--red-tint-20);
   border-radius: var(--radius);
@@ -350,7 +350,7 @@
 }
 
 .chat-msg-assistant-content {
-  font-size: var(--text-lg);
+  font-size: var(--chat-font-size, var(--text-lg));
   line-height: 1.65;
   color: var(--text-primary);
   min-width: 0;
@@ -381,7 +381,7 @@
   border: 1px solid var(--border);
   padding: var(--space-2) var(--space-6);
   border-radius: var(--radius-sm);
-  font-size: 13.5px;
+  font-size: 0.95em;
   font-family: var(--font-mono);
 }
 
@@ -392,7 +392,7 @@
   padding: var(--space-16) 18px;
   overflow-x: auto;
   margin: var(--space-12) 0;
-  font-size: var(--text-lg);
+  font-size: var(--chat-font-size, var(--text-lg));
   line-height: 1.55;
 }
 

@@ -73,10 +73,10 @@ export const IconPlus = ({ size = 14, ...p }: IconProps) => (
 
 // ─── Chevrons ────────────────────────────────────────────────────────────────
 
-export const IconChevronRight = ({ size = 10, ...p }: IconProps) => (
+export const IconChevronRight = ({ size = 12, ...p }: IconProps) => (
   <svg {...strokeIcon(size, p)} strokeWidth={2.5}><polyline points="9 18 15 12 9 6"/></svg>
 )
-export const IconChevronDown = ({ size = 10, ...p }: IconProps) => (
+export const IconChevronDown = ({ size = 12, ...p }: IconProps) => (
   <svg {...strokeIcon(size, p)} strokeWidth={2.5}><polyline points="6 9 12 15 18 9"/></svg>
 )
 
@@ -122,7 +122,7 @@ export const IconImage = ({ size = 14, ...p }: IconProps) => (
     <polyline points="21 15 16 10 5 21"/>
   </svg>
 )
-export const IconClose = ({ size = 10, ...p }: IconProps) => (
+export const IconClose = ({ size = 12, ...p }: IconProps) => (
   <svg width={size} height={size} viewBox="0 0 10 10" fill="currentColor" className={p?.className} style={p?.style}>
     <path d="M1.5 1.5L8.5 8.5M8.5 1.5L1.5 8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
   </svg>

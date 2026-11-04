@@ -202,7 +202,7 @@ export function OpenInDropdown({ path, label }: Props) {
             onClick={() => dispatch({ type: 'toggle' })}
             title={t('project.openIn')}
           >
-            <IconChevronDownSmall size={9} />
+            <IconChevronDownSmall size={12} />
           </button>
         </div>
         {menu}

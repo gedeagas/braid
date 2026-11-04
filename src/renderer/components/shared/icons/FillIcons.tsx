@@ -12,7 +12,7 @@ export const IconGitBranch = ({ size = 16, ...p }: IconProps) => (
   </svg>
 )
 
-export const IconLock = ({ size = 11, ...p }: IconProps) => (
+export const IconLock = ({ size = 12, ...p }: IconProps) => (
   <svg {...fillIcon(size, p)}>
     <path d="M8 1a3.5 3.5 0 0 1 3.5 3.5V6H13a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h1.5V4.5A3.5 3.5 0 0 1 8 1Zm0 1.5A2 2 0 0 0 6 4.5V6h4V4.5A2 2 0 0 0 8 2.5Z" />
   </svg>
@@ -20,7 +20,7 @@ export const IconLock = ({ size = 11, ...p }: IconProps) => (
 
 // ─── Dropdown / selection icons ──────────────────────────────────────────────
 
-export const IconChevronDownFill = ({ size = 10, ...p }: IconProps) => (
+export const IconChevronDownFill = ({ size = 12, ...p }: IconProps) => (
   <svg {...fillIcon(size, p)}>
     <path d="M4.427 7.427l3.396 3.396a.25.25 0 00.354 0l3.396-3.396A.25.25 0 0011.396 7H4.604a.25.25 0 00-.177.427z" />
   </svg>

@@ -107,7 +107,7 @@ export const TerminalTabRow = memo(function TerminalTabRow({
             onMouseDown={(e) => e.preventDefault()}
             onClick={(e) => { e.stopPropagation(); onClose(tab.id) }}
           >
-            <IconClose size={9} />
+            <IconClose size={12} />
           </button>
         </Tooltip>
       )}

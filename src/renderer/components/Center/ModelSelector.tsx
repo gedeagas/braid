@@ -96,7 +96,7 @@ export function ModelSelector({ currentModelId, extendedContext, effortLevel, de
           <span>{currentModel.label}</span>
           {show1M && <span className="model-1m-badge">1M</span>}
           {effortBadge && <span className="model-effort-badge">{t(`effort_${effortBadge}`, effortBadge)}</span>}
-          <IconChevronDown size={10} style={{ opacity: 0.5 }} />
+          <IconChevronDown size={12} style={{ opacity: 0.5 }} />
         </button>
       </Tooltip>
       {isOpen && (

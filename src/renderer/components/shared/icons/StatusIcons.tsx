@@ -56,13 +56,13 @@ export const IconMergeGraph = ({ size = 14, ...p }: IconProps) => (
   </svg>
 )
 
-export const IconExternalLinkSmall = ({ size = 10, ...p }: IconProps) => (
+export const IconExternalLinkSmall = ({ size = 12, ...p }: IconProps) => (
   <svg width={size} height={size} viewBox="0 0 12 12" fill="none" className={p?.className} style={p?.style}>
     <path d="M3.5 1.5h7v7M10.5 1.5l-9 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 )
 
-export const IconChevronDownSmall = ({ size = 10, ...p }: IconProps) => (
+export const IconChevronDownSmall = ({ size = 12, ...p }: IconProps) => (
   <svg width={size} height={size} viewBox="0 0 10 10" fill="none" className={p?.className} style={p?.style}>
     <path d="M2.5 3.5l2.5 3 2.5-3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>

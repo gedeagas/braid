@@ -153,7 +153,7 @@ export function ToolPermissionPrompt({ pendingToolPermission, onAllow, onAlwaysA
   return (
     <div className="tool-permission-prompt" ref={promptRef}>
       <div className="tool-permission-header">
-        <IconLock size={11} className="tool-permission-header-icon" />
+        <IconLock size={12} className="tool-permission-header-icon" />
         <span className="tool-permission-header-text">{t('toolPermissionTitle')}</span>
       </div>
 

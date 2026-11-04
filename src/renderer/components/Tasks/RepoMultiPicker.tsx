@@ -99,7 +99,7 @@ export function RepoMultiPicker({ projects, selectedIds, onChange, onSelectAll }
         aria-label={t('repoPicker.filterByProject')}
       >
         <span className="task-repo-picker-trigger-label">{renderRepoPickerLabel(projects, selectedIds, t)}</span>
-        <IconChevronDownSmall size={10} />
+        <IconChevronDownSmall size={12} />
       </button>
 
       {open && (

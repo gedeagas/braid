@@ -183,7 +183,7 @@ export function ElicitationPrompt({ pendingElicitation, onAccept, onDecline }: P
   return (
     <div className="elicitation-prompt" ref={promptRef}>
       <div className="elicitation-header">
-        <IconLock size={11} className="elicitation-header-icon" />
+        <IconLock size={12} className="elicitation-header-icon" />
         <span className="elicitation-header-text">
           {isUrlMode ? t('elicitationTitle') : t('elicitationFormTitle')}
         </span>

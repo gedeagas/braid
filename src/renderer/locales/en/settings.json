@@ -69,6 +69,9 @@
   "appearance": {
     "uiZoom": "UI Zoom",
     "uiZoomReset": "Reset",
+    "chatFontSize": "Chat Font Size",
+    "chatFontSizeDecrease": "Decrease chat font size",
+    "chatFontSizeIncrease": "Increase chat font size",
     "builtinThemes": "Built-in Themes",
     "customThemes": "Custom Themes",
     "groupDefault": "Default",

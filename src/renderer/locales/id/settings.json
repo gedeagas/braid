@@ -69,6 +69,9 @@
   "appearance": {
     "uiZoom": "Zoom UI",
     "uiZoomReset": "Reset",
+    "chatFontSize": "Ukuran Font Chat",
+    "chatFontSizeDecrease": "Perkecil ukuran font chat",
+    "chatFontSizeIncrease": "Perbesar ukuran font chat",
     "builtinThemes": "Tema Bawaan",
     "customThemes": "Tema Kustom",
     "groupDefault": "Default",

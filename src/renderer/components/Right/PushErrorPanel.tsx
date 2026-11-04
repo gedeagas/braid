@@ -31,7 +31,7 @@ export function PushErrorPanel({ message, onDismiss }: PushErrorPanelProps) {
             {copied ? t('pushErrorCopied') : t('pushErrorCopy')}
           </button>
           <button className="push-error-panel-btn push-error-panel-btn--dismiss" onClick={onDismiss} title={t('pushErrorDismiss')}>
-            <IconClose size={10} />
+            <IconClose size={12} />
           </button>
         </div>
       </div>

@@ -120,7 +120,7 @@ export function LinkedWorktreeChips({ sessionId, worktreeId }: Props) {
     <div className="linked-worktree-chips">
       {linked.map((lw) => (
         <div key={lw.worktreeId} className="linked-worktree-chip">
-          <IconLink size={11} />
+          <IconLink size={12} />
           <span className="linked-worktree-chip-label">
             {lw.projectName}/{worktreeName(lw.path, lw.branch)}
           </span>
@@ -129,7 +129,7 @@ export function LinkedWorktreeChips({ sessionId, worktreeId }: Props) {
             onClick={() => handleUnlink(lw.worktreeId)}
             title={t('unlinkWorktree')}
           >
-            <IconClose size={8} />
+            <IconClose size={12} />
           </button>
         </div>
       ))}
@@ -148,7 +148,7 @@ export function LinkedWorktreeChips({ sessionId, worktreeId }: Props) {
             <div className="lwt-dialog-header">
               <h2>{t('linkWorktreeDialogTitle')}</h2>
               <button className="lwt-dialog-close" onClick={() => dispatch({ type: 'close' })}>
-                <IconClose size={10} />
+                <IconClose size={12} />
               </button>
             </div>
 
@@ -205,14 +205,14 @@ export function LinkedWorktreeChips({ sessionId, worktreeId }: Props) {
                             <div className="lwt-card-branch">{worktreeName(wt.path, wt.branch)}</div>
                             {isLinked && (
                               <span className="lwt-card-badge">
-                                <IconCheckmark size={10} />
+                                <IconCheckmark size={12} />
                                 {t('linkedBadge')}
                               </span>
                             )}
                           </div>
                           <div className="lwt-card-details">
                             <span className="lwt-card-branch-row">
-                              <IconGitBranch size={9} />
+                              <IconGitBranch size={12} />
                               <span>{wt.branch}</span>
                             </span>
                             {wt.upstream && (

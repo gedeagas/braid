@@ -1,5 +1,6 @@
 import type { ThemePalette } from './palettes'
 import { deriveTerminalColors } from './deriveTerminal'
+import { ensureContrast, MIN_SUBTLE_CONTRAST, MIN_TEXT_CONTRAST } from './contrast'
 
 /** Convert hex color + opacity (0-100) to hex with alpha channel */
 export function hexAlpha(hex: string, opacity: number): string {
@@ -23,6 +24,21 @@ function blendHex(a: string, b: string, t: number): string {
   return `#${mix(r1, r2)}${mix(g1, g2)}${mix(b1, b2)}`
 }
 
+/**
+ * Secondary/muted/tertiary text colors, corrected so they stay readable on
+ * both main surfaces. Palettes (especially imported VS Code themes) often ship
+ * muted greys well below WCAG AA; we nudge them toward textPrimary only as far
+ * as needed so each theme keeps its character.
+ */
+export function deriveTextColors(c: ThemePalette['colors']): { secondary: string; muted: string; tertiary: string } {
+  const bgs = [c.bgPrimary, c.bgSecondary]
+  return {
+    secondary: ensureContrast(c.textSecondary, bgs, MIN_TEXT_CONTRAST, c.textPrimary),
+    muted: ensureContrast(c.textMuted, bgs, MIN_TEXT_CONTRAST, c.textPrimary),
+    tertiary: ensureContrast(blendHex(c.textMuted, c.bgPrimary, 0.35), bgs, MIN_SUBTLE_CONTRAST, c.textPrimary)
+  }
+}
+
 /** Set a batch of CSS custom properties on :root */
 function setVars(vars: Record<string, string>): void {
   const style = document.documentElement.style
@@ -33,6 +49,7 @@ function setVars(vars: Record<string, string>): void {
 
 export function applyTheme(palette: ThemePalette): void {
   const c = palette.colors
+  const text = deriveTextColors(c)
 
   // Base variables
   setVars({
@@ -42,9 +59,9 @@ export function applyTheme(palette: ThemePalette): void {
     '--bg-hover': c.bgHover,
     '--border': c.border,
     '--text-primary': c.textPrimary,
-    '--text-secondary': c.textSecondary,
-    '--text-muted': c.textMuted,
-    '--text-tertiary': blendHex(c.textMuted, c.bgPrimary, 0.35),
+    '--text-secondary': text.secondary,
+    '--text-muted': text.muted,
+    '--text-tertiary': text.tertiary,
     '--accent': c.accent,
     '--accent-hover': c.accentHover,
     '--green': c.green,

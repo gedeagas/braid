@@ -34,7 +34,7 @@ export function MobilePairingView() {
         <div className="drag-region" />
         <span className="mobile-pairing-title">{t('mobilePairing')}</span>
         <button className="btn-icon" onClick={handleClose} aria-label={t('mobilePairing')}>
-          <IconClose size={11} />
+          <IconClose size={12} />
         </button>
       </div>
       <div className="mobile-pairing-body">

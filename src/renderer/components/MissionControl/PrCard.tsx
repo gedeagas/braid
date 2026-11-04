@@ -68,7 +68,7 @@ export const PrCard = memo(function PrCard({ data }: Props) {
               onClick={handleOpenGitHub}
               aria-label={t('openInGitHub')}
             >
-              <IconExternalLinkSmall size={10} />
+              <IconExternalLinkSmall size={12} />
             </span>
           </Tooltip>
         )}
