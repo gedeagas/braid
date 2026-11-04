@@ -1,4 +1,4 @@
-import type { AgentHookSessionUpdate } from '@shared/agent-resume'
+import type { AgentResumeSession } from '@shared/agent-resume'
 // Typed IPC wrappers — thin layer over window.api
 const api = () => window.api
 
@@ -138,8 +138,8 @@ export const pty = {
     api().pty.setKnownBigTerminals(items),
   onAgentHookStatus: (callback: (status: { terminalId: string; state: string; agentType: string; toolName?: string; interrupted?: boolean }) => void) =>
     api().pty.onAgentHookStatus(callback),
-  onAgentHookSession: (callback: (update: AgentHookSessionUpdate) => void) =>
-    api().pty.onAgentHookSession(callback),
+  /** Saved agent conversation to relaunch in this terminal (one claim per provider session). */
+  claimAgentResume: (terminalId: string) => api().pty.claimAgentResume(terminalId) as Promise<AgentResumeSession | null>,
   onMobileTerminalActive: (callback: (status: { terminalId: string; active: boolean }) => void) =>
     api().pty.onMobileTerminalActive(callback),
   onMobileDisplayMode: (callback: (status: { terminalId: string; mode: 'phone' | 'desktop' }) => void) =>

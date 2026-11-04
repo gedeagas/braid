@@ -16,6 +16,8 @@ export interface AgentResumeSession {
   id: string
   /** Folder the agent ran in, when reported. Sessions are scoped to it. */
   cwd?: string
+  /** Agent's own transcript file, when reported (used to verify before resuming). */
+  transcriptPath?: string
 }
 
 /** CLI arguments that resume a given session, per agent. */
@@ -62,8 +64,16 @@ export function normalizeResumeSession(raw: unknown): AgentResumeSession | null 
   if (!isResumableAgent(record.agent)) return null
   const id = normalizeSessionId(record.id)
   if (!id) return null
-  const cwd = normalizeSessionCwd(record.cwd)
-  return cwd ? { agent: record.agent, id, cwd } : { agent: record.agent, id }
+  return withPaths({ agent: record.agent, id }, record)
+}
+
+/** Copy the optional absolute paths (cwd, transcript) that pass validation. */
+function withPaths(session: AgentResumeSession, raw: Record<string, unknown>): AgentResumeSession {
+  const cwd = normalizeSessionCwd(raw.cwd)
+  if (cwd) session.cwd = cwd
+  const transcriptPath = normalizeSessionCwd(raw.transcriptPath)
+  if (transcriptPath) session.transcriptPath = transcriptPath
+  return session
 }
 
 /**
@@ -137,6 +147,5 @@ export function parseHookSessionUpdate(agent: string, body: unknown): AgentHookS
 
   const id = normalizeSessionId(record.sessionId)
   if (!id) return null
-  const cwd = normalizeSessionCwd(record.cwd)
-  return { terminalId, session: cwd ? { agent, id, cwd } : { agent, id } }
+  return { terminalId, session: withPaths({ agent, id }, record) }
 }

@@ -4,7 +4,6 @@ import type { CenterView } from './layout'
 import type { AgentStatusEntry, AgentStatusPayload } from '@/lib/agentStatus'
 import { createAgentStatusEntry, updateAgentStatusEntry } from '@/lib/agentStatus'
 import { SK } from '@/lib/storageKeys'
-import type { AgentResumeSession } from '@shared/agent-resume'
 
 import {
   type BigTerminalTab,
@@ -30,11 +29,6 @@ let _btCounter = 0
 function nextBigTerminalId(): string {
   _btCounter++
   return `bt-${Date.now()}-${_btCounter}`
-}
-
-function sameResumeSession(a: AgentResumeSession | undefined, b: AgentResumeSession | undefined): boolean {
-  if (!a || !b) return a === b
-  return a.agent === b.agent && a.id === b.id && a.cwd === b.cwd
 }
 
 // When the closed terminal was the active center view, pick its replacement: the
@@ -75,7 +69,6 @@ export interface TerminalsSlice {
   /** Called on worktree removal. */
   clearBigTerminalsForWorktree: (worktreeId: string) => void
   /** Record (or, with null, forget) the agent conversation running in a big terminal. */
-  setBigTerminalResumeSession: (terminalId: string, session: AgentResumeSession | null) => void
 }
 
 export const createTerminalsSlice: StateCreator<UIState, [], [], TerminalsSlice> = (set, get) => ({
@@ -250,24 +243,6 @@ export const createTerminalsSlice: StateCreator<UIState, [], [], TerminalsSlice>
     // unnamed terminal. Syncing is idempotent, so doing it on every visit is safe.
     const tabs = get().bigTerminalsByWorktree[worktreeId] ?? []
     tabs.forEach((tab) => syncBigTerminalMetadata(worktreeId, tab))
-  },
-
-  setBigTerminalResumeSession: (terminalId, session) => {
-    set((s) => {
-      for (const [worktreeId, tabs] of Object.entries(s.bigTerminalsByWorktree)) {
-        const index = tabs.findIndex((t) => t.id === terminalId)
-        if (index === -1) continue
-        const tab = tabs[index]
-        if (sameResumeSession(tab.resume, session ?? undefined)) return s
-        const nextTab: BigTerminalTab = { ...tab }
-        if (session) nextTab.resume = session
-        else delete nextTab.resume
-        const next = tabs.map((t, i) => (i === index ? nextTab : t))
-        saveBigTerminalsFor(worktreeId, next)
-        return { bigTerminalsByWorktree: { ...s.bigTerminalsByWorktree, [worktreeId]: next } }
-      }
-      return s // unknown terminal (closed, or never ours)
-    })
   },
 
   clearBigTerminalsForWorktree: (worktreeId) => {

@@ -28,6 +28,7 @@ import { setAgentAwakeEnabled } from './services/agentAwake'
 import { mobileNgrokTunnel } from './services/mobileServer/ngrokTunnel'
 import type { MobileNgrokRegion, MobilePairingTransport } from './services/mobileServer/types'
 import { broadcastMobileNotification } from './services/mobileServer/broadcast'
+import { agentSessionStore } from './services/agentSessions'
 import { hasKnownBigTerminals, setKnownBigTerminals, type KnownBigTerminal } from './services/mobileServer/knownBigTerminals'
 import { isMobileTerminalActive, setDesktopActiveTerminal } from './services/mobileServer/mobileTerminalPresence'
 import { setMobileDisplayMode, getMobileDisplayMode, type MobileDisplayMode } from './services/mobileServer/mobileTerminalDisplay'
@@ -326,6 +327,10 @@ export function registerIpcHandlers(): void {
     // already covered by the create/close listChanged broadcasts.
     const first = !hasKnownBigTerminals()
     setKnownBigTerminals(Array.isArray(items) ? items : [])
+    // The same set is authoritative for which saved agent sessions still matter.
+    if (Array.isArray(items)) {
+      agentSessionStore.retainOnly(new Set(items.map((i) => i?.terminalId).filter((id): id is string => typeof id === 'string')))
+    }
     if (first) broadcastMobileNotification({ jsonrpc: '2.0', method: 'terminal.listChanged', params: {} })
   })
 

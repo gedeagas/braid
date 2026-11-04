@@ -18,7 +18,7 @@ import { join } from 'path'
 import { homedir } from 'os'
 import { BrowserWindow } from 'electron'
 import type { AgentHookTarget } from './agentHooks/types'
-import { parseHookSessionUpdate } from '../../shared/agent-resume'
+import { parseHookSessionUpdate, type AgentHookSessionUpdate } from '../../shared/agent-resume'
 
 /** Well-known config file path. Hook scripts read this to get the current port/token. */
 const HOOK_CONFIG_PATH = join(homedir(), '.braid', 'hooks', 'hook-server.json')
@@ -58,6 +58,15 @@ const hookStatusListeners = new Set<HookStatusListener>()
 export function onHookStatus(listener: HookStatusListener): () => void {
   hookStatusListeners.add(listener)
   return () => hookStatusListeners.delete(listener)
+}
+
+type HookSessionListener = (update: AgentHookSessionUpdate) => void
+const hookSessionListeners = new Set<HookSessionListener>()
+
+/** Agent session changes (new id, deliberate exit) reported by hooks. */
+export function onHookSessionUpdate(listener: HookSessionListener): () => void {
+  hookSessionListeners.add(listener)
+  return () => hookSessionListeners.delete(listener)
 }
 
 // ── Per-Agent Event-to-State Mappings ────────────────────────────────────────
@@ -244,8 +253,9 @@ export async function startAgentHookServer(): Promise<{ port: number; token: str
           // status, but a deliberate exit must still clear the saved session.
           const sessionUpdate = parseHookSessionUpdate(agentId, parsed)
           if (sessionUpdate) {
-            const win = BrowserWindow.getAllWindows()[0]
-            if (win && !win.isDestroyed()) win.webContents.send('agent-hook:session', sessionUpdate)
+            for (const listener of hookSessionListeners) {
+              try { listener(sessionUpdate) } catch { /* a listener must not block others */ }
+            }
           }
 
           const state = mapHookEventToState(agentId, parsed.event, parsed.toolName)

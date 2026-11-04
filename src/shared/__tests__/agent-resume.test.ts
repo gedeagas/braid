@@ -53,6 +53,12 @@ describe('normalizeResumeSession', () => {
     expect(normalizeResumeSession({ agent: 'codex', id: 'abc-1' })).toEqual({ agent: 'codex', id: 'abc-1' })
   })
 
+  it('keeps a valid transcript path and drops a relative one', () => {
+    expect(normalizeResumeSession({ agent: 'claude', id: 'a', transcriptPath: '/h/.claude/projects/x/a.jsonl' }))
+      .toEqual({ agent: 'claude', id: 'a', transcriptPath: '/h/.claude/projects/x/a.jsonl' })
+    expect(normalizeResumeSession({ agent: 'claude', id: 'a', transcriptPath: 'x.jsonl' })).toEqual({ agent: 'claude', id: 'a' })
+  })
+
   it('drops an invalid cwd but keeps the session', () => {
     expect(normalizeResumeSession({ agent: 'claude', id: 'abc', cwd: 'relative' })).toEqual({ agent: 'claude', id: 'abc' })
   })
@@ -140,6 +146,11 @@ describe('parseHookSessionUpdate', () => {
   it('extracts a session from any hook event carrying an id', () => {
     expect(parseHookSessionUpdate('claude', { terminalId: 'bt-1', event: 'PreToolUse', sessionId: 'S1', cwd: '/r' }))
       .toEqual({ terminalId: 'bt-1', session: { agent: 'claude', id: 'S1', cwd: '/r' } })
+  })
+
+  it('carries the transcript path when reported', () => {
+    expect(parseHookSessionUpdate('claude', { terminalId: 'bt-1', event: 'Stop', sessionId: 'S1', transcriptPath: '/t/S1.jsonl' }))
+      .toEqual({ terminalId: 'bt-1', session: { agent: 'claude', id: 'S1', transcriptPath: '/t/S1.jsonl' } })
   })
 
   it('clears the session on a deliberate exit', () => {

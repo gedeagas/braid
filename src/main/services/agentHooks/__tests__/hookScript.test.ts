@@ -61,7 +61,7 @@ describe('generated hook script', () => {
     const body = await run('claude', JSON.stringify({
       session_id: 'abc-123', transcript_path: '/x.jsonl', cwd: '/Users/me/My Repo', hook_event_name: 'SessionStart',
     }))
-    expect(body).toEqual({ terminalId: 'bt-1', event: 'SessionStart', sessionId: 'abc-123', cwd: '/Users/me/My Repo' })
+    expect(body).toEqual({ terminalId: 'bt-1', event: 'SessionStart', sessionId: 'abc-123', cwd: '/Users/me/My Repo', transcriptPath: '/x.jsonl' })
   })
 
   it('forwards the SessionEnd reason', async () => {

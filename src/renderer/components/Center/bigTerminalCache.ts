@@ -292,10 +292,11 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
         ipc.pty.registerBigTerminal(result.sessionId, terminalId)
         if (claimed && !entry.disposed) {
           const ptyId = result.sessionId
-          startAgentResume({
+          void startAgentResume({
             terminalId, worktreePath, rows: term.rows,
             paint: (d) => replayIntoTerminal(terminalId, term, d),
             run: (c) => { commandObserver.accept(c); ipc.pty.write(ptyId, c) },
+            isAlive: () => !entry.disposed && entry.ptyId === ptyId,
           })
         }
         term.onData((d) => {
@@ -360,10 +361,11 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
         // The daemon session is gone and its checkpoint too (daemon wiped or
         // unavailable). Relaunch the agent conversation that was running here
         // instead of leaving a dead shell under the replayed history.
-        startAgentResume({
+        void startAgentResume({
           terminalId, worktreePath, rows: term.rows,
           paint: (d) => replayIntoTerminal(terminalId, term, d),
           run: (c) => { commandObserver.accept(c); ipc.pty.write(ptyId, c) },
+          isAlive: () => !entry.disposed && entry.ptyId === ptyId,
         })
       }
     } catch (err) {

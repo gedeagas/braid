@@ -1,8 +1,7 @@
-// Ties hook-reported agent sessions to big terminal tabs, and turns a saved
-// session back into a launch command when a terminal is cold-restored (its
-// daemon session is gone after a reboot, crash or kill).
+// Turns a saved agent conversation back into a launch command when a big
+// terminal is cold-restored (its shell is new after a reboot, crash or kill).
+// The main process owns the saved sessions; the renderer claims one per tab.
 
-import { useUIStore } from '@/store/ui'
 import * as ipc from '@/lib/ipc'
 import { getAgentEntry } from '@/lib/agentCatalog'
 import { buildResumeCommand, normalizeResumeSession } from '@shared/agent-resume'
@@ -14,22 +13,25 @@ export interface ColdRestoreResume {
 }
 
 /**
- * The command that relaunches the agent last running in this terminal, or
- * null when there is nothing to resume. The session's own agent wins over the
- * tab's agentId: a plain terminal where the user started an agent by hand is
- * resumable too.
+ * Claim the conversation last running in this terminal and build the command
+ * that relaunches it, or null when there is nothing to resume. The agent that
+ * reported the session wins over the tab's agentId, so a plain terminal where
+ * the user started an agent by hand is resumable too.
  */
-export function coldRestoreResumeCommand(terminalId: string, worktreePath: string): ColdRestoreResume | null {
-  for (const tabs of Object.values(useUIStore.getState().bigTerminalsByWorktree)) {
-    const tab = tabs.find((t) => t.id === terminalId)
-    if (!tab) continue
-    if (!tab.resume) return null
-    const entry = getAgentEntry(tab.resume.agent)
-    if (!entry) return null
-    const command = buildResumeCommand(tab.resume, entry.launchCmd, worktreePath)
-    return command ? { command, label: entry.label } : null
+export async function claimResumeCommand(terminalId: string, worktreePath: string): Promise<ColdRestoreResume | null> {
+  let raw: unknown = null
+  try {
+    raw = await ipc.pty.claimAgentResume(terminalId)
+  } catch {
+    return null
   }
-  return null
+  // Crosses a process boundary and is typed into a shell: validate again.
+  const session = normalizeResumeSession(raw)
+  if (!session) return null
+  const entry = getAgentEntry(session.agent)
+  if (!entry) return null
+  const command = buildResumeCommand(session, entry.launchCmd, worktreePath)
+  return command ? { command, label: entry.label } : null
 }
 
 /**
@@ -50,35 +52,19 @@ export interface AgentResumeTarget {
   paint: (data: string) => void
   /** Type into the PTY, as if the user ran it. */
   run: (command: string) => void
+  /** Checked after the async claim: skip if the terminal went away meanwhile. */
+  isAlive?: () => boolean
 }
 
 /**
  * Relaunch the saved agent conversation in a terminal whose shell was
- * re-created (cold restore). Returns false when there is nothing to resume.
+ * re-created (cold restore). Resolves false when there is nothing to resume.
  */
-export function startAgentResume(target: AgentResumeTarget): boolean {
-  const resume = coldRestoreResumeCommand(target.terminalId, target.worktreePath)
-  if (!resume) return false
+export async function startAgentResume(target: AgentResumeTarget): Promise<boolean> {
+  const resume = await claimResumeCommand(target.terminalId, target.worktreePath)
+  if (!resume || (target.isAlive && !target.isAlive())) return false
   target.paint(blankViewportSequence(target.rows))
   target.paint(`\x1b[2m[resuming ${resume.label} session]\x1b[0m\r\n`)
   target.run(resume.command + '\n')
   return true
-}
-
-/**
- * Subscribe to session updates from agent hooks. Registered once at startup,
- * independent of whether the terminal is mounted, so sessions are recorded for
- * agents in worktrees the user hasn't opened yet. Returns an unsubscribe.
- */
-export function initAgentSessionTracking(): () => void {
-  return ipc.pty.onAgentHookSession((update) => {
-    if (!update || typeof update.terminalId !== 'string' || !update.terminalId) return
-    if (update.session === null) {
-      useUIStore.getState().setBigTerminalResumeSession(update.terminalId, null)
-      return
-    }
-    // IPC payloads cross a process boundary: validate again before storing.
-    const session = normalizeResumeSession(update.session)
-    if (session) useUIStore.getState().setBigTerminalResumeSession(update.terminalId, session)
-  })
 }

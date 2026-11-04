@@ -8,7 +8,7 @@
 //   4. POSTs to /hook/<agentId> on the loopback server
 
 /** Current hook script version. Bump to force re-install on next app launch. */
-export const HOOK_SCRIPT_VERSION = 13
+export const HOOK_SCRIPT_VERSION = 14
 
 export interface HookScriptOptions {
   /** Agent identifier - determines the POST endpoint path */
@@ -71,6 +71,10 @@ session_id=""
 cwd=""
 [[ "$input" =~ \\"cwd\\"[[:space:]]*:[[:space:]]*\\"([^\\"]+)\\" ]] && cwd="\${BASH_REMATCH[1]}"
 
+# Agent transcript file (lets Braid check the session still exists before resuming)
+transcript=""
+[[ "$input" =~ \\"transcript_path\\"[[:space:]]*:[[:space:]]*\\"([^\\"]+)\\" ]] && transcript="\${BASH_REMATCH[1]}"
+
 # SessionEnd reason (e.g. prompt_input_exit vs clear)
 reason=""
 [[ "$input" =~ \\"reason\\"[[:space:]]*:[[:space:]]*\\"([A-Za-z_]+)\\" ]] && reason="\${BASH_REMATCH[1]}"
@@ -80,6 +84,8 @@ event="\${event//[\\\\\\"\\']/}"
 tool="\${tool//[\\\\\\"\\']/}"
 cwd="\${cwd//[\\\\\\"\\']/}"
 cwd="\${cwd//[[:cntrl:]]/}"
+transcript="\${transcript//[\\\\\\"\\']/}"
+transcript="\${transcript//[[:cntrl:]]/}"
 
 # Build JSON payload for Braid server
 json="{\\"terminalId\\":\\"$BRAID_TERMINAL_ID\\",\\"event\\":\\"$event\\""
@@ -87,6 +93,7 @@ json="{\\"terminalId\\":\\"$BRAID_TERMINAL_ID\\",\\"event\\":\\"$event\\""
 [ "$is_interrupt" = "true" ] && json="$json,\\"isInterrupt\\":true"
 [ -n "$session_id" ] && json="$json,\\"sessionId\\":\\"$session_id\\""
 [ -n "$cwd" ] && json="$json,\\"cwd\\":\\"$cwd\\""
+[ -n "$transcript" ] && json="$json,\\"transcriptPath\\":\\"$transcript\\""
 [ -n "$reason" ] && json="$json,\\"reason\\":\\"$reason\\""
 json="$json}"
 

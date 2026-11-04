@@ -4,7 +4,6 @@
 import type { CenterView } from './layout'
 import * as ipc from '@/lib/ipc'
 import { SK } from '@/lib/storageKeys'
-import { normalizeResumeSession, type AgentResumeSession } from '@shared/agent-resume'
 
 export interface BigTerminalTab {
   id: string
@@ -15,12 +14,6 @@ export interface BigTerminalTab {
   initialInput?: string
   /** Agent catalog id (e.g. 'claude', 'codex', 'gemini'). Used for icon rendering and tab persistence. */
   agentId?: string
-  /**
-   * The agent conversation running in this tab, as reported by its hooks.
-   * Persisted so a cold restore (daemon session gone) can relaunch the agent
-   * into the same conversation instead of leaving a dead shell.
-   */
-  resume?: AgentResumeSession
 }
 
 /** Load the persisted big terminal tab list for a worktree. */
@@ -38,9 +31,6 @@ export function loadBigTerminalsFor(worktreeId: string): BigTerminalTab[] {
         if ('agentId' in (x as Record<string, unknown>) && typeof (x as Record<string, unknown>).agentId === 'string') {
           tab.agentId = (x as Record<string, unknown>).agentId as string
         }
-        // Stored data is untrusted (it ends up typed into a shell): re-validate.
-        const resume = normalizeResumeSession((x as Record<string, unknown>).resume)
-        if (resume) tab.resume = resume
         return tab
       })
   } catch {
@@ -136,7 +126,6 @@ export function saveBigTerminalsFor(worktreeId: string, tabs: BigTerminalTab[]):
       id: tab.id,
       label: tab.label,
       ...(tab.agentId ? { agentId: tab.agentId } : {}),
-      ...(tab.resume ? { resume: tab.resume } : {}),
     }))
     localStorage.setItem(SK.bigTerminalTabsPrefix + worktreeId, JSON.stringify(persisted))
   } catch {}

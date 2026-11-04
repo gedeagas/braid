@@ -36,7 +36,6 @@ import { initAgentDetection } from '@/lib/agentDetection'
 import { UsageStatusBar } from '@/components/StatusBar/UsageStatusBar'
 import { reapOrphanedTerminals } from '@/lib/orphanedTerminals'
 import { warmLiveBigTerminals } from '@/components/Center/warmTerminals'
-import { initAgentSessionTracking } from '@/lib/agentResumeRestore'
 
 export default function App() {
   const autoUpdate = useAutoUpdate()
@@ -172,7 +171,6 @@ export default function App() {
     const cleanup = initAgentEventListener()
     const cleanupUpdater = initUpdateListeners()
     const cleanupAgentDetection = initAgentDetection()
-    const cleanupAgentSessions = initAgentSessionTracking()
     const unsubRemoteBigTerminal = window.api.pty.onBigTerminalRegistered((tab: { terminalId: string; worktreeId?: string; worktreePath?: string; label?: string; agentId?: string }) => {
       // Resolve the worktree id: trust the broadcast, else map the path against
       // the renderer's own worktrees (covers deep-link worktrees the main
@@ -308,7 +306,6 @@ export default function App() {
       unsubSettings()
       cleanupUpdater()
       cleanupAgentDetection()
-      cleanupAgentSessions()
       unsubRemoteBigTerminal()
       unsubBigTerminalRenamed()
       unsubBigTerminalClosed()

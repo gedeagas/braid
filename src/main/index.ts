@@ -34,6 +34,7 @@ import { startMobileTerminalNotifier } from './services/mobileServer/terminalNot
 import { startMobilePushNotifier } from './services/mobileServer/pushNotifier'
 import { startTerminalActivityTracking } from './services/mobileServer/terminalActivity'
 import { startTerminalRunTimer } from './services/terminalRunTimer'
+import { startAgentSessionTracking } from './services/agentSessions'
 import { ptyService } from './services/pty'
 import { mobileServer } from './services/mobileServer'
 import { mobileNgrokTunnel } from './services/mobileServer/ngrokTunnel'
