@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer, webFrame, webUtils } from 'electron'
+import type { AgentResumeClaim } from '../shared/agent-resume'
 import type { TemplateKind, CreateTemplateArgs, CreateTemplateResult, TemplateLogEntry } from '../shared/templates'
 import type { ToolInstallKey, ToolInstallOptions, ToolInstallResult } from '../shared/tool-install'
 
@@ -149,9 +150,11 @@ const api = {
     deleteScrollback: (terminalId: string) =>
       ipcRenderer.send('pty:deleteScrollback', terminalId),
     reattach: (sessionId: string) =>
-      ipcRenderer.invoke('pty:reattach', sessionId) as Promise<{ sessionId: string; snapshot: string } | null>,
+      ipcRenderer.invoke('pty:reattach', sessionId) as Promise<{ sessionId: string; snapshot: string; coldRestored?: boolean; foregroundAtLoss?: 'shell' | 'command' } | null>,
+    consumeColdRestore: (sessionId: string) =>
+      ipcRenderer.invoke('pty:consumeColdRestore', sessionId) as Promise<boolean>,
     listSessions: () =>
-      ipcRenderer.invoke('pty:listSessions') as Promise<Array<{ sessionId: string; cwd: string; cols: number; rows: number; createdAt: number }>>,
+      ipcRenderer.invoke('pty:listSessions') as Promise<Array<{ sessionId: string; cwd: string; cols: number; rows: number; createdAt: number; coldRestored?: boolean; foreground?: 'shell' | 'command' }>>,
     listOrphanedBigTerminals: (knownTerminalIds: string[]) =>
       ipcRenderer.invoke('pty:listOrphanedBigTerminals', knownTerminalIds) as Promise<Array<{ terminalId: string; cwd: string; label?: string; agentId?: string }>>,
     killOrphanedBigTerminals: (terminalIds: string[]) =>
@@ -163,6 +166,12 @@ const api = {
       ipcRenderer.on('agent-hook:status', handler)
       return () => ipcRenderer.removeListener('agent-hook:status', handler)
     },
+    claimAgentResume: (terminalId: string) =>
+      ipcRenderer.invoke('agentSessions:claimResume', terminalId) as Promise<AgentResumeClaim | null>,
+    listAgentSessions: () =>
+      ipcRenderer.invoke('agentSessions:list') as Promise<Array<{ terminalId: string; session: { agent: string; id: string }; state?: string }>>,
+    forgetAgentResume: (terminalId: string) =>
+      ipcRenderer.send('agentSessions:forget', terminalId),
     onMobileTerminalActive: (callback: (status: { terminalId: string; active: boolean }) => void) => {
       const handler = (_event: Electron.IpcRendererEvent, status: { terminalId: string; active: boolean }) => callback(status)
       ipcRenderer.on('pty:mobileTerminalActive', handler)

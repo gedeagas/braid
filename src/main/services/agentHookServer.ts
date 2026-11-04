@@ -18,6 +18,7 @@ import { join } from 'path'
 import { homedir } from 'os'
 import { BrowserWindow } from 'electron'
 import type { AgentHookTarget } from './agentHooks/types'
+import { parseHookSessionUpdate, type AgentHookSessionUpdate } from '../../shared/agent-resume'
 
 /** Well-known config file path. Hook scripts read this to get the current port/token. */
 const HOOK_CONFIG_PATH = join(homedir(), '.braid', 'hooks', 'hook-server.json')
@@ -39,6 +40,10 @@ interface HookRequestBody {
   event: string
   toolName?: string
   isInterrupt?: boolean
+  /** Agent's own session id, cwd and SessionEnd reason (validated in parseHookSessionUpdate). */
+  sessionId?: string
+  cwd?: string
+  reason?: string
 }
 
 // ── Main-process status listeners ────────────────────────────────────────────
@@ -53,6 +58,15 @@ const hookStatusListeners = new Set<HookStatusListener>()
 export function onHookStatus(listener: HookStatusListener): () => void {
   hookStatusListeners.add(listener)
   return () => hookStatusListeners.delete(listener)
+}
+
+type HookSessionListener = (update: AgentHookSessionUpdate) => void
+const hookSessionListeners = new Set<HookSessionListener>()
+
+/** Agent session changes (new id, deliberate exit) reported by hooks. */
+export function onHookSessionUpdate(listener: HookSessionListener): () => void {
+  hookSessionListeners.add(listener)
+  return () => hookSessionListeners.delete(listener)
 }
 
 // ── Per-Agent Event-to-State Mappings ────────────────────────────────────────
@@ -234,6 +248,15 @@ export async function startAgentHookServer(): Promise<{ port: number; token: str
         try {
           const parsed = JSON.parse(body) as HookRequestBody
           if (!parsed.terminalId || !parsed.event) return
+
+          // Session tracking runs before status mapping: SessionEnd has no
+          // status, but a deliberate exit must still clear the saved session.
+          const sessionUpdate = parseHookSessionUpdate(agentId, parsed)
+          if (sessionUpdate) {
+            for (const listener of hookSessionListeners) {
+              try { listener(sessionUpdate) } catch { /* a listener must not block others */ }
+            }
+          }
 
           const state = mapHookEventToState(agentId, parsed.event, parsed.toolName)
           if (!state) return

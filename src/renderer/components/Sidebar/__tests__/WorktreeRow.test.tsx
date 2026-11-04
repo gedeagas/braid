@@ -107,30 +107,26 @@ describe('WorktreeRow deletion', () => {
     mocks.removeWorktree.mockResolvedValue(undefined)
   })
 
-  it('keeps the confirmation open and shows loading state while deleting', async () => {
+  it('closes the confirmation immediately and shows the row spinner while deleting', async () => {
     const removal = deferred<void>()
     mocks.removeWorktree.mockReturnValue(removal.promise)
     renderRow()
 
     const dialog = openDeleteDialog()
-    const cancelButton = within(dialog).getByRole('button', { name: 'cancel' }) as HTMLButtonElement
-    const deleteButton = within(dialog).getByRole('button', { name: 'deleteWorktreeConfirm' }) as HTMLButtonElement
-    const checkbox = within(dialog).getByRole('checkbox') as HTMLInputElement
-
-    fireEvent.click(checkbox)
+    const deleteButton = within(dialog).getByRole('button', { name: 'deleteWorktreeConfirm' })
+    fireEvent.click(within(dialog).getByRole('checkbox'))
     fireEvent.click(deleteButton)
 
     await waitFor(() => expect(mocks.removeWorktree).toHaveBeenCalledWith('project-1', 'wt-feature'))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    const row = screen.getByRole('option')
+    expect(row.getAttribute('aria-busy')).toBe('true')
+    expect(within(row).getByRole('status')).toBeTruthy()
     expect(mocks.setSkipDeleteWorktreeConfirm).not.toHaveBeenCalled()
-    expect(screen.getByRole('dialog')).toBe(dialog)
-    expect(cancelButton.disabled).toBe(true)
-    expect(deleteButton.disabled).toBe(true)
-    expect(checkbox.disabled).toBe(true)
-    expect(within(deleteButton).getByRole('status')).toBeTruthy()
 
     await act(async () => removal.resolve())
 
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await waitFor(() => expect(row.getAttribute('aria-busy')).toBe('false'))
     expect(mocks.setSkipDeleteWorktreeConfirm).toHaveBeenCalledWith(true)
   })
 
@@ -140,15 +136,12 @@ describe('WorktreeRow deletion', () => {
     renderRow()
 
     const dialog = openDeleteDialog()
-    const checkbox = within(dialog).getByRole('checkbox') as HTMLInputElement
-    const deleteButton = within(dialog).getByRole('button', { name: 'deleteWorktreeConfirm' })
-
-    fireEvent.click(checkbox)
-    fireEvent.click(deleteButton)
+    fireEvent.click(within(dialog).getByRole('checkbox'))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'deleteWorktreeConfirm' }))
 
     await waitFor(() => expect(mocks.flash).toHaveBeenCalled())
-    expect(screen.getByRole('dialog')).toBe(dialog)
-    expect(checkbox.disabled).toBe(false)
+    expect(screen.queryByRole('dialog')).toBeNull()
+    await waitFor(() => expect(screen.getByRole('option').getAttribute('aria-busy')).toBe('false'))
     expect(mocks.setSkipDeleteWorktreeConfirm).not.toHaveBeenCalled()
 
     consoleError.mockRestore()
@@ -193,21 +186,20 @@ describe('WorktreeRow deletion', () => {
     await waitFor(() => expect(row.getAttribute('aria-busy')).toBe('false'))
   })
 
-  it('ignores a second confirm click while the first deletion is in flight', async () => {
+  it('ignores delete triggers on the row after confirming', async () => {
     const removal = deferred<void>()
     mocks.removeWorktree.mockReturnValue(removal.promise)
     renderRow()
 
     const dialog = openDeleteDialog()
-    const deleteButton = within(dialog).getByRole('button', { name: 'deleteWorktreeConfirm' })
-
-    fireEvent.click(deleteButton)
+    fireEvent.click(within(dialog).getByRole('button', { name: 'deleteWorktreeConfirm' }))
     await waitFor(() => expect(mocks.removeWorktree).toHaveBeenCalledTimes(1))
 
-    fireEvent.click(deleteButton)
+    fireEvent.keyDown(screen.getByRole('option'), { key: 'Delete' })
+    expect(screen.queryByRole('dialog')).toBeNull()
     expect(mocks.removeWorktree).toHaveBeenCalledTimes(1)
 
     await act(async () => removal.resolve())
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await waitFor(() => expect(screen.getByRole('option').getAttribute('aria-busy')).toBe('false'))
   })
 })

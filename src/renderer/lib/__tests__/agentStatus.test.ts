@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createAgentStatusEntry, updateAgentStatusEntry } from '../agentStatus'
+import { createAgentStatusEntry, createRestoredStatusEntry, isRestoredUnconfirmed, updateAgentStatusEntry } from '../agentStatus'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -92,5 +92,20 @@ describe('updateAgentStatusEntry', () => {
     expect(updated.source).toBe('hook')
     expect(updated.updatedAt).toBe(1000)
     expect(updated.stateHistory).toHaveLength(1)
+  })
+})
+
+describe('restored (unconfirmed) status', () => {
+  it('shows the agent as idle, never working', () => {
+    const entry = createRestoredStatusEntry('claude')
+    expect(entry).toMatchObject({ state: 'done', agentType: 'claude', source: 'restored' })
+    expect(isRestoredUnconfirmed(entry)).toBe(true)
+  })
+
+  it('is replaced by any live detection, even the lowest-priority title source', () => {
+    const live = updateAgentStatusEntry(createRestoredStatusEntry('claude'), { state: 'working', source: 'title' })
+    expect(live.state).toBe('working')
+    expect(live.source).toBe('title')
+    expect(isRestoredUnconfirmed(live)).toBe(false)
   })
 })

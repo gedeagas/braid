@@ -8,7 +8,7 @@
 import { createServer, type Server, type Socket } from 'net'
 import { existsSync, unlinkSync, mkdirSync } from 'fs'
 import { dirname } from 'path'
-import { SOCKET_PATH, SOCKET_IS_FILE, encode, decode, type DaemonRequest, type DaemonEvent } from './protocol'
+import { DAEMON_VERSION_ENV, PROTOCOL_VERSION, SOCKET_PATH, SOCKET_IS_FILE, encode, decode, type DaemonRequest, type DaemonEvent } from './protocol'
 import { defaultShellPath } from '../../lib/shell'
 import type { SessionHost } from './sessionHost'
 
@@ -60,8 +60,8 @@ export class SocketServer {
     this.host.on('data', (sessionId, data) => {
       this.broadcast({ type: 'data', sessionId, data })
     })
-    this.host.on('exit', (sessionId, exitCode) => {
-      this.broadcast({ type: 'exit', sessionId, exitCode })
+    this.host.on('exit', (sessionId, exitCode, _clean, selfExit) => {
+      this.broadcast({ type: 'exit', sessionId, exitCode, selfExit })
       // Remove session from all clients' attached sets
       for (const client of this.clients) {
         client.attachedSessions.delete(sessionId)
@@ -166,7 +166,7 @@ export class SocketServer {
             this.sendResponse(client, { id: req.id, type: 'error', message: `Session not found: ${req.sessionId}` })
           } else {
             client.attachedSessions.add(req.sessionId)
-            this.sendResponse(client, { id: req.id, type: 'ok', data: { snapshot } })
+            this.sendResponse(client, { id: req.id, type: 'ok', data: { snapshot, ...this.host.coldRestoreInfo(req.sessionId) } })
           }
           break
         }
@@ -211,6 +211,18 @@ export class SocketServer {
         case 'setMetadata':
           this.host.setMetadata(req.sessionId, req.metadata)
           this.sendResponse(client, { id: req.id, type: 'ok' })
+          break
+
+        case 'consumeColdRestore':
+          this.sendResponse(client, { id: req.id, type: 'ok', data: { claimed: this.host.consumeColdRestore(req.sessionId) } })
+          break
+
+        case 'hello':
+          this.sendResponse(client, {
+            id: req.id,
+            type: 'ok',
+            data: { protocol: PROTOCOL_VERSION, version: process.env[DAEMON_VERSION_ENV] || undefined, sessionCount: this.host.size },
+          })
           break
 
         case 'ping':

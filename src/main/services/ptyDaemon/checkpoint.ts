@@ -12,6 +12,29 @@ import type { CheckpointData } from './types'
 
 let intervalHandle: ReturnType<typeof setInterval> | null = null
 
+/**
+ * What each checkpoint file last held, minus the timestamp. Idle terminals
+ * produce identical checkpoints every tick; skipping those avoids rewriting
+ * megabytes of scrollback every 5 seconds.
+ */
+const lastWritten = new Map<string, string>()
+
+/**
+ * Sessions killed by a signal while this daemon kept running. Their
+ * checkpoint must survive the stale-file cleanup so the next daemon can
+ * restore them (see shouldDropCheckpointOnExit).
+ */
+const retained = new Set<string>()
+
+/** Keep a dead session's checkpoint on disk for the next daemon start. */
+export function retainCheckpoint(sessionId: string): void {
+  retained.add(safeFileName(sessionId))
+}
+
+function signature(cp: CheckpointData): string {
+  return JSON.stringify([cp.scrollback.length, cp.lastOutputAt, cp.cols, cp.rows, cp.cwd, cp.metadata, cp.env, cp.foreground])
+}
+
 /** Start periodic checkpointing. */
 export function startCheckpointing(host: SessionHost): void {
   if (intervalHandle) return
@@ -19,6 +42,8 @@ export function startCheckpointing(host: SessionHost): void {
   mkdirSync(CHECKPOINT_DIR, { recursive: true, mode: 0o700 })
 
   intervalHandle = setInterval(() => {
+    // Sample only on the periodic tick; the shutdown flush must not resample.
+    host.sampleForeground()
     flushCheckpoints(host)
   }, CHECKPOINT_INTERVAL_MS)
 
@@ -36,8 +61,11 @@ export function stopCheckpointing(): void {
   }
 }
 
-/** Write all session checkpoints to disk atomically. */
-export function flushCheckpoints(host: SessionHost): void {
+/**
+ * Write all changed session checkpoints to disk atomically. `force` rewrites
+ * every one (final flush on shutdown).
+ */
+export function flushCheckpoints(host: SessionHost, opts: { force?: boolean } = {}): void {
   const checkpoints = host.getCheckpoints()
   const activeIds = new Set(checkpoints.map((cp) => cp.sessionId))
 
@@ -45,7 +73,12 @@ export function flushCheckpoints(host: SessionHost): void {
 
   // Write active session checkpoints
   for (const cp of checkpoints) {
-    writeCheckpoint(cp)
+    const sig = signature(cp)
+    if (!opts.force && lastWritten.get(cp.sessionId) === sig) continue
+    if (writeCheckpoint(cp)) lastWritten.set(cp.sessionId, sig)
+  }
+  for (const id of lastWritten.keys()) {
+    if (!activeIds.has(id)) lastWritten.delete(id)
   }
 
   // Remove checkpoints for sessions that no longer exist
@@ -54,7 +87,7 @@ export function flushCheckpoints(host: SessionHost): void {
     for (const file of files) {
       if (!file.endsWith('.json')) continue
       const sessionId = file.replace(/\.json$/, '')
-      if (!activeIds.has(sessionId)) {
+      if (!activeIds.has(sessionId) && !retained.has(safeFileName(sessionId))) {
         try {
           unlinkSync(join(CHECKPOINT_DIR, file))
         } catch {
@@ -72,16 +105,18 @@ function safeFileName(sessionId: string): string {
   return sessionId.replace(/[^a-zA-Z0-9-]/g, '_')
 }
 
-/** Write a single checkpoint atomically. */
-function writeCheckpoint(data: CheckpointData): void {
+/** Write a single checkpoint atomically. Returns whether it was written. */
+function writeCheckpoint(data: CheckpointData): boolean {
   const filePath = join(CHECKPOINT_DIR, `${safeFileName(data.sessionId)}.json`)
   const tmpPath = filePath + '.tmp'
   try {
     writeFileSync(tmpPath, JSON.stringify(data), { mode: 0o600 })
     renameSync(tmpPath, filePath)
+    return true
   } catch {
     // Best effort - don't crash the daemon over a checkpoint failure
     try { unlinkSync(tmpPath) } catch { /* ignore */ }
+    return false
   }
 }
 
@@ -112,9 +147,22 @@ export function loadCheckpoints(): CheckpointData[] {
 
 /** Delete a specific checkpoint file. */
 export function deleteCheckpoint(sessionId: string): void {
+  lastWritten.delete(sessionId)
+  retained.delete(safeFileName(sessionId))
   try {
     unlinkSync(join(CHECKPOINT_DIR, `${safeFileName(sessionId)}.json`))
   } catch {
     // May not exist
   }
+}
+
+/**
+ * Whether a session's checkpoint should be deleted the moment its PTY exits.
+ * A shell that ended by itself (user typed `exit`) or was closed by a client
+ * must not come back after a daemon restart. One killed by a signal (logout,
+ * reboot) keeps its checkpoint so it can be restored. While the daemon itself
+ * is shutting down every checkpoint is kept.
+ */
+export function shouldDropCheckpointOnExit(opts: { clean: boolean; shuttingDown: boolean }): boolean {
+  return opts.clean && !opts.shuttingDown
 }

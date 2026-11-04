@@ -7,13 +7,14 @@ import { getTerminalMinimumContrastRatio, getTerminalTheme } from '@/themes/term
 import { createTerminal, registerPtyFinder } from '@/components/Right/terminalCache'
 import { registerAgentStatusOsc, registerBraidOsc9 } from '@/lib/agentStatusOsc'
 import { registerTitleDetection } from '@/lib/agentTitleDetection'
-import { replayIntoTerminal, isReplaying, POST_REPLAY_MODE_RESET } from '@/lib/replayGuard'
+import { isReplaying } from '@/lib/replayGuard'
 import { isKnownAgentType, type AgentStatusPayload, type AgentStatusState, type AgentType } from '@/lib/agentStatus'
 import { createCompletionCoordinator, type CompletionCoordinator } from '@/lib/agentCompletionCoordinator'
 import { notifyTerminalStateChange, clearTerminalNotificationState } from '@/lib/terminalNotifications'
 import { isCodexUserInputPromptText, readTerminalBufferTail } from '@/lib/codexTerminalDetection'
-import { createTerminalCommandObserver, type TerminalCommandObserver } from '@/lib/terminalCommandRefresh'
+import type { TerminalCommandObserver } from '@/lib/terminalCommandRefresh'
 import { useUIStore } from '@/store/ui'
+import { connectBigTerminal } from './bigTerminalConnect'
 import { useToastsStore } from '@/store/toasts'
 
 export interface BigTermEntry {
@@ -51,21 +52,12 @@ export interface BigTermEntry {
   mobileInputLocked: boolean
   /** Invoked when the desktop types while locked - typing = desktop take-back. */
   onDesktopInputWhileLocked: (() => void) | null
+  /** Last keystroke / last rendered output (ms), for idle hibernation. */
+  lastInputAt: number
+  lastOutputAt: number
 }
 
 const cache = new Map<string, BigTermEntry>()
-
-const BRACKETED_PASTE_BEGIN = '\x1b[200~'
-const BRACKETED_PASTE_END = '\x1b[201~'
-// DECSET 2004 (bracketed-paste-enable): every TUI agent we launch emits this on
-// its output stream once its input layer is wired up. Treat it as the protocol
-// "I accept bracketed paste" handshake.
-const DECSET_BRACKETED_PASTE = '\x1b[?2004h'
-// After the handshake, wait for the agent's render burst to go quiet before
-// pasting - some TUIs (e.g. OpenCode) emit DECSET during alt-screen setup, then
-// keep painting for ~1s; pasting into that gap drops bytes.
-const AGENT_READY_QUIET_MS = 1500
-const AGENT_READY_TIMEOUT_MS = 8000
 
 let finderRegistered = false
 function ensureFinderRegistered(): void {
@@ -180,80 +172,6 @@ function updateEntryAgentId(entry: BigTermEntry, agentId?: string): void {
   }
 }
 
-function sanitizeInitialInput(input: string): string {
-  return input
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
-    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/g, '')
-}
-
-/**
- * Resolve once the agent on `ptyId` has rendered an input box that accepts
- * bracketed paste, or on timeout. Taps the global PTY data stream as a sidecar
- * observer (it does not take over the primary handler that feeds xterm): waits
- * for DECSET 2004, then for `AGENT_READY_QUIET_MS` of stream silence so the
- * paste lands in the mounted input buffer instead of being dropped mid-render.
- * On hard timeout it resolves true only if the handshake was seen at all.
- */
-function waitForAgentInputReady(entry: BigTermEntry, ptyId: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    let settled = false
-    let saw2004 = false
-    let recent = ''
-    let quietTimer: ReturnType<typeof setTimeout> | null = null
-    let hardTimer: ReturnType<typeof setTimeout> | null = null
-    let unsubscribe: (() => void) | null = null
-    // Guards the case where ipc.pty.onData invokes the callback synchronously
-    // (and finish() runs) before the unsubscribe handle is assigned below.
-    let pendingUnsubscribe = false
-
-    const finish = (value: boolean): void => {
-      if (settled) return
-      settled = true
-      if (quietTimer) clearTimeout(quietTimer)
-      if (hardTimer) clearTimeout(hardTimer)
-      if (unsubscribe) { try { unsubscribe() } catch {} }
-      else pendingUnsubscribe = true
-      resolve(value)
-    }
-
-    const armQuietTimer = (): void => {
-      if (quietTimer) clearTimeout(quietTimer)
-      quietTimer = setTimeout(() => finish(true), AGENT_READY_QUIET_MS)
-    }
-
-    unsubscribe = ipc.pty.onData((id, data) => {
-      if (settled || id !== ptyId) return
-      if (entry.disposed || entry.ptyId !== ptyId) { finish(false); return }
-      if (!saw2004) {
-        // Keep a small tail so the escape sequence is still found if it splits
-        // across two IPC frames.
-        const combined = recent + data
-        recent = combined.slice(-512)
-        if (combined.indexOf(DECSET_BRACKETED_PASTE) === -1) return
-        saw2004 = true
-      }
-      armQuietTimer()
-    })
-    // If the callback already settled synchronously, tear down the listener now.
-    if (pendingUnsubscribe) { try { unsubscribe?.() } catch {} unsubscribe = null }
-
-    if (!settled) hardTimer = setTimeout(() => finish(saw2004), AGENT_READY_TIMEOUT_MS)
-  })
-}
-
-async function writeInitialAgentInput(entry: BigTermEntry, ptyId: string, input: string): Promise<void> {
-  const sanitized = sanitizeInitialInput(input).trim()
-  if (!sanitized) return
-
-  const ready = await waitForAgentInputReady(entry, ptyId)
-  if (!ready || entry.disposed || entry.ptyId !== ptyId) return
-
-  // Bracketed-paste the ticket context as an editable DRAFT. No trailing
-  // newline → the agent does not auto-submit; the user reviews and sends.
-  ipc.pty.write(ptyId, `${BRACKETED_PASTE_BEGIN}${sanitized}${BRACKETED_PASTE_END}`)
-}
-
 /**
  * Return existing entry or build a new one: create xterm, replay scrollback, spawn PTY.
  * Pass `initialCommand` to auto-run a command after the first PTY spawn (not on restore).
@@ -264,7 +182,10 @@ async function writeInitialAgentInput(entry: BigTermEntry, ptyId: string, input:
  *   2. OSC 9999 / OSC 9: custom terminal sequences parsed by xterm.js.
  *   3. Title detection (fallback): watches braille spinners, Gemini markers, etc.
  */
-export function getOrCreate(terminalId: string, worktreePath: string, initialCommand?: string, agentId?: string, initialInput?: string): BigTermEntry {
+export function getOrCreate(
+  terminalId: string, worktreePath: string, initialCommand?: string, agentId?: string, initialInput?: string,
+  options: { reattachOnly?: boolean } = {},
+): BigTermEntry {
   ensureFinderRegistered()
   ensureHookListener()
   const existing = cache.get(terminalId)
@@ -304,9 +225,13 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
     spawnPromise: Promise.resolve(),
     disposed: false,
     mobileInputLocked: false,
-    onDesktopInputWhileLocked: null
+    onDesktopInputWhileLocked: null,
+    lastInputAt: Date.now(),
+    lastOutputAt: Date.now(),
   }
   cache.set(terminalId, entry)
+  term.onData(() => { entry.lastInputAt = Date.now() })
+  term.onWriteParsed(() => { entry.lastOutputAt = Date.now() })
 
   // Register agent status tracking on ALL terminals.
   // OSC 9999: handles any agent that emits custom hook sequences.
@@ -323,7 +248,8 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
 
   registerAgentStatusOsc(term, (payload) => {
     const applied = updateStatus({ ...payload, source: 'hook' })
-    if (applied.stateChanged) {
+    // Replayed history sets the status but must not re-announce old events.
+    if (applied.stateChanged && !isReplaying(terminalId)) {
       completionCoordinator.observeHookStatus(payload.state, payload.interrupted)
       notifyTerminalStateChange(terminalId, payload.state)
     }
@@ -333,7 +259,7 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
     term,
     (result) => {
       const applied = updateStatus({ state: result.state, source: 'title', agentType: result.agentType ?? undefined })
-      if (applied.stateChanged) {
+      if (applied.stateChanged && !isReplaying(terminalId)) {
         completionCoordinator.observeTitleStatus(result.state)
         notifyTerminalStateChange(terminalId, result.state)
       }
@@ -345,7 +271,7 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
   // OSC 9 braid:STATE[:TOOL] payloads. Secondary to HTTP but still useful.
   registerBraidOsc9(term, (payload) => {
     const applied = updateStatus({ ...payload, source: 'hook' })
-    if (applied.stateChanged) {
+    if (applied.stateChanged && !isReplaying(terminalId)) {
       completionCoordinator.observeHookStatus(payload.state, false)
       notifyTerminalStateChange(terminalId, payload.state)
     }
@@ -353,88 +279,16 @@ export function getOrCreate(terminalId: string, worktreePath: string, initialCom
 
   if (expectedAgentType === 'codex') ensureCodexPromptScanListener(entry)
 
-  entry.spawnPromise = (async () => {
-    let hasScrollback = false
-
-    // Attempt warm reattach to daemon session first
-    let reattached = false
-    try {
-      const result = await ipc.pty.reattach(terminalId)
-      if (result && result.snapshot) {
-        reattached = true
-        hasScrollback = true
-        entry.ptyId = result.sessionId
-        const commandObserver = createTerminalCommandObserver(worktreePath, { refreshWorktrees: true })
-        entry.commandObserver = commandObserver
-        replayIntoTerminal(terminalId, term, result.snapshot)
-        replayIntoTerminal(terminalId, term, '\r\n\x1b[2m[session reconnected]\x1b[0m\r\n')
-        replayIntoTerminal(terminalId, term, POST_REPLAY_MODE_RESET)
-        ipc.pty.registerBigTerminal(result.sessionId, terminalId)
-        term.onData((d) => {
-          if (isReplaying(terminalId)) return
-          // Phone owns input: don't forward to the PTY; typing is a take-back.
-          if (entry.mobileInputLocked) { entry.onDesktopInputWhileLocked?.(); return }
-          commandObserver.accept(d)
-          if (entry.ptyId && !entry.disposed) ipc.pty.write(entry.ptyId, d)
-        })
-      }
-    } catch {
-      // Reattach not available or failed - fall through to normal spawn
+  // A warm-up whose session died meanwhile is dropped, unless a view mounted
+  // it in the meantime (the user opened the tab): that one restores normally.
+  const onReattachFailed = options.reattachOnly
+    ? () => {
+      if (entry.resizeObserver !== null || cache.get(terminalId) !== entry) return false
+      teardown(entry)
+      return true
     }
-
-    if (reattached || entry.disposed) return
-
-    // Fall back to scrollback file replay + fresh spawn
-    try {
-      const scrollback = await ipc.pty.readScrollback(terminalId)
-      if (scrollback && scrollback.length > 0) {
-        hasScrollback = true
-        // Replay under guard to suppress xterm auto-replies (DA1, DECRQM, etc.)
-        replayIntoTerminal(terminalId, term, scrollback)
-        replayIntoTerminal(terminalId, term, '\r\n\x1b[2m[history restored]\x1b[0m\r\n')
-        // Clear stale terminal modes (cursor, mouse, focus, bracketed paste)
-        replayIntoTerminal(terminalId, term, POST_REPLAY_MODE_RESET)
-      }
-    } catch {
-      // ignore: best-effort replay
-    }
-
-    // Bail out if disposed while scrollback was loading
-    if (entry.disposed) return
-
-    try {
-      // Pass BRAID_TERMINAL_ID so the hook script can identify this terminal
-      // when POSTing to the loopback HTTP server.
-      const ptyId = await ipc.pty.spawn(worktreePath, { BRAID_TERMINAL_ID: terminalId })
-      // If disposed while spawn was in flight, kill the orphaned PTY immediately
-      if (entry.disposed) {
-        try { ipc.pty.kill(ptyId) } catch {}
-        return
-      }
-      entry.ptyId = ptyId
-      const commandObserver = createTerminalCommandObserver(worktreePath, { refreshWorktrees: true })
-      entry.commandObserver = commandObserver
-      ipc.pty.registerBigTerminal(ptyId, terminalId)
-      term.onData((d) => {
-        // Suppress xterm auto-replies during scrollback replay
-        if (isReplaying(terminalId)) return
-        // Phone owns input: don't forward to the PTY; typing is a take-back.
-        if (entry.mobileInputLocked) { entry.onDesktopInputWhileLocked?.(); return }
-        commandObserver.accept(d)
-        if (entry.ptyId && !entry.disposed) ipc.pty.write(entry.ptyId, d)
-      })
-      // Auto-run initialCommand only on fresh terminals (no restored scrollback)
-      if (initialCommand && !hasScrollback) {
-        commandObserver.accept(initialCommand + '\n')
-        ipc.pty.write(ptyId, initialCommand + '\n')
-        if (initialInput) void writeInitialAgentInput(entry, ptyId, initialInput)
-      }
-    } catch (err) {
-      if (!entry.disposed) {
-        term.write(`\r\n\x1b[31m[failed to spawn pty]\x1b[0m\r\n`)
-      }
-    }
-  })()
+    : undefined
+  entry.spawnPromise = connectBigTerminal(entry, { initialCommand, initialInput, onReattachFailed })
 
   return entry
 }
@@ -470,6 +324,40 @@ export function disposeBigTerminal(terminalId: string): void {
     try { ipc.pty.deleteScrollback(terminalId) } catch {}
     return
   }
+  teardown(entry)
+  try { ipc.pty.deleteScrollback(terminalId) } catch {}
+  // Clear ephemeral agent status from store
+  try { useUIStore.getState().clearBigTerminalStatus(terminalId) } catch {}
+  // Dismiss any toasts and clear dedup state for this terminal
+  try { useToastsStore.getState().dismissByTerminal(terminalId) } catch {}
+  clearTerminalNotificationState(terminalId)
+}
+
+/** Snapshot of a cached terminal, for the idle hibernation sweep. */
+export function listBigTerminalActivity(): Array<{ terminalId: string; lastInputAt: number; lastOutputAt: number; mobileInputLocked: boolean }> {
+  return [...cache.values()].map((e) => ({
+    terminalId: e.terminalId, lastInputAt: e.lastInputAt, lastOutputAt: e.lastOutputAt, mobileInputLocked: e.mobileInputLocked,
+  }))
+}
+
+/**
+ * Shut an idle agent terminal down to free its processes, keeping everything
+ * needed to bring it back: the tab, its saved scrollback (written by main on
+ * kill) and the agent's saved session. Opening the tab again replays the
+ * history and resumes the agent through the normal cold path.
+ */
+export function hibernateBigTerminal(terminalId: string, agentType?: AgentType): boolean {
+  const entry = cache.get(terminalId)
+  if (!entry || !entry.ptyId) return false
+  // Leave the cache first so the exit event finds no terminal to print into.
+  teardown(entry)
+  try { useUIStore.getState().clearBigTerminalStatus(terminalId) } catch {}
+  try { useUIStore.getState().seedRestoredBigTerminalStatus([{ terminalId, agentType }]) } catch {}
+  return true
+}
+
+function teardown(entry: BigTermEntry): void {
+  const terminalId = entry.terminalId
   entry.disposed = true
   try { entry.resizeObserver?.disconnect() } catch {}
   if (entry.pendingFitRafId !== null) {
@@ -490,14 +378,8 @@ export function disposeBigTerminal(terminalId: string): void {
   if (entry.ptyId) {
     try { ipc.pty.kill(entry.ptyId) } catch {}
   }
-  try { entry.term.dispose() } catch {}
   cache.delete(terminalId)
-  try { ipc.pty.deleteScrollback(terminalId) } catch {}
-  // Clear ephemeral agent status from store
-  try { useUIStore.getState().clearBigTerminalStatus(terminalId) } catch {}
-  // Dismiss any toasts and clear dedup state for this terminal
-  try { useToastsStore.getState().dismissByTerminal(terminalId) } catch {}
-  clearTerminalNotificationState(terminalId)
+  try { entry.term.dispose() } catch {}
 }
 
 /** Dispose many at once (e.g. on worktree removal). */

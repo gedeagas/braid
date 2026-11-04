@@ -25,10 +25,16 @@ export type AgentStatusState = (typeof AGENT_STATUS_STATES)[number]
 
 // ── Status sources ───────────────────────────────────────────────────────────
 
-export const AGENT_STATUS_SOURCES = ['title', 'terminal_scan', 'hook'] as const
+/**
+ * `restored`: last-known identity of an agent in a terminal that hasn't been
+ * reattached since a cold restore. Counted in the sidebar but unconfirmed, so
+ * any live detection replaces it.
+ */
+export const AGENT_STATUS_SOURCES = ['restored', 'title', 'terminal_scan', 'hook'] as const
 export type AgentStatusSource = (typeof AGENT_STATUS_SOURCES)[number]
 
 const AGENT_STATUS_SOURCE_PRIORITY: Record<AgentStatusSource, number> = {
+  restored: 0,
   title: 1,
   terminal_scan: 2,
   hook: 3,
@@ -157,4 +163,17 @@ export function agentStatusToTabClass(entry: AgentStatusEntry | null): string {
   if (entry.state === 'working') return ' tab--running'
   if (entry.state === 'blocked' || entry.state === 'waiting') return ' tab--waiting'
   return '' // done = no animation
+}
+
+/**
+ * Placeholder for an agent whose terminal was cold-restored and not opened
+ * yet: shows the agent (and counts it) without claiming it is working.
+ */
+export function createRestoredStatusEntry(agentType?: AgentType): AgentStatusEntry {
+  return createAgentStatusEntry('done', agentType, 'restored')
+}
+
+/** True while the entry is only the cold-restore placeholder. */
+export function isRestoredUnconfirmed(entry: AgentStatusEntry | undefined): boolean {
+  return entry?.source === 'restored'
 }

@@ -387,6 +387,15 @@
   outline: none;
 }
 
+.worktree-row--deleting {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.worktree-row--deleting:hover {
+  background: transparent;
+}
+
 .worktree-row--keyboard-focused {
   box-shadow: inset 0 0 0 2px var(--accent);
 }

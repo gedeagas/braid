@@ -5,7 +5,7 @@
  * The renderer is completely unaware of the daemon - it uses the same
  * IPC protocol (pty:spawn, pty:write, pty:data, etc.).
  */
-import { BrowserWindow } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
@@ -15,7 +15,9 @@ import { resolveShellPath, resolveShellLaunchArgs } from '../../lib/shell'
 import { getHookServerPort, getHookServerToken } from '../agentHookServer'
 import { DaemonClient } from './client'
 import { isReapableTerminalId } from './orphan'
-import { isDaemonRunning, removeSocketFile, waitForDaemonListening } from './lifecycle'
+import { isDaemonRunning, removeSocketFile, waitForDaemonListening, RespawnThrottle } from './lifecycle'
+import { DAEMON_VERSION_ENV } from './protocol'
+import { replaceOutdatedDaemon } from './versionSkew'
 import { RingBuffer } from './sessionHost'
 import type { BigTerminalMetadata, IPtyService, OrphanedTerminal, PtyInstanceInfo, TerminalOutput } from '../pty'
 import type { ReattachResult, SessionInfo } from './types'
@@ -61,6 +63,10 @@ export class PtyDaemonAdapter implements IPtyService {
   private sizeBySession = new Map<string, { cols: number; rows: number }>()
   /** Serializes concurrent ensureDaemon() calls to prevent spawning duplicate daemons. */
   private pendingEnsure: Promise<void> | null = null
+  /** Notified when any daemon session ends (see onSessionEnded). */
+  private sessionEndedListeners = new Set<(sessionId: string, selfExit: boolean) => void>()
+  /** Stops respawning a daemon that keeps dying on start. */
+  private spawnThrottle = new RespawnThrottle()
 
   constructor() {
     this.client = new DaemonClient()
@@ -76,7 +82,10 @@ export class PtyDaemonAdapter implements IPtyService {
       for (const cb of this.dataListeners.get(sessionId) ?? []) cb(sessionId, data)
     })
 
-    this.client.on('exit', (sessionId, exitCode) => {
+    this.client.on('exit', (sessionId, exitCode, selfExit) => {
+      for (const cb of this.sessionEndedListeners) {
+        try { cb(sessionId, selfExit) } catch { /* listeners must not break exit handling */ }
+      }
       // Persist scrollback for big terminals before cleaning up (matches legacy behavior)
       const terminalId = this.bigTerminalBySession.get(sessionId)
       const buffer = this.buffers.get(sessionId)
@@ -121,7 +130,10 @@ export class PtyDaemonAdapter implements IPtyService {
   private async doEnsureDaemon(): Promise<void> {
     if (this.client.connected) return
 
-    const pid = isDaemonRunning()
+    let pid = isDaemonRunning()
+    // After an app update the old build's daemon may still be running. Swap
+    // it for ours only when it holds no sessions (see shouldReplaceDaemon).
+    if (pid && await replaceOutdatedDaemon(app.getVersion())) pid = isDaemonRunning()
     if (!pid) {
       await this.spawnDaemon()
     }
@@ -174,6 +186,9 @@ export class PtyDaemonAdapter implements IPtyService {
   }
 
   private async spawnDaemon(): Promise<void> {
+    if (!this.spawnThrottle.tryAcquire()) {
+      throw new Error('Terminal daemon keeps exiting on start; paused restarting it for a minute (see ~/Braid/daemon/daemon.log)')
+    }
     // Find the daemon entry point - adjacent to this file in the build output
     const daemonPath = join(__dirname, 'daemonMain.js')
 
@@ -184,6 +199,8 @@ export class PtyDaemonAdapter implements IPtyService {
         ...process.env,
         // Pass through the shell so the daemon uses the same shell
         SHELL: resolveShell(),
+        // Lets a later app build tell whether this daemon is outdated.
+        [DAEMON_VERSION_ENV]: app.getVersion(),
       },
     })
     child.unref()
@@ -514,9 +531,26 @@ export class PtyDaemonAdapter implements IPtyService {
           // Non-fatal - readTerminalOutput() just won't match this session
         }
       }
-      return { sessionId, snapshot: result.snapshot }
+      const foregroundAtLoss = result.foregroundAtLoss === 'shell' || result.foregroundAtLoss === 'command' ? result.foregroundAtLoss : undefined
+      return { sessionId, snapshot: result.snapshot, coldRestored: result.coldRestored === true, ...(foregroundAtLoss ? { foregroundAtLoss } : {}) }
     } catch {
       return null
+    }
+  }
+
+  /** Any session ended. `selfExit`: the shell exited on its own (user typed `exit`). */
+  onSessionEnded(cb: (sessionId: string, selfExit: boolean) => void): () => void {
+    this.sessionEndedListeners.add(cb)
+    return () => { this.sessionEndedListeners.delete(cb) }
+  }
+
+  /** One-shot claim of a cold-restored session (see SessionHost.consumeColdRestore). */
+  async consumeColdRestore(sessionId: string): Promise<boolean> {
+    try {
+      await this.ensureDaemon()
+      return await this.client.consumeColdRestore(sessionId)
+    } catch {
+      return false
     }
   }
 

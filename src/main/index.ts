@@ -34,6 +34,7 @@ import { startMobileTerminalNotifier } from './services/mobileServer/terminalNot
 import { startMobilePushNotifier } from './services/mobileServer/pushNotifier'
 import { startTerminalActivityTracking } from './services/mobileServer/terminalActivity'
 import { startTerminalRunTimer } from './services/terminalRunTimer'
+import { startAgentSessionTracking } from './services/agentSessions'
 import { ptyService } from './services/pty'
 import { mobileServer } from './services/mobileServer'
 import { mobileNgrokTunnel } from './services/mobileServer/ngrokTunnel'
@@ -333,6 +334,8 @@ app.whenReady().then(async () => {
 
   // Start the agent hook HTTP server, then install hooks for all supported agents.
   // The server must be running before hooks are installed so the port is known.
+  // Before the hook server, so no hook-reported session is missed.
+  startAgentSessionTracking()
   startAgentHookServer()
     .then(() => ensureAllAgentHooks())
     .catch((err) => console.warn('[agentHookServer] Failed to start:', err))

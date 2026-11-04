@@ -7,7 +7,10 @@
 import { accessSync, existsSync, constants as fsConstants } from 'fs'
 import { BUFFER_MAX_LENGTH } from './protocol'
 import { resolveShellLaunchArgs } from '../../lib/shell'
-import type { DaemonSession, CheckpointData, SessionInfo, DaemonSessionMetadata } from './types'
+import { baseEnv, classifyForeground, normalizeForeground, persistableEnv, restoredEnv } from './sessionEnv'
+import type { DaemonSession, CheckpointData, SessionInfo, DaemonSessionMetadata, ForegroundKind } from './types'
+
+export { persistableEnv } from './sessionEnv'
 
 // ── RingBuffer ───────────────────────────────────────────────────────────────
 
@@ -66,13 +69,27 @@ interface SessionEntry {
   attachedClients: number
   /** Big-terminal display metadata (label/agent/worktree), persisted in checkpoints. */
   metadata?: DaemonSessionMetadata
+  /** Allowlisted env re-applied when the session is restored from a checkpoint. */
+  env: Record<string, string>
+  /** Re-created from a checkpoint by this daemon and not yet claimed by a client. */
+  coldRestored: boolean
+  /** A client asked for this kill (tab closed), so the end is deliberate. */
+  killRequested: boolean
+  /** Shell binary the PTY runs, to tell "at the prompt" from "running something". */
+  shell: string
+  /** Last sampled foreground (see sampleForeground). Undefined until sampled. */
+  foreground?: ForegroundKind
 }
 
 // ── Events ───────────────────────────────────────────────────────────────────
 
 export interface SessionHostEvents {
   data: (sessionId: string, data: string) => void
-  exit: (sessionId: string, exitCode: number) => void
+  /**
+   * `clean` is true when the shell ended by itself (user typed `exit`) or a
+   * client asked for the kill, false when a signal killed it (logout, reboot).
+   */
+  exit: (sessionId: string, exitCode: number, clean: boolean, selfExit: boolean) => void
 }
 
 type EventKey = keyof SessionHostEvents
@@ -175,15 +192,11 @@ export class SessionHost {
       cols,
       rows,
       cwd,
-      env: {
-        ...process.env as Record<string, string>,
-        TERM: 'xterm-256color',
-        ...env,
-      },
+      env: { ...baseEnv(), ...env },
     })
 
     const buffer = new RingBuffer(bufferMaxLength)
-    const entry: SessionEntry = {
+    this.track({
       sessionId,
       cwd,
       cols,
@@ -192,43 +205,33 @@ export class SessionHost {
       pty: ptyProcess,
       buffer,
       attachedClients: 0,
-    }
-
-    ptyProcess.onData((data: string) => {
-      entry.lastOutputAt = Date.now()
-      buffer.push(data)
-      this.emit('data', sessionId, data)
+      env: persistableEnv(env),
+      coldRestored: false,
+      killRequested: false,
+      shell,
     })
-
-    ptyProcess.onExit(({ exitCode }: { exitCode: number }) => {
-      this.sessions.delete(sessionId)
-      this.emit('exit', sessionId, exitCode)
-    })
-
-    this.sessions.set(sessionId, entry)
   }
 
   /**
    * Restore a session from checkpoint data by spawning a fresh PTY
    * and pre-filling the RingBuffer with the checkpointed scrollback.
+   * The session is flagged `coldRestored` until a client claims it.
    */
   async restore(checkpoint: CheckpointData, shell: string): Promise<void> {
     if (this.sessions.has(checkpoint.sessionId)) return
 
+    const env = restoredEnv(checkpoint.sessionId, checkpoint.env)
     const ptyProcess = await this.spawnPty(shell, resolveShellLaunchArgs(shell).args, {
       cols: checkpoint.cols,
       rows: checkpoint.rows,
       cwd: checkpoint.cwd,
-      env: {
-        ...process.env as Record<string, string>,
-        TERM: 'xterm-256color',
-      },
+      env: { ...baseEnv(), ...env },
     })
 
     const buffer = new RingBuffer()
     buffer.push(checkpoint.scrollback)
 
-    const entry: SessionEntry = {
+    this.track({
       sessionId: checkpoint.sessionId,
       cwd: checkpoint.cwd,
       cols: checkpoint.cols,
@@ -239,20 +242,72 @@ export class SessionHost {
       buffer,
       attachedClients: 0,
       metadata: checkpoint.metadata,
-    }
+      env,
+      coldRestored: true,
+      killRequested: false,
+      shell,
+      foreground: normalizeForeground(checkpoint.foreground),
+    })
+  }
 
-    ptyProcess.onData((data: string) => {
+  private track(entry: SessionEntry): void {
+    const { sessionId } = entry
+    entry.pty.onData((data: string) => {
       entry.lastOutputAt = Date.now()
-      buffer.push(data)
-      this.emit('data', checkpoint.sessionId, data)
+      entry.buffer.push(data)
+      this.emit('data', sessionId, data)
     })
 
-    ptyProcess.onExit(({ exitCode }: { exitCode: number }) => {
-      this.sessions.delete(checkpoint.sessionId)
-      this.emit('exit', checkpoint.sessionId, exitCode)
+    entry.pty.onExit(({ exitCode, signal }: { exitCode: number; signal?: number }) => {
+      this.sessions.delete(sessionId)
+      // selfExit: the shell ended on its own (user typed `exit`), not by a
+      // signal and not by a client kill (tab close, hibernation).
+      this.emit('exit', sessionId, exitCode, entry.killRequested || !signal, !signal && !entry.killRequested)
     })
 
-    this.sessions.set(checkpoint.sessionId, entry)
+    this.sessions.set(sessionId, entry)
+  }
+
+  /** Whether the session was cold-restored and nobody has claimed it yet. */
+  isColdRestored(sessionId: string): boolean {
+    return this.sessions.get(sessionId)?.coldRestored ?? false
+  }
+
+  /** Cold-restore state for a session, as reported on attach. */
+  coldRestoreInfo(sessionId: string): { coldRestored: boolean; foregroundAtLoss?: ForegroundKind } {
+    const entry = this.sessions.get(sessionId)
+    if (!entry?.coldRestored) return { coldRestored: false }
+    return entry.foreground ? { coldRestored: true, foregroundAtLoss: entry.foreground } : { coldRestored: true }
+  }
+
+  /**
+   * Record what each PTY has in the foreground: the bare shell (user is at the
+   * prompt, e.g. after quitting the agent) or a command (the agent). Called on
+   * the periodic checkpoint tick only, never during shutdown: on a reboot the
+   * agent can die first and hand the foreground back to the shell, which must
+   * not read as "the user quit it". Unclaimed cold-restored sessions keep the
+   * value from before the loss.
+   */
+  sampleForeground(): void {
+    for (const entry of this.sessions.values()) {
+      if (entry.coldRestored) continue
+      try {
+        entry.foreground = classifyForeground(entry.pty.process, entry.shell)
+      } catch {
+        // PTY gone or platform without process info: keep the last sample.
+      }
+    }
+  }
+
+  /**
+   * Atomically claim a cold-restored session. Returns true for exactly one
+   * caller, so two windows (or desktop + mobile) can't both relaunch the agent.
+   */
+  consumeColdRestore(sessionId: string): boolean {
+    const entry = this.sessions.get(sessionId)
+    if (!entry?.coldRestored) return false
+    entry.coldRestored = false
+    return true
   }
 
   /** Write data to a session's PTY stdin. */
@@ -272,7 +327,10 @@ export class SessionHost {
 
   /** Kill a session's PTY. The 'exit' event fires when it dies. */
   kill(sessionId: string): void {
-    this.sessions.get(sessionId)?.pty.kill()
+    const entry = this.sessions.get(sessionId)
+    if (!entry) return
+    entry.killRequested = true
+    entry.pty.kill()
   }
 
   /** Kill all sessions (on daemon shutdown). */
@@ -340,6 +398,8 @@ export class SessionHost {
         lastOutputAt: entry.lastOutputAt,
         metadata: entry.metadata,
         attachedClients: entry.attachedClients,
+        coldRestored: entry.coldRestored,
+        ...(entry.foreground ? { foreground: entry.foreground } : {}),
       })
     }
     return result
@@ -360,6 +420,8 @@ export class SessionHost {
         lastOutputAt: entry.lastOutputAt,
         checkpointedAt: now,
         metadata: entry.metadata,
+        env: entry.env,
+        foreground: entry.foreground,
       })
     }
     return result

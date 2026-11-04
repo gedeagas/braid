@@ -1,3 +1,4 @@
+import { modelLabel } from '@shared/claude-models'
 import { memo, useState, useCallback, useRef, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
@@ -125,23 +126,9 @@ function TurnActions({ durationMs, turnUsage }: TurnActionsProps) {
   )
 }
 
-const MODEL_LABELS: Record<string, string> = {
-  'claude-fable-5': 'Fable 5',
-  'claude-opus-4-8': 'Opus 4.8',
-  'claude-sonnet-5': 'Sonnet 5',
-  'claude-opus-4-7': 'Opus 4.7',
-  'claude-sonnet-4-6': 'Sonnet 4.6',
-  'claude-opus-4-6': 'Opus 4.6',
-  'claude-haiku-4-5': 'Haiku 4.5'
-}
-
 function formatModelName(raw?: string): string | null {
   if (!raw) return null
-  if (MODEL_LABELS[raw]) return MODEL_LABELS[raw]
-  for (const [prefix, label] of Object.entries(MODEL_LABELS)) {
-    if (raw.startsWith(prefix)) return label
-  }
-  return raw
+  return modelLabel(raw) ?? raw
 }
 
 /** Duration text with a portal-based hover tooltip that escapes overflow:hidden ancestors. */

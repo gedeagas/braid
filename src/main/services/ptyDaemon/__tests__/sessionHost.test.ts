@@ -154,7 +154,7 @@ describe('SessionHost', () => {
 
     mockPty._emitExit(0)
     expect(host.has('s1')).toBe(false)
-    expect(exitSpy).toHaveBeenCalledWith('s1', 0)
+    expect(exitSpy).toHaveBeenCalledWith('s1', 0, true, true)
   })
 
   it('generates checkpoint data', async () => {

@@ -2,6 +2,7 @@
 // Agent IPC event dispatcher — thin coordinator, delegates to handlers/
 // ---------------------------------------------------------------------------
 
+import { isClaudeModelId } from '@shared/claude-models'
 import * as ipc from '@/lib/ipc'
 import { useSessionsStore } from './store'
 import { handleInit, handleSlashCommands, handleSystemInit } from './handlers/handleLifecycle'
@@ -13,7 +14,6 @@ import { handleStreamEvent, handleToolProgress, handleResult } from './handlers/
 import { updateSession } from './stateUtils'
 import { flash } from '@/store/flash'
 import { useProjectsStore } from '@/store/projects'
-import type { ModelId } from '@/types'
 
 export function initAgentEventListener(): () => void {
   return ipc.agent.onEvent(({ sessionId, event }: { sessionId: string; event: unknown }) => {
@@ -102,10 +102,8 @@ export function initAgentEventListener(): () => void {
         // createSession sets activeSessionId — restore focus to the originating session
         store.getState().setActiveSession(sessionId)
 
-        // Keep in sync with ModelId in types/index.ts
-        const validModels: string[] = ['claude-fable-5', 'claude-opus-4-8', 'claude-sonnet-5', 'claude-opus-4-7', 'claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5-20251001']
-        if (model && validModels.includes(model)) {
-          store.getState().updateModel(newId, model as ModelId)
+        if (isClaudeModelId(model)) {
+          store.getState().updateModel(newId, model)
         }
 
         store.getState().renameSession(newId, sessionName)

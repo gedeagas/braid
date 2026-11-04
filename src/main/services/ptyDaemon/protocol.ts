@@ -18,6 +18,8 @@ import type { DaemonSessionMetadata } from './types'
 // ── Constants ────────────────────────────────────────────────────────────────
 
 export const PROTOCOL_VERSION = 1
+/** Env var carrying the spawning app's version into the daemon process. */
+export const DAEMON_VERSION_ENV = 'BRAID_DAEMON_VERSION'
 export const DAEMON_DIR = join(homedir(), 'Braid', 'daemon')
 
 /**
@@ -115,6 +117,19 @@ export interface SetMetadataRequest {
   metadata: DaemonSessionMetadata
 }
 
+/** Atomically claim a cold-restored session (one-shot; see SessionHost). */
+export interface ConsumeColdRestoreRequest {
+  id: string
+  type: 'consumeColdRestore'
+  sessionId: string
+}
+
+/** Ask the daemon which app build spawned it (for version-skew handling). */
+export interface HelloRequest {
+  id: string
+  type: 'hello'
+}
+
 export interface PingRequest {
   id: string
   type: 'ping'
@@ -135,6 +150,8 @@ export type DaemonRequest =
   | ListRequest
   | SetBufferMaxLengthRequest
   | SetMetadataRequest
+  | ConsumeColdRestoreRequest
+  | HelloRequest
   | PingRequest
   | ShutdownRequest
 
@@ -150,6 +167,8 @@ export interface ExitEvent {
   type: 'exit'
   sessionId: string
   exitCode: number
+  /** The shell ended on its own (user typed `exit`). Absent from older daemons. */
+  selfExit?: boolean
 }
 
 export type DaemonEvent = DataEvent | ExitEvent

@@ -21,7 +21,7 @@ interface PendingRequest {
 
 export interface DaemonClientEvents {
   data: [sessionId: string, data: string]
-  exit: [sessionId: string, exitCode: number]
+  exit: [sessionId: string, exitCode: number, selfExit: boolean]
   connected: []
   disconnected: []
 }
@@ -104,10 +104,23 @@ export class DaemonClient extends EventEmitter<DaemonClientEvents> {
     this.attachedSessions.add(sessionId)
   }
 
-  async attach(sessionId: string): Promise<{ snapshot: string }> {
+  async attach(sessionId: string): Promise<{ snapshot: string; coldRestored?: boolean; foregroundAtLoss?: 'shell' | 'command' }> {
     const result = await this.request({ type: 'attach', sessionId } as Omit<DaemonRequest, 'id'> & { type: 'attach' })
     this.attachedSessions.add(sessionId)
-    return result as { snapshot: string }
+    return result as { snapshot: string; coldRestored?: boolean; foregroundAtLoss?: 'shell' | 'command' }
+  }
+
+  /**
+   * Claim a cold-restored session. True for exactly one caller. A daemon that
+   * predates this request answers with an error, which reads as "not claimed".
+   */
+  async consumeColdRestore(sessionId: string): Promise<boolean> {
+    try {
+      const result = await this.request({ type: 'consumeColdRestore', sessionId } as Omit<DaemonRequest, 'id'> & { type: 'consumeColdRestore' })
+      return (result as { claimed?: boolean } | undefined)?.claimed === true
+    } catch {
+      return false
+    }
   }
 
   write(sessionId: string, data: string): void {
@@ -142,6 +155,23 @@ export class DaemonClient extends EventEmitter<DaemonClientEvents> {
   /** Persist big-terminal display metadata on the daemon session (fire-and-forget). */
   setMetadata(sessionId: string, metadata: DaemonSessionMetadata): void {
     this.send({ type: 'setMetadata', sessionId, metadata } as Omit<DaemonRequest, 'id'> & { type: 'setMetadata' })
+  }
+
+  /**
+   * Which build the daemon came from. A daemon older than this request
+   * answers with an error: reported as an unknown version.
+   */
+  async hello(): Promise<{ version?: string; sessionCount?: number }> {
+    try {
+      const result = await this.request({ type: 'hello' } as Omit<DaemonRequest, 'id'> & { type: 'hello' })
+      const data = (result ?? {}) as { version?: unknown; sessionCount?: unknown }
+      return {
+        version: typeof data.version === 'string' ? data.version : undefined,
+        sessionCount: typeof data.sessionCount === 'number' ? data.sessionCount : undefined,
+      }
+    } catch {
+      return {}
+    }
   }
 
   async ping(): Promise<void> {
@@ -214,7 +244,7 @@ export class DaemonClient extends EventEmitter<DaemonClientEvents> {
       } else if (msg.type === 'exit') {
         const event = msg as ExitEvent
         this.attachedSessions.delete(event.sessionId)
-        this.emit('exit', event.sessionId, event.exitCode)
+        this.emit('exit', event.sessionId, event.exitCode, event.selfExit === true)
       }
     }
   }

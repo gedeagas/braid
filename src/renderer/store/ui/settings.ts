@@ -4,10 +4,12 @@ import type { UIState } from './types'
 import { SK } from '@/lib/storageKeys'
 import { DEFAULT_EFFORT, EFFORT_LEVELS } from '@/lib/constants'
 import { loadStr, loadBool, loadInt, loadFloat } from './helpers'
+import { clampHibernationMinutes, DEFAULT_HIBERNATION_MINUTES } from '@/lib/agentHibernationConfig'
+import { CLAUDE_MODEL_IDS } from '@shared/claude-models'
 
-const VALID_MODEL_IDS: readonly string[] = ['claude-fable-5', 'claude-opus-4-8', 'claude-sonnet-5', 'claude-opus-4-7', 'claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5-20251001']
+const VALID_MODEL_IDS: readonly string[] = CLAUDE_MODEL_IDS
 const VALID_EFFORT_LEVELS = new Set<string>(EFFORT_LEVELS.map((l) => l.id))
-const DEFAULT_MODEL: ModelId = 'claude-sonnet-4-6'
+const DEFAULT_MODEL: ModelId = 'claude-sonnet-5-5'
 const DEFAULT_AGENT_ID = 'claude'
 export type MobileNgrokRegion = 'auto' | 'us' | 'eu' | 'au' | 'ap' | 'sa' | 'jp' | 'in' | 'us-cal-1' | 'eu-lon-1'
 const VALID_MOBILE_NGROK_REGIONS = new Set<string>(['auto', 'us', 'eu', 'au', 'ap', 'sa', 'jp', 'in', 'us-cal-1', 'eu-lon-1'])
@@ -97,6 +99,9 @@ export interface SettingsSlice {
   magicTrackpad: boolean
   bigTerminalEnabled: boolean
   rollbackHistory: boolean
+  /** Experimental: shut idle finished agents down and resume them on open. */
+  agentHibernation: boolean
+  agentHibernationMinutes: number
 
   // Power
   keepAwakeWhileAgentsRun: boolean
@@ -160,6 +165,8 @@ export interface SettingsSlice {
   setMagicTrackpad: (v: boolean) => void
   setBigTerminalEnabled: (v: boolean) => void
   setRollbackHistory: (v: boolean) => void
+  setAgentHibernation: (v: boolean) => void
+  setAgentHibernationMinutes: (minutes: number) => void
 }
 
 export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> = (set) => ({
@@ -234,6 +241,8 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   magicTrackpad: loadBool(SK.magicTrackpad, false),
   bigTerminalEnabled: loadBool(SK.bigTerminalEnabled, true),
   rollbackHistory: loadBool(SK.rollbackHistory, false),
+  agentHibernation: loadBool(SK.agentHibernation, false),
+  agentHibernationMinutes: clampHibernationMinutes(loadInt(SK.agentHibernationMinutes, DEFAULT_HIBERNATION_MINUTES)),
 
   keepAwakeWhileAgentsRun: loadBool(SK.keepAwakeWhileAgentsRun, false),
 
@@ -345,6 +354,12 @@ export const createSettingsSlice: StateCreator<UIState, [], [], SettingsSlice> =
   setMagicTrackpad: (v) => { localStorage.setItem(SK.magicTrackpad, String(v)); set({ magicTrackpad: v }) },
   setBigTerminalEnabled: (v) => { localStorage.setItem(SK.bigTerminalEnabled, String(v)); set({ bigTerminalEnabled: v }) },
   setRollbackHistory: (v) => { localStorage.setItem(SK.rollbackHistory, String(v)); set({ rollbackHistory: v }) },
+  setAgentHibernation: (v) => { localStorage.setItem(SK.agentHibernation, String(v)); set({ agentHibernation: v }) },
+  setAgentHibernationMinutes: (v) => {
+    const minutes = clampHibernationMinutes(v)
+    localStorage.setItem(SK.agentHibernationMinutes, String(minutes))
+    set({ agentHibernationMinutes: minutes })
+  },
   setKeepAwakeWhileAgentsRun: (v) => { localStorage.setItem(SK.keepAwakeWhileAgentsRun, String(v)); set({ keepAwakeWhileAgentsRun: v }) },
   setMobileServerEnabled: (v) => { localStorage.setItem(SK.mobileServerEnabled, String(v)); set({ mobileServerEnabled: v }) },
   setMobileNgrokRegion: (v) => { localStorage.setItem(SK.mobileNgrokRegion, v); set({ mobileNgrokRegion: v }) },

@@ -52,7 +52,7 @@ export async function authenticateMcpServer(
       prompt: 'ping',
       options: {
         cwd: process.cwd(),
-        model: 'claude-haiku-4-5-20251001',
+        model: 'claude-haiku-5-5',
         maxTurns: 1,
         permissionMode: 'plan',
         abortController,

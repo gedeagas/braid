@@ -1,3 +1,4 @@
+import type { AgentResumeClaim } from '@shared/agent-resume'
 // Typed IPC wrappers — thin layer over window.api
 const api = () => window.api
 
@@ -126,8 +127,9 @@ export const pty = {
   setMobileDisplayMode: (terminalId: string, mode: 'phone' | 'desktop') =>
     api().pty.setMobileDisplayMode(terminalId, mode),
   deleteScrollback: (terminalId: string) => api().pty.deleteScrollback(terminalId),
-  reattach: (sessionId: string) => api().pty.reattach(sessionId) as Promise<{ sessionId: string; snapshot: string } | null>,
-  listSessions: () => api().pty.listSessions() as Promise<Array<{ sessionId: string; cwd: string; cols: number; rows: number; createdAt: number }>>,
+  reattach: (sessionId: string) => api().pty.reattach(sessionId) as Promise<{ sessionId: string; snapshot: string; coldRestored?: boolean; foregroundAtLoss?: 'shell' | 'command' } | null>,
+  consumeColdRestore: (sessionId: string) => api().pty.consumeColdRestore(sessionId) as Promise<boolean>,
+  listSessions: () => api().pty.listSessions() as Promise<Array<{ sessionId: string; cwd: string; cols: number; rows: number; createdAt: number; coldRestored?: boolean; foreground?: 'shell' | 'command' }>>,
   listOrphanedBigTerminals: (knownTerminalIds: string[]) =>
     api().pty.listOrphanedBigTerminals(knownTerminalIds) as Promise<Array<{ terminalId: string; cwd: string; label?: string; agentId?: string }>>,
   killOrphanedBigTerminals: (terminalIds: string[]) =>
@@ -136,6 +138,11 @@ export const pty = {
     api().pty.setKnownBigTerminals(items),
   onAgentHookStatus: (callback: (status: { terminalId: string; state: string; agentType: string; toolName?: string; interrupted?: boolean }) => void) =>
     api().pty.onAgentHookStatus(callback),
+  /** Saved agent conversation to relaunch in this terminal (one claim per provider session). */
+  claimAgentResume: (terminalId: string) => api().pty.claimAgentResume(terminalId) as Promise<AgentResumeClaim | null>,
+  listAgentSessions: () => api().pty.listAgentSessions() as Promise<Array<{ terminalId: string; session: { agent: string; id: string }; state?: string }>>,
+  /** The user had left the agent before the terminal was lost: never resume it. */
+  forgetAgentResume: (terminalId: string) => api().pty.forgetAgentResume(terminalId),
   onMobileTerminalActive: (callback: (status: { terminalId: string; active: boolean }) => void) =>
     api().pty.onMobileTerminalActive(callback),
   onMobileDisplayMode: (callback: (status: { terminalId: string; mode: 'phone' | 'desktop' }) => void) =>

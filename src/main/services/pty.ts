@@ -476,7 +476,7 @@ export interface OrphanedTerminal {
   agentId?: string
 }
 
-function createPtyService(): IPtyService & { reattach?: (sessionId: string) => Promise<import('./ptyDaemon').ReattachResult | null>; listSessions?: () => Promise<import('./ptyDaemon').SessionInfo[]>; disconnectFromDaemon?: () => void; ensureDaemon?: () => Promise<void>; listOrphanedBigTerminals?: (knownTerminalIds: string[]) => Promise<OrphanedTerminal[]>; killOrphanedBigTerminals?: (terminalIds: string[]) => Promise<number> } {
+function createPtyService(): IPtyService & { reattach?: (sessionId: string) => Promise<import('./ptyDaemon').ReattachResult | null>; consumeColdRestore?: (sessionId: string) => Promise<boolean>; onSessionEnded?: (cb: (sessionId: string, selfExit: boolean) => void) => () => void; listSessions?: () => Promise<import('./ptyDaemon').SessionInfo[]>; disconnectFromDaemon?: () => void; ensureDaemon?: () => Promise<void>; listOrphanedBigTerminals?: (knownTerminalIds: string[]) => Promise<OrphanedTerminal[]>; killOrphanedBigTerminals?: (terminalIds: string[]) => Promise<number> } {
   try {
     const adapter = new PtyDaemonAdapter()
     console.log('[pty] Using daemon adapter')
