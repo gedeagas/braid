@@ -33,6 +33,7 @@ export function normalizeBrowserSettings(raw: unknown): BrowserSettings {
     identity: r.identity === 'native' ? 'native' : 'cleaned',
     profiles: unique,
     exposeToTerminalAgents: typeof r.exposeToTerminalAgents === 'boolean' ? r.exposeToTerminalAgents : d.exposeToTerminalAgents,
+    registerAgentMcp: typeof r.registerAgentMcp === 'boolean' ? r.registerAgentMcp : d.registerAgentMcp,
   }
 }
 

@@ -353,7 +353,7 @@ app.whenReady().then(async () => {
   startAgentHookServer()
     .then(() => ensureAllAgentHooks())
     // Browser bridge for terminal agents (CLI + MCP registration); needs the hook server port file.
-    .then(() => syncAgentBrowserBridge(getBrowserSettings().exposeToTerminalAgents))
+    .then(() => syncAgentBrowserBridge(getBrowserSettings()))
     .catch((err) => console.warn('[agentHookServer] Failed to start:', err))
 
   // Bridge big-terminal agent status to paired mobile devices (main-process,

@@ -36,6 +36,17 @@ export function keyToView(key: string): CenterView | null {
   return null
 }
 
+/** Unified tab-bar key for a center view (s:, f:, t:, b:, changes, codeReview). */
+export function centerViewToTabKey(view: CenterView | null | undefined): string | null {
+  if (view?.type === 'session') return `s:${view.sessionId}`
+  if (view?.type === 'file') return `f:${view.path}`
+  if (view?.type === 'changes') return 'changes'
+  if (view?.type === 'terminal') return `t:${view.terminalId}`
+  if (view?.type === 'browser') return `b:${view.tabId}`
+  if (view?.type === 'codeReview') return 'codeReview'
+  return null
+}
+
 function loadSplit(worktreeId: string): CenterSplit | null {
   try {
     const raw = localStorage.getItem(SK.centerSplitPrefix + worktreeId)

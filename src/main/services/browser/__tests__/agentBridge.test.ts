@@ -24,6 +24,18 @@ describe('upsertCodexBlock', () => {
   })
 })
 
+describe('upsertCodexBlock after another writer dropped the comments', () => {
+  it('still finds and removes the table', () => {
+    const rewritten = '[hooks]\nx = 1\n[mcp_servers.braid-browser]\ncommand = "/old"\nargs = []\n[profiles.a]\nmodel = "o3"\n'
+    const removed = upsertCodexBlock(rewritten, null)
+    expect(removed).not.toContain('braid-browser')
+    expect(removed).toContain('[profiles.a]\nmodel = "o3"')
+    const replaced = upsertCodexBlock(rewritten, '/new')
+    expect(replaced.match(/\[mcp_servers\.braid-browser\]/g)).toHaveLength(1)
+    expect(replaced).toContain('command = "/new"')
+  })
+})
+
 describe('pathWithBridge', () => {
   it('puts the bridge dir first exactly once', () => {
     const dir = braidBinDir()

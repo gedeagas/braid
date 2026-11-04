@@ -581,7 +581,7 @@
     "identityHint": "精简会从用户代理中移除 Braid 和 Electron 标识；Google 登录仍使用 Electron 的标识。原生在所有地方保留 Electron 标识（适用于拒绝精简标识的网站）。重启 Braid 后生效。",
     "agentsHeader": "代理",
     "exposeToAgents": "允许终端代理使用浏览器",
-    "exposeToAgentsHint": "向 Claude Code、Codex、Gemini 和 Cursor 注册 braid-browser MCP 服务器，并在 Braid 终端中添加 braid-browser 命令。聊天会话始终拥有浏览器工具。",
+    "exposeToAgentsHint": "将 braid-browser 命令加入每个 Braid 终端的 PATH，并把一个小型 braid-browser 技能安装到共享的 ~/.agents/skills 文件夹（Codex、Copilot、OpenCode、Amp、Goose 等众多代理会读取）以及每个已检测到的代理自己的技能文件夹（Claude Code、Cursor、Gemini、Droid、Grok、Kiro、Continue、Augment 等），让代理知道该命令存在。Braid 只会改写自己未被修改的副本，已编辑的副本保持不变。聊天会话始终拥有浏览器工具。",
     "profilesHeader": "配置文件",
     "profilesHint": "每个配置文件都有独立的 Cookie、存储和缓存。可在浏览器工具栏中选择配置文件；代理命令使用标签页的配置文件。",
     "importCookies": "导入 Cookie",
@@ -596,6 +596,20 @@
     "deleteProfileConfirm": "删除此配置文件及其数据？",
     "newProfilePlaceholder": "新配置文件名称",
     "addProfile": "添加配置文件",
-    "googleHint": "从 Chrome 或 Edge 导入会读取其 Cookie 存储；macOS 会请求一次钥匙串访问权限。只会替换导入的网站。"
+    "googleHint": "从 Chrome 或 Edge 导入会读取其 Cookie 存储；macOS 会请求一次钥匙串访问权限。只会替换导入的网站。",
+    "registerMcp": "同时注册 MCP 服务器",
+    "registerMcpHint": "将 braid-browser MCP 服务器添加到 Claude Code、Codex、Gemini、Cursor 和 Copilot 的全局配置中。由于会编辑这些代理的配置文件，默认关闭；关闭时会移除这些条目。",
+    "skillOutcome": {
+      "installed": "已安装",
+      "updated": "已更新",
+      "unchanged": "最新",
+      "removed": "已移除",
+      "edited": "保持不变：已编辑",
+      "foreign": "保持不变：其他技能",
+      "failed": "失败"
+    },
+    "mcpRegisteredFor": "已为 {{agents}} 注册 MCP 服务器。",
+    "sharedFolder": "共享文件夹（{{agents}}）",
+    "andMore": "等另外 {{count}} 个"
   }
 }

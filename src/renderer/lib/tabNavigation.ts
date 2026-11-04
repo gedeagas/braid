@@ -1,4 +1,4 @@
-import { useUIStore, type CenterView, type PaneId } from '@/store/ui'
+import { useUIStore, centerViewToTabKey, type PaneId } from '@/store/ui'
 import { activateKey, getFocusedPaneId, getFocusedView } from '@/lib/centerPanes'
 import { useSessionsStore } from '@/store/sessions'
 
@@ -29,15 +29,7 @@ export function getUnifiedTabs(): string[] {
   return [...valid, ...newEntries]
 }
 
-/** Unified tab-bar key for a center view (s:, f:, t:, b:, changes). */
-export function centerViewToTabKey(acv: CenterView | null): string | null {
-  if (acv?.type === 'session') return `s:${acv.sessionId}`
-  if (acv?.type === 'file') return `f:${acv.path}`
-  if (acv?.type === 'changes') return 'changes'
-  if (acv?.type === 'terminal') return `t:${acv.terminalId}`
-  if (acv?.type === 'browser') return `b:${acv.tabId}`
-  return null
-}
+export { centerViewToTabKey }
 
 /** Key of the tab shown in the focused pane. */
 export function getActiveTabKey(): string | null {

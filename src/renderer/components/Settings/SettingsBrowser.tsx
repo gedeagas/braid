@@ -7,6 +7,7 @@ import { SegmentedControl } from '@/components/shared/SegmentedControl'
 import { Button } from '@/components/ui'
 import * as ipc from '@/lib/ipc'
 import { SettingsBrowserProfiles } from './SettingsBrowserProfiles'
+import { AgentBridgeStatusList } from './SettingsBrowserAgents'
 
 export function SettingsBrowser() {
   const { t } = useTranslation('settings')
@@ -86,6 +87,16 @@ export function SettingsBrowser() {
         <Toggle checked={settings.exposeToTerminalAgents} onChange={(v) => void update({ exposeToTerminalAgents: v })} />
       </div>
       <span className="settings-hint">{t('browser.exposeToAgentsHint')}</span>
+      <div className="settings-field settings-field--row">
+        <label className="settings-label">{t('browser.registerMcp')}</label>
+        <Toggle
+          checked={settings.registerAgentMcp}
+          disabled={!settings.exposeToTerminalAgents}
+          onChange={(v) => void update({ registerAgentMcp: v })}
+        />
+      </div>
+      <span className="settings-hint">{t('browser.registerMcpHint')}</span>
+      <AgentBridgeStatusList refreshKey={`${settings.exposeToTerminalAgents}:${settings.registerAgentMcp}`} />
 
       <div className="settings-divider" />
       <SettingsBrowserProfiles />

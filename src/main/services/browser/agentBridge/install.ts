@@ -1,14 +1,17 @@
 // Installs the terminal-agent browser bridge:
 //  - ~/.braid/bin/braid-browser      CLI (on every Braid terminal's PATH)
-//  - ~/.braid/bin/braid-browser-mcp  stdio MCP server
-// and registers the MCP server with installed agent CLIs (Claude Code, Codex,
-// Gemini, Cursor). Entries are named "braid-browser" and removed again when
-// the user turns the bridge off.
+//  - ~/.braid/bin/braid-browser-mcp  stdio MCP server (used only when MCP registration is opted in)
+//  - braid-browser skill stubs in agent skill folders (see skills.ts)
+// MCP entries are named "braid-browser" and removed again when turned off.
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
 import { cliScript, mcpScript } from './scripts'
 import { getMcpServersFromClaudeJson, setMcpServersToClaudeJson } from '../../claudeConfigMcp'
+import type { BrowserAgentBridgeStatus } from '../../../../shared/browser'
+import { syncBrowserSkill } from './skills'
+import { SKILL_PROVIDERS, allProviderCommands, isProviderDetected } from './skillProviders'
+import { findCommands } from '../../../lib/cliCommandDetection'
 
 export const BRIDGE_SERVER_NAME = 'braid-browser'
 
@@ -54,9 +57,12 @@ function readJson(path: string): Record<string, unknown> | null {
   try { return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown> } catch { return null }
 }
 
-/** Merge/remove `mcpServers["braid-browser"]` in a JSON config. Skips agents that aren't installed. */
+/** Merge/remove `mcpServers["braid-browser"]` in a JSON config (creating the agent's folder when adding). */
 function updateJsonMcpConfig(dir: string, file: string, entry: Record<string, unknown> | null): void {
-  if (!existsSync(dir)) return
+  if (!existsSync(dir)) {
+    if (!entry) return
+    mkdirSync(dir, { recursive: true })
+  }
   const path = join(dir, file)
   const data = readJson(path) ?? (existsSync(path) ? null : {})
   if (data === null) return // unparseable user file - never overwrite it
@@ -73,31 +79,47 @@ function updateJsonMcpConfig(dir: string, file: string, entry: Record<string, un
   writeFileSync(path, JSON.stringify(data, null, 2))
 }
 
-/** Codex uses TOML; manage a fenced block so user content is untouched. */
+/**
+ * Codex uses TOML. Remove any existing `[mcp_servers.braid-browser]` table (up to
+ * the next table header) - matching the table, not comment fences, because other
+ * writers (Braid's own Codex hook installer) re-serialize the file and drop
+ * comments - then append a fresh one. All other content is kept as-is.
+ */
 export function upsertCodexBlock(toml: string, command: string | null): string {
-  const begin = '# >>> braid-browser (managed by Braid)'
-  const end = '# <<< braid-browser'
-  const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const pattern = new RegExp(`\\n?${esc(begin)}[\\s\\S]*?${esc(end)}\\n?`, 'g')
-  const stripped = toml.replace(pattern, '\n').replace(/\n{3,}/g, '\n\n')
-  if (!command) return stripped
-  const block = `${begin}\n[mcp_servers.${BRIDGE_SERVER_NAME}]\ncommand = ${JSON.stringify(command)}\nargs = []\n${end}\n`
-  return `${stripped.replace(/\s*$/, '')}\n\n${block}`
+  const header = `[mcp_servers.${BRIDGE_SERVER_NAME}]`
+  const lines = toml.split('\n')
+  const out: string[] = []
+  let skipping = false
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (trimmed === header || trimmed.startsWith(`[mcp_servers.${BRIDGE_SERVER_NAME}.`)) { skipping = true; continue }
+    if (skipping && /^\[/.test(trimmed)) skipping = false
+    if (skipping) continue
+    if (/^# (>>>|<<<) braid-browser/.test(trimmed)) continue
+    out.push(line)
+  }
+  const stripped = out.join('\n').replace(/\n{3,}/g, '\n\n').replace(/\s*$/, '')
+  if (!command) return stripped ? `${stripped}\n` : ''
+  const block = `# >>> braid-browser (managed by Braid)\n${header}\ncommand = ${JSON.stringify(command)}\nargs = []\n# <<< braid-browser\n`
+  return stripped ? `${stripped}\n\n${block}` : block
 }
 
 function updateCodex(command: string | null): void {
   const dir = join(homedir(), '.codex')
-  if (!existsSync(dir)) return
+  if (!existsSync(dir)) {
+    if (!command) return
+    mkdirSync(dir, { recursive: true })
+  }
   const path = join(dir, 'config.toml')
   let toml = ''
   try { toml = readFileSync(path, 'utf8') } catch { /* new file */ }
-  if (!command && !toml.includes('braid-browser (managed by Braid)')) return
+  if (!command && !toml.includes(`[mcp_servers.${BRIDGE_SERVER_NAME}]`)) return
   const next = upsertCodexBlock(toml, command)
   if (next !== toml) writeFileSync(path, next)
 }
 
 function updateClaude(command: string | null): void {
-  if (!existsSync(join(homedir(), '.claude.json')) && !existsSync(join(homedir(), '.claude'))) return
+  if (!command && !existsSync(join(homedir(), '.claude.json'))) return
   const servers = getMcpServersFromClaudeJson()
   const existing = servers.find((s) => s.name === BRIDGE_SERVER_NAME)
   if (command) {
@@ -110,20 +132,61 @@ function updateClaude(command: string | null): void {
   }
 }
 
-/** Install (enabled) or remove (disabled) the bridge everywhere. Best effort per agent. */
-export function syncAgentBrowserBridge(enabled: boolean): void {
-  let mcpCommand: string | null = null
-  if (enabled) {
-    try { mcpCommand = writeBridgeScripts().mcp } catch { return }
-  }
-  const stdioEntry = mcpCommand ? { command: mcpCommand, args: [] } : null
-  const steps: Array<() => void> = [
-    () => updateClaude(mcpCommand),
-    () => updateCodex(mcpCommand),
-    () => updateJsonMcpConfig(join(homedir(), '.gemini'), 'settings.json', stdioEntry),
-    () => updateJsonMcpConfig(join(homedir(), '.cursor'), 'mcp.json', stdioEntry),
+interface McpStep {
+  agent: string
+  /** Add the entry pointing at `cmd`, or remove it when null. */
+  run: (cmd: string | null) => void
+}
+
+/** MCP config writers per agent (opt-in). Droid/Grok are skipped: their MCP config location isn't documented. */
+function mcpSteps(): McpStep[] {
+  const stdio = (cmd: string | null) => (cmd ? { command: cmd, args: [] } : null)
+  return [
+    { agent: 'claude', run: (cmd) => updateClaude(cmd) },
+    { agent: 'codex', run: (cmd) => updateCodex(cmd) },
+    { agent: 'gemini', run: (cmd) => updateJsonMcpConfig(join(homedir(), '.gemini'), 'settings.json', stdio(cmd)) },
+    { agent: 'cursor', run: (cmd) => updateJsonMcpConfig(join(homedir(), '.cursor'), 'mcp.json', stdio(cmd)) },
+    {
+      agent: 'copilot',
+      run: (cmd) => updateJsonMcpConfig(join(homedir(), '.copilot'), 'mcp-config.json', cmd ? { type: 'local', command: cmd, args: [], tools: ['*'] } : null),
+    },
   ]
-  for (const step of steps) {
-    try { step() } catch { /* one agent's config must not block the others */ }
+}
+
+let lastStatus: BrowserAgentBridgeStatus = { skills: [], mcpAgents: [], cliPath: null }
+
+export function getAgentBridgeStatus(): BrowserAgentBridgeStatus {
+  return lastStatus
+}
+
+/**
+ * Terminal-agent access to the browser, modelled on how agent CLIs discover tools:
+ *  - the braid-browser CLI (always, when enabled) on every Braid terminal's PATH,
+ *  - a braid-browser skill stub in each agent's skills folder telling the agent
+ *    the CLI exists and to load `braid-browser guide`,
+ *  - optionally an MCP server registration (off by default: it edits agents' global configs).
+ * Best effort per agent; one agent's config must not block the others.
+ */
+export function syncAgentBrowserBridge(settings: { exposeToTerminalAgents: boolean; registerAgentMcp: boolean }): BrowserAgentBridgeStatus {
+  let paths: { cli: string; mcp: string } | null = null
+  if (settings.exposeToTerminalAgents) {
+    try { paths = writeBridgeScripts() } catch { paths = null }
   }
+  // Detect installed agent CLIs once (PATH + well-known install folders).
+  const found = new Set(findCommands(allProviderCommands(), { pathEnv: process.env.PATH }).keys())
+  let skills: BrowserAgentBridgeStatus['skills'] = []
+  try { skills = syncBrowserSkill(Boolean(paths), { foundCommands: found }) } catch { /* reported as empty */ }
+  const mcpCommand = paths && settings.registerAgentMcp ? paths.mcp : null
+  const detectedIds = new Set(SKILL_PROVIDERS.filter((p) => isProviderDetected(p, found)).map((p) => p.id))
+  const mcpAgents: string[] = []
+  for (const step of mcpSteps()) {
+    // Register only for detected agents; always run removal so turning it off cleans up.
+    const add = Boolean(mcpCommand) && detectedIds.has(step.agent)
+    try {
+      step.run(add ? mcpCommand : null)
+      if (add) mcpAgents.push(step.agent)
+    } catch { /* skip this agent */ }
+  }
+  lastStatus = { skills, mcpAgents, cliPath: paths?.cli ?? null }
+  return lastStatus
 }

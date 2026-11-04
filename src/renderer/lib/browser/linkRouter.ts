@@ -4,10 +4,9 @@
  */
 import type { BrowserLinkRouting } from '@shared/browser'
 import { DEFAULT_BROWSER_PROFILE_ID } from '@shared/browser'
-import { useUIStore } from '@/store/ui'
+import { useUIStore, centerViewToTabKey } from '@/store/ui'
 import { useBrowserStore } from '@/store/browser'
 import * as ipc from '@/lib/ipc'
-import { centerViewToTabKey } from '@/lib/tabNavigation'
 import { openBrowserTab } from './browserCommands'
 import { getPaneLayout, otherPaneOf, placeTabInPane } from '@/lib/centerPanes'
 

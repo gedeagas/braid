@@ -11,4 +11,4 @@ export { selectChangesOpen, selectSelectedDiffFile, selectActiveCenterView, sele
 export type { SupportedLanguage } from './theme'
 export type { BrowserTab } from './browserTabs'
 export type { CenterSplit, PaneId } from './centerSplit'
-export { canMoveToSecondary, keyToView } from './centerSplit'
+export { canMoveToSecondary, keyToView, centerViewToTabKey } from './centerSplit'

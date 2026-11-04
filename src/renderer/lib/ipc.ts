@@ -1,6 +1,6 @@
 import type { AgentResumeClaim } from '@shared/agent-resume'
 import type {
-  BrowserCookieImportResult, BrowserDownload, BrowserGuestInfo, BrowserOpenTabEvent, BrowserPermissionRequest,
+  BrowserAgentBridgeStatus, BrowserCookieImportResult, BrowserDownload, BrowserGuestInfo, BrowserOpenTabEvent, BrowserPermissionRequest,
   BrowserRendererRequestEnvelope, BrowserSettings, BrowserShortcutEvent, BrowserViewport, BrowserWorktreeSync, DesignModeCapture,
 } from '@shared/browser'
 // Typed IPC wrappers — thin layer over window.api
@@ -455,6 +455,7 @@ export const browser = {
   unregisterGuest: (tabId: string, webContentsId: number): Promise<void> => api().browser.unregisterGuest(tabId, webContentsId),
   syncWorktree: (sync: BrowserWorktreeSync): Promise<void> => api().browser.syncWorktree(sync),
   getSettings: (): Promise<BrowserSettings> => api().browser.getSettings(),
+  agentBridgeStatus: (): Promise<BrowserAgentBridgeStatus> => api().browser.agentBridgeStatus(),
   setSettings: (patch: Partial<BrowserSettings>): Promise<BrowserSettings> => api().browser.setSettings(patch),
   clearProfileData: (profileId: string): Promise<void> => api().browser.clearProfileData(profileId),
   deleteProfile: (profileId: string): Promise<BrowserSettings> => api().browser.deleteProfile(profileId),

@@ -3,7 +3,7 @@ import type { AgentResumeClaim } from '../shared/agent-resume'
 import type { TemplateKind, CreateTemplateArgs, CreateTemplateResult, TemplateLogEntry } from '../shared/templates'
 import type { ToolInstallKey, ToolInstallOptions, ToolInstallResult } from '../shared/tool-install'
 import type {
-  BrowserCookieImportResult, BrowserDownload, BrowserGuestInfo, BrowserOpenTabEvent, BrowserPermissionRequest,
+  BrowserAgentBridgeStatus, BrowserCookieImportResult, BrowserDownload, BrowserGuestInfo, BrowserOpenTabEvent, BrowserPermissionRequest,
   BrowserRendererRequestEnvelope, BrowserSettings, BrowserShortcutEvent, BrowserViewport, BrowserWorktreeSync, DesignModeCapture,
 } from '../shared/browser'
 
@@ -537,6 +537,7 @@ const api = {
     unregisterGuest: (tabId: string, webContentsId: number) => ipcRenderer.invoke('browser:unregisterGuest', tabId, webContentsId) as Promise<void>,
     syncWorktree: (sync: BrowserWorktreeSync) => ipcRenderer.invoke('browser:syncWorktree', sync) as Promise<void>,
     getSettings: () => ipcRenderer.invoke('browser:getSettings') as Promise<BrowserSettings>,
+    agentBridgeStatus: () => ipcRenderer.invoke('browser:agentBridgeStatus') as Promise<BrowserAgentBridgeStatus>,
     setSettings: (patch: Partial<BrowserSettings>) => ipcRenderer.invoke('browser:setSettings', patch) as Promise<BrowserSettings>,
     clearProfileData: (profileId: string) => ipcRenderer.invoke('browser:clearProfileData', profileId) as Promise<void>,
     deleteProfile: (profileId: string) => ipcRenderer.invoke('browser:deleteProfile', profileId) as Promise<BrowserSettings>,

@@ -18,7 +18,7 @@ import { importChromiumCookies, importCookieFile, listChromiumProfiles, type Chr
 import { registerRendererRequestHandlers } from './rendererRequests'
 import { registerPermissionHandlers } from './permissions'
 import { registerDownloadHandlers } from './downloads'
-import { syncAgentBrowserBridge } from './agentBridge/install'
+import { getAgentBridgeStatus, syncAgentBrowserBridge } from './agentBridge/install'
 
 /** Only act on browser-tab guests (never the app window or other webviews). */
 function guestContents(webContentsId: number): WebContents {
@@ -44,11 +44,14 @@ export function registerBrowserIpc(): void {
 
   ipcMain.handle('browser:getSettings', () => getBrowserSettings())
   ipcMain.handle('browser:setSettings', (_e, patch: Partial<BrowserSettings>) => {
-    const before = getBrowserSettings().exposeToTerminalAgents
+    const before = getBrowserSettings()
     const next = setBrowserSettings(patch)
-    if (next.exposeToTerminalAgents !== before) syncAgentBrowserBridge(next.exposeToTerminalAgents)
+    if (next.exposeToTerminalAgents !== before.exposeToTerminalAgents || next.registerAgentMcp !== before.registerAgentMcp) {
+      syncAgentBrowserBridge(next)
+    }
     return next
   })
+  ipcMain.handle('browser:agentBridgeStatus', () => getAgentBridgeStatus())
   ipcMain.handle('browser:clearProfileData', async (_e, profileId: string) => {
     await profileSession(profileId).clearStorageData()
     await profileSession(profileId).clearCache()

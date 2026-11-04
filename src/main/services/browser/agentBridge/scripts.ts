@@ -2,6 +2,7 @@
 // Plain CommonJS, no dependencies: they run with Braid's own binary in
 // ELECTRON_RUN_AS_NODE mode and talk to the hook server over loopback HTTP.
 import { BROWSER_TOOLS, browserToolJsonSchema } from '../../../../shared/browserTools'
+import { guideText } from './skillContent'
 
 const SHARED_CLIENT = String.raw`
 const fs = require('fs');
@@ -54,6 +55,7 @@ export function cliScript(): string {
   return `'use strict';
 ${SHARED_CLIENT}
 const TOOLS = ${TOOLS_JSON()};
+const GUIDE = ${JSON.stringify(guideText())};
 
 function usage() {
   const lines = ['Usage: braid-browser <command> [--arg value] [--flag]', '', 'Drives the Braid browser tab of the worktree you are in.', '', 'Commands:'];
@@ -62,34 +64,39 @@ function usage() {
     lines.push('  ' + t.name.replace(/^browser_/, '').padEnd(14) + params);
     lines.push('      ' + t.description);
   }
-  lines.push('', 'Positional shortcuts: open <url>, click <ref>, fill <ref> <text>, press <key>, eval <js>.');
+  lines.push('', 'Positional shortcuts: open <url>, click <ref>, fill <ref> <text>, press <key>, eval <js>.', 'Add --json for the raw result. Run "braid-browser guide" for the full agent guide.');
   return lines.join('\\n');
 }
 
-const POSITIONAL = { open: ['url'], navigate: ['url'], click: ['ref'], hover: ['ref'], fill: ['ref', 'text'], type: ['text'], press: ['key'], select_option: ['ref', 'value'], evaluate: ['expression'], eval: ['expression'], select_tab: ['tab_id'], close_tab: ['tab_id'], wait_for: ['text'] };
-const ALIASES = { navigate: 'open', eval: 'evaluate', wait: 'wait_for', tab: 'select_tab' };
+const POSITIONAL = { open: ['url'], click: ['ref'], hover: ['ref'], fill: ['ref', 'text'], type: ['text'], press: ['key'], select_option: ['ref', 'value'], evaluate: ['expression'], select_tab: ['tab_id'], close_tab: ['tab_id'], wait_for: ['text'] };
+const ALIASES = { navigate: 'open', goto: 'open', eval: 'evaluate', wait: 'wait_for', tab: 'select_tab' };
 
 async function main() {
   const argv = process.argv.slice(2);
   if (argv.length === 0 || argv[0] === '-h' || argv[0] === '--help' || argv[0] === 'help') { console.log(usage()); return 0; }
-  const cmd = ALIASES[argv[0]] || argv[0];
-  const name = cmd.startsWith('browser_') ? cmd : 'browser_' + cmd.replace(/-/g, '_');
+  if (argv[0] === 'guide') { console.log(GUIDE); return 0; }
+  const json = argv.includes('--json');
+  const rest = argv.filter((a) => a !== '--json');
+  const raw = rest[0].replace(/-/g, '_');
+  const cmd = ALIASES[raw] || raw;
+  const name = cmd.startsWith('browser_') ? cmd : 'browser_' + cmd;
   const spec = TOOLS.find((t) => t.name === name);
-  if (!spec) { console.error('Unknown command: ' + argv[0] + '\\n\\n' + usage()); return 2; }
+  if (!spec) { console.error('Unknown command: ' + rest[0] + '\\n\\n' + usage()); return 2; }
   const args = {};
   const positional = [];
-  for (let i = 1; i < argv.length; i++) {
-    const a = argv[i];
+  for (let i = 1; i < rest.length; i++) {
+    const a = rest[i];
     if (a.startsWith('--')) {
       const key = a.slice(2).replace(/-/g, '_');
       const p = spec.params[key];
-      if (p && p.type === 'boolean' && (i + 1 >= argv.length || argv[i + 1].startsWith('--'))) args[key] = true;
-      else args[key] = argv[++i];
+      if (p && p.type === 'boolean' && (i + 1 >= rest.length || rest[i + 1].startsWith('--'))) args[key] = true;
+      else args[key] = rest[++i];
     } else positional.push(a);
   }
-  const names = POSITIONAL[argv[0]] || POSITIONAL[cmd] || [];
+  const names = POSITIONAL[cmd.replace(/^browser_/, '')] || [];
   names.forEach((k, idx) => { if (positional[idx] !== undefined && args[k] === undefined) args[k] = idx === names.length - 1 ? positional.slice(idx).join(' ') : positional[idx]; });
   const result = await callTool(name, args);
+  if (json) { console.log(JSON.stringify(result)); return result.isError ? 1 : 0; }
   if (result.text) (result.isError ? console.error : console.log)(result.text);
   if (result.imageBase64) {
     const file = path.join(os.tmpdir(), 'braid-browser-' + Date.now() + '.png');

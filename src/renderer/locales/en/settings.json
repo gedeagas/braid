@@ -581,7 +581,7 @@
     "identityHint": "Cleaned removes the Braid and Electron tokens from the user agent; Google sign-in still sees Electron's identity. Native keeps Electron's identity everywhere (for sites that reject the cleaned one). Applies after restarting Braid.",
     "agentsHeader": "Agents",
     "exposeToAgents": "Let terminal agents use the browser",
-    "exposeToAgentsHint": "Registers a braid-browser MCP server with Claude Code, Codex, Gemini and Cursor, and adds the braid-browser command to Braid terminals. Chat sessions always have the browser tools.",
+    "exposeToAgentsHint": "Puts the braid-browser command on every Braid terminal's PATH and installs a small braid-browser skill into the shared ~/.agents/skills folder (read by Codex, Copilot, OpenCode, Amp, Goose and many more) and into the own skills folder of each detected agent (Claude Code, Cursor, Gemini, Droid, Grok, Kiro, Continue, Augment and others), so agents know the command exists. Braid only rewrites its own untouched copies and leaves edited ones alone. Chat sessions always have the browser tools.",
     "profilesHeader": "Profiles",
     "profilesHint": "Each profile has its own cookies, storage and cache. Pick a profile from the browser toolbar; agent commands use the tab's profile.",
     "importCookies": "Import cookies",
@@ -596,6 +596,20 @@
     "deleteProfileConfirm": "Delete this profile and its data?",
     "newProfilePlaceholder": "New profile name",
     "addProfile": "Add profile",
-    "googleHint": "Importing from Chrome or Edge reads their cookie store; macOS asks once to allow Keychain access. Only the imported sites are replaced."
+    "googleHint": "Importing from Chrome or Edge reads their cookie store; macOS asks once to allow Keychain access. Only the imported sites are replaced.",
+    "registerMcp": "Also register an MCP server",
+    "registerMcpHint": "Adds a braid-browser MCP server to the global configs of Claude Code, Codex, Gemini, Cursor and Copilot. Off by default because it edits those agents' config files; turning it off removes the entries.",
+    "skillOutcome": {
+      "installed": "Installed",
+      "updated": "Updated",
+      "unchanged": "Up to date",
+      "removed": "Removed",
+      "edited": "Left alone: edited",
+      "foreign": "Left alone: other skill",
+      "failed": "Failed"
+    },
+    "mcpRegisteredFor": "MCP server registered for {{agents}}.",
+    "sharedFolder": "Shared folder ({{agents}})",
+    "andMore": "+{{count}} more"
   }
 }

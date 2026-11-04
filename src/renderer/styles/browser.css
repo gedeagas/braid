@@ -424,3 +424,43 @@
 .settings-hint--error {
   color: var(--red);
 }
+
+.browser-agent-status {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.browser-agent-status-row {
+  display: grid;
+  grid-template-columns: 90px 140px 1fr;
+  gap: var(--space-8);
+  align-items: baseline;
+}
+
+.browser-agent-status-agent {
+  color: var(--text-primary);
+}
+
+.browser-agent-status-outcome {
+  color: var(--text-secondary);
+}
+
+.browser-agent-status-outcome--edited,
+.browser-agent-status-outcome--foreign {
+  color: var(--yellow, var(--text-secondary));
+}
+
+.browser-agent-status-outcome--failed {
+  color: var(--red);
+}
+
+.browser-agent-status-path {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

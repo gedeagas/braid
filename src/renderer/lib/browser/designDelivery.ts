@@ -7,11 +7,10 @@
  */
 import type { DesignModeCapture } from '@shared/browser'
 import { designCaptureSummary, formatDesignCapture } from '@shared/designMode'
-import { useUIStore, type CenterView } from '@/store/ui'
+import { useUIStore, centerViewToTabKey, type CenterView } from '@/store/ui'
 import { useSessionsStore } from '@/store/sessions'
 import { useProjectsStore } from '@/store/projects'
 import * as ipc from '@/lib/ipc'
-import { centerViewToTabKey } from '@/lib/tabNavigation'
 import { paneOfKey, placeTabInPane } from '@/lib/centerPanes'
 import { queueChatImages } from '@/lib/chatImageQueue'
 import { getBigTerminalPtyId } from '@/components/Center/bigTerminalCache'

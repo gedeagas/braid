@@ -78,8 +78,10 @@ export interface BrowserSettings {
   /** App-wide user agent; applied on next launch. */
   identity: BrowserIdentity
   profiles: BrowserProfile[]
-  /** Register the braid-browser MCP server / CLI for terminal agents (Claude Code, Codex, Gemini, Cursor). */
+  /** braid-browser CLI on Braid terminals' PATH + the braid-browser skill in agent skill folders. */
   exposeToTerminalAgents: boolean
+  /** Opt-in: also register the braid-browser MCP server in agent configs (Claude Code, Codex, Gemini, Cursor, Copilot). */
+  registerAgentMcp: boolean
 }
 
 export const DEFAULT_BROWSER_SETTINGS: BrowserSettings = {
@@ -90,6 +92,15 @@ export const DEFAULT_BROWSER_SETTINGS: BrowserSettings = {
   identity: 'cleaned',
   profiles: [{ id: DEFAULT_BROWSER_PROFILE_ID, name: 'Default' }],
   exposeToTerminalAgents: true,
+  registerAgentMcp: false,
+}
+
+export type BrowserSkillOutcome = 'installed' | 'updated' | 'unchanged' | 'removed' | 'edited' | 'foreign' | 'failed'
+
+export interface BrowserAgentBridgeStatus {
+  skills: Array<{ agent: string; agents: string[]; path: string; outcome: BrowserSkillOutcome; error?: string }>
+  mcpAgents: string[]
+  cliPath: string | null
 }
 
 // ─── Renderer <-> main registry ──────────────────────────────────────────────

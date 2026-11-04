@@ -581,7 +581,7 @@
     "identityHint": "Bersih menghapus token Braid dan Electron dari user agent; login Google tetap melihat identitas Electron. Asli memakai identitas Electron di mana saja (untuk situs yang menolak versi bersih). Berlaku setelah Braid dimulai ulang.",
     "agentsHeader": "Agen",
     "exposeToAgents": "Izinkan agen terminal memakai browser",
-    "exposeToAgentsHint": "Mendaftarkan server MCP braid-browser ke Claude Code, Codex, Gemini, dan Cursor, serta menambahkan perintah braid-browser ke terminal Braid. Sesi chat selalu punya alat browser.",
+    "exposeToAgentsHint": "Menambahkan perintah braid-browser ke PATH setiap terminal Braid dan memasang skill braid-browser kecil di folder bersama ~/.agents/skills (dibaca oleh Codex, Copilot, OpenCode, Amp, Goose, dan banyak lagi) serta di folder skill milik setiap agen yang terdeteksi (Claude Code, Cursor, Gemini, Droid, Grok, Kiro, Continue, Augment, dan lainnya), agar agen tahu perintah itu ada. Braid hanya menulis ulang salinannya sendiri yang belum diubah dan membiarkan salinan yang diedit. Sesi chat selalu punya alat browser.",
     "profilesHeader": "Profil",
     "profilesHint": "Setiap profil punya cookie, penyimpanan, dan cache sendiri. Pilih profil dari toolbar browser; perintah agen memakai profil tab.",
     "importCookies": "Impor cookie",
@@ -596,6 +596,20 @@
     "deleteProfileConfirm": "Hapus profil ini beserta datanya?",
     "newProfilePlaceholder": "Nama profil baru",
     "addProfile": "Tambah profil",
-    "googleHint": "Impor dari Chrome atau Edge membaca penyimpanan cookie-nya; macOS meminta izin akses Keychain sekali. Hanya situs yang diimpor yang diganti."
+    "googleHint": "Impor dari Chrome atau Edge membaca penyimpanan cookie-nya; macOS meminta izin akses Keychain sekali. Hanya situs yang diimpor yang diganti.",
+    "registerMcp": "Daftarkan juga server MCP",
+    "registerMcpHint": "Menambahkan server MCP braid-browser ke konfigurasi global Claude Code, Codex, Gemini, Cursor, dan Copilot. Nonaktif secara default karena mengedit file konfigurasi agen tersebut; mematikannya menghapus entri.",
+    "skillOutcome": {
+      "installed": "Terpasang",
+      "updated": "Diperbarui",
+      "unchanged": "Terbaru",
+      "removed": "Dihapus",
+      "edited": "Dibiarkan: diedit",
+      "foreign": "Dibiarkan: skill lain",
+      "failed": "Gagal"
+    },
+    "mcpRegisteredFor": "Server MCP terdaftar untuk {{agents}}.",
+    "sharedFolder": "Folder bersama ({{agents}})",
+    "andMore": "+{{count}} lainnya"
   }
 }
