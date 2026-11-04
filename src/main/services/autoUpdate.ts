@@ -7,6 +7,7 @@ import { app, autoUpdater, BrowserWindow, net } from 'electron'
 import { logger } from '../lib/logger'
 import {
   buildUpdateFeedUrl,
+  isNewerVersion,
   parseUpdateFeedRelease,
   type UpdateFeedRelease,
 } from './autoUpdateFeed'
@@ -58,7 +59,14 @@ async function fetchAvailableUpdate(): Promise<UpdateFeedRelease | null> {
       throw new Error(`Update service returned HTTP ${response.status}`)
     }
 
-    return parseUpdateFeedRelease(await response.json())
+    const release = parseUpdateFeedRelease(await response.json())
+    // Hazel returns its cached release whenever it differs from ours, even when older
+    // (e.g. a stale serverless instance right after we installed a newer build).
+    if (!isNewerVersion(release.version, app.getVersion())) {
+      logger.info(`[updater] Ignoring v${release.version} - not newer than v${app.getVersion()}`)
+      return null
+    }
+    return release
   } finally {
     clearTimeout(timeout)
     if (checkAbortController === controller) checkAbortController = null
@@ -81,6 +89,8 @@ async function discoverUpdate(): Promise<void> {
       sendToRenderer('updater:up-to-date', {})
     }
   } catch (error) {
+    // A download started mid-check aborts this request and re-verifies on its own.
+    if (isDownloading) return
     const message = error instanceof Error ? error.message : String(error)
     logger.error('[updater] Update check failed', error)
     sendToRenderer('updater:error', { message })
@@ -165,10 +175,16 @@ export function checkForUpdates(): boolean {
   return true
 }
 
-/** Ask Squirrel.Mac to download the release selected during discovery. */
-export function downloadUpdate(): void {
+/**
+ * Ask Squirrel.Mac to download the release selected during discovery.
+ * Squirrel re-queries the feed itself and applies whatever it receives, with no
+ * version check of its own, so re-verify right before handing off that the feed
+ * still offers the same, strictly newer release the user accepted.
+ */
+export async function downloadUpdate(): Promise<void> {
   if (isDownloading) return
-  if (!availableUpdate) {
+  const accepted = availableUpdate
+  if (!accepted) {
     sendToRenderer('updater:error', {
       message: 'No update is available to download. Please check again.',
     })
@@ -176,12 +192,17 @@ export function downloadUpdate(): void {
   }
 
   isDownloading = true
-  downloadingVersion = availableUpdate.version
+  downloadingVersion = accepted.version
   try {
+    const current = await fetchAvailableUpdate()
+    if (current?.version !== accepted.version) {
+      throw new Error('The selected update is no longer available. Please check again.')
+    }
     autoUpdater.checkForUpdates()
   } catch (error) {
     isDownloading = false
     downloadingVersion = null
+    availableUpdate = null
     const message = error instanceof Error ? error.message : String(error)
     logger.error('[updater] Failed to start update download', error)
     sendToRenderer('updater:error', { message })

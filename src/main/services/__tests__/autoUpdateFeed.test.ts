@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildUpdateFeedUrl, parseUpdateFeedRelease } from '../autoUpdateFeed'
+import { buildUpdateFeedUrl, isNewerVersion, parseUpdateFeedRelease } from '../autoUpdateFeed'
 
 describe('auto-update feed helpers', () => {
   it('builds a Hazel URL for Apple Silicon', () => {
@@ -35,6 +35,17 @@ describe('auto-update feed helpers', () => {
     })
   })
 
+  it('treats null release notes as absent', () => {
+    expect(parseUpdateFeedRelease({
+      name: 'v26.3.2',
+      notes: null,
+      url: 'https://github.com/gedeagas/braid/releases/download/v26.3.2/braid-26.3.2-arm64-mac.zip',
+    })).toEqual({
+      version: '26.3.2',
+      releaseNotes: '',
+    })
+  })
+
   it.each([
     null,
     {},
@@ -43,5 +54,33 @@ describe('auto-update feed helpers', () => {
     { name: 'v26.3.2', notes: 42, url: 'https://example.com/update.zip' },
   ])('rejects malformed service responses', (response) => {
     expect(() => parseUpdateFeedRelease(response)).toThrow('Invalid response from update service')
+  })
+
+  describe('isNewerVersion', () => {
+    it.each([
+      ['26.3.3', '26.3.2'],
+      ['26.4.0', '26.3.9'],
+      ['27.0.0', '26.99.99'],
+      ['26.3.10', '26.3.9'],
+      ['26.3.2', '26.3.2-beta.1'],
+      ['26.3.2-beta.2', '26.3.2-beta.1'],
+      ['26.3.2-beta.10', '26.3.2-beta.9'],
+      ['26.3.2-rc.1', '26.3.2-beta.1'],
+      ['26.3.2-beta.1', '26.3.2-beta'],
+    ])('%s is newer than %s', (candidate, current) => {
+      expect(isNewerVersion(candidate, current)).toBe(true)
+    })
+
+    it.each([
+      ['26.3.2', '26.3.2'],
+      ['26.3.1', '26.3.2'],
+      ['26.3.2', '99.0.0'],
+      ['26.3.2-beta.1', '26.3.2'],
+      ['26.3.2+build.5', '26.3.2'],
+      ['not-a-version', '26.3.2'],
+      ['26.3.3', 'not-a-version'],
+    ])('%s is not newer than %s', (candidate, current) => {
+      expect(isNewerVersion(candidate, current)).toBe(false)
+    })
   })
 })
