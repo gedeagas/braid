@@ -11,6 +11,7 @@ import { useUIStore } from '@/store/ui'
 import { SK } from '@/lib/storageKeys'
 import type { TerminalCommandObserver } from '@/lib/terminalCommandRefresh'
 import { modifierFromEvent, openLink } from '@/lib/browser/linkRouter'
+import { initPtyOutputRouting, registerPtyFinder as registerOutputFinder } from '@/lib/ptyOutput/router'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -77,9 +78,10 @@ export function initGlobalPtyRouting(): void {
   if (globalPtyRoutingInitialized) return
   globalPtyRoutingInitialized = true
 
-  ipc.pty.onData((id, data) => {
-    findTabByPtyId(id)?.term.write(data)
-  })
+  // Output goes through the shared router, which acknowledges what xterm has
+  // parsed back to main (output flow control).
+  registerOutputFinder((id) => findTabByPtyId(id)?.term)
+  initPtyOutputRouting()
   ipc.pty.onExit((id) => {
     findTabByPtyId(id)?.term.write('\r\n\x1b[2m[Process exited]\x1b[0m\r\n')
   })

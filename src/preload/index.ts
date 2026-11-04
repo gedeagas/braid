@@ -1,11 +1,11 @@
 import { contextBridge, ipcRenderer, webFrame, webUtils } from 'electron'
-import type { AgentResumeClaim } from '../shared/agent-resume'
+import { ptyBridge } from './ptyBridge'
+import { githubBridge } from './githubBridge'
+import { gitBridge } from './gitBridge'
+import { mobileBridge } from './mobileBridge'
+import { browserBridge } from './browserBridge'
 import type { TemplateKind, CreateTemplateArgs, CreateTemplateResult, TemplateLogEntry } from '../shared/templates'
 import type { ToolInstallKey, ToolInstallOptions, ToolInstallResult } from '../shared/tool-install'
-import type {
-  BrowserAgentBridgeStatus, BrowserCookieImportResult, BrowserDownload, BrowserGuestInfo, BrowserOpenTabEvent, BrowserPermissionRequest,
-  BrowserRendererRequestEnvelope, BrowserSettings, BrowserShortcutEvent, BrowserViewport, BrowserWorktreeSync, DesignModeCapture,
-} from '../shared/browser'
 
 const api = {
   // Storage
@@ -17,74 +17,7 @@ const api = {
   },
 
   // Git
-  git: {
-    getWorktrees: (repoPath: string) => ipcRenderer.invoke('git:getWorktrees', repoPath),
-    addWorktree: (repoPath: string, branch: string, projectName: string, baseBranch?: string) =>
-      ipcRenderer.invoke('git:addWorktree', repoPath, branch, projectName, baseBranch),
-    removeWorktree: (repoPath: string, worktreePath: string) =>
-      ipcRenderer.invoke('git:removeWorktree', repoPath, worktreePath),
-    getBranches: (repoPath: string) => ipcRenderer.invoke('git:getBranches', repoPath),
-    getStatus: (worktreePath: string) => ipcRenderer.invoke('git:getStatus', worktreePath),
-    getDiff: (worktreePath: string) => ipcRenderer.invoke('git:getDiff', worktreePath),
-    getFileDiff: (worktreePath: string, file: string, status: string, staged: boolean) =>
-      ipcRenderer.invoke('git:getFileDiff', worktreePath, file, status, staged),
-    getFileTree: (worktreePath: string, forceRefresh?: boolean) =>
-      ipcRenderer.invoke('git:getFileTree', worktreePath, undefined, forceRefresh),
-    invalidateFileTree: (worktreePath: string) => ipcRenderer.invoke('git:invalidateFileTree', worktreePath),
-    invalidateTrackedFiles: (worktreePath: string) => ipcRenderer.invoke('git:invalidateTrackedFiles', worktreePath),
-    readFile: (filePath: string) => ipcRenderer.invoke('git:readFile', filePath),
-    readFileAsBase64: (filePath: string) =>
-      ipcRenderer.invoke('git:readFileAsBase64', filePath) as Promise<{ base64: string | null; size: number } | null>,
-    getFileSize: (filePath: string) =>
-      ipcRenderer.invoke('git:getFileSize', filePath) as Promise<number>,
-    writeFile: (filePath: string, content: string) => ipcRenderer.invoke('git:writeFile', filePath, content),
-    getTrackingBranch: (worktreePath: string, branch: string) =>
-      ipcRenderer.invoke('git:getTrackingBranch', worktreePath, branch),
-    getRemoteBranches: (worktreePath: string, forceRefresh?: boolean) =>
-      ipcRenderer.invoke('git:getRemoteBranches', worktreePath, forceRefresh) as Promise<{ branches: string[]; defaultBranch?: string }>,
-    getRemoteUrl: (repoPath: string) =>
-      ipcRenderer.invoke('git:getRemoteUrl', repoPath) as Promise<string>,
-    getRemotes: (repoPath: string) =>
-      ipcRenderer.invoke('git:getRemotes', repoPath) as Promise<Array<{ name: string; url: string }>>,
-    renameBranch: (worktreePath: string, oldName: string, newName: string) =>
-      ipcRenderer.invoke('git:renameBranch', worktreePath, oldName, newName),
-    setUpstream: (worktreePath: string, branch: string, upstream: string) =>
-      ipcRenderer.invoke('git:setUpstream', worktreePath, branch, upstream),
-    isBranchProtected: (worktreePath: string, branch: string) =>
-      ipcRenderer.invoke('git:isBranchProtected', worktreePath, branch),
-    cloneRepo: (url: string) => ipcRenderer.invoke('git:cloneRepo', url),
-    stageFiles: (worktreePath: string, files: string[]) =>
-      ipcRenderer.invoke('git:stageFiles', worktreePath, files),
-    unstageFiles: (worktreePath: string, files: string[]) =>
-      ipcRenderer.invoke('git:unstageFiles', worktreePath, files),
-    discardChanges: (worktreePath: string, file: string, status: string, staged?: boolean) =>
-      ipcRenderer.invoke('git:discardChanges', worktreePath, file, status, staged),
-    commit: (worktreePath: string, message: string) =>
-      ipcRenderer.invoke('git:commit', worktreePath, message),
-    pull: (worktreePath: string, strategy?: string) => ipcRenderer.invoke('git:pull', worktreePath, strategy),
-    push: (worktreePath: string) => ipcRenderer.invoke('git:push', worktreePath),
-    getTrackedFiles: (worktreePath: string) =>
-      ipcRenderer.invoke('git:getTrackedFiles', worktreePath) as Promise<string[]>,
-    getGitUserConfig: (repoPath: string) =>
-      ipcRenderer.invoke('git:getGitUserConfig', repoPath) as Promise<{
-        global: { name: string; email: string }
-        local: { name: string | null; email: string | null }
-      }>,
-    setGitUserConfig: (repoPath: string, name: string, email: string) =>
-      ipcRenderer.invoke('git:setGitUserConfig', repoPath, name, email) as Promise<void>,
-    clearGitUserConfig: (repoPath: string) =>
-      ipcRenderer.invoke('git:clearGitUserConfig', repoPath) as Promise<void>,
-    initRepo: (dirPath: string) =>
-      ipcRenderer.invoke('git:initRepo', dirPath) as Promise<void>,
-    isRepoRoot: (repoPath: string) =>
-      ipcRenderer.invoke('git:isRepoRoot', repoPath) as Promise<boolean>,
-    findChildRepos: (parentPath: string) =>
-      ipcRenderer.invoke('git:findChildRepos', parentPath) as Promise<string[]>,
-    createSnapshot: (worktreePath: string) =>
-      ipcRenderer.invoke('git:createSnapshot', worktreePath) as Promise<string>,
-    restoreSnapshot: (worktreePath: string, snapSha: string) =>
-      ipcRenderer.invoke('git:restoreSnapshot', worktreePath, snapSha) as Promise<void>,
-  },
+  git: gitBridge,
 
   // Agent
   agent: {
@@ -116,97 +49,7 @@ const api = {
   },
 
   // PTY
-  pty: {
-    spawn: (cwd: string, envOverrides?: Record<string, string>) => ipcRenderer.invoke('pty:spawn', cwd, envOverrides),
-    write: (id: string, data: string) => ipcRenderer.send('pty:write', id, data),
-    resize: (id: string, cols: number, rows: number) => ipcRenderer.send('pty:resize', id, cols, rows),
-    kill: (id: string) => ipcRenderer.invoke('pty:kill', id),
-    runScript: (cwd: string, command: string) => ipcRenderer.invoke('pty:runScript', cwd, command) as Promise<{ exitCode: number }>,
-    readTerminalOutput: (worktreePath: string) => ipcRenderer.invoke('pty:readTerminalOutput', worktreePath) as Promise<Array<{ ptyId: string; output: string }>>,
-    onData: (callback: (id: string, data: string) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, id: string, data: string) => callback(id, data)
-      ipcRenderer.on('pty:data', handler)
-      return () => ipcRenderer.removeListener('pty:data', handler)
-    },
-    onExit: (callback: (id: string, exitCode: number) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, id: string, exitCode: number) => callback(id, exitCode)
-      ipcRenderer.on('pty:exit', handler)
-      return () => ipcRenderer.removeListener('pty:exit', handler)
-    },
-    registerBigTerminal: (ptyId: string, terminalId: string) =>
-      ipcRenderer.send('pty:registerBigTerminal', ptyId, terminalId),
-    setBigTerminalMetadata: (metadata: { terminalId: string; worktreeId?: string; label?: string; agentId?: string }) =>
-      ipcRenderer.send('pty:setBigTerminalMetadata', metadata),
-    removeBigTerminalMetadata: (terminalId: string) =>
-      ipcRenderer.send('pty:removeBigTerminalMetadata', terminalId),
-    killBigTerminal: (terminalId: string) =>
-      ipcRenderer.send('pty:killBigTerminal', terminalId),
-    renameBigTerminal: (payload: { terminalId: string; worktreeId?: string; label: string; agentId?: string }) =>
-      ipcRenderer.send('pty:renameBigTerminal', payload),
-    readScrollback: (terminalId: string) =>
-      ipcRenderer.invoke('pty:readScrollback', terminalId) as Promise<string>,
-    isMobileTerminalActive: (terminalId: string) =>
-      ipcRenderer.invoke('pty:isMobileTerminalActive', terminalId) as Promise<boolean>,
-    setDesktopActiveTerminal: (terminalId: string | null) =>
-      ipcRenderer.send('pty:setDesktopActiveTerminal', terminalId),
-    setMobileDisplayMode: (terminalId: string, mode: 'phone' | 'desktop') =>
-      ipcRenderer.send('pty:setMobileDisplayMode', terminalId, mode),
-    deleteScrollback: (terminalId: string) =>
-      ipcRenderer.send('pty:deleteScrollback', terminalId),
-    reattach: (sessionId: string) =>
-      ipcRenderer.invoke('pty:reattach', sessionId) as Promise<{ sessionId: string; snapshot: string; coldRestored?: boolean; foregroundAtLoss?: 'shell' | 'command' } | null>,
-    consumeColdRestore: (sessionId: string) =>
-      ipcRenderer.invoke('pty:consumeColdRestore', sessionId) as Promise<boolean>,
-    listSessions: () =>
-      ipcRenderer.invoke('pty:listSessions') as Promise<Array<{ sessionId: string; cwd: string; cols: number; rows: number; createdAt: number; coldRestored?: boolean; foreground?: 'shell' | 'command' }>>,
-    listOrphanedBigTerminals: (knownTerminalIds: string[]) =>
-      ipcRenderer.invoke('pty:listOrphanedBigTerminals', knownTerminalIds) as Promise<Array<{ terminalId: string; cwd: string; label?: string; agentId?: string }>>,
-    killOrphanedBigTerminals: (terminalIds: string[]) =>
-      ipcRenderer.invoke('pty:killOrphanedBigTerminals', terminalIds) as Promise<number>,
-    setKnownBigTerminals: (items: Array<{ terminalId: string; label?: string; agentId?: string; worktreeId?: string }>) =>
-      ipcRenderer.send('pty:setKnownBigTerminals', items),
-    onAgentHookStatus: (callback: (status: { terminalId: string; state: string; agentType: string; toolName?: string; interrupted?: boolean }) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, status: { terminalId: string; state: string; agentType: string; toolName?: string; interrupted?: boolean }) => callback(status)
-      ipcRenderer.on('agent-hook:status', handler)
-      return () => ipcRenderer.removeListener('agent-hook:status', handler)
-    },
-    claimAgentResume: (terminalId: string) =>
-      ipcRenderer.invoke('agentSessions:claimResume', terminalId) as Promise<AgentResumeClaim | null>,
-    listAgentSessions: () =>
-      ipcRenderer.invoke('agentSessions:list') as Promise<Array<{ terminalId: string; session: { agent: string; id: string }; state?: string }>>,
-    forgetAgentResume: (terminalId: string) =>
-      ipcRenderer.send('agentSessions:forget', terminalId),
-    onMobileTerminalActive: (callback: (status: { terminalId: string; active: boolean }) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, status: { terminalId: string; active: boolean }) => callback(status)
-      ipcRenderer.on('pty:mobileTerminalActive', handler)
-      return () => ipcRenderer.removeListener('pty:mobileTerminalActive', handler)
-    },
-    onMobileDisplayMode: (callback: (status: { terminalId: string; mode: 'phone' | 'desktop' }) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, status: { terminalId: string; mode: 'phone' | 'desktop' }) => callback(status)
-      ipcRenderer.on('pty:mobileDisplayMode', handler)
-      return () => ipcRenderer.removeListener('pty:mobileDisplayMode', handler)
-    },
-    onMobileFit: (callback: (status: { terminalId: string; cols: number; rows: number }) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, status: { terminalId: string; cols: number; rows: number }) => callback(status)
-      ipcRenderer.on('pty:mobileFit', handler)
-      return () => ipcRenderer.removeListener('pty:mobileFit', handler)
-    },
-    onBigTerminalRegistered: (callback: (tab: { terminalId: string; worktreeId?: string; worktreePath?: string; label?: string; agentId?: string }) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, tab: { terminalId: string; worktreeId?: string; worktreePath?: string; label?: string; agentId?: string }) => callback(tab)
-      ipcRenderer.on('pty:bigTerminalRegistered', handler)
-      return () => ipcRenderer.removeListener('pty:bigTerminalRegistered', handler)
-    },
-    onBigTerminalRenamed: (callback: (tab: { terminalId: string; worktreeId?: string; worktreePath?: string; label: string }) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, tab: { terminalId: string; worktreeId?: string; worktreePath?: string; label: string }) => callback(tab)
-      ipcRenderer.on('pty:bigTerminalRenamed', handler)
-      return () => ipcRenderer.removeListener('pty:bigTerminalRenamed', handler)
-    },
-    onBigTerminalClosed: (callback: (tab: { terminalId: string; worktreeId?: string; worktreePath?: string }) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, tab: { terminalId: string; worktreeId?: string; worktreePath?: string }) => callback(tab)
-      ipcRenderer.on('pty:bigTerminalClosed', handler)
-      return () => ipcRenderer.removeListener('pty:bigTerminalClosed', handler)
-    },
-  },
+  pty: ptyBridge,
 
   // Simulator
   simulator: {
@@ -282,86 +125,7 @@ const api = {
   },
 
   // GitHub
-  github: {
-    getPrStatus: (worktreePath: string, forceRefresh?: boolean) =>
-      ipcRenderer.invoke('github:getPrStatus', worktreePath, forceRefresh),
-    listWorkItems: (repoPath: string, limit?: number, query?: string, forceRefresh?: boolean) =>
-      ipcRenderer.invoke('github:listWorkItems', repoPath, limit, query, forceRefresh),
-    countWorkItems: (repoPath: string, query?: string, forceRefresh?: boolean) =>
-      ipcRenderer.invoke('github:countWorkItems', repoPath, query, forceRefresh),
-    getPrDetail: (repoPath: string, number: number, forceRefresh?: boolean) =>
-      ipcRenderer.invoke('github:getPrDetail', repoPath, number, forceRefresh),
-    getPrSummary: (repoPath: string, number: number, forceRefresh?: boolean) =>
-      ipcRenderer.invoke('github:getPrSummary', repoPath, number, forceRefresh),
-    listReviewerSuggestions: (repoPath: string, query?: string, limit?: number, forceRefresh?: boolean) =>
-      ipcRenderer.invoke('github:listReviewerSuggestions', repoPath, query, limit, forceRefresh),
-    listLabelSuggestions: (repoPath: string, query?: string, limit?: number, forceRefresh?: boolean) =>
-      ipcRenderer.invoke('github:listLabelSuggestions', repoPath, query, limit, forceRefresh),
-    addPrComment: (repoPath: string, number: number, body: string) =>
-      ipcRenderer.invoke('github:addPrComment', repoPath, number, body),
-    replyToPrReviewComment: (repoPath: string, number: number, commentId: number, body: string) =>
-      ipcRenderer.invoke('github:replyToPrReviewComment', repoPath, number, commentId, body),
-    addPrReviewComment: (repoPath: string, number: number, args: { body: string; commitId: string; path: string; side: 'LEFT' | 'RIGHT'; line: number }) =>
-      ipcRenderer.invoke('github:addPrReviewComment', repoPath, number, args),
-    submitPrReview: (repoPath: string, number: number, event: 'COMMENT' | 'APPROVE' | 'REQUEST_CHANGES', body?: string) =>
-      ipcRenderer.invoke('github:submitPrReview', repoPath, number, event, body),
-    resolvePrReviewThread: (repoPath: string, number: number, threadId: string, resolve: boolean) =>
-      ipcRenderer.invoke('github:resolvePrReviewThread', repoPath, number, threadId, resolve),
-    setPrFileViewed: (repoPath: string, number: number, pullRequestId: string, path: string, viewed: boolean) =>
-      ipcRenderer.invoke('github:setPrFileViewed', repoPath, number, pullRequestId, path, viewed),
-    getPrFilePreview: (repoPath: string, number: number, path: string, ref: string) =>
-      ipcRenderer.invoke('github:getPrFilePreview', repoPath, number, path, ref),
-    requestPrReviewer: (repoPath: string, number: number, reviewer: string) =>
-      ipcRenderer.invoke('github:requestPrReviewer', repoPath, number, reviewer),
-    removePrReviewer: (repoPath: string, number: number, reviewer: string) =>
-      ipcRenderer.invoke('github:removePrReviewer', repoPath, number, reviewer),
-    addPrLabel: (repoPath: string, number: number, label: string) =>
-      ipcRenderer.invoke('github:addPrLabel', repoPath, number, label),
-    removePrLabel: (repoPath: string, number: number, label: string) =>
-      ipcRenderer.invoke('github:removePrLabel', repoPath, number, label),
-    rerunCheck: (repoPath: string, checkUrl: string, failedOnly: boolean) =>
-      ipcRenderer.invoke('github:rerunCheck', repoPath, checkUrl, failedOnly),
-    toggleReaction: (repoPath: string, number: number, subjectId: string, content: string, reacted: boolean) =>
-      ipcRenderer.invoke('github:toggleReaction', repoPath, number, subjectId, content, reacted),
-    getChecks: (worktreePath: string, forceRefresh?: boolean) =>
-      ipcRenderer.invoke('github:getChecks', worktreePath, forceRefresh),
-    getDeployments: (worktreePath: string, forceRefresh?: boolean) =>
-      ipcRenderer.invoke('github:getDeployments', worktreePath, forceRefresh),
-    getOwnerAvatarUrl: (cwd: string) =>
-      ipcRenderer.invoke('github:getOwnerAvatarUrl', cwd) as Promise<string>,
-    getGitSyncStatus: (worktreePath: string, baseBranch: string, forceRefresh?: boolean) =>
-      ipcRenderer.invoke('github:getGitSyncStatus', worktreePath, baseBranch, forceRefresh),
-    getCheckRunLog: (worktreePath: string, checkUrl: string) =>
-      ipcRenderer.invoke('github:getCheckRunLog', worktreePath, checkUrl),
-    openCheckLog: (worktreePath: string, checkUrl: string, checkName: string) =>
-      ipcRenderer.invoke('github:openCheckLog', worktreePath, checkUrl, checkName),
-    mergePr: (worktreePath: string, strategy: string) =>
-      ipcRenderer.invoke('github:mergePr', worktreePath, strategy),
-    markPrReady: (worktreePath: string) =>
-      ipcRenderer.invoke('github:markPrReady', worktreePath),
-    mergePrByNumber: (repoPath: string, number: number, strategy: string) =>
-      ipcRenderer.invoke('github:mergePrByNumber', repoPath, number, strategy),
-    closePrByNumber: (repoPath: string, number: number) =>
-      ipcRenderer.invoke('github:closePrByNumber', repoPath, number),
-    markPrReadyByNumber: (repoPath: string, number: number) =>
-      ipcRenderer.invoke('github:markPrReadyByNumber', repoPath, number),
-    getReviews: (worktreePath: string, forceRefresh?: boolean) =>
-      ipcRenderer.invoke('github:getReviews', worktreePath, forceRefresh),
-    replyToReviewComment: (worktreePath: string, commentId: number, body: string) =>
-      ipcRenderer.invoke('github:replyToReviewComment', worktreePath, commentId, body) as Promise<void>,
-    startDeviceFlow: () =>
-      ipcRenderer.invoke('github:startDeviceFlow') as Promise<{
-        userCode: string; verificationUri: string; expiresIn: number
-      }>,
-    cancelDeviceFlow: () => ipcRenderer.invoke('github:cancelDeviceFlow'),
-    feedGhToken: (token: string) =>
-      ipcRenderer.invoke('github:feedGhToken', token) as Promise<{ success: boolean }>,
-    onDeviceFlowEvent: (callback: (event: { status: string; token?: string; error?: string }) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, data: { status: string; token?: string; error?: string }) => callback(data)
-      ipcRenderer.on('github:deviceFlowEvent', handler)
-      return () => { ipcRenderer.removeListener('github:deviceFlowEvent', handler) }
-    },
-  },
+  github: githubBridge,
 
   // Jira (optional — only available when acli is installed)
   jira: {
@@ -496,73 +260,7 @@ const api = {
   },
 
   // Browser tabs (main -> renderer events from browser guests)
-  browser: {
-    onShortcut: (callback: (event: BrowserShortcutEvent) => void) => {
-      const handler = (_e: Electron.IpcRendererEvent, event: BrowserShortcutEvent) => callback(event)
-      ipcRenderer.on('browser:shortcut', handler)
-      return () => { ipcRenderer.removeListener('browser:shortcut', handler) }
-    },
-    onOpenTab: (callback: (event: BrowserOpenTabEvent) => void) => {
-      const handler = (_e: Electron.IpcRendererEvent, event: BrowserOpenTabEvent) => callback(event)
-      ipcRenderer.on('browser:openTab', handler)
-      return () => { ipcRenderer.removeListener('browser:openTab', handler) }
-    },
-    onRequest: (callback: (event: BrowserRendererRequestEnvelope) => void) => {
-      const handler = (_e: Electron.IpcRendererEvent, event: BrowserRendererRequestEnvelope) => callback(event)
-      ipcRenderer.on('browser:request', handler)
-      return () => { ipcRenderer.removeListener('browser:request', handler) }
-    },
-    onDownload: (callback: (event: BrowserDownload) => void) => {
-      const handler = (_e: Electron.IpcRendererEvent, event: BrowserDownload) => callback(event)
-      ipcRenderer.on('browser:download', handler)
-      return () => { ipcRenderer.removeListener('browser:download', handler) }
-    },
-    onPermissionRequest: (callback: (event: BrowserPermissionRequest) => void) => {
-      const handler = (_e: Electron.IpcRendererEvent, event: BrowserPermissionRequest) => callback(event)
-      ipcRenderer.on('browser:permissionRequest', handler)
-      return () => { ipcRenderer.removeListener('browser:permissionRequest', handler) }
-    },
-    onPermissionCancel: (callback: (id: number) => void) => {
-      const handler = (_e: Electron.IpcRendererEvent, id: number) => callback(id)
-      ipcRenderer.on('browser:permissionCancel', handler)
-      return () => { ipcRenderer.removeListener('browser:permissionCancel', handler) }
-    },
-    onAutomationActivity: (callback: (event: string) => void) => {
-      const handler = (_e: Electron.IpcRendererEvent, event: string) => callback(event)
-      ipcRenderer.on('browser:automationActivity', handler)
-      return () => { ipcRenderer.removeListener('browser:automationActivity', handler) }
-    },
-    onRouteLink: (callback: (url: string) => void) => {
-      const handler = (_e: Electron.IpcRendererEvent, url: string) => callback(url)
-      ipcRenderer.on('browser:routeLink', handler)
-      return () => { ipcRenderer.removeListener('browser:routeLink', handler) }
-    },
-    respond: (id: number, ok: boolean, payload: unknown) => ipcRenderer.invoke('browser:respond', id, ok, payload) as Promise<void>,
-    registerGuest: (info: BrowserGuestInfo) => ipcRenderer.invoke('browser:registerGuest', info) as Promise<void>,
-    unregisterGuest: (tabId: string, webContentsId: number) => ipcRenderer.invoke('browser:unregisterGuest', tabId, webContentsId) as Promise<void>,
-    syncWorktree: (sync: BrowserWorktreeSync) => ipcRenderer.invoke('browser:syncWorktree', sync) as Promise<void>,
-    getSettings: () => ipcRenderer.invoke('browser:getSettings') as Promise<BrowserSettings>,
-    agentBridgeStatus: () => ipcRenderer.invoke('browser:agentBridgeStatus') as Promise<BrowserAgentBridgeStatus>,
-    setSettings: (patch: Partial<BrowserSettings>) => ipcRenderer.invoke('browser:setSettings', patch) as Promise<BrowserSettings>,
-    clearProfileData: (profileId: string) => ipcRenderer.invoke('browser:clearProfileData', profileId) as Promise<void>,
-    deleteProfile: (profileId: string) => ipcRenderer.invoke('browser:deleteProfile', profileId) as Promise<BrowserSettings>,
-    setViewport: (webContentsId: number, viewport: BrowserViewport | null, scale: number) =>
-      ipcRenderer.invoke('browser:setViewport', webContentsId, viewport, scale) as Promise<void>,
-    designPick: (webContentsId: number) => ipcRenderer.invoke('browser:designPick', webContentsId) as Promise<DesignModeCapture | null>,
-    designSave: (capture: DesignModeCapture) => ipcRenderer.invoke('browser:designSave', capture) as Promise<{ mdPath: string; pngPath: string | null }>,
-    designCancel: (webContentsId: number) => ipcRenderer.invoke('browser:designCancel', webContentsId) as Promise<void>,
-    respondPermission: (id: number, allow: boolean, remember: boolean) =>
-      ipcRenderer.invoke('browser:permissionResponse', id, allow, remember) as Promise<void>,
-    downloadCancel: (id: string) => ipcRenderer.invoke('browser:downloadCancel', id) as Promise<void>,
-    downloadOpen: (id: string) => ipcRenderer.invoke('browser:downloadOpen', id) as Promise<void>,
-    downloadShow: (id: string) => ipcRenderer.invoke('browser:downloadShow', id) as Promise<void>,
-    downloadDismiss: (id: string) => ipcRenderer.invoke('browser:downloadDismiss', id) as Promise<void>,
-    listChromiumProfiles: () => ipcRenderer.invoke('browser:listChromiumProfiles') as Promise<Array<{ browser: 'chrome' | 'edge'; profileDir: string; label: string }>>,
-    importCookiesFromBrowser: (profileId: string, browser: 'chrome' | 'edge', profileDir: string) =>
-      ipcRenderer.invoke('browser:importCookiesFromBrowser', profileId, browser, profileDir) as Promise<BrowserCookieImportResult>,
-    importCookiesFromFile: (profileId: string) =>
-      ipcRenderer.invoke('browser:importCookiesFromFile', profileId) as Promise<BrowserCookieImportResult | null>,
-  },
+  browser: browserBridge,
 
   // Notes
   notes: {
@@ -653,70 +351,7 @@ const api = {
   },
 
   // Mobile Companion Server
-  mobile: {
-    getStatus: () => ipcRenderer.invoke('mobile:getStatus') as Promise<{
-      running: boolean; port: number | null;
-      connectedDevices: Array<{ id: string; name: string; connectedAt: number }>
-    }>,
-    start: () => ipcRenderer.invoke('mobile:start') as Promise<{ port: number }>,
-    stop: () => ipcRenderer.invoke('mobile:stop') as Promise<void>,
-    generatePairingOffer: (options?: { transport?: 'lan' | 'ngrok' }) =>
-      ipcRenderer.invoke('mobile:generatePairingOffer', options) as Promise<{
-        endpoint: string; token: string; serverPublicKey: string; transport?: 'lan' | 'ngrok'
-      } | null>,
-    getNgrokTunnelStatus: () => ipcRenderer.invoke('mobile:getNgrokTunnelStatus') as Promise<{
-      running: boolean; port: number | null; url: string | null; endpoint: string | null; startedAt: number | null; error: string | null
-    }>,
-    startNgrokTunnel: () => ipcRenderer.invoke('mobile:startNgrokTunnel') as Promise<{
-      running: boolean; port: number | null; url: string | null; endpoint: string | null; startedAt: number | null; error: string | null
-    }>,
-    stopNgrokTunnel: () => ipcRenderer.invoke('mobile:stopNgrokTunnel') as Promise<{
-      running: boolean; port: number | null; url: string | null; endpoint: string | null; startedAt: number | null; error: string | null
-    } | null>,
-    getDevices: () => ipcRenderer.invoke('mobile:getDevices') as Promise<Array<{
-      id: string; name: string; publicKey: string; pairedAt: number; lastSeenAt: number
-    }>>,
-    removeDevice: (deviceId: string) => ipcRenderer.invoke('mobile:removeDevice', deviceId) as Promise<void>,
-    // A device authenticated (isNewPairing=true when it just consumed the
-    // one-time pairing QR). Lets the pairing UI update live.
-    onDeviceConnected: (
-      callback: (info: { deviceId: string; name: string; isNewPairing: boolean }) => void
-    ) => {
-      const handler = (_e: Electron.IpcRendererEvent, info: { deviceId: string; name: string; isNewPairing: boolean }) => callback(info)
-      ipcRenderer.on('mobile:deviceConnected', handler)
-      return () => ipcRenderer.removeListener('mobile:deviceConnected', handler)
-    },
-    onDeviceDisconnected: (callback: (info: { deviceId: string }) => void) => {
-      const handler = (_e: Electron.IpcRendererEvent, info: { deviceId: string }) => callback(info)
-      ipcRenderer.on('mobile:deviceDisconnected', handler)
-      return () => ipcRenderer.removeListener('mobile:deviceDisconnected', handler)
-    },
-    // A paired device asked to remove a worktree. The main process forwards it
-    // here so the renderer runs its full teardown flow; reply via
-    // sendRemoveWorktreeResult so main knows it succeeded (or must fall back).
-    onRemoveWorktreeRequest: (
-      callback: (req: { requestId: string; repoPath: string; worktreePath: string }) => void
-    ) => {
-      const handler = (_e: Electron.IpcRendererEvent, req: { requestId: string; repoPath: string; worktreePath: string }) => callback(req)
-      ipcRenderer.on('mobile:removeWorktreeRequest', handler)
-      return () => ipcRenderer.removeListener('mobile:removeWorktreeRequest', handler)
-    },
-    sendRemoveWorktreeResult: (result: { requestId: string; ok: boolean; reason?: string }) =>
-      ipcRenderer.send('mobile:removeWorktreeResult', result),
-    // A paired device asked to create a worktree. The main process forwards it
-    // here so the renderer runs its full add flow (stable id, storage path,
-    // sidebar refresh); reply via sendCreateWorktreeResult so main knows it
-    // succeeded (or must fall back).
-    onCreateWorktreeRequest: (
-      callback: (req: { requestId: string; repoPath: string; branch: string; baseBranch?: string; filesToCopy?: string[] }) => void
-    ) => {
-      const handler = (_e: Electron.IpcRendererEvent, req: { requestId: string; repoPath: string; branch: string; baseBranch?: string; filesToCopy?: string[] }) => callback(req)
-      ipcRenderer.on('mobile:createWorktreeRequest', handler)
-      return () => ipcRenderer.removeListener('mobile:createWorktreeRequest', handler)
-    },
-    sendCreateWorktreeResult: (result: { requestId: string; ok: boolean; reason?: string; worktreePath?: string; worktreeId?: string }) =>
-      ipcRenderer.send('mobile:createWorktreeResult', result),
-  },
+  mobile: mobileBridge,
   // Claude Usage Analytics
   claudeUsage: {
     getScanState: () => ipcRenderer.invoke('claudeUsage:getScanState'),

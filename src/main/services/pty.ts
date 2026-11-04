@@ -1,67 +1,17 @@
-import { BrowserWindow, app } from 'electron'
-import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'fs'
+import { app } from 'electron'
+import { existsSync } from 'fs'
 import { homedir } from 'os'
-import { join } from 'path'
 import { mainSettings } from '../ipc'
 import { resolveShellPath, resolveShellLaunchArgs } from '../lib/shell'
 import { getHookServerPort, getHookServerToken } from './agentHookServer'
-import { DEFAULT_TERMINAL_SCROLLBACK_LINES, getTerminalScrollbackBufferMaxLength } from '../../shared/terminal'
-
-// ── Big Terminal scrollback persistence ──────────────────────────────────────
-
-function scrollbackDir(): string {
-  return join(homedir(), 'Braid', 'bigTerminals')
-}
-
-function scrollbackPath(terminalId: string): string {
-  // Strict allowlist: terminalId must match our generated format (bt-<digits>-<digits>).
-  // Anything else is rejected to prevent path traversal.
-  if (!/^bt-\d+-\d+$/.test(terminalId)) {
-    throw new Error(`Invalid terminal id: ${terminalId}`)
-  }
-  return join(scrollbackDir(), `${terminalId}.scrollback`)
-}
-
-// ── Ring Buffer ──────────────────────────────────────────────────────────────
-
-const DEFAULT_BUFFER_MAX_LENGTH = getTerminalScrollbackBufferMaxLength(DEFAULT_TERMINAL_SCROLLBACK_LINES)
-
-/** Bounded ring buffer that stores the last N characters of terminal output. */
-class RingBuffer {
-  private chunks: string[] = []
-  private totalLength = 0
-  private maxLength: number
-
-  constructor(maxLength = DEFAULT_BUFFER_MAX_LENGTH) {
-    this.maxLength = Math.max(1, Math.round(maxLength))
-  }
-
-  push(data: string): void {
-    this.chunks.push(data)
-    this.totalLength += data.length
-    this.trimToMaxLength()
-  }
-
-  setMaxLength(maxLength: number): void {
-    this.maxLength = Math.max(1, Math.round(maxLength))
-    this.trimToMaxLength()
-  }
-
-  private trimToMaxLength(): void {
-    while (this.totalLength > this.maxLength && this.chunks.length > 1) {
-      const evicted = this.chunks.shift()!
-      this.totalLength -= evicted.length
-    }
-    if (this.totalLength > this.maxLength && this.chunks.length === 1) {
-      this.chunks[0] = this.chunks[0].slice(this.chunks[0].length - this.maxLength)
-      this.totalLength = this.chunks[0].length
-    }
-  }
-
-  read(): string {
-    return this.chunks.join('')
-  }
-}
+import { getBrowserSettings, pathWithBridge } from './browser'
+import { getTerminalScrollbackBufferMaxLength } from '../../shared/terminal'
+import { RingBuffer } from './ptyDaemon/ringBuffer'
+import { PtyListeners } from './ptyDaemon/ptyListeners'
+import { deleteScrollbackFile, readScrollbackFile, writeScrollbackFile } from './ptyDaemon/scrollbackFiles'
+import { runScriptInPty } from './ptyDaemon/runScript'
+import { PauseValve } from './ptyDaemon/delivery/pauseValve'
+import { createRendererDelivery, sendToRenderer } from './ptyDaemon/delivery/rendererSink'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -144,6 +94,14 @@ export interface IPtyService {
   addBigTerminalRunDuration?(terminalId: string, deltaMs: number): void
   /** List active PTY instances with their OS process IDs. */
   listInstancesWithPid(): Array<{ ptyId: string; cwd: string; pid: number | null }>
+  /** Renderer's running total of output characters it has processed (flow control). */
+  ackData?(ptyId: string, processedTotal: number): void
+  /** Renderer reloaded or crashed: reset flow-control counts, resume every PTY. */
+  resetDelivery?(): void
+  /** The renderer's output listener is up: output may be sent (and counted). */
+  setRendererReady?(): void
+  /** Capabilities of the PTY backend (daemon `hello` features). Empty in-process. */
+  getFeatures?(): Promise<string[]>
 }
 
 // ── Legacy in-process service ────────────────────────────────────────────────
@@ -154,16 +112,17 @@ class PtyService implements IPtyService {
   /** Mapping ptyId -> terminalId for big terminal PTYs (for scrollback persistence). */
   private bigTerminalByPty = new Map<string, string>()
   private bigTerminalMetadataById = new Map<string, BigTerminalMetadata>()
-  /** External data listeners (e.g. mobile companion server). */
-  private dataListeners = new Map<string, Set<(ptyId: string, data: string) => void>>()
-  /** External exit listeners (e.g. mobile companion server). */
-  private exitListeners = new Map<string, Set<(ptyId: string, exitCode: number) => void>>()
-  /** External resize listeners (e.g. mobile companion server). */
-  private resizeListeners = new Map<string, Set<(ptyId: string, cols: number, rows: number) => void>>()
+  /** External data/exit/resize listeners (mobile companion server). */
+  private listeners = new PtyListeners()
+  /** Flow control pauses the local node-pty directly, behind the same 10s valve as the daemon. */
+  private valve = new PauseValve((id) => this.instances.get(id)?.process)
+  private delivery = createRendererDelivery({
+    pause: (id) => this.valve.pause(id, this),
+    resume: (id) => this.valve.resume(id, this),
+  })
 
-  private getWindow(): BrowserWindow | null {
-    const windows = BrowserWindow.getAllWindows()
-    return windows[0] ?? null
+  constructor() {
+    this.delivery.setProducerPause(true)
   }
 
   private resolveShell(): string {
@@ -211,30 +170,24 @@ class PtyService implements IPtyService {
 
     ptyProcess.onData((data: string) => {
       buffer.push(data)
-      const win = this.getWindow()
-      if (win && !win.isDestroyed()) {
-        win.webContents.send('pty:data', id, data)
-      }
-      // Notify external listeners (mobile companion)
-      for (const cb of this.dataListeners.get(id) ?? []) cb(id, data)
+      // External listeners (mobile companion) get every byte; the renderer gets batches.
+      this.listeners.emitData(id, data)
+      this.delivery.push(id, data)
     })
 
     ptyProcess.onExit(({ exitCode }: { exitCode: number }) => {
       // Persist scrollback for big terminals before removing the instance
       const terminalId = this.bigTerminalByPty.get(id)
       if (terminalId) this.writeScrollbackFile(terminalId, buffer.read())
-      const win = this.getWindow()
-      if (win && !win.isDestroyed()) {
-        win.webContents.send('pty:exit', id, exitCode)
-      }
+      // Trailing output goes out before the exit notice.
+      this.delivery.drain(id)
+      this.valve.forget(id)
+      sendToRenderer('pty:exit', id, exitCode)
       // Notify external listeners (mobile companion)
-      for (const cb of this.exitListeners.get(id) ?? []) cb(id, exitCode)
+      this.listeners.emitExit(id, exitCode)
       this.instances.delete(id)
       this.bigTerminalByPty.delete(id)
-      // Clean up listener sets
-      this.dataListeners.delete(id)
-      this.exitListeners.delete(id)
-      this.resizeListeners.delete(id)
+      this.listeners.clear(id)
     })
 
     this.instances.set(id, instance)
@@ -242,7 +195,24 @@ class PtyService implements IPtyService {
   }
 
   write(id: string, data: string): void {
+    this.delivery.setFocused(id)
     this.instances.get(id)?.process.write(data)
+  }
+
+  ackData(id: string, processedTotal: number): void {
+    this.delivery.ack(id, processedTotal)
+  }
+
+  resetDelivery(): void {
+    this.delivery.reset()
+  }
+
+  setRendererReady(): void {
+    this.delivery.setRendererReady()
+  }
+
+  async getFeatures(): Promise<string[]> {
+    return []
   }
 
   resize(id: string, cols: number, rows: number): void {
@@ -251,7 +221,7 @@ class PtyService implements IPtyService {
     instance.process.resize(cols, rows)
     instance.cols = cols
     instance.rows = rows
-    for (const cb of this.resizeListeners.get(id) ?? []) cb(id, cols, rows)
+    this.listeners.emitResize(id, cols, rows)
   }
 
   getSize(id: string): { cols: number; rows: number } | null {
@@ -260,9 +230,7 @@ class PtyService implements IPtyService {
   }
 
   onResize(ptyId: string, callback: (ptyId: string, cols: number, rows: number) => void): () => void {
-    if (!this.resizeListeners.has(ptyId)) this.resizeListeners.set(ptyId, new Set())
-    this.resizeListeners.get(ptyId)!.add(callback)
-    return () => { this.resizeListeners.get(ptyId)?.delete(callback) }
+    return this.listeners.onResize(ptyId, callback)
   }
 
   kill(id: string): void {
@@ -271,6 +239,8 @@ class PtyService implements IPtyService {
     const instance = this.instances.get(id)
     if (terminalId && instance) this.writeScrollbackFile(terminalId, instance.buffer.read())
     instance?.process.kill()
+    this.delivery.remove(id)
+    this.valve.forget(id)
     this.instances.delete(id)
     this.bigTerminalByPty.delete(id)
   }
@@ -313,16 +283,12 @@ class PtyService implements IPtyService {
 
   /** Subscribe to data events for a specific PTY. Returns an unsubscribe function. */
   onData(ptyId: string, callback: (ptyId: string, data: string) => void): () => void {
-    if (!this.dataListeners.has(ptyId)) this.dataListeners.set(ptyId, new Set())
-    this.dataListeners.get(ptyId)!.add(callback)
-    return () => { this.dataListeners.get(ptyId)?.delete(callback) }
+    return this.listeners.onData(ptyId, callback)
   }
 
   /** Subscribe to exit events for a specific PTY. Returns an unsubscribe function. */
   onExit(ptyId: string, callback: (ptyId: string, exitCode: number) => void): () => void {
-    if (!this.exitListeners.has(ptyId)) this.exitListeners.set(ptyId, new Set())
-    this.exitListeners.get(ptyId)!.add(callback)
-    return () => { this.exitListeners.get(ptyId)?.delete(callback) }
+    return this.listeners.onExit(ptyId, callback)
   }
 
   /** List all active PTY instances, optionally filtered by worktree path. */
@@ -358,13 +324,7 @@ class PtyService implements IPtyService {
   // ── Big Terminal scrollback persistence ────────────────────────────────────
 
   private writeScrollbackFile(terminalId: string, data: string): void {
-    try {
-      mkdirSync(scrollbackDir(), { recursive: true })
-      writeFileSync(scrollbackPath(terminalId), data, { encoding: 'utf8', mode: 0o600 })
-    } catch (err) {
-      // Non-fatal: scrollback is a best-effort restore aid
-      console.warn('[pty] Failed to persist scrollback for', terminalId, err)
-    }
+    writeScrollbackFile(terminalId, data, '[pty]')
   }
 
   registerBigTerminal(ptyId: string, terminalId: string): void {
@@ -394,19 +354,11 @@ class PtyService implements IPtyService {
   }
 
   readScrollback(terminalId: string): string {
-    try {
-      return readFileSync(scrollbackPath(terminalId), { encoding: 'utf8' })
-    } catch {
-      return ''
-    }
+    return readScrollbackFile(terminalId)
   }
 
   deleteScrollback(terminalId: string): void {
-    try {
-      unlinkSync(scrollbackPath(terminalId))
-    } catch {
-      // File may not exist - ignore
-    }
+    deleteScrollbackFile(terminalId)
   }
 
   dumpAllScrollbacks(): void {
@@ -418,53 +370,13 @@ class PtyService implements IPtyService {
 
   /** Run a command synchronously and return when it exits. Used for archive scripts. */
   async runScript(cwd: string, command: string, timeoutMs = 30_000): Promise<{ exitCode: number }> {
-    const nodePty = await import('node-pty')
-    const shell = this.resolveShell()
-    const safeCwd = existsSync(cwd) ? cwd : homedir()
-
-    return new Promise((resolve, reject) => {
-      let ptyProcess: import('node-pty').IPty
-      try {
-        ptyProcess = nodePty.spawn(shell, resolveShellLaunchArgs(shell, { command }).args, {
-          name: 'xterm-256color',
-          cols: 80,
-          rows: 24,
-          cwd: safeCwd,
-          env: { ...process.env, TERM: 'xterm-256color' } as Record<string, string>
-        })
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
-        reject(new Error(
-          `Failed to spawn terminal (shell: ${shell}, cwd: ${safeCwd}): ${msg}. ` +
-          `Check that the shell binary exists and is executable.`
-        ))
-        return
-      }
-
-      let settled = false
-      const timer = setTimeout(() => {
-        if (!settled) {
-          settled = true
-          ptyProcess.kill()
-          resolve({ exitCode: -1 })
-        }
-      }, timeoutMs)
-
-      ptyProcess.onExit(({ exitCode }: { exitCode: number }) => {
-        if (!settled) {
-          settled = true
-          clearTimeout(timer)
-          resolve({ exitCode })
-        }
-      })
-    })
+    return runScriptInPty(this.resolveShell(), cwd, command, timeoutMs)
   }
 }
 
 // ── Service creation with daemon fallback ────────────────────────────────────
 
 import { PtyDaemonAdapter } from './ptyDaemon'
-import { getBrowserSettings, pathWithBridge } from './browser'
 
 /**
  * Create the PTY service. Uses PtyDaemonAdapter by default, which spawns

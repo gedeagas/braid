@@ -1,4 +1,3 @@
-import type { AgentResumeClaim } from '@shared/agent-resume'
 import type {
   BrowserAgentBridgeStatus, BrowserCookieImportResult, BrowserDownload, BrowserGuestInfo, BrowserOpenTabEvent, BrowserPermissionRequest,
   BrowserRendererRequestEnvelope, BrowserSettings, BrowserShortcutEvent, BrowserViewport, BrowserWorktreeSync, DesignModeCapture,
@@ -110,56 +109,7 @@ export const agent = {
     api().agent.onEvent(callback)
 }
 
-export const pty = {
-  spawn: (cwd: string, envOverrides?: Record<string, string>) => api().pty.spawn(cwd, envOverrides),
-  write: (id: string, data: string) => api().pty.write(id, data),
-  resize: (id: string, cols: number, rows: number) => api().pty.resize(id, cols, rows),
-  kill: (id: string) => api().pty.kill(id),
-  runScript: (cwd: string, command: string) => api().pty.runScript(cwd, command),
-  readTerminalOutput: (worktreePath: string) => api().pty.readTerminalOutput(worktreePath),
-  onData: (callback: (id: string, data: string) => void) => api().pty.onData(callback),
-  onExit: (callback: (id: string, exitCode: number) => void) => api().pty.onExit(callback),
-  registerBigTerminal: (ptyId: string, terminalId: string) => api().pty.registerBigTerminal(ptyId, terminalId),
-  setBigTerminalMetadata: (metadata: { terminalId: string; worktreeId?: string; label?: string; agentId?: string }) =>
-    api().pty.setBigTerminalMetadata(metadata),
-  removeBigTerminalMetadata: (terminalId: string) => api().pty.removeBigTerminalMetadata(terminalId),
-  killBigTerminal: (terminalId: string) => api().pty.killBigTerminal(terminalId),
-  renameBigTerminal: (payload: { terminalId: string; worktreeId?: string; label: string; agentId?: string }) =>
-    api().pty.renameBigTerminal(payload),
-  readScrollback: (terminalId: string) => api().pty.readScrollback(terminalId) as Promise<string>,
-  isMobileTerminalActive: (terminalId: string) => api().pty.isMobileTerminalActive(terminalId) as Promise<boolean>,
-  setMobileDisplayMode: (terminalId: string, mode: 'phone' | 'desktop') =>
-    api().pty.setMobileDisplayMode(terminalId, mode),
-  deleteScrollback: (terminalId: string) => api().pty.deleteScrollback(terminalId),
-  reattach: (sessionId: string) => api().pty.reattach(sessionId) as Promise<{ sessionId: string; snapshot: string; coldRestored?: boolean; foregroundAtLoss?: 'shell' | 'command' } | null>,
-  consumeColdRestore: (sessionId: string) => api().pty.consumeColdRestore(sessionId) as Promise<boolean>,
-  listSessions: () => api().pty.listSessions() as Promise<Array<{ sessionId: string; cwd: string; cols: number; rows: number; createdAt: number; coldRestored?: boolean; foreground?: 'shell' | 'command' }>>,
-  listOrphanedBigTerminals: (knownTerminalIds: string[]) =>
-    api().pty.listOrphanedBigTerminals(knownTerminalIds) as Promise<Array<{ terminalId: string; cwd: string; label?: string; agentId?: string }>>,
-  killOrphanedBigTerminals: (terminalIds: string[]) =>
-    api().pty.killOrphanedBigTerminals(terminalIds) as Promise<number>,
-  setKnownBigTerminals: (items: Array<{ terminalId: string; label?: string; agentId?: string; worktreeId?: string }>) =>
-    api().pty.setKnownBigTerminals(items),
-  onAgentHookStatus: (callback: (status: { terminalId: string; state: string; agentType: string; toolName?: string; interrupted?: boolean }) => void) =>
-    api().pty.onAgentHookStatus(callback),
-  /** Saved agent conversation to relaunch in this terminal (one claim per provider session). */
-  claimAgentResume: (terminalId: string) => api().pty.claimAgentResume(terminalId) as Promise<AgentResumeClaim | null>,
-  listAgentSessions: () => api().pty.listAgentSessions() as Promise<Array<{ terminalId: string; session: { agent: string; id: string }; state?: string }>>,
-  /** The user had left the agent before the terminal was lost: never resume it. */
-  forgetAgentResume: (terminalId: string) => api().pty.forgetAgentResume(terminalId),
-  onMobileTerminalActive: (callback: (status: { terminalId: string; active: boolean }) => void) =>
-    api().pty.onMobileTerminalActive(callback),
-  onMobileDisplayMode: (callback: (status: { terminalId: string; mode: 'phone' | 'desktop' }) => void) =>
-    api().pty.onMobileDisplayMode(callback),
-  onMobileFit: (callback: (status: { terminalId: string; cols: number; rows: number }) => void) =>
-    api().pty.onMobileFit(callback),
-  onBigTerminalRegistered: (callback: (tab: { terminalId: string; worktreeId?: string; worktreePath?: string; label?: string; agentId?: string }) => void) =>
-    api().pty.onBigTerminalRegistered(callback),
-  onBigTerminalRenamed: (callback: (tab: { terminalId: string; worktreeId?: string; worktreePath?: string; label: string }) => void) =>
-    api().pty.onBigTerminalRenamed(callback),
-  onBigTerminalClosed: (callback: (tab: { terminalId: string; worktreeId?: string; worktreePath?: string }) => void) =>
-    api().pty.onBigTerminalClosed(callback),
-}
+export { pty } from './ipcPty'
 
 export const simulator = {
   listDevices: () => api().simulator.listDevices() as Promise<Array<{ id: string; name: string; platform: string; type: string; version: string; state: string; model: string }>>,
@@ -207,82 +157,7 @@ export const windowCapture = {
     api().windowCapture.tap(sourceId, relX, relY) as Promise<string>,
 }
 
-export const github = {
-  getPrStatus: (worktreePath: string, forceRefresh?: boolean) =>
-    api().github.getPrStatus(worktreePath, forceRefresh),
-  listWorkItems: (repoPath: string, limit?: number, query?: string, forceRefresh?: boolean) =>
-    api().github.listWorkItems(repoPath, limit, query, forceRefresh),
-  countWorkItems: (repoPath: string, query?: string, forceRefresh?: boolean) =>
-    api().github.countWorkItems(repoPath, query, forceRefresh),
-  getPrDetail: (repoPath: string, number: number, forceRefresh?: boolean) =>
-    api().github.getPrDetail(repoPath, number, forceRefresh),
-  getPrSummary: (repoPath: string, number: number, forceRefresh?: boolean) =>
-    api().github.getPrSummary(repoPath, number, forceRefresh),
-  listReviewerSuggestions: (repoPath: string, query?: string, limit?: number, forceRefresh?: boolean) =>
-    api().github.listReviewerSuggestions(repoPath, query, limit, forceRefresh),
-  listLabelSuggestions: (repoPath: string, query?: string, limit?: number, forceRefresh?: boolean) =>
-    api().github.listLabelSuggestions(repoPath, query, limit, forceRefresh),
-  addPrComment: (repoPath: string, number: number, body: string) =>
-    api().github.addPrComment(repoPath, number, body),
-  replyToPrReviewComment: (repoPath: string, number: number, commentId: number, body: string) =>
-    api().github.replyToPrReviewComment(repoPath, number, commentId, body),
-  addPrReviewComment: (repoPath: string, number: number, args: { body: string; commitId: string; path: string; side: 'LEFT' | 'RIGHT'; line: number }) =>
-    api().github.addPrReviewComment(repoPath, number, args),
-  submitPrReview: (repoPath: string, number: number, event: 'COMMENT' | 'APPROVE' | 'REQUEST_CHANGES', body?: string) =>
-    api().github.submitPrReview(repoPath, number, event, body),
-  resolvePrReviewThread: (repoPath: string, number: number, threadId: string, resolve: boolean) =>
-    api().github.resolvePrReviewThread(repoPath, number, threadId, resolve),
-  setPrFileViewed: (repoPath: string, number: number, pullRequestId: string, path: string, viewed: boolean) =>
-    api().github.setPrFileViewed(repoPath, number, pullRequestId, path, viewed),
-  getPrFilePreview: (repoPath: string, number: number, path: string, ref: string) =>
-    api().github.getPrFilePreview(repoPath, number, path, ref),
-  requestPrReviewer: (repoPath: string, number: number, reviewer: string) =>
-    api().github.requestPrReviewer(repoPath, number, reviewer),
-  removePrReviewer: (repoPath: string, number: number, reviewer: string) =>
-    api().github.removePrReviewer(repoPath, number, reviewer),
-  addPrLabel: (repoPath: string, number: number, label: string) =>
-    api().github.addPrLabel(repoPath, number, label),
-  removePrLabel: (repoPath: string, number: number, label: string) =>
-    api().github.removePrLabel(repoPath, number, label),
-  rerunCheck: (repoPath: string, checkUrl: string, failedOnly: boolean) =>
-    api().github.rerunCheck(repoPath, checkUrl, failedOnly),
-  toggleReaction: (repoPath: string, number: number, subjectId: string, content: string, reacted: boolean) =>
-    api().github.toggleReaction(repoPath, number, subjectId, content, reacted),
-  getChecks: (worktreePath: string, forceRefresh?: boolean) =>
-    api().github.getChecks(worktreePath, forceRefresh),
-  getDeployments: (worktreePath: string, forceRefresh?: boolean) =>
-    api().github.getDeployments(worktreePath, forceRefresh),
-  getOwnerAvatarUrl: (cwd: string): Promise<string> =>
-    api().github.getOwnerAvatarUrl(cwd),
-  getGitSyncStatus: (worktreePath: string, baseBranch: string, forceRefresh?: boolean) =>
-    api().github.getGitSyncStatus(worktreePath, baseBranch, forceRefresh),
-  getCheckRunLog: (worktreePath: string, checkUrl: string) =>
-    api().github.getCheckRunLog(worktreePath, checkUrl),
-  openCheckLog: (worktreePath: string, checkUrl: string, checkName: string) =>
-    api().github.openCheckLog(worktreePath, checkUrl, checkName),
-  mergePr: (worktreePath: string, strategy: 'merge' | 'squash' | 'rebase') =>
-    api().github.mergePr(worktreePath, strategy),
-  markPrReady: (worktreePath: string) =>
-    api().github.markPrReady(worktreePath),
-  mergePrByNumber: (repoPath: string, number: number, strategy: 'merge' | 'squash' | 'rebase') =>
-    api().github.mergePrByNumber(repoPath, number, strategy),
-  closePrByNumber: (repoPath: string, number: number) =>
-    api().github.closePrByNumber(repoPath, number),
-  markPrReadyByNumber: (repoPath: string, number: number) =>
-    api().github.markPrReadyByNumber(repoPath, number),
-  getReviews: (worktreePath: string, forceRefresh?: boolean) =>
-    api().github.getReviews(worktreePath, forceRefresh),
-  replyToReviewComment: (worktreePath: string, commentId: number, body: string) =>
-    api().github.replyToReviewComment(worktreePath, commentId, body),
-  startDeviceFlow: () =>
-    api().github.startDeviceFlow(),
-  cancelDeviceFlow: () =>
-    api().github.cancelDeviceFlow(),
-  feedGhToken: (token: string) =>
-    api().github.feedGhToken(token),
-  onDeviceFlowEvent: (callback: (event: { status: string; token?: string; error?: string }) => void) =>
-    api().github.onDeviceFlowEvent(callback),
-}
+export { github } from './ipcGithub'
 
 export const sessions = {
   save: (data: unknown) => api().sessions.save(data),

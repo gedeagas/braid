@@ -4,56 +4,16 @@
  * Each session has a node-pty instance and a RingBuffer holding
  * the last N characters of output for snapshot/reattach.
  */
-import { accessSync, existsSync, constants as fsConstants } from 'fs'
 import { BUFFER_MAX_LENGTH } from './protocol'
+import { RingBuffer } from './ringBuffer'
+import { spawnPty } from './spawnPty'
+import { PauseValve } from './delivery/pauseValve'
 import { resolveShellLaunchArgs } from '../../lib/shell'
 import { baseEnv, classifyForeground, normalizeForeground, persistableEnv, restoredEnv } from './sessionEnv'
 import type { DaemonSession, CheckpointData, SessionInfo, DaemonSessionMetadata, ForegroundKind } from './types'
 
 export { persistableEnv } from './sessionEnv'
-
-// ── RingBuffer ───────────────────────────────────────────────────────────────
-
-export class RingBuffer {
-  private chunks: string[] = []
-  private totalLength = 0
-  private maxLength: number
-
-  constructor(maxLength = BUFFER_MAX_LENGTH) {
-    this.maxLength = Math.max(1, Math.round(maxLength))
-  }
-
-  push(data: string): void {
-    this.chunks.push(data)
-    this.totalLength += data.length
-    this.trimToMaxLength()
-  }
-
-  setMaxLength(maxLength: number): void {
-    this.maxLength = Math.max(1, Math.round(maxLength))
-    this.trimToMaxLength()
-  }
-
-  private trimToMaxLength(): void {
-    while (this.totalLength > this.maxLength && this.chunks.length > 1) {
-      const evicted = this.chunks.shift()!
-      this.totalLength -= evicted.length
-    }
-    if (this.totalLength > this.maxLength && this.chunks.length === 1) {
-      this.chunks[0] = this.chunks[0].slice(this.chunks[0].length - this.maxLength)
-      this.totalLength = this.chunks[0].length
-    }
-  }
-
-  read(): string {
-    return this.chunks.join('')
-  }
-
-  clear(): void {
-    this.chunks = []
-    this.totalLength = 0
-  }
-}
+export { RingBuffer } from './ringBuffer'
 
 // ── Session entry ────────────────────────────────────────────────────────────
 
@@ -99,6 +59,8 @@ type EventKey = keyof SessionHostEvents
 export class SessionHost {
   private sessions = new Map<string, SessionEntry>()
   private listeners = new Map<EventKey, Set<(...args: unknown[]) => void>>()
+  /** Client-requested PTY pauses (flow control), with a safety valve. */
+  private valve = new PauseValve((id) => this.sessions.get(id)?.pty)
 
   on<K extends EventKey>(event: K, fn: SessionHostEvents[K]): void {
     let set = this.listeners.get(event)
@@ -116,64 +78,6 @@ export class SessionHost {
     }
   }
 
-  /**
-   * Spawn a PTY with a single retry and enriched diagnostics on failure.
-   * Transient posix_spawn failures (fd exhaustion, resource contention) often
-   * resolve after a brief delay.
-   */
-  private async spawnPty(
-    shell: string,
-    args: string[],
-    opts: { cols: number; rows: number; cwd: string; env: Record<string, string> },
-  ): Promise<import('node-pty').IPty> {
-    const nodePty = await import('node-pty')
-    const maxAttempts = 2
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        return nodePty.spawn(shell, args, { name: 'xterm-256color', ...opts })
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
-        // Only retry transient posix_spawn resource contention, not permanent
-        // config errors (invalid shell, bad permissions) which won't self-resolve.
-        const isTransient = msg.includes('posix_spawnp failed')
-        if (isTransient && attempt < maxAttempts) {
-          await new Promise((r) => setTimeout(r, 200))
-          continue
-        }
-        const diag = this.collectSpawnDiagnostics(shell, opts.cwd)
-        throw new Error(
-          `PTY spawn failed (shell: ${shell}, cwd: ${opts.cwd}, sessions: ${this.sessions.size}${diag}): ${msg}`,
-          { cause: err },
-        )
-      }
-    }
-    throw new Error('unreachable')
-  }
-
-  private collectSpawnDiagnostics(shell: string, cwd: string): string {
-    const parts: string[] = []
-    // Only check shell executability for absolute/relative paths.
-    // Bare command names (e.g. 'zsh', 'powershell.exe') are resolved via PATH by
-    // node-pty, so accessSync would incorrectly report them as not-executable.
-    // Match either separator so Windows paths (C:\...) are recognized too.
-    if (/[\\/]/.test(shell)) {
-      if (!existsSync(shell)) {
-        parts.push('shell-check: not-found')
-      } else {
-        try {
-          accessSync(shell, fsConstants.X_OK)
-        } catch {
-          parts.push('shell-check: not-executable')
-        }
-      }
-    }
-    if (!existsSync(cwd)) {
-      parts.push('cwd-check: not-found')
-    }
-    return parts.length > 0 ? ', ' + parts.join(', ') : ''
-  }
-
   /** Spawn a new PTY session. Throws if sessionId already exists. */
   async spawn(
     sessionId: string,
@@ -188,12 +92,12 @@ export class SessionHost {
       throw new Error(`Session already exists: ${sessionId}`)
     }
 
-    const ptyProcess = await this.spawnPty(shell, resolveShellLaunchArgs(shell).args, {
+    const ptyProcess = await spawnPty(shell, resolveShellLaunchArgs(shell).args, {
       cols,
       rows,
       cwd,
       env: { ...baseEnv(), ...env },
-    })
+    }, { sessionCount: this.sessions.size })
 
     const buffer = new RingBuffer(bufferMaxLength)
     this.track({
@@ -221,12 +125,12 @@ export class SessionHost {
     if (this.sessions.has(checkpoint.sessionId)) return
 
     const env = restoredEnv(checkpoint.sessionId, checkpoint.env)
-    const ptyProcess = await this.spawnPty(shell, resolveShellLaunchArgs(shell).args, {
+    const ptyProcess = await spawnPty(shell, resolveShellLaunchArgs(shell).args, {
       cols: checkpoint.cols,
       rows: checkpoint.rows,
       cwd: checkpoint.cwd,
       env: { ...baseEnv(), ...env },
-    })
+    }, { sessionCount: this.sessions.size })
 
     const buffer = new RingBuffer()
     buffer.push(checkpoint.scrollback)
@@ -260,6 +164,7 @@ export class SessionHost {
 
     entry.pty.onExit(({ exitCode, signal }: { exitCode: number; signal?: number }) => {
       this.sessions.delete(sessionId)
+      this.valve.forget(sessionId)
       // selfExit: the shell ended on its own (user typed `exit`), not by a
       // signal and not by a client kill (tab close, hibernation).
       this.emit('exit', sessionId, exitCode, entry.killRequested || !signal, !signal && !entry.killRequested)
@@ -313,6 +218,29 @@ export class SessionHost {
   /** Write data to a session's PTY stdin. */
   write(sessionId: string, data: string): void {
     this.sessions.get(sessionId)?.pty.write(data)
+  }
+
+  /**
+   * Stop reading a session's PTY on behalf of `owner` (a client whose consumer
+   * fell behind). The program blocks once the kernel buffer fills. Released
+   * by resume(), releasePauses() on disconnect, or the valve's 10s timeout.
+   */
+  pause(sessionId: string, owner: unknown): void {
+    this.valve.pause(sessionId, owner)
+  }
+
+  resume(sessionId: string, owner: unknown): void {
+    this.valve.resume(sessionId, owner)
+  }
+
+  /** Release every pause `owner` holds (it disconnected). */
+  releasePauses(owner: unknown): void {
+    this.valve.releaseOwner(owner)
+  }
+
+  /** Stop timers (daemon shutdown, tests). */
+  dispose(): void {
+    this.valve.dispose()
   }
 
   /** Resize a session's PTY. */

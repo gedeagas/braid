@@ -9,6 +9,7 @@ import { useUIStore } from '@/store/ui'
 import { useProjectsStore } from '@/store/projects'
 import { getTerminalMinimumContrastRatio, getTerminalTheme } from '@/themes/terminal'
 import { activateWebgl } from './terminalCache'
+import { initPtyOutputRouting, registerPtyTerminal } from '@/lib/ptyOutput/router'
 import { IconWrench } from '@/components/shared/icons'
 import { Button, EmptyState } from '@/components/ui'
 import '@xterm/xterm/css/xterm.css'
@@ -105,9 +106,9 @@ export function SetupPanel({ worktreePath, projectId, hidden }: Props) {
       for (const cleanup of cached.cleanupListeners) cleanup()
       cached.cleanupListeners.length = 0
 
-      const onData = ipc.pty.onData((id, data) => {
-        if (id === ptyId) cached.term.write(data)
-      })
+      // Shared router: acknowledges parsed output to main (flow control).
+      initPtyOutputRouting()
+      const onData = registerPtyTerminal(ptyId, cached.term)
       const onExit = ipc.pty.onExit((id) => {
         if (id === ptyId) {
           cached.term.write('\r\n\x1b[2m── Setup complete ──\x1b[0m\r\n')

@@ -6,7 +6,7 @@
  */
 import { connect, type Socket } from 'net'
 import { EventEmitter } from 'events'
-import { SOCKET_PATH, encode, decode, type DaemonMessage, type DaemonRequest, type DaemonResponse, type DataEvent, type ExitEvent } from './protocol'
+import { SOCKET_PATH, encode, decode, type DaemonFeature, type DaemonMessage, type DaemonRequest, type DaemonResponse, type DataEvent, type ExitEvent } from './protocol'
 import type { DaemonSessionMetadata, SessionInfo } from './types'
 
 const REQUEST_TIMEOUT_MS = 10_000
@@ -24,6 +24,15 @@ export interface DaemonClientEvents {
   exit: [sessionId: string, exitCode: number, selfExit: boolean]
   connected: []
   disconnected: []
+  /** Features changed (after hello on connect / reconnect). */
+  features: [features: readonly string[]]
+}
+
+export interface HelloInfo {
+  version?: string
+  sessionCount?: number
+  /** Empty for a daemon from before feature detection. */
+  features: string[]
 }
 
 export class DaemonClient extends EventEmitter<DaemonClientEvents> {
@@ -37,6 +46,8 @@ export class DaemonClient extends EventEmitter<DaemonClientEvents> {
   private _closed = false
   /** Session IDs this client is attached to. Re-attached on reconnect. */
   private attachedSessions = new Set<string>()
+  /** What the connected daemon said it supports. Empty until hello answers. */
+  private features: readonly string[] = []
 
   get connected(): boolean {
     return this._connected
@@ -51,9 +62,13 @@ export class DaemonClient extends EventEmitter<DaemonClientEvents> {
       this.socket.on('connect', () => {
         this._connected = true
         this.reconnectAttempts = 0
+        // A reconnect may reach a different daemon: nothing is assumed until
+        // it answers hello.
+        this.setFeatures([])
         // Re-attach to all previously attached sessions so data events resume
         this.reattachAll()
         this.emit('connected')
+        void this.hello()
         resolve()
       })
 
@@ -64,6 +79,7 @@ export class DaemonClient extends EventEmitter<DaemonClientEvents> {
 
       this.socket.on('close', () => {
         this._connected = false
+        this.setFeatures([])
         this.rejectAllPending('Connection closed')
         this.emit('disconnected')
         this.scheduleReconnect()
@@ -161,17 +177,49 @@ export class DaemonClient extends EventEmitter<DaemonClientEvents> {
    * Which build the daemon came from. A daemon older than this request
    * answers with an error: reported as an unknown version.
    */
-  async hello(): Promise<{ version?: string; sessionCount?: number }> {
+  async hello(): Promise<HelloInfo> {
     try {
       const result = await this.request({ type: 'hello' } as Omit<DaemonRequest, 'id'> & { type: 'hello' })
-      const data = (result ?? {}) as { version?: unknown; sessionCount?: unknown }
+      const data = (result ?? {}) as { version?: unknown; sessionCount?: unknown; features?: unknown }
+      // An older daemon has no `features`: treat it as supporting none.
+      const features = Array.isArray(data.features) ? data.features.filter((f): f is string => typeof f === 'string') : []
+      this.setFeatures(features)
       return {
         version: typeof data.version === 'string' ? data.version : undefined,
         sessionCount: typeof data.sessionCount === 'number' ? data.sessionCount : undefined,
+        features,
       }
     } catch {
-      return {}
+      return { features: [] }
     }
+  }
+
+  /** Whether the connected daemon listed this feature in hello. */
+  hasFeature(feature: DaemonFeature): boolean {
+    return this.features.includes(feature)
+  }
+
+  getFeatures(): readonly string[] {
+    return this.features
+  }
+
+  /** Pause a session's PTY (flow control). No-op on a daemon without the feature. */
+  pause(sessionId: string): void {
+    if (!this.hasFeature('flow-control')) return
+    this.send({ type: 'pause', sessionId })
+  }
+
+  /** Resume a paused PTY. No-op on a daemon without the feature. */
+  resume(sessionId: string): void {
+    if (!this.hasFeature('flow-control')) return
+    this.send({ type: 'resume', sessionId })
+  }
+
+  private setFeatures(features: readonly string[]): void {
+    const same = features.length === this.features.length && features.every((f, i) => f === this.features[i])
+    if (same) return
+    this.features = [...features]
+    this.emit('features', this.features)
   }
 
   async ping(): Promise<void> {

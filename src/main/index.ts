@@ -125,6 +125,20 @@ function createWindow(): void {
     mainWindow!.show()
   })
 
+  // Terminal output flow control counts what the renderer has acknowledged.
+  // A new page (reload) or a crash starts the renderer's running totals over:
+  // reset main's counts, let every paused PTY run again, and hold output until
+  // the new page's pty:data listener reports ready. Reset when the navigation
+  // starts, before the page's scripts run, so it can never land after the
+  // page already said it is ready.
+  mainWindow.webContents.on('did-start-navigation', (details: unknown, _url?: string, isInPlace?: boolean, isMainFrame?: boolean) => {
+    const d = (details ?? {}) as { isMainFrame?: boolean; isSameDocument?: boolean }
+    const mainFrame = d.isMainFrame ?? isMainFrame ?? false
+    const sameDocument = d.isSameDocument ?? isInPlace ?? false
+    if (mainFrame && !sameDocument) ptyService.resetDelivery?.()
+  })
+  mainWindow.webContents.on('render-process-gone', () => ptyService.resetDelivery?.())
+
   mainWindow.webContents.setWindowOpenHandler((details) => {
     // http(s) links from Braid's own UI (editor, markdown) follow the browser
     // link-routing setting; the renderer decides Braid browser vs system.

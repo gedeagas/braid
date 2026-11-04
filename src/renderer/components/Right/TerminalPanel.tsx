@@ -5,6 +5,7 @@ import { createTerminalCommandObserver } from '@/lib/terminalCommandRefresh'
 import { getTerminalMinimumContrastRatio, getTerminalTheme } from '@/themes/terminal'
 import { useUIStore } from '@/store/ui'
 import { createTerminal, activateWebgl } from './terminalCache'
+import { initPtyOutputRouting, registerPtyTerminal } from '@/lib/ptyOutput/router'
 import '@xterm/xterm/css/xterm.css'
 
 interface Props {
@@ -31,11 +32,16 @@ export function TerminalPanel({ worktreePath }: Props) {
       try { fitAddon.fit() } catch { /* container not ready */ }
     })
 
+    // PTY -> Terminal, through the shared router (acks parsed output to main).
+    initPtyOutputRouting()
+    let removeData: () => void = () => {}
+
     // Spawn PTY
     ipc.pty
       .spawn(worktreePath)
       .then((id: string) => {
         ptyIdRef.current = id
+        removeData = registerPtyTerminal(id, term)
         const commandObserver = createTerminalCommandObserver(worktreePath, { refreshWorktrees: true })
         commandObserverRef.current = commandObserver
 
@@ -62,12 +68,7 @@ export function TerminalPanel({ worktreePath }: Props) {
         term.write(`\x1b[31mError: ${msg}\x1b[0m\r\n`)
       })
 
-    // PTY -> Terminal
-    const removeData = ipc.pty.onData((id: string, data: string) => {
-      if (id === ptyIdRef.current) {
-        term.write(data)
-      }
-    })
+
 
     const removeExit = ipc.pty.onExit((id: string) => {
       if (id === ptyIdRef.current) {

@@ -2,6 +2,7 @@ import './lib/i18n'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
+import { initPtyOutputRouting } from './lib/ptyOutput/router'
 import '@fontsource/ibm-plex-sans/400.css'
 import '@fontsource/ibm-plex-sans/500.css'
 import '@fontsource/ibm-plex-sans/600.css'
@@ -16,6 +17,9 @@ console.warn = (...args: unknown[]) => {
   if (typeof args[0] === 'string' && args[0].includes('Zero-sized element')) return
   _warn.apply(console, args)
 }
+
+// Listen for PTY output from the start: main waits for this before sending.
+initPtyOutputRouting()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

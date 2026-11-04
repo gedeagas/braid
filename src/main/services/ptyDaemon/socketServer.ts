@@ -8,7 +8,7 @@
 import { createServer, type Server, type Socket } from 'net'
 import { existsSync, unlinkSync, mkdirSync } from 'fs'
 import { dirname } from 'path'
-import { DAEMON_VERSION_ENV, PROTOCOL_VERSION, SOCKET_PATH, SOCKET_IS_FILE, encode, decode, type DaemonRequest, type DaemonEvent } from './protocol'
+import { DAEMON_FEATURES, DAEMON_VERSION_ENV, PROTOCOL_VERSION, SOCKET_PATH, SOCKET_IS_FILE, encode, decode, type DaemonRequest, type DaemonEvent } from './protocol'
 import { defaultShellPath } from '../../lib/shell'
 import type { SessionHost } from './sessionHost'
 
@@ -117,18 +117,16 @@ export class SocketServer {
       this.processLines(client)
     })
 
-    socket.on('close', () => {
-      // Detach from all sessions this client was attached to
+    // Detach from all sessions this client was attached to, and let any PTY it
+    // paused run again. 'error' is followed by 'close'; run this only once.
+    const cleanup = (): void => {
+      if (!this.clients.delete(client)) return
       this.host.detachAll(client.attachedSessions)
-      this.clients.delete(client)
+      this.host.releasePauses(client)
       this.onClientDisconnect?.()
-    })
-
-    socket.on('error', () => {
-      this.host.detachAll(client.attachedSessions)
-      this.clients.delete(client)
-      this.onClientDisconnect?.()
-    })
+    }
+    socket.on('close', cleanup)
+    socket.on('error', cleanup)
   }
 
   private processLines(client: ClientState): void {
@@ -221,8 +219,23 @@ export class SocketServer {
           this.sendResponse(client, {
             id: req.id,
             type: 'ok',
-            data: { protocol: PROTOCOL_VERSION, version: process.env[DAEMON_VERSION_ENV] || undefined, sessionCount: this.host.size },
+            data: {
+              protocol: PROTOCOL_VERSION,
+              version: process.env[DAEMON_VERSION_ENV] || undefined,
+              sessionCount: this.host.size,
+              features: [...DAEMON_FEATURES],
+            },
           })
+          break
+
+        case 'pause':
+          this.host.pause(req.sessionId, client)
+          // Fire-and-forget: no response
+          break
+
+        case 'resume':
+          this.host.resume(req.sessionId, client)
+          // Fire-and-forget: no response
           break
 
         case 'ping':

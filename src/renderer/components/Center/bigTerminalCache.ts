@@ -8,6 +8,7 @@ import { createTerminal, registerPtyFinder } from '@/components/Right/terminalCa
 import { registerAgentStatusOsc, registerBraidOsc9 } from '@/lib/agentStatusOsc'
 import { registerTitleDetection } from '@/lib/agentTitleDetection'
 import { isReplaying } from '@/lib/replayGuard'
+import { initPtyOutputRouting } from '@/lib/ptyOutput/router'
 import { isKnownAgentType, type AgentStatusPayload, type AgentStatusState, type AgentType } from '@/lib/agentStatus'
 import { createCompletionCoordinator, type CompletionCoordinator } from '@/lib/agentCompletionCoordinator'
 import { notifyTerminalStateChange, clearTerminalNotificationState } from '@/lib/terminalNotifications'
@@ -63,6 +64,8 @@ let finderRegistered = false
 function ensureFinderRegistered(): void {
   if (finderRegistered) return
   finderRegistered = true
+  // Big terminals must get output even if the right panel never mounted.
+  initPtyOutputRouting()
   registerPtyFinder((ptyId) => {
     for (const entry of cache.values()) {
       if (entry.ptyId === ptyId) return { term: entry.term }

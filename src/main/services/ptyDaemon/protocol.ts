@@ -17,7 +17,20 @@ import type { DaemonSessionMetadata } from './types'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
+// Never bump this for new capabilities: it is part of the socket path, so a
+// new app would miss the daemon an older build left running (with the user's
+// shells and agents in it). Add a feature to DAEMON_FEATURES instead.
 export const PROTOCOL_VERSION = 1
+
+/**
+ * Capabilities this daemon build supports, reported in the `hello` reply. A
+ * daemon from before this list existed sends no `features`, which clients
+ * read as "none". A client must never send a request type whose feature the
+ * daemon did not list: an older daemon answers `Unknown request type`.
+ *  - flow-control: `pause` / `resume` requests (producer backpressure)
+ */
+export const DAEMON_FEATURES = ['flow-control'] as const
+export type DaemonFeature = (typeof DAEMON_FEATURES)[number] | 'headless-snapshot' | 'status-events'
 /** Env var carrying the spawning app's version into the daemon process. */
 export const DAEMON_VERSION_ENV = 'BRAID_DAEMON_VERSION'
 export const DAEMON_DIR = join(homedir(), 'Braid', 'daemon')
@@ -130,6 +143,20 @@ export interface HelloRequest {
   type: 'hello'
 }
 
+/** Stop reading a session's PTY (feature: flow-control). Fire-and-forget. */
+export interface PauseRequest {
+  id: string
+  type: 'pause'
+  sessionId: string
+}
+
+/** Undo a pause (feature: flow-control). Fire-and-forget. */
+export interface ResumeRequest {
+  id: string
+  type: 'resume'
+  sessionId: string
+}
+
 export interface PingRequest {
   id: string
   type: 'ping'
@@ -152,6 +179,8 @@ export type DaemonRequest =
   | SetMetadataRequest
   | ConsumeColdRestoreRequest
   | HelloRequest
+  | PauseRequest
+  | ResumeRequest
   | PingRequest
   | ShutdownRequest
 
