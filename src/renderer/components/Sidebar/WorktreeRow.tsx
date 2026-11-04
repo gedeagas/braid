@@ -139,12 +139,14 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
     if (deleteInFlightRef.current) return
 
     deleteInFlightRef.current = true
+    // Close the confirmation right away; progress is shown on the row itself so the
+    // user can keep working in the sidebar while removal runs.
+    rowDispatch({ type: 'HIDE_DELETE_CONFIRM' })
     rowDispatch({ type: 'SET_DELETING', value: true })
     try {
       await removeWorktree(worktree.projectId, worktree.id)
       // Store actions and flash are global, so they stay outside the mounted guard.
       if (skipFutureConfirmations) setSkipDeleteConfirm(true)
-      if (isMountedRef.current) rowDispatch({ type: 'HIDE_DELETE_CONFIRM' })
     } catch (err) {
       console.error('[WorktreeRow] removeWorktree failed:', err)
       flash('error', cleanIpcError(err, t('deleteWorktreeFailed')), 5_000)
@@ -187,6 +189,7 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
         ref={rowRef}
         className={[
           'worktree-row',
+          isDeleting ? 'worktree-row--deleting' : '',
           isSelected ? 'selected' : '',
           isDragging ? 'worktree-row--dragging' : '',
           isDropTarget ? 'worktree-row--drop-target' : '',
@@ -293,9 +296,7 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
       {showDeleteConfirm && (
         <div
           className="dialog-overlay"
-          onClick={() => {
-            if (!isDeleting) rowDispatch({ type: 'HIDE_DELETE_CONFIRM' })
-          }}
+          onClick={() => rowDispatch({ type: 'HIDE_DELETE_CONFIRM' })}
         >
           <div
             className="dialog"
@@ -311,21 +312,18 @@ export function WorktreeRow({ worktree, dragOverId, draggingId, isNew, isFocused
             <Checkbox
               checked={dontAskAgain}
               onChange={(checked) => rowDispatch({ type: 'SET_DONT_ASK', value: checked })}
-              disabled={isDeleting}
               label={t('deleteWorktreeDontAsk')}
             />
             <div className="dialog-actions">
               {/* autoFocus the cancel button - the safe non-destructive action */}
               <Button
                 autoFocus
-                disabled={isDeleting}
                 onClick={() => rowDispatch({ type: 'HIDE_DELETE_CONFIRM' })}
               >
                 {t('cancel', { ns: 'common' })}
               </Button>
               <Button
                 variant="danger"
-                loading={isDeleting}
                 onClick={() => {
                   void runDeleteWorktree(dontAskAgain)
                 }}
