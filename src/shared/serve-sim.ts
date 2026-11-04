@@ -21,3 +21,18 @@ export function parseServeSimLocalUrl(output: string): string | null {
   const match = /Local:\s+http:\/\/(?:localhost|127\.0\.0\.1):(\d+)/.exec(output)
   return match ? `http://127.0.0.1:${match[1]}` : null
 }
+
+/** Per-device screen config served by the preview's same-origin helper proxy. */
+export function serveSimConfigUrl(baseUrl: string, deviceId: string): string {
+  return `${baseUrl}/helper/${encodeURIComponent(deviceId)}/config`
+}
+
+/**
+ * serve-sim reports a 0x0 screen until native capture has delivered a frame,
+ * so a non-zero size is the signal that video and input are actually live.
+ */
+export function isServeSimCaptureReady(config: unknown): boolean {
+  if (!config || typeof config !== 'object') return false
+  const { width, height } = config as { width?: unknown; height?: unknown }
+  return typeof width === 'number' && typeof height === 'number' && width > 0 && height > 0
+}

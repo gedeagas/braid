@@ -4,7 +4,9 @@ import { existsSync, readFileSync, writeFileSync } from 'fs'
 import path from 'path'
 import { logger } from '../lib/logger'
 import { enrichedEnv } from '../lib/enrichedEnv'
-import { SERVE_SIM_PARTITION, parseServeSimLocalUrl } from '../../shared/serve-sim'
+import {
+  SERVE_SIM_PARTITION, isServeSimCaptureReady, parseServeSimLocalUrl, serveSimConfigUrl,
+} from '../../shared/serve-sim'
 import { serveSimGuardNodeOptions } from './serveSimGuard'
 
 /**
@@ -20,6 +22,9 @@ import { serveSimGuardNodeOptions } from './serveSimGuard'
  */
 
 const START_TIMEOUT_MS = 90_000 // covers a cold simulator boot
+/** After the banner: how long native capture may take to produce its first frame. */
+const CAPTURE_TIMEOUT_MS = 20_000
+const CAPTURE_POLL_MS = 250
 const STARTUP_LOG_LIMIT = 4_000
 
 interface Instance {
@@ -96,7 +101,9 @@ class ServeSimService {
       detached: true,
     })
 
-    const ready = new Promise<string>((resolve, reject) => {
+    // Aborted when the process exits so a pending capture probe stops immediately.
+    const exited = new AbortController()
+    const listening = new Promise<string>((resolve, reject) => {
       let output = ''
       let settled = false
       const settle = (fn: () => void) => {
@@ -117,6 +124,7 @@ class ServeSimService {
 
       child.on('error', (err) => settle(() => reject(err)))
       child.on('exit', (code, signal) => {
+        exited.abort()
         const detail = output.trim().split('\n').slice(-3).join(' ')
         settle(() => reject(new Error(`serve-sim exited (${code ?? signal}) ${detail}`.trim())))
         // Only report exits we didn't ask for; stop() removes the entry first.
@@ -129,6 +137,10 @@ class ServeSimService {
       })
     })
 
+    // The banner only proves the HTTP server is up; capture starts lazily on the
+    // first device request and fails silently. Resolve only once it has produced
+    // a frame, so a broken capture rejects and the renderer falls back to mobilecli.
+    const ready = listening.then((url) => waitForCapture(url, deviceId, exited.signal))
     return { child, ready }
   }
 
@@ -149,6 +161,20 @@ function killGroup(child: ChildProcess): void {
   try { process.kill(-child.pid, 'SIGTERM') } catch {
     try { child.kill('SIGTERM') } catch { /* already gone */ }
   }
+}
+
+async function waitForCapture(url: string, deviceId: string, exited: AbortSignal): Promise<string> {
+  const configUrl = serveSimConfigUrl(url, deviceId)
+  const deadline = Date.now() + CAPTURE_TIMEOUT_MS
+  while (Date.now() < deadline) {
+    if (exited.aborted) throw new Error('serve-sim exited before capture started')
+    try {
+      const res = await fetch(configUrl, { signal: AbortSignal.any([exited, AbortSignal.timeout(2_000)]) })
+      if (res.ok && isServeSimCaptureReady(await res.json())) return url
+    } catch { /* not ready yet, or aborted (checked at the top of the loop) */ }
+    await new Promise((r) => setTimeout(r, CAPTURE_POLL_MS))
+  }
+  throw new Error('serve-sim capture did not start in time')
 }
 
 /**

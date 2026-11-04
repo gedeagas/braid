@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isServeSimUrl, parseServeSimLocalUrl } from '../serve-sim'
+import { isServeSimCaptureReady, isServeSimUrl, parseServeSimLocalUrl, serveSimConfigUrl } from '../serve-sim'
 
 describe('isServeSimUrl', () => {
   it('accepts loopback http URLs with an explicit port', () => {
@@ -26,5 +26,25 @@ describe('parseServeSimLocalUrl', () => {
 
   it('returns null until the Local line is printed', () => {
     expect(parseServeSimLocalUrl('Starting simulator stream...\n')).toBeNull()
+  })
+})
+
+describe('serveSimConfigUrl', () => {
+  it('targets the same-origin helper proxy for the device', () => {
+    expect(serveSimConfigUrl('http://127.0.0.1:3200', 'ABC-123'))
+      .toBe('http://127.0.0.1:3200/helper/ABC-123/config')
+  })
+})
+
+describe('isServeSimCaptureReady', () => {
+  it('is ready once capture reports a real screen size', () => {
+    expect(isServeSimCaptureReady({ width: 1206, height: 2622, orientation: 'portrait' })).toBe(true)
+  })
+
+  it('is not ready before the first frame or for malformed payloads', () => {
+    expect(isServeSimCaptureReady({ width: 0, height: 0, orientation: 'portrait' })).toBe(false)
+    expect(isServeSimCaptureReady({ width: '1206', height: 2622 })).toBe(false)
+    expect(isServeSimCaptureReady(null)).toBe(false)
+    expect(isServeSimCaptureReady('ok')).toBe(false)
   })
 })

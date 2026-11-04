@@ -87,7 +87,19 @@ function reducer(state: State, action: Action): State {
     case 'NO_CLI': return { ...state, phase: 'no-cli' }
     case 'INSTALLING_CLI': return { ...state, phase: 'installing-cli' }
     case 'CLI_INSTALL_FAILED': return { ...state, phase: 'no-cli', cliInstallAttempted: true, needsNode: action.needsNode }
-    case 'DEVICES_LOADED': return { ...state, phase: 'device-list', devices: action.devices, platformTools: action.platformTools, error: null }
+    case 'DEVICES_LOADED': {
+      // Background refreshes (after a stream drop, boot, shutdown) must not yank the
+      // user out of an active/lost stream or an error screen; only list-ish phases move.
+      const keepPhase = state.phase === 'connecting' || state.phase === 'streaming'
+        || state.phase === 'stream-lost' || state.phase === 'error'
+      return {
+        ...state,
+        phase: keepPhase ? state.phase : 'device-list',
+        devices: action.devices,
+        platformTools: action.platformTools,
+        error: keepPhase ? state.error : null,
+      }
+    }
     case 'BOOTING': return { ...state, bootingId: action.id }
     case 'BOOT_DONE': return { ...state, bootingId: null }
     case 'SHUTTING_DOWN': return { ...state, shuttingDownId: action.id }
