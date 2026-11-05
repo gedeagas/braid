@@ -5,6 +5,7 @@ import { useBrowserStore } from '@/store/browser'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { IconCursorClick, IconSmartphone } from '@/components/shared/icons'
 import { Button } from '@/components/ui'
+import { BROWSER_ICON } from './browserChrome'
 
 export interface ViewportPreset { id: string; viewport: BrowserViewport }
 
@@ -33,8 +34,17 @@ export const ViewportControl = memo(function ViewportControl({ viewport, disable
   useEffect(() => {
     if (!state.open) return
     const onDown = (e: MouseEvent) => { if (!rootRef.current?.contains(e.target as Node)) patch({ open: false }) }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      patch({ open: false })
+    }
     window.addEventListener('mousedown', onDown, true)
-    return () => window.removeEventListener('mousedown', onDown, true)
+    window.addEventListener('keydown', onKey, true)
+    return () => {
+      window.removeEventListener('mousedown', onDown, true)
+      window.removeEventListener('keydown', onKey, true)
+    }
   }, [state.open])
 
   const pick = useCallback((v: BrowserViewport | undefined) => {
@@ -54,16 +64,17 @@ export const ViewportControl = memo(function ViewportControl({ viewport, disable
       <Tooltip content={t('browser.viewport.title')} position="bottom">
         <Button
           size="icon"
-          className={`browser-icon-btn${viewport ? ' browser-icon-btn--active' : ''}`}
+          className={`browser-icon-btn${viewport ? ' browser-icon-btn--active browser-icon-btn--labeled' : ''}`}
           aria-label={t('browser.viewport.title')}
+          aria-haspopup="menu"
           aria-expanded={state.open}
           disabled={disabled}
           onClick={() => patch({ open: !state.open })}
         >
-          <IconSmartphone size={13} />
+          <IconSmartphone size={BROWSER_ICON.tool} />
+          {label && <span className="browser-viewport-label">{label}</span>}
         </Button>
       </Tooltip>
-      {label && <span className="browser-viewport-label">{label}</span>}
       {state.open && (
         <div className="browser-popover" role="menu">
           <button className={`browser-popover-item${!viewport ? ' browser-popover-item--active' : ''}`} onClick={() => pick(undefined)}>
@@ -81,7 +92,7 @@ export const ViewportControl = memo(function ViewportControl({ viewport, disable
           ))}
           <div className="browser-popover-custom">
             <input className="settings-input" inputMode="numeric" aria-label={t('browser.viewport.width')} value={state.width} onChange={(e) => patch({ width: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') applyCustom() }} />
-            <span>{'×'}</span>
+            <span className="browser-popover-times">{'×'}</span>
             <input className="settings-input" inputMode="numeric" aria-label={t('browser.viewport.height')} value={state.height} onChange={(e) => patch({ height: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') applyCustom() }} />
             <Button size="sm" onClick={applyCustom}>{t('browser.viewport.apply')}</Button>
           </div>
@@ -121,7 +132,7 @@ export const DesignModeToggle = memo(function DesignModeToggle({ active, disable
         disabled={disabled}
         onClick={onToggle}
       >
-        <IconCursorClick size={14} />
+        <IconCursorClick size={BROWSER_ICON.tool} />
       </Button>
     </Tooltip>
   )

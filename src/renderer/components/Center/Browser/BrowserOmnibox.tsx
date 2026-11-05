@@ -1,10 +1,11 @@
 import { memo, useCallback, useEffect, useReducer, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { IconGlobe, IconSearch } from '@/components/shared/icons'
+import { IconGlobe, IconLock, IconSearch } from '@/components/shared/icons'
 import { displayUrl, resolveOmniboxInput, searchUrl } from '@/lib/browser/omnibox'
 import { rankSuggestions } from '@/lib/browser/history'
 import { getBrowserHistory } from '@/lib/browser/historyStore'
 import { BROWSER_FOCUS_ADDRESS_EVENT } from '@/lib/browser/browserCommands'
+import { BROWSER_ICON } from './browserChrome'
 
 interface Suggestion {
   kind: 'navigate' | 'search' | 'history'
@@ -117,9 +118,14 @@ export const BrowserOmnibox = memo(function BrowserOmnibox({ tabId, worktreeId, 
   }, [state.highlighted, state.suggestions, state.text, url, commit, onDone])
 
   const open = state.editing && state.suggestions.length > 0
+  const hasPage = Boolean(url) && url !== 'about:blank'
+  const SiteIcon = state.editing || !hasPage ? IconSearch : url.startsWith('https:') ? IconLock : IconGlobe
 
   return (
     <div className="browser-omnibox">
+      <span className="browser-omnibox-site" aria-hidden="true">
+        <SiteIcon size={BROWSER_ICON.omnibox} />
+      </span>
       <input
         ref={inputRef}
         className="browser-omnibox-input"

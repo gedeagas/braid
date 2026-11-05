@@ -7,6 +7,11 @@
 }
 
 .browser-page {
+  /* Shared control sizes for the chrome: toolbar buttons + address bar, and
+     compact buttons in the find bar / downloads shelf. */
+  --browser-control: 26px;
+  --browser-control-compact: var(--hit-target-min);
+
   position: absolute;
   flex-direction: column;
   pointer-events: auto;
@@ -23,10 +28,19 @@
 .browser-toolbar {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-4) var(--space-8);
+  gap: var(--space-6);
+  /* 26px controls + 5px block padding = 36px, matching .file-viewer-toolbar */
+  padding: var(--space-5) var(--space-6);
   border-bottom: 1px solid var(--border);
   background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+/* Navigation cluster and tools cluster: tight inside, separated from the address bar */
+.browser-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
   flex-shrink: 0;
 }
 
@@ -34,17 +48,29 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: var(--browser-control);
+  height: var(--browser-control);
   padding: 0;
   flex-shrink: 0;
   color: var(--text-secondary);
+  line-height: var(--leading-none);
 }
 
-.browser-icon-btn:disabled {
+.browser-icon-btn:active:not(:disabled) {
+  background: var(--bg-tertiary);
+}
+
+.browser-icon-btn:disabled,
+.browser-icon-btn:disabled:hover {
   opacity: 0.35;
   cursor: default;
   background: transparent;
+  color: var(--text-secondary);
+}
+
+.browser-icon-btn--compact {
+  width: var(--browser-control-compact);
+  height: var(--browser-control-compact);
 }
 
 /* Thin indeterminate bar under the toolbar while the page loads. */
@@ -72,14 +98,24 @@
   position: relative;
   flex: 1;
   min-width: 0;
-  margin: 0 var(--space-4);
+}
+
+/* Leading site indicator: lock (https), globe (other), search (editing / empty) */
+.browser-omnibox-site {
+  position: absolute;
+  top: 50%;
+  left: var(--space-10);
+  display: flex;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
 }
 
 .browser-omnibox-input {
   width: 100%;
   box-sizing: border-box;
-  height: 26px;
-  padding: 0 var(--space-10);
+  height: var(--browser-control);
+  padding: 0 var(--space-12) 0 var(--space-28);
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
   background: var(--bg-primary);
@@ -91,6 +127,10 @@
 
 .browser-omnibox-input::placeholder {
   color: var(--text-muted);
+}
+
+.browser-omnibox-input:hover:not(:focus) {
+  border-color: var(--border-hover, var(--border));
 }
 
 .browser-omnibox-input:focus {
@@ -118,7 +158,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-8);
-  padding: var(--space-6) var(--space-8);
+  /* Left inset lines the suggestion icons up with the address bar's site icon */
+  padding: var(--space-6) var(--space-6);
   border-radius: var(--radius);
   font-size: var(--text-md);
   color: var(--text-primary);
@@ -159,11 +200,11 @@
 .browser-find-bar {
   position: absolute;
   top: var(--space-8);
-  right: var(--space-16);
+  right: var(--space-12);
   display: flex;
   align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-6) var(--space-4) var(--space-10);
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-12);
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -188,10 +229,19 @@
 
 .browser-find-count {
   min-width: 64px;
+  margin-right: var(--space-4);
   text-align: right;
   color: var(--text-muted);
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.browser-find-divider {
+  width: 1px;
+  height: var(--space-14);
+  margin: 0 var(--space-2);
+  background: var(--border);
 }
 
 /* ─── Page area ───────────────────────────────────────────────────────────── */
@@ -229,7 +279,7 @@
 .tab-browser-label {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-6);
   min-width: 0;
 }
 
@@ -237,30 +287,43 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 12px;
-  height: 12px;
+  width: var(--space-14);
+  height: var(--space-14);
   flex-shrink: 0;
   opacity: 0.85;
 }
 
 .tab-browser-icon img {
-  width: 12px;
-  height: 12px;
+  width: var(--space-14);
+  height: var(--space-14);
   object-fit: contain;
   border-radius: var(--radius-xs);
 }
 
 /* ─── Toolbar extras ──────────────────────────────────────────────────────── */
 
-.browser-icon-btn--active {
+.browser-icon-btn--active,
+.browser-icon-btn--active:hover {
   color: var(--accent);
   background: var(--accent-tint-10);
+}
+
+.browser-icon-btn--active:hover {
+  background: var(--accent-tint-15);
+}
+
+/* Viewport button grows to carry the emulated size, e.g. [▯ 393×852] */
+.browser-icon-btn--labeled {
+  width: auto;
+  gap: var(--space-4);
+  padding: 0 var(--space-8) 0 var(--space-6);
 }
 
 .browser-profile-select {
   width: auto;
   max-width: 140px;
-  padding: var(--space-2) var(--space-6);
+  height: var(--browser-control);
+  padding: 0 var(--space-6);
   font-size: var(--text-sm);
 }
 
@@ -268,12 +331,11 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
 }
 
 .browser-viewport-label {
   font-size: var(--text-xs);
-  color: var(--text-muted);
+  font-weight: var(--weight-medium);
   font-variant-numeric: tabular-nums;
 }
 
@@ -295,6 +357,7 @@
 
 .browser-popover-item {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-12);
   padding: var(--space-6) var(--space-8);
@@ -311,8 +374,10 @@
   background: var(--bg-hover);
 }
 
-.browser-popover-item--active {
+.browser-popover-item--active,
+.browser-popover-item--active:hover {
   color: var(--accent);
+  background: var(--accent-tint-10);
 }
 
 .browser-popover-meta {
@@ -323,144 +388,25 @@
 .browser-popover-custom {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-6) var(--space-4) var(--space-2);
+  gap: var(--space-6);
+  padding: var(--space-8) var(--space-4) var(--space-4);
   border-top: 1px solid var(--border);
   margin-top: var(--space-4);
 }
 
 .browser-popover-custom .settings-input {
   width: 64px;
-  padding: var(--space-2) var(--space-6);
-}
-
-/* ─── Page bars (permission prompt, agent activity) + downloads shelf ────── */
-
-.browser-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
-  padding: var(--space-6) var(--space-12);
-  border-bottom: 1px solid var(--border);
-  font-size: var(--text-md);
-  flex-shrink: 0;
-}
-
-.browser-bar-text {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.browser-bar--permission {
-  background: var(--bg-tertiary);
-}
-
-.browser-bar--agent {
-  background: var(--accent-tint-10);
-  color: var(--accent);
+  height: var(--browser-control-compact);
+  padding: 0 var(--space-6);
   font-size: var(--text-sm);
-  padding-block: var(--space-4);
-}
-
-.browser-downloads {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-4) var(--space-12);
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-secondary);
-  flex-shrink: 0;
-}
-
-.browser-download {
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
-  font-size: var(--text-sm);
-}
-
-.browser-download-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-primary);
-}
-
-.browser-download-meta {
-  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+  text-align: center;
 }
 
-.browser-download--interrupted .browser-download-meta {
-  color: var(--red);
+.browser-popover-custom .btn {
+  margin-left: auto;
 }
 
-/* ─── Viewport emulation / Design Mode ───────────────────────────────────── */
-
-.browser-viewport--emulated {
-  background: var(--bg-tertiary);
-}
-
-.browser-viewport--design {
-  box-shadow: inset 0 0 0 2px var(--accent);
-}
-
-/* ─── Settings ────────────────────────────────────────────────────────────── */
-
-.browser-profile-card .settings-field {
-  margin: 0;
-}
-
-.browser-profile-actions {
-  display: flex;
-  gap: var(--space-6);
-}
-
-.settings-hint--error {
-  color: var(--red);
-}
-
-.browser-agent-status {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  font-size: var(--text-sm);
-}
-
-.browser-agent-status-row {
-  display: grid;
-  grid-template-columns: 90px 140px 1fr;
-  gap: var(--space-8);
-  align-items: baseline;
-}
-
-.browser-agent-status-agent {
-  color: var(--text-primary);
-}
-
-.browser-agent-status-outcome {
-  color: var(--text-secondary);
-}
-
-.browser-agent-status-outcome--edited,
-.browser-agent-status-outcome--foreign {
-  color: var(--yellow, var(--text-secondary));
-}
-
-.browser-agent-status-outcome--failed {
-  color: var(--red);
-}
-
-.browser-agent-status-path {
+.browser-popover-times {
   color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }

@@ -63,8 +63,11 @@
 @import './notes.css';
 @import './apps.css';
 @import './browser.css';
+@import './browser-bars.css';
 @import './lsp.css';
 @import './analytics.css';
 @import './onboarding.css';
 @import './spotlight-tour.css';
 @import './quick-start.css';
+@import './feedback-dialogs.css';
+@import './reduced-motion.css';

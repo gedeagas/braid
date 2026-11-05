@@ -20,6 +20,7 @@ import { getActiveBrowserTabId, newBrowserTab as openNewBrowserTab, reopenClosed
 import { disposeBigTerminal } from '@/components/Center/bigTerminalCache'
 import i18n from '@/lib/i18n'
 import { appWindow } from '@/lib/ipc'
+import { confirmDialog, useConfirmStore } from '@/store/confirm'
 
 // ─── Settings / overlays ─────────────────────────────────────────────────────
 
@@ -117,7 +118,9 @@ export function newClaudeCode(): void {
  * For active sessions, prompts for confirmation before closing.
  * If no tab is active, closes the entire application window.
  */
-export function closeCurrentTab(): void {
+export async function closeCurrentTab(): Promise<void> {
+  // A confirm is already on screen (e.g. ⌘W pressed twice) - don't stack another
+  if (useConfirmStore.getState().queue.length > 0) return
   const ui = useUIStore.getState()
   const activeKey = getActiveTabKey()
 
@@ -137,9 +140,13 @@ export function closeCurrentTab(): void {
     const sid = activeKey.slice(2)
     const session = useSessionsStore.getState().sessions[sid]
     if (session && session.status !== 'idle' && session.status !== 'inactive') {
-      const title = i18n.t('closeActiveSessionTitle', { ns: 'center' })
-      const msg = i18n.t('closeActiveSessionMessage', { ns: 'center', status: session.status })
-      if (!window.confirm(`${title}\n\n${msg}`)) return
+      const ok = await confirmDialog({
+        title: i18n.t('closeActiveSessionTitle', { ns: 'center' }),
+        message: i18n.t('closeActiveSessionMessage', { ns: 'center', status: session.status }),
+        confirmLabel: i18n.t('close', { ns: 'common' }),
+        destructive: true,
+      })
+      if (!ok) return
     }
     useSessionsStore.getState().closeSession(sid)
   } else if (activeKey.startsWith('f:')) {

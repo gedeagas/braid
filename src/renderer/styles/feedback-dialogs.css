@@ -1,0 +1,119 @@
+/* ── Confirm dialog (store/confirm.ts + shared/ConfirmDialogHost) ─── */
+
+.confirm-dialog {
+  max-width: 440px;
+}
+
+.confirm-dialog h2 {
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  margin-bottom: var(--space-8);
+}
+
+.confirm-dialog__message {
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+  white-space: pre-line;
+}
+
+/* Without a title the message is the question itself, so give it full weight */
+.confirm-dialog__message--solo {
+  font-size: var(--text-lg);
+  color: var(--text-primary);
+}
+
+.confirm-dialog .dialog-actions {
+  margin-top: var(--space-20);
+}
+
+/* ── Error boundary fallback (shared/ErrorBoundary) ──────────────── */
+
+.error-boundary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow: auto;
+  padding: var(--space-24);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.error-boundary--app {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+}
+
+.error-boundary__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+  width: 100%;
+  max-width: 520px;
+}
+
+.error-boundary__title {
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+}
+
+.error-boundary--panel .error-boundary__title {
+  font-size: var(--text-xl);
+}
+
+.error-boundary__description {
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+}
+
+.error-boundary__message {
+  display: block;
+  padding: var(--space-8) var(--space-12);
+  border: 1px solid var(--red-tint-30);
+  border-radius: var(--radius);
+  background: var(--red-tint-8);
+  color: var(--red);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.error-boundary__details summary {
+  cursor: pointer;
+  font-size: var(--text-base);
+  color: var(--text-muted);
+}
+
+.error-boundary__details summary:hover {
+  color: var(--text-secondary);
+}
+
+.error-boundary__details pre {
+  margin-top: var(--space-6);
+  max-height: 240px;
+  overflow: auto;
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius);
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.error-boundary__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  margin-top: var(--space-6);
+}

@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useReducer, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { IconArrowDown, IconArrowUp, IconClose } from '@/components/shared/icons'
 import { Button } from '@/components/ui'
+import { BROWSER_ICON } from './browserChrome'
 import { BROWSER_FIND_EVENT, getBrowserWebview } from '@/lib/browser/browserCommands'
 import type { WebviewFoundInPageEvent } from '@/lib/browser/webviewTypes'
 
@@ -96,14 +97,15 @@ export const BrowserFindBar = memo(function BrowserFindBar({ tabId, onClose }: P
         onKeyDown={handleKeyDown}
       />
       <span className="browser-find-count" aria-live="polite">{counter}</span>
-      <Button size="icon" className="browser-icon-btn" aria-label={t('browser.findPrevious')} disabled={state.total === 0} onClick={() => find(state.text, false, true)}>
-        <IconArrowUp size={12} />
+      <Button size="icon" className="browser-icon-btn browser-icon-btn--compact" aria-label={t('browser.findPrevious')} disabled={state.total === 0} onClick={() => find(state.text, false, true)}>
+        <IconArrowUp size={BROWSER_ICON.findPrev} />
       </Button>
-      <Button size="icon" className="browser-icon-btn" aria-label={t('browser.findNext')} disabled={state.total === 0} onClick={() => find(state.text, true, true)}>
-        <IconArrowDown size={12} />
+      <Button size="icon" className="browser-icon-btn browser-icon-btn--compact" aria-label={t('browser.findNext')} disabled={state.total === 0} onClick={() => find(state.text, true, true)}>
+        <IconArrowDown size={BROWSER_ICON.compact} />
       </Button>
-      <Button size="icon" className="browser-icon-btn" aria-label={t('browser.findClose')} onClick={onClose}>
-        <IconClose size={12} />
+      <span className="browser-find-divider" aria-hidden="true" />
+      <Button size="icon" className="browser-icon-btn browser-icon-btn--compact" aria-label={t('browser.findClose')} onClick={onClose}>
+        <IconClose size={BROWSER_ICON.compact} />
       </Button>
     </div>
   )

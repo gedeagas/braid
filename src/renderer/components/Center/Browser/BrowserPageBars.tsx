@@ -68,7 +68,7 @@ export const DownloadShelf = memo(function DownloadShelf({ webContentsId }: { we
             {d.state === 'completed' && <Button size="sm" onClick={() => ipc.browser.downloadOpen(d.id)}>{t('browser.download.open')}</Button>}
             {d.state === 'completed' && <Button size="sm" onClick={() => ipc.browser.downloadShow(d.id)}>{t('browser.download.show')}</Button>}
             {d.state !== 'progressing' && (
-              <Button size="icon" className="browser-icon-btn" aria-label={t('browser.download.dismiss')} onClick={() => dismiss(d.id)}>
+              <Button size="icon" className="browser-icon-btn browser-icon-btn--compact" aria-label={t('browser.download.dismiss')} onClick={() => dismiss(d.id)}>
                 <IconClose size={12} />
               </Button>
             )}

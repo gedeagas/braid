@@ -1,0 +1,40 @@
+/* ── Reduced motion ─────────────────────────────────────────────────
+ * Honors the OS "Reduce motion" setting app-wide: transitions resolve
+ * instantly and decorative animations (slide-ins, pulses, shimmer,
+ * breathing tabs) stop on their final frame.
+ *
+ * Loading indicators are exempt. They communicate status rather than
+ * decorate, and small in-place rotation is not a vestibular trigger.
+ * Add new spinner classes to the :not() list below.
+ *
+ * Imported last so it overrides component styles.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-instant: 0s;
+    --duration-fast: 0s;
+    --duration-normal: 0s;
+    --duration-slow: 0s;
+    --duration-slower: 0s;
+  }
+
+  *:not(
+      [role='status'],
+      [role='status'] *,
+      .spinner,
+      .activity-spinner,
+      .tcg-row-spinner,
+      .panel-refresh-btn.refreshing svg,
+      .changes-generate-link.generating svg,
+      .usage-status-bar__refresh--spinning svg
+    ),
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
+}

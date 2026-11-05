@@ -54,7 +54,7 @@ export function BrowserTab({
           <span className="tab-browser-icon">
             {isLoading ? <Spinner size="sm" />
               : showFavicon ? <img src={tab.faviconUrl} alt="" onError={() => setBrokenFavicon(tab.faviconUrl ?? null)} />
-              : <IconGlobe size={12} />}
+              : <IconGlobe size={14} />}
           </span>
           <span className="tab-text">{label}</span>
         </span>

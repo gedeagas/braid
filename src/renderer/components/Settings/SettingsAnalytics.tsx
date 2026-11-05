@@ -26,6 +26,7 @@ import {
   USAGE_MULTIPLE_LOCATIONS_LABEL,
   USAGE_UNKNOWN_LOCATION_LABEL,
 } from '../../../shared/usage-labels'
+import { confirmDialog } from '@/store/confirm'
 
 type Tab = 'claude' | 'codex'
 
@@ -182,8 +183,8 @@ function StatusLine({
   labels: { updated: string; notScanned: string; updating: string; clear: string; clearConfirm: string }
   onClear: () => void
 }) {
-  const clear = () => {
-    if (window.confirm(labels.clearConfirm)) onClear()
+  const clear = async () => {
+    if (await confirmDialog({ message: labels.clearConfirm, confirmLabel: labels.clear, destructive: true })) onClear()
   }
 
   return (

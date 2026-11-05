@@ -20,6 +20,7 @@ import { ChangesTab } from './ChangesTab'
 import { CodeReviewTab } from './CodeReviewTab'
 import { BrowserTab } from './BrowserTab'
 import { useNewTabMenuItems } from './useNewTabMenuItems'
+import { confirmDialog } from '@/store/confirm'
 
 const EMPTY_BROWSER_TABS: BrowserTabState[] = []
 const EMPTY_KEYS: string[] = []
@@ -113,8 +114,12 @@ export function SessionTabBar({ pane = 'primary' }: { pane?: PaneId } = {}) {
       // PTY (and any running agent) is shared, so closing it ends the session there too.
       let openOnMobile = false
       try { openOnMobile = await pty.isMobileTerminalActive(terminalId) } catch { /* best effort */ }
-      if (openOnMobile && !window.confirm(
-        `${t('closeTerminalOpenOnMobileTitle')}\n\n${t('closeTerminalOpenOnMobileMessage')}`)) return
+      if (openOnMobile && !(await confirmDialog({
+        title: t('closeTerminalOpenOnMobileTitle'),
+        message: t('closeTerminalOpenOnMobileMessage'),
+        confirmLabel: t('common:close'),
+        destructive: true,
+      }))) return
       closeTerminalRaw(terminalId)
     },
     [selectedWorktreeId, closeTerminalRaw, t]
@@ -227,13 +232,18 @@ export function SessionTabBar({ pane = 'primary' }: { pane?: PaneId } = {}) {
 
   // Close a single tab — confirms if session is active
   const closeSingleTab = useCallback(
-    (key: string) => {
+    async (key: string) => {
       if (key.startsWith('s:')) {
         const sid = key.slice(2)
         const session = sessions.find((s) => s.id === sid)
         if (session && session.status !== 'idle' && session.status !== 'inactive') {
-          const msg = `${t('closeActiveSessionTitle')}\n\n${t('closeActiveSessionMessage', { status: session.status })}`
-          if (!window.confirm(msg)) return
+          const ok = await confirmDialog({
+            title: t('closeActiveSessionTitle'),
+            message: t('closeActiveSessionMessage', { status: session.status }),
+            confirmLabel: t('common:close'),
+            destructive: true,
+          })
+          if (!ok) return
         }
         closeSession(sid)
       } else if (key.startsWith('f:')) {
@@ -253,15 +263,20 @@ export function SessionTabBar({ pane = 'primary' }: { pane?: PaneId } = {}) {
 
   // Close multiple tabs — batches active-session confirmation into one dialog
   const closeManyTabs = useCallback(
-    (keys: string[]) => {
+    async (keys: string[]) => {
       const activeSessions = keys.filter((k) => {
         if (!k.startsWith('s:')) return false
         const s = sessions.find((s) => s.id === k.slice(2))
         return s && s.status !== 'idle' && s.status !== 'inactive'
       })
       if (activeSessions.length > 0) {
-        const msg = `${t('closeActiveSessionTitle')}\n\n${t('closeActiveSessionsBatch', { count: activeSessions.length })}`
-        if (!window.confirm(msg)) return
+        const ok = await confirmDialog({
+          title: t('closeActiveSessionTitle'),
+          message: t('closeActiveSessionsBatch', { count: activeSessions.length }),
+          confirmLabel: t('common:close'),
+          destructive: true,
+        })
+        if (!ok) return
       }
       for (const key of keys) {
         if (key.startsWith('s:')) closeSession(key.slice(2))
@@ -373,6 +388,7 @@ export function SessionTabBar({ pane = 'primary' }: { pane?: PaneId } = {}) {
               inputRef={inputRef}
               closeActiveSessionTitle={t('closeActiveSessionTitle')}
               closeActiveSessionMessageFn={(status) => t('closeActiveSessionMessage', { status })}
+              closeLabel={t('common:close')}
               onDragStart={onDragStart}
               onDragOver={onDragOver}
               onDragLeave={onDragLeave}

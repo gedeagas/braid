@@ -9,9 +9,11 @@ interface DialogProps {
   /** CSS width value e.g. '480px', '50vw'. Defaults to CSS-controlled width. */
   width?: string
   className?: string
+  /** Element to focus on open (e.g. the primary action). Defaults to the dialog panel. */
+  initialFocusRef?: React.RefObject<HTMLElement | null>
 }
 
-export function Dialog({ isOpen, onClose, title, children, actions, width, className }: DialogProps) {
+export function Dialog({ isOpen, onClose, title, children, actions, width, className, initialFocusRef }: DialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
 
@@ -30,13 +32,13 @@ export function Dialog({ isOpen, onClose, title, children, actions, width, class
     if (!isOpen) return
     const previouslyFocused = document.activeElement as HTMLElement | null
     const frame = requestAnimationFrame(() => {
-      dialogRef.current?.focus()
+      ;(initialFocusRef?.current ?? dialogRef.current)?.focus()
     })
     return () => {
       cancelAnimationFrame(frame)
       previouslyFocused?.focus()
     }
-  }, [isOpen])
+  }, [isOpen]) // eslint-disable-line react-hooks/exhaustive-deps -- ref identity is stable
 
   useEffect(() => {
     if (!isOpen) return

@@ -1,0 +1,138 @@
+/* Browser page bars, downloads shelf, emulation states and browser settings.
+ * Split from browser.css; --browser-control* vars are defined on .browser-page there. */
+
+/* ─── Page bars (permission prompt, agent activity) + downloads shelf ────── */
+
+.browser-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-6) var(--space-12);
+  min-height: calc(var(--browser-control) + var(--space-8));
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-md);
+  flex-shrink: 0;
+}
+
+.browser-bar-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browser-bar--permission {
+  background: var(--bg-tertiary);
+}
+
+.browser-bar--agent {
+  gap: var(--space-6);
+  min-height: 0;
+  background: var(--accent-tint-10);
+  color: var(--accent);
+  font-size: var(--text-sm);
+  padding-block: var(--space-5);
+}
+
+.browser-downloads {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-8) var(--space-6) var(--space-12);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.browser-download {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-height: var(--browser-control-compact);
+  font-size: var(--text-sm);
+}
+
+
+.browser-download-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.browser-download-meta {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.browser-download--interrupted .browser-download-meta {
+  color: var(--red);
+}
+
+/* ─── Viewport emulation / Design Mode ───────────────────────────────────── */
+
+.browser-viewport--emulated {
+  background: var(--bg-tertiary);
+}
+
+.browser-viewport--design {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+/* ─── Settings ────────────────────────────────────────────────────────────── */
+
+.browser-profile-card .settings-field {
+  margin: 0;
+}
+
+.browser-profile-actions {
+  display: flex;
+  gap: var(--space-6);
+}
+
+.settings-hint--error {
+  color: var(--red);
+}
+
+.browser-agent-status {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.browser-agent-status-row {
+  display: grid;
+  grid-template-columns: 90px 140px 1fr;
+  gap: var(--space-8);
+  align-items: baseline;
+}
+
+.browser-agent-status-agent {
+  color: var(--text-primary);
+}
+
+.browser-agent-status-outcome {
+  color: var(--text-secondary);
+}
+
+.browser-agent-status-outcome--edited,
+.browser-agent-status-outcome--foreign {
+  color: var(--yellow, var(--text-secondary));
+}
+
+.browser-agent-status-outcome--failed {
+  color: var(--red);
+}
+
+.browser-agent-status-path {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
