@@ -11,6 +11,7 @@ import type {
 import { DEFAULT_MAX_RESULTS } from '@shared/search'
 import { SearchInput } from './SearchInput'
 import { SearchResults } from './SearchResults'
+import { confirmDialog } from '@/store/confirm'
 
 interface Props {
   worktreePath: string
@@ -180,9 +181,10 @@ export function SearchView({ worktreePath }: Props) {
   const handleReplaceAll = async () => {
     if (!state.result || state.result.files.length === 0) return
     const fileCount = state.result.files.length
-    const confirmed = window.confirm(
-      t('searchReplaceConfirm', { count: state.result.totalMatches, files: fileCount }),
-    )
+    const confirmed = await confirmDialog({
+      message: t('searchReplaceConfirm', { count: state.result.totalMatches, files: fileCount }),
+      confirmLabel: t('searchReplaceAll'),
+    })
     if (!confirmed) return
     dispatch({ type: 'replaceStart' })
     await searchIpc.replace(worktreePath, state.result.files, state.replacement)

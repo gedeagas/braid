@@ -11,6 +11,7 @@ import type { MarkdownStorage } from 'tiptap-markdown'
 import { useTranslation } from 'react-i18next'
 import * as ipc from '@/lib/ipc'
 import { NotesToolbar } from './NotesToolbar'
+import { confirmDialog } from '@/store/confirm'
 
 interface Props {
   worktreeId: string
@@ -161,7 +162,7 @@ export function NotesView({ worktreeId }: Props) {
 
   const handleClear = useCallback(async () => {
     if (!editor) return
-    if (!window.confirm(t('notesClearConfirm'))) return
+    if (!(await confirmDialog({ message: t('notesClearConfirm'), confirmLabel: t('notesClear'), destructive: true }))) return
     editor.commands.clearContent()
     setSaveStatus('idle')
     await ipc.notes.delete(latestWorktreeId.current)

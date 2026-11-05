@@ -232,5 +232,16 @@
         "description": "Tap Boot to start a device, then Connect to stream its screen. You can also link it to your chat so Claude can see the UI."
       }
     }
+  },
+  "confirm": "Confirm",
+  "errorBoundary": {
+    "appTitle": "Something went wrong",
+    "appDescription": "Braid hit an unexpected error. Try again, or reload the window if it keeps happening.",
+    "panelTitle": "This panel ran into a problem",
+    "panelDescription": "The rest of Braid is still working. Try again, or reload the window if it keeps happening.",
+    "details": "Error details",
+    "tryAgain": "Try again",
+    "copyError": "Copy error",
+    "reload": "Reload window"
   }
 }

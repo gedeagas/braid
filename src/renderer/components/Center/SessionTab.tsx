@@ -1,6 +1,7 @@
 import type { RefObject } from 'react'
 import { Tooltip } from '@/components/shared/Tooltip'
 import type { AgentSession } from '@/types'
+import { confirmDialog } from '@/store/confirm'
 
 interface Props {
   session: AgentSession
@@ -15,6 +16,7 @@ interface Props {
   inputRef: RefObject<HTMLInputElement | null>
   closeActiveSessionTitle: string
   closeActiveSessionMessageFn: (status: string) => string
+  closeLabel: string
   onDragStart: (k: string) => (e: React.DragEvent) => void
   onDragOver: (k: string) => (e: React.DragEvent) => void
   onDragLeave: (e: React.DragEvent) => void
@@ -33,7 +35,7 @@ interface Props {
 export function SessionTab({
   session, tabKey, displayTitle, isActive, isEditing, isDragSource, isDraggedOver,
   statusClass, editValue, inputRef,
-  closeActiveSessionTitle, closeActiveSessionMessageFn,
+  closeActiveSessionTitle, closeActiveSessionMessageFn, closeLabel,
   onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd,
   onActivate, onKeyDown, onContextMenu, onClose,
   onStartEdit, onEditValueChange, onCommitEdit, onCancelEdit
@@ -77,11 +79,16 @@ export function SessionTab({
       <span
         className="tab-close"
         aria-hidden="true"
-        onClick={(e) => {
+        onClick={async (e) => {
           e.stopPropagation()
           if (session.status !== 'idle' && session.status !== 'inactive') {
-            const msg = `${closeActiveSessionTitle}\n\n${closeActiveSessionMessageFn(session.status)}`
-            if (!window.confirm(msg)) return
+            const ok = await confirmDialog({
+              title: closeActiveSessionTitle,
+              message: closeActiveSessionMessageFn(session.status),
+              confirmLabel: closeLabel,
+              destructive: true,
+            })
+            if (!ok) return
           }
           onClose()
         }}

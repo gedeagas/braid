@@ -232,5 +232,16 @@
         "description": "Ketuk Nyalakan untuk memulai perangkat, lalu Hubungkan untuk streaming layarnya. Anda juga bisa menautkannya ke chat agar Claude bisa melihat UI."
       }
     }
+  },
+  "confirm": "Konfirmasi",
+  "errorBoundary": {
+    "appTitle": "Terjadi kesalahan",
+    "appDescription": "Braid mengalami kesalahan tak terduga. Coba lagi, atau muat ulang jendela jika terus terjadi.",
+    "panelTitle": "Panel ini mengalami masalah",
+    "panelDescription": "Bagian lain Braid masih berfungsi. Coba lagi, atau muat ulang jendela jika terus terjadi.",
+    "details": "Detail kesalahan",
+    "tryAgain": "Coba lagi",
+    "copyError": "Salin kesalahan",
+    "reload": "Muat ulang jendela"
   }
 }

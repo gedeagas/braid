@@ -26,6 +26,7 @@ import { MobilePairingView } from '@/components/MobilePairing/MobilePairingView'
 import { WebAppOverlay } from '@/components/Center/WebAppOverlay'
 import { ToastContainer } from '@/components/shared/ToastContainer'
 import { FlashToastContainer } from '@/components/shared/FlashToastContainer'
+import { ConfirmDialogHost } from '@/components/shared/ConfirmDialogHost'
 import { OnboardingOverlay } from '@/components/Onboarding/OnboardingOverlay'
 import { FeatureTour } from '@/components/Onboarding/FeatureTour'
 import { SimulatorTour } from '@/components/Onboarding/SimulatorTour'
@@ -379,30 +380,30 @@ export default function App() {
       <div className="app">
         <ActivityBar />
         <div className="sidebar-panel" style={{ width: sidebarPanelOpen ? sidebarWidth : 0, minWidth: sidebarPanelOpen ? SIDEBAR_MIN_WIDTH : 0 }}>
-          <SidebarView />
+          <ErrorBoundary scope="panel"><SidebarView /></ErrorBoundary>
         </div>
         {sidebarPanelOpen && <ResizeHandle direction="horizontal" onResize={handleSidebarResize} onResizeEnd={persistSidebarWidth} />}
         {/* Hide center+right when an app-level page or a web app is active, but keep mounted */}
         <div style={{ display: (missionControlActive || tasksActive || mobilePairingActive || webAppActive) ? 'none' : 'contents' }}>
-          <CenterPanel />
+          <ErrorBoundary scope="panel"><CenterPanel /></ErrorBoundary>
           {rightPanelVisible && <ResizeHandle direction="horizontal" onResize={handleRightResize} onResizeEnd={persistRightWidth} />}
           <div className="right-panel" style={{ width: rightPanelVisible ? rightWidth : 0, minWidth: rightPanelVisible ? RIGHT_PANEL_MIN_WIDTH : 0 }}>
-            <RightPanel />
+            <ErrorBoundary scope="panel"><RightPanel /></ErrorBoundary>
           </div>
         </div>
         {mcEverOpened.current && (
           <div style={{ display: missionControlActive ? 'contents' : 'none' }}>
-            <MissionControl />
+            <ErrorBoundary scope="panel"><MissionControl /></ErrorBoundary>
           </div>
         )}
         {tasksEverOpened.current && (
           <div style={{ display: tasksActive ? 'contents' : 'none' }}>
-            <TasksView />
+            <ErrorBoundary scope="panel"><TasksView /></ErrorBoundary>
           </div>
         )}
         {mobilePairingEverOpened.current && (
           <div style={{ display: mobilePairingActive ? 'contents' : 'none' }}>
-            <MobilePairingView />
+            <ErrorBoundary scope="panel"><MobilePairingView /></ErrorBoundary>
           </div>
         )}
         {webAppsEnabled && (
@@ -419,6 +420,7 @@ export default function App() {
       <CommandPalette />
       <ToastContainer />
       <FlashToastContainer />
+      <ConfirmDialogHost />
       <UpdateDialog
         state={autoUpdate.state}
         onDownload={autoUpdate.download}

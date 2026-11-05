@@ -6,6 +6,7 @@ import { Button } from '@/components/ui'
 import { ContextMenu, type ContextMenuItem } from '@/components/shared/ContextMenu'
 import * as ipc from '@/lib/ipc'
 import { moveProfileTabsToDefault } from '@/lib/browser/browserCommands'
+import { confirmDialog } from '@/store/confirm'
 
 interface State {
   newName: string
@@ -69,13 +70,13 @@ export function SettingsBrowserProfiles() {
   }, [runImport, t])
 
   const clearData = useCallback(async (profileId: string) => {
-    if (!window.confirm(t('browser.clearDataConfirm'))) return
+    if (!(await confirmDialog({ message: t('browser.clearDataConfirm'), confirmLabel: t('browser.clearData'), destructive: true }))) return
     await ipc.browser.clearProfileData(profileId).catch(() => {})
     patch({ message: { profileId, text: t('browser.clearDataDone') } })
   }, [t])
 
   const deleteProfile = useCallback(async (profileId: string) => {
-    if (!window.confirm(t('browser.deleteProfileConfirm'))) return
+    if (!(await confirmDialog({ message: t('browser.deleteProfileConfirm'), confirmLabel: t('browser.deleteProfile'), destructive: true }))) return
     // Move its tabs off the profile first so their guests leave the partition before it is wiped.
     moveProfileTabsToDefault(profileId)
     try { applySettings(await ipc.browser.deleteProfile(profileId)) } catch { /* default profile */ }
