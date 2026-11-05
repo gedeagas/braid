@@ -13,6 +13,7 @@ import { applyChatFontSize } from '@/store/ui/theme'
 import { getAllPersistedRightTerminalIds } from '@/components/Right/terminalCache'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { applyTheme } from '@/themes/apply'
+import { pushTerminalColors } from '@/lib/ptyOutput/terminalColors'
 import { findTheme, builtinThemes } from '@/themes/palettes'
 import { settings, appWindow, dock, mobile } from '@/lib/ipc'
 import { SettingsOverlay } from '@/components/Settings/SettingsOverlay'
@@ -71,6 +72,7 @@ export default function App() {
       const { activeThemeId, customThemes } = useUIStore.getState()
       const palette = findTheme(activeThemeId, customThemes) ?? builtinThemes[0]
       applyTheme(palette)
+      pushTerminalColors()
     }
     apply()
     let prevId = useUIStore.getState().activeThemeId

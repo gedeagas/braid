@@ -4,24 +4,11 @@
 // and title-based detection. Supports Claude, Codex, Gemini, Aider, Copilot,
 // and other CLI agents.
 
-// ── Agent types ──────────────────────────────────────────────────────────────
+// ── Agent types & status states (shared with the PTY daemon) ─────────────────
 
-export const KNOWN_AGENT_TYPES = [
-  'claude', 'codex', 'gemini', 'antigravity', 'opencode', 'cursor', 'copilot',
-  'aider', 'pi', 'droid', 'grok', 'hermes', 'unknown'
-] as const
-
-export type AgentType = (typeof KNOWN_AGENT_TYPES)[number]
-
-export function isKnownAgentType(value: string | null | undefined): value is AgentType {
-  return typeof value === 'string' && (KNOWN_AGENT_TYPES as readonly string[]).includes(value)
-}
-
-// ── Status states ────────────────────────────────────────────────────────────
-
-export const AGENT_STATUS_STATES = ['working', 'blocked', 'waiting', 'done'] as const
-
-export type AgentStatusState = (typeof AGENT_STATUS_STATES)[number]
+export { KNOWN_AGENT_TYPES, isKnownAgentType, AGENT_STATUS_STATES } from '@shared/agent-detection/types'
+export type { AgentType, AgentStatusState } from '@shared/agent-detection/types'
+import type { AgentType, AgentStatusState } from '@shared/agent-detection/types'
 
 // ── Status sources ───────────────────────────────────────────────────────────
 

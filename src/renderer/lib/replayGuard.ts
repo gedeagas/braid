@@ -11,7 +11,7 @@
 //
 // Simplified for Braid's single-pane-per-terminal model (no splits).
 
-import type { Terminal } from '@xterm/xterm'
+import { writeToTerminal, type WritableTerminal } from './ptyOutput/writeOutput'
 
 // Map<terminalId, counter> - counter > 0 means replaying
 const replayingTerminals = new Map<string, number>()
@@ -31,16 +31,23 @@ export function isReplaying(terminalId: string): boolean {
  * The guard is lifted when xterm's write-completion callback fires,
  * meaning all bytes have been parsed and rendered.
  */
-export function replayIntoTerminal(terminalId: string, term: Terminal, data: string): void {
-  if (!data) return
+export function replayIntoTerminal(terminalId: string, term: WritableTerminal, data: string, onParsed?: () => void): void {
+  if (!data) {
+    onParsed?.()
+    return
+  }
   replayingTerminals.set(terminalId, (replayingTerminals.get(terminalId) ?? 0) + 1)
-  term.write(data, () => {
-    const remaining = (replayingTerminals.get(terminalId) ?? 1) - 1
-    if (remaining <= 0) {
-      replayingTerminals.delete(terminalId)
-    } else {
-      replayingTerminals.set(terminalId, remaining)
-    }
+  // No ptyId: replayed bytes never came through pty:data, so they are not acked.
+  writeToTerminal(term, data, {
+    onParsed: () => {
+      const remaining = (replayingTerminals.get(terminalId) ?? 1) - 1
+      if (remaining <= 0) {
+        replayingTerminals.delete(terminalId)
+      } else {
+        replayingTerminals.set(terminalId, remaining)
+      }
+      onParsed?.()
+    },
   })
 }
 

@@ -1,59 +1,32 @@
 /**
  * Manages all PTY sessions inside the daemon process.
  *
- * Each session has a node-pty instance and a RingBuffer holding
- * the last N characters of output for snapshot/reattach.
+ * Each session has a node-pty instance, a RingBuffer holding the last N
+ * characters of output for snapshot/reattach, and a headless terminal with its
+ * screen state (SessionScreen) for clients that stop receiving output for
+ * terminals nobody looks at.
  */
-import { accessSync, existsSync, constants as fsConstants } from 'fs'
-import { BUFFER_MAX_LENGTH } from './protocol'
+import { BUFFER_MAX_LENGTH, type AgentStatusEvent, type HeadlessSnapshot, type TerminalColors } from './protocol'
+import { SessionScreen, type VisibleOptions } from './headless/sessionScreen'
+
+/**
+ * Headless screens keep at most this much scrollback: the terminal setting
+ * (50,000 lines by default) would cost the daemon hundreds of MB per busy
+ * hidden terminal. A revealed terminal shows this much history above the
+ * screen; the full raw output stays in the ring buffers.
+ */
+export const HEADLESS_SCROLLBACK_MAX_LINES = 5_000
+const headlessScrollback = (lines: number): number => Math.max(1, Math.min(lines, HEADLESS_SCROLLBACK_MAX_LINES))
+import { RingBuffer } from './ringBuffer'
+import { spawnPty } from './spawnPty'
+import { PauseValve } from './delivery/pauseValve'
+import { ExitedScreens } from './headless/exitedScreens'
 import { resolveShellLaunchArgs } from '../../lib/shell'
 import { baseEnv, classifyForeground, normalizeForeground, persistableEnv, restoredEnv } from './sessionEnv'
 import type { DaemonSession, CheckpointData, SessionInfo, DaemonSessionMetadata, ForegroundKind } from './types'
 
 export { persistableEnv } from './sessionEnv'
-
-// ── RingBuffer ───────────────────────────────────────────────────────────────
-
-export class RingBuffer {
-  private chunks: string[] = []
-  private totalLength = 0
-  private maxLength: number
-
-  constructor(maxLength = BUFFER_MAX_LENGTH) {
-    this.maxLength = Math.max(1, Math.round(maxLength))
-  }
-
-  push(data: string): void {
-    this.chunks.push(data)
-    this.totalLength += data.length
-    this.trimToMaxLength()
-  }
-
-  setMaxLength(maxLength: number): void {
-    this.maxLength = Math.max(1, Math.round(maxLength))
-    this.trimToMaxLength()
-  }
-
-  private trimToMaxLength(): void {
-    while (this.totalLength > this.maxLength && this.chunks.length > 1) {
-      const evicted = this.chunks.shift()!
-      this.totalLength -= evicted.length
-    }
-    if (this.totalLength > this.maxLength && this.chunks.length === 1) {
-      this.chunks[0] = this.chunks[0].slice(this.chunks[0].length - this.maxLength)
-      this.totalLength = this.chunks[0].length
-    }
-  }
-
-  read(): string {
-    return this.chunks.join('')
-  }
-
-  clear(): void {
-    this.chunks = []
-    this.totalLength = 0
-  }
-}
+export { RingBuffer } from './ringBuffer'
 
 // ── Session entry ────────────────────────────────────────────────────────────
 
@@ -79,12 +52,26 @@ interface SessionEntry {
   shell: string
   /** Last sampled foreground (see sampleForeground). Undefined until sampled. */
   foreground?: ForegroundKind
+  /** Headless screen state, output seq, query answering, agent status. */
+  screen: SessionScreen
 }
+
+/** Options a newer client may pass; older clients send none. */
+export interface SpawnExtras {
+  /** Headless scrollback in lines. */
+  scrollback?: number
+  /** Client that delivers this session's output to a renderer from the start. */
+  visibleBy?: unknown
+}
+
+type NewEntry = Omit<SessionEntry, 'screen'>
 
 // ── Events ───────────────────────────────────────────────────────────────────
 
 export interface SessionHostEvents {
-  data: (sessionId: string, data: string) => void
+  data: (sessionId: string, data: string, seq: number) => void
+  /** Agent status detected in the session's output. */
+  status: (event: AgentStatusEvent) => void
   /**
    * `clean` is true when the shell ended by itself (user typed `exit`) or a
    * client asked for the kill, false when a signal killed it (logout, reboot).
@@ -99,6 +86,17 @@ type EventKey = keyof SessionHostEvents
 export class SessionHost {
   private sessions = new Map<string, SessionEntry>()
   private listeners = new Map<EventKey, Set<(...args: unknown[]) => void>>()
+  /** Client-requested PTY pauses (flow control), with a safety valve. */
+  /** Screens of sessions that just exited, for a final snapshot. */
+  private exited = new ExitedScreens()
+  private valve = new PauseValve((id) => {
+    const screen = this.sessions.get(id)?.screen
+    return screen && { pause: () => screen.setClientPaused(true), resume: () => screen.setClientPaused(false) }
+  })
+  /** Headless scrollback for sessions spawned without one (cold restore). */
+  private scrollbackLines = HEADLESS_SCROLLBACK_MAX_LINES
+  /** The renderer's terminal colours, for OSC 10/11/12 replies from hidden terminals. */
+  private colors: TerminalColors | null = null
 
   on<K extends EventKey>(event: K, fn: SessionHostEvents[K]): void {
     let set = this.listeners.get(event)
@@ -116,64 +114,6 @@ export class SessionHost {
     }
   }
 
-  /**
-   * Spawn a PTY with a single retry and enriched diagnostics on failure.
-   * Transient posix_spawn failures (fd exhaustion, resource contention) often
-   * resolve after a brief delay.
-   */
-  private async spawnPty(
-    shell: string,
-    args: string[],
-    opts: { cols: number; rows: number; cwd: string; env: Record<string, string> },
-  ): Promise<import('node-pty').IPty> {
-    const nodePty = await import('node-pty')
-    const maxAttempts = 2
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        return nodePty.spawn(shell, args, { name: 'xterm-256color', ...opts })
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
-        // Only retry transient posix_spawn resource contention, not permanent
-        // config errors (invalid shell, bad permissions) which won't self-resolve.
-        const isTransient = msg.includes('posix_spawnp failed')
-        if (isTransient && attempt < maxAttempts) {
-          await new Promise((r) => setTimeout(r, 200))
-          continue
-        }
-        const diag = this.collectSpawnDiagnostics(shell, opts.cwd)
-        throw new Error(
-          `PTY spawn failed (shell: ${shell}, cwd: ${opts.cwd}, sessions: ${this.sessions.size}${diag}): ${msg}`,
-          { cause: err },
-        )
-      }
-    }
-    throw new Error('unreachable')
-  }
-
-  private collectSpawnDiagnostics(shell: string, cwd: string): string {
-    const parts: string[] = []
-    // Only check shell executability for absolute/relative paths.
-    // Bare command names (e.g. 'zsh', 'powershell.exe') are resolved via PATH by
-    // node-pty, so accessSync would incorrectly report them as not-executable.
-    // Match either separator so Windows paths (C:\...) are recognized too.
-    if (/[\\/]/.test(shell)) {
-      if (!existsSync(shell)) {
-        parts.push('shell-check: not-found')
-      } else {
-        try {
-          accessSync(shell, fsConstants.X_OK)
-        } catch {
-          parts.push('shell-check: not-executable')
-        }
-      }
-    }
-    if (!existsSync(cwd)) {
-      parts.push('cwd-check: not-found')
-    }
-    return parts.length > 0 ? ', ' + parts.join(', ') : ''
-  }
-
   /** Spawn a new PTY session. Throws if sessionId already exists. */
   async spawn(
     sessionId: string,
@@ -183,17 +123,18 @@ export class SessionHost {
     shell: string,
     env?: Record<string, string>,
     bufferMaxLength = BUFFER_MAX_LENGTH,
+    extras: SpawnExtras = {},
   ): Promise<void> {
     if (this.sessions.has(sessionId)) {
       throw new Error(`Session already exists: ${sessionId}`)
     }
 
-    const ptyProcess = await this.spawnPty(shell, resolveShellLaunchArgs(shell).args, {
+    const ptyProcess = await spawnPty(shell, resolveShellLaunchArgs(shell).args, {
       cols,
       rows,
       cwd,
       env: { ...baseEnv(), ...env },
-    })
+    }, { sessionCount: this.sessions.size })
 
     const buffer = new RingBuffer(bufferMaxLength)
     this.track({
@@ -209,7 +150,7 @@ export class SessionHost {
       coldRestored: false,
       killRequested: false,
       shell,
-    })
+    }, extras)
   }
 
   /**
@@ -221,12 +162,12 @@ export class SessionHost {
     if (this.sessions.has(checkpoint.sessionId)) return
 
     const env = restoredEnv(checkpoint.sessionId, checkpoint.env)
-    const ptyProcess = await this.spawnPty(shell, resolveShellLaunchArgs(shell).args, {
+    const ptyProcess = await spawnPty(shell, resolveShellLaunchArgs(shell).args, {
       cols: checkpoint.cols,
       rows: checkpoint.rows,
       cwd: checkpoint.cwd,
       env: { ...baseEnv(), ...env },
-    })
+    }, { sessionCount: this.sessions.size })
 
     const buffer = new RingBuffer()
     buffer.push(checkpoint.scrollback)
@@ -247,19 +188,34 @@ export class SessionHost {
       killRequested: false,
       shell,
       foreground: normalizeForeground(checkpoint.foreground),
-    })
+    }, {}, checkpoint.scrollback)
   }
 
-  private track(entry: SessionEntry): void {
-    const { sessionId } = entry
+  private track(fields: NewEntry, extras: SpawnExtras, seed?: string): void {
+    const { sessionId } = fields
+    const entry: SessionEntry = fields as SessionEntry
+    entry.screen = new SessionScreen(fields.pty, {
+      cols: fields.cols, rows: fields.rows, scrollback: headlessScrollback(extras.scrollback ?? this.scrollbackLines),
+    }, {
+      status: (event) => this.emit('status', { type: 'status', sessionId, ...event }),
+      expectedAgentType: () => entry.metadata?.agentId,
+      colors: () => this.colors,
+    })
+    if (extras.visibleBy !== undefined) entry.screen.setVisible(extras.visibleBy, true)
+    // Cold restore: the headless screen starts from the checkpoint, like the
+    // ring buffer (this also covers checkpoints written by older daemons).
+    if (seed) entry.screen.seed(seed)
     entry.pty.onData((data: string) => {
       entry.lastOutputAt = Date.now()
       entry.buffer.push(data)
-      this.emit('data', sessionId, data)
+      const seq = entry.screen.output(data)
+      this.emit('data', sessionId, data, seq)
     })
 
     entry.pty.onExit(({ exitCode, signal }: { exitCode: number; signal?: number }) => {
       this.sessions.delete(sessionId)
+      this.valve.forget(sessionId)
+      this.exited.keep(sessionId, entry.screen) // for a final snapshot
       // selfExit: the shell ended on its own (user typed `exit`), not by a
       // signal and not by a client kill (tab close, hibernation).
       this.emit('exit', sessionId, exitCode, entry.killRequested || !signal, !signal && !entry.killRequested)
@@ -315,11 +271,49 @@ export class SessionHost {
     this.sessions.get(sessionId)?.pty.write(data)
   }
 
+  /**
+   * Stop reading a session's PTY on behalf of `owner` (a client whose consumer
+   * fell behind). The program blocks once the kernel buffer fills. Released
+   * by resume(), releasePauses() on disconnect, or the valve's 10s timeout.
+   */
+  pause(sessionId: string, owner: unknown): void {
+    this.valve.pause(sessionId, owner)
+  }
+
+  resume(sessionId: string, owner: unknown): void {
+    this.valve.resume(sessionId, owner)
+  }
+
+  /** A client disconnected: release its pauses; it no longer shows anything. */
+  releaseClient(owner: unknown): void {
+    this.valve.releaseOwner(owner)
+    for (const entry of this.sessions.values()) entry.screen.releaseOwner(owner)
+  }
+
+  /** Whether `owner` delivers this session's output to a renderer. Returns the show point (see SessionScreen). */
+  setVisible(sessionId: string, owner: unknown, visible: boolean, opts: VisibleOptions = {}): number {
+    return this.sessions.get(sessionId)?.screen.setVisible(owner, visible, opts) ?? 0
+  }
+
+  /** Screen snapshot of the session's headless terminal, or null if unknown. `owner`: the requesting client. */
+  async headlessSnapshot(sessionId: string, owner?: unknown): Promise<HeadlessSnapshot | null> {
+    const entry = this.sessions.get(sessionId)
+    return entry ? entry.screen.snapshot(owner) : this.exited.snapshot(sessionId)
+  }
+
+  /** Stop timers (daemon shutdown, tests). */
+  dispose(): void {
+    this.valve.dispose()
+    for (const entry of this.sessions.values()) entry.screen.dispose()
+    this.exited.dispose()
+  }
+
   /** Resize a session's PTY. */
   resize(sessionId: string, cols: number, rows: number): void {
     const entry = this.sessions.get(sessionId)
     if (entry) {
       entry.pty.resize(cols, rows)
+      entry.screen.resize(cols, rows)
       entry.cols = cols
       entry.rows = rows
     }
@@ -368,10 +362,17 @@ export class SessionHost {
     return this.sessions.get(sessionId)?.buffer.read() ?? null
   }
 
-  setBufferMaxLength(maxLength: number): void {
+  setBufferMaxLength(maxLength: number, scrollbackLines?: number): void {
+    if (scrollbackLines !== undefined && scrollbackLines > 0) this.scrollbackLines = scrollbackLines
     for (const entry of this.sessions.values()) {
       entry.buffer.setMaxLength(maxLength)
+      if (scrollbackLines !== undefined && scrollbackLines > 0) entry.screen.setScrollback(headlessScrollback(scrollbackLines))
     }
+  }
+
+  /** The renderer's terminal colours (pushed on startup and theme change). */
+  setColors(colors: TerminalColors): void {
+    this.colors = colors
   }
 
   /** Check if a session exists. */
@@ -400,6 +401,7 @@ export class SessionHost {
         attachedClients: entry.attachedClients,
         coldRestored: entry.coldRestored,
         ...(entry.foreground ? { foreground: entry.foreground } : {}),
+        ...(entry.screen.lastStatus ? { agentStatus: entry.screen.lastStatus } : {}),
       })
     }
     return result

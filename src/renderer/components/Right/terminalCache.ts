@@ -1,6 +1,5 @@
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
-import { WebglAddon } from '@xterm/addon-webgl'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { SearchAddon } from '@xterm/addon-search'
@@ -11,6 +10,12 @@ import { useUIStore } from '@/store/ui'
 import { SK } from '@/lib/storageKeys'
 import type { TerminalCommandObserver } from '@/lib/terminalCommandRefresh'
 import { modifierFromEvent, openLink } from '@/lib/browser/linkRouter'
+import { initPtyOutputRouting, registerPtyFinder as registerOutputFinder } from '@/lib/ptyOutput/router'
+import { openTerminalLink } from '@/lib/ptyOutput/restoredLinks'
+import { bindWebglPoolToVisibility, webglPool } from '@/lib/webglPool'
+import { bindRevealOnShow } from '@/lib/ptyOutput/revealOnShow'
+import { setExitMarker } from '@/lib/ptyOutput/reveal'
+import { initPtyFeatures } from '@/lib/ptyFeatures'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -22,6 +27,8 @@ export interface TermTab {
   fitAddon: FitAddon
   resizeObserver: ResizeObserver | null
   commandObserver?: TerminalCommandObserver | null
+  /** The tab is on screen (see lib/ptyOutput/visibility). */
+  shown?: boolean
 }
 
 export interface CachedTerminals {
@@ -35,6 +42,8 @@ export interface RenameState {
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
+
+const PROCESS_EXITED = '\r\n\x1b[2m[Process exited]\x1b[0m\r\n'
 
 export const SETUP_TAB_ID = '__setup__'
 export const RUN_TAB_ID = '__run__'
@@ -77,11 +86,19 @@ export function initGlobalPtyRouting(): void {
   if (globalPtyRoutingInitialized) return
   globalPtyRoutingInitialized = true
 
-  ipc.pty.onData((id, data) => {
-    findTabByPtyId(id)?.term.write(data)
-  })
+  // Output goes through the shared router, which acknowledges what xterm has
+  // parsed back to main (output flow control).
+  registerOutputFinder((id) => findTabByPtyId(id)?.term)
+  initPtyOutputRouting()
+  bindWebglPoolToVisibility()
+  bindRevealOnShow()
+  void initPtyFeatures()
   ipc.pty.onExit((id) => {
-    findTabByPtyId(id)?.term.write('\r\n\x1b[2m[Process exited]\x1b[0m\r\n')
+    const tab = findTabByPtyId(id)
+    if (!tab) return
+    tab.term.write(PROCESS_EXITED)
+    // A hidden tab's screen is replaced by its final snapshot when shown.
+    setExitMarker(id, PROCESS_EXITED)
   })
 }
 
@@ -94,6 +111,7 @@ export function cleanupTerminals(worktreePath: string): void {
     ipc.pty.deleteScrollback(tab.id)
     tab.commandObserver?.dispose()
     tab.resizeObserver?.disconnect()
+    webglPool.forget(tab.term)
     tab.term.dispose()
   }
   terminalCache.delete(worktreePath)
@@ -107,7 +125,11 @@ export function createTerminal(): { term: Terminal; fitAddon: FitAddon; searchAd
     scrollback: useUIStore.getState().terminalScrollback,
     minimumContrastRatio: getTerminalMinimumContrastRatio(),
     cursorBlink: true,
-    allowProposedApi: true
+    allowProposedApi: true,
+    // OSC 8 hyperlinks: xterm's default handler opens a blank window, which
+    // Electron's window-open handler denies. Route http(s) links like plain
+    // URLs and restored snapshot links.
+    linkHandler: { activate: (event, uri) => openTerminalLink(uri, event) },
   })
   const fitAddon = new FitAddon()
   term.loadAddon(fitAddon)
@@ -132,37 +154,6 @@ export function createTerminal(): { term: Terminal; fitAddon: FitAddon; searchAd
   try { term.loadAddon(new LigaturesAddon()) } catch { /* ignore */ }
 
   return { term, fitAddon, searchAddon }
-}
-
-/**
- * Activate GPU-accelerated WebGL renderer. Must be called AFTER term.open(el).
- * Returns the addon instance (for later dispose/reattach), or null on failure.
- */
-export function activateWebgl(term: Terminal, onContextLoss?: () => void): WebglAddon | null {
-  try {
-    const webgl = new WebglAddon()
-    webgl.onContextLoss(() => {
-      onContextLoss?.()
-      webgl.dispose()
-    })
-    term.loadAddon(webgl)
-    // Repaint immediately so the terminal isn't blank after attach
-    try { term.refresh(0, term.rows - 1) } catch { /* ignore */ }
-    console.debug('[terminal] WebGL renderer activated')
-    return webgl
-  } catch (e) {
-    console.debug('[terminal] WebGL unavailable, using canvas renderer', e)
-    return null
-  }
-}
-
-/**
- * Safely dispose a WebGL addon. Call before DOM reparenting to avoid
- * silent context corruption (Chromium can invalidate without firing contextlost).
- */
-export function disposeWebgl(addon: WebglAddon | null): void {
-  if (!addon) return
-  try { addon.dispose() } catch { /* ignore */ }
 }
 
 // ── Right-panel tab ID persistence (for daemon reattach across reloads) ──────

@@ -8,9 +8,10 @@
 import { createServer, type Server, type Socket } from 'net'
 import { existsSync, unlinkSync, mkdirSync } from 'fs'
 import { dirname } from 'path'
-import { DAEMON_VERSION_ENV, PROTOCOL_VERSION, SOCKET_PATH, SOCKET_IS_FILE, encode, decode, type DaemonRequest, type DaemonEvent } from './protocol'
+import { DAEMON_FEATURES, DAEMON_VERSION_ENV, PROTOCOL_VERSION, SOCKET_PATH, SOCKET_IS_FILE, encode, decode, type DaemonRequest, type DaemonEvent } from './protocol'
 import { defaultShellPath } from '../../lib/shell'
 import type { SessionHost } from './sessionHost'
+import { SocketBackpressure } from './socketBackpressure'
 
 /** Maximum NDJSON line length (1 MB). Prevents memory exhaustion from malformed input. */
 const MAX_LINE_LENGTH = 1_024 * 1_024
@@ -23,6 +24,8 @@ interface ClientState {
   lineBuffer: string
   /** Session IDs this client is attached to (for routing data events). */
   attachedSessions: Set<string>
+  /** Pause owner for socket backpressure, apart from the client's own flow-control pauses. */
+  backpressureOwner: object
 }
 
 // ── SocketServer ─────────────────────────────────────────────────────────────
@@ -31,6 +34,11 @@ export class SocketServer {
   private server: Server | null = null
   private clients = new Set<ClientState>()
   private onClientConnect?: () => void
+  /** Pauses sessions whose output piles up unread in a client's socket. */
+  private backpressure = new SocketBackpressure(
+    (sessionId, owner) => this.host.pause(sessionId, owner),
+    (sessionId, owner) => this.host.resume(sessionId, owner),
+  )
   private onClientDisconnect?: () => void
 
   constructor(
@@ -57,8 +65,19 @@ export class SocketServer {
     }
 
     // Wire up session host events to broadcast to attached clients
-    this.host.on('data', (sessionId, data) => {
-      this.broadcast({ type: 'data', sessionId, data })
+    this.host.on('data', (sessionId, data, seq) => {
+      const line = encode({ type: 'data', sessionId, data, seq })
+      for (const client of this.clients) {
+        if (client.attachedSessions.has(sessionId) && client.socket.writable) {
+          this.backpressure.write(client.backpressureOwner, sessionId, client.socket, line)
+        }
+      }
+    })
+    // Agent status goes to every client, attached or not: main shows status for
+    // terminals it never attached. Older clients ignore unknown event types.
+    this.host.on('status', (event) => {
+      const line = encode(event)
+      for (const client of this.clients) if (client.socket.writable) client.socket.write(line)
     })
     this.host.on('exit', (sessionId, exitCode, _clean, selfExit) => {
       this.broadcast({ type: 'exit', sessionId, exitCode, selfExit })
@@ -102,6 +121,7 @@ export class SocketServer {
       socket,
       lineBuffer: '',
       attachedSessions: new Set(),
+      backpressureOwner: {},
     }
 
     this.clients.add(client)
@@ -117,18 +137,17 @@ export class SocketServer {
       this.processLines(client)
     })
 
-    socket.on('close', () => {
-      // Detach from all sessions this client was attached to
+    // Detach from all sessions this client was attached to, and let any PTY it
+    // paused run again. 'error' is followed by 'close'; run this only once.
+    const cleanup = (): void => {
+      if (!this.clients.delete(client)) return
       this.host.detachAll(client.attachedSessions)
-      this.clients.delete(client)
+      this.host.releaseClient(client)
+      this.backpressure.release(client.backpressureOwner)
       this.onClientDisconnect?.()
-    })
-
-    socket.on('error', () => {
-      this.host.detachAll(client.attachedSessions)
-      this.clients.delete(client)
-      this.onClientDisconnect?.()
-    })
+    }
+    socket.on('close', cleanup)
+    socket.on('error', cleanup)
   }
 
   private processLines(client: ClientState): void {
@@ -155,6 +174,7 @@ export class SocketServer {
             req.shell || process.env.SHELL || defaultShellPath(),
             req.env,
             req.bufferMaxLength,
+            { scrollback: req.scrollback, visibleBy: req.visible ? client : undefined },
           )
           client.attachedSessions.add(req.sessionId)
           this.sendResponse(client, { id: req.id, type: 'ok' })
@@ -166,6 +186,7 @@ export class SocketServer {
             this.sendResponse(client, { id: req.id, type: 'error', message: `Session not found: ${req.sessionId}` })
           } else {
             client.attachedSessions.add(req.sessionId)
+            if (req.visible !== undefined) this.host.setVisible(req.sessionId, client, req.visible, { snapshotFollows: req.snapshotFollows === true })
             this.sendResponse(client, { id: req.id, type: 'ok', data: { snapshot, ...this.host.coldRestoreInfo(req.sessionId) } })
           }
           break
@@ -204,7 +225,7 @@ export class SocketServer {
         }
 
         case 'setBufferMaxLength':
-          this.host.setBufferMaxLength(req.maxLength)
+          this.host.setBufferMaxLength(req.maxLength, req.scrollback)
           this.sendResponse(client, { id: req.id, type: 'ok' })
           break
 
@@ -221,9 +242,45 @@ export class SocketServer {
           this.sendResponse(client, {
             id: req.id,
             type: 'ok',
-            data: { protocol: PROTOCOL_VERSION, version: process.env[DAEMON_VERSION_ENV] || undefined, sessionCount: this.host.size },
+            data: {
+              protocol: PROTOCOL_VERSION,
+              version: process.env[DAEMON_VERSION_ENV] || undefined,
+              sessionCount: this.host.size,
+              features: [...DAEMON_FEATURES],
+            },
           })
           break
+
+        case 'pause':
+          this.host.pause(req.sessionId, client)
+          // Fire-and-forget: no response
+          break
+
+        case 'resume':
+          this.host.resume(req.sessionId, client)
+          // Fire-and-forget: no response
+          break
+
+        case 'headlessSnapshot': {
+          const snap = await this.host.headlessSnapshot(req.sessionId, client)
+          if (snap === null) this.sendResponse(client, { id: req.id, type: 'error', message: `Session not found: ${req.sessionId}` })
+          else this.sendResponse(client, { id: req.id, type: 'ok', data: snap })
+          break
+        }
+
+        case 'setColors':
+          this.host.setColors(req.colors ?? {})
+          this.sendResponse(client, { id: req.id, type: 'ok' })
+          break
+
+        case 'setVisible': {
+          const seq = this.host.setVisible(req.sessionId, client, req.visible === true, {
+            snapshotFollows: req.snapshotFollows === true,
+            ...(typeof req.deliveredThrough === 'number' ? { deliveredThrough: req.deliveredThrough } : {}),
+          })
+          this.sendResponse(client, { id: req.id, type: 'ok', data: { seq } })
+          break
+        }
 
         case 'ping':
           this.sendResponse(client, { id: req.id, type: 'ok' })

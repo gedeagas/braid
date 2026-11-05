@@ -94,3 +94,23 @@ export async function writeInitialAgentInput(entry: InputTarget, ptyId: string, 
   // newline → the agent does not auto-submit; the user reviews and sends.
   ipc.pty.write(ptyId, `${BRACKETED_PASTE_BEGIN}${sanitized}${BRACKETED_PASTE_END}`)
 }
+
+/**
+ * Type a fresh terminal's initial command (e.g. the agent CLI), then paste
+ * its launch draft once the agent is ready. Delivery interest stays on
+ * meanwhile: with a daemon that offloads hidden terminals, main would
+ * otherwise stop sending this terminal's output as soon as the user switched
+ * away, and the agent's ready handshake would never be seen.
+ */
+export async function typeInitialCommand(
+  entry: InputTarget, ptyId: string, command: string, input: string | undefined, accept: (data: string) => void,
+): Promise<void> {
+  ipc.pty.setDeliveryInterest(ptyId, true)
+  try {
+    accept(command + '\n')
+    ipc.pty.write(ptyId, command + '\n')
+    if (input) await writeInitialAgentInput(entry, ptyId, input)
+  } finally {
+    ipc.pty.setDeliveryInterest(ptyId, false)
+  }
+}

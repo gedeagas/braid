@@ -5,16 +5,21 @@ const { ui, pty } = vi.hoisted(() => ({
     bigTerminalsByWorktree: {} as Record<string, Array<{ id: string; label: string; agentId?: string }>>,
     seedRestoredBigTerminalStatus: vi.fn(),
   },
-  pty: { listSessions: vi.fn(), listAgentSessions: vi.fn() },
+  pty: { listSessions: vi.fn(), listAgentSessions: vi.fn(), reattach: vi.fn(), registerBigTerminal: vi.fn(), setVisible: vi.fn() },
 }))
-vi.mock('../bigTerminalCache', () => ({ getOrCreate: vi.fn() }))
+const cache = vi.hoisted(() => ({ getOrCreate: vi.fn(), registerWarmBigTerminal: vi.fn(), hasBigTerminal: vi.fn((_id: string) => false), ensureBigTerminalStatusListeners: vi.fn() }))
+vi.mock('../bigTerminalCache', () => cache)
+const status = vi.hoisted(() => ({ applyTerminalStatus: vi.fn() }))
+vi.mock('../bigTerminalStatus', () => status)
+const features = vi.hoisted(() => ({ offload: false }))
+vi.mock('@/lib/ptyFeatures', () => ({ initPtyFeatures: async () => {}, isOffloadEnabled: () => features.offload }))
 vi.mock('@/lib/ipc', () => ({ pty }))
 vi.mock('@/store/ui', () => ({ useUIStore: { getState: () => ui } }))
 vi.mock('@/store/projects', () => ({
   useProjectsStore: { getState: () => ({ projects: [{ worktrees: [{ id: 'wt-a', path: '/repo/a' }] }] }) },
 }))
 
-import { getOrCreate } from '../bigTerminalCache'
+import { getOrCreate, registerWarmBigTerminal } from '../bigTerminalCache'
 import { selectRestoredStatusSeeds, selectWarmTargets, warmableSessionIds, warmLiveBigTerminals } from '../warmTerminals'
 
 describe('warmLiveBigTerminals', () => {
@@ -105,5 +110,61 @@ describe('selectRestoredStatusSeeds', () => {
   it('keeps unknown agent ids out of the agent type', () => {
     expect(selectRestoredStatusSeeds(tabs, [{ terminalId: 'bt-cold', session: { agent: 'mystery' } }], new Set()))
       .toEqual([{ terminalId: 'bt-cold' }])
+  })
+})
+
+describe('warmLiveBigTerminals with a daemon that keeps screen state', () => {
+  it('attaches in main only: no xterm, no WebGL, no raw snapshot; status from the daemon', async () => {
+    vi.clearAllMocks()
+    features.offload = true
+    ui.bigTerminalsByWorktree = { 'wt-a': [{ id: 'bt-1', label: 'A', agentId: 'claude' }, { id: 'bt-2', label: 'B' }] }
+    pty.listAgentSessions.mockResolvedValue([])
+    pty.listSessions.mockResolvedValue([
+      { sessionId: 'bt-1', agentStatus: { state: 'working', agentType: 'claude', source: 'hook' } },
+      { sessionId: 'bt-2', coldRestored: true },
+    ])
+    pty.reattach.mockImplementation(async (id: string) => ({ sessionId: id, snapshot: '' }))
+
+    expect(await warmLiveBigTerminals()).toBe(1)
+    expect(getOrCreate).not.toHaveBeenCalled()
+    expect(pty.reattach).toHaveBeenCalledWith('bt-1', { snapshot: false })
+    // Cold-restored sessions still wait for their tab, as before.
+    expect(pty.reattach).not.toHaveBeenCalledWith('bt-2', expect.anything())
+    expect(pty.setVisible).toHaveBeenCalledWith('bt-1', false)
+    expect(registerWarmBigTerminal).toHaveBeenCalledWith('bt-1', 'bt-1')
+    expect(status.applyTerminalStatus).toHaveBeenCalledWith('bt-1', { state: 'working', source: 'hook', agentType: 'claude', toolName: undefined })
+    features.offload = false
+  })
+
+  it('listens for agent status although no xterm is built', async () => {
+    vi.clearAllMocks()
+    features.offload = true
+    ui.bigTerminalsByWorktree = {}
+    pty.listAgentSessions.mockResolvedValue([])
+    pty.listSessions.mockResolvedValue([])
+    await warmLiveBigTerminals()
+    expect(cache.ensureBigTerminalStatusListeners).toHaveBeenCalled()
+    features.offload = false
+  })
+
+  it('leaves alone a terminal the user opened before or during its warm-up', async () => {
+    vi.clearAllMocks()
+    features.offload = true
+    ui.bigTerminalsByWorktree = { 'wt-a': [{ id: 'bt-3', label: 'C' }, { id: 'bt-4', label: 'D' }] }
+    pty.listAgentSessions.mockResolvedValue([])
+    pty.listSessions.mockResolvedValue([{ sessionId: 'bt-3' }, { sessionId: 'bt-4' }])
+    const opened = new Set(['bt-3'])
+    cache.hasBigTerminal.mockImplementation((id: string) => opened.has(id))
+    pty.reattach.mockImplementation(async (id: string) => {
+      opened.add(id) // the user opens it while main attaches
+      return { sessionId: id, snapshot: '' }
+    })
+    await warmLiveBigTerminals()
+    expect(pty.reattach).not.toHaveBeenCalledWith('bt-3', expect.anything())
+    expect(pty.reattach).toHaveBeenCalledWith('bt-4', { snapshot: false })
+    expect(pty.setVisible).not.toHaveBeenCalled()
+    expect(cache.registerWarmBigTerminal).not.toHaveBeenCalled()
+    cache.hasBigTerminal.mockImplementation(() => false)
+    features.offload = false
   })
 })

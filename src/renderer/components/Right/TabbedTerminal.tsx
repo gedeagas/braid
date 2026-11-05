@@ -10,14 +10,15 @@ import { RunPanel } from './RunPanel'
 import { TerminalTabRow } from './TerminalTabRow'
 import {
   SETUP_TAB_ID, RUN_TAB_ID,
-  terminalCache, nextTabId, createTerminal, activateWebgl, saveRightTerminalTabs,
+  terminalCache, nextTabId, createTerminal, saveRightTerminalTabs,
   type TermTab, type RenameState,
 } from './terminalCache'
 import { useTerminalLifecycle } from './useTerminalLifecycle'
+import { useRightTerminalVisibility } from './useRightTerminalVisibility'
+import { webglPool } from '@/lib/webglPool'
 import { useTerminalFileDrop } from '@/hooks/useTerminalFileDrop'
 import { useTerminalClipboardPaste } from '@/hooks/useTerminalClipboardPaste'
-import { createTerminalCommandObserver } from '@/lib/terminalCommandRefresh'
-import { replayIntoTerminal, isReplaying, POST_REPLAY_MODE_RESET } from '@/lib/replayGuard'
+import { spawnRightTab } from './spawnRightTab'
 import '@xterm/xterm/css/xterm.css'
 
 export { cleanupTerminals } from './terminalCache'
@@ -163,7 +164,9 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
 
   // ── Terminal operations ─────────────────────────────────────────────────
   const attachTerm = useCallback((tab: TermTab, el: HTMLDivElement) => {
-    if (!tab.term.element) { tab.term.open(el); activateWebgl(tab.term) } else { el.appendChild(tab.term.element) }
+    // WebGL is acquired when the tab is shown (useRightTerminalVisibility).
+    if (!tab.term.element) tab.term.open(el)
+    else webglPool.move(tab.term, () => el.appendChild(tab.term.element!))
     requestAnimationFrame(() => {
       try { tab.fitAddon.fit(); if (tab.ptyId) ipc.pty.resize(tab.ptyId, tab.term.cols, tab.term.rows) }
       catch { /* ignore */ }
@@ -192,79 +195,7 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
     tab.resizeObserver = observer
   }, [])
 
-  const spawnTab = useCallback(async (tab: TermTab) => {
-    // Attempt warm reattach to daemon session first
-    try {
-      const result = await ipc.pty.reattach(tab.id)
-      if (result && result.snapshot) {
-        tab.ptyId = result.sessionId
-        const observer = createTerminalCommandObserver(worktreePathRef.current, { refreshWorktrees: true })
-        tab.commandObserver = observer
-        // Register for daemon-side scrollback persistence so this tab survives a
-        // daemon death (cold app restart), matching big-terminal behavior.
-        ipc.pty.registerBigTerminal(result.sessionId, tab.id)
-        // Replay under guard to suppress xterm auto-replies (DA1, DECRQM, etc.)
-        // leaking back into the reconnected shell as keystrokes.
-        replayIntoTerminal(tab.id, tab.term, result.snapshot)
-        replayIntoTerminal(tab.id, tab.term, '\r\n\x1b[2m[session reconnected]\x1b[0m\r\n')
-        replayIntoTerminal(tab.id, tab.term, POST_REPLAY_MODE_RESET)
-        tab.term.onData((data: string) => {
-          if (isReplaying(tab.id)) return
-          observer.accept(data)
-          ipc.pty.write(result.sessionId, data)
-        })
-        requestAnimationFrame(() => {
-          try { tab.fitAddon.fit(); ipc.pty.resize(result.sessionId, tab.term.cols, tab.term.rows) } catch { /* ignore */ }
-        })
-        return
-      }
-    } catch {
-      // Reattach not available - fall through to scrollback restore + fresh spawn
-    }
-
-    // Fall back to scrollback file replay + fresh spawn (daemon session is gone)
-    let hasScrollback = false
-    try {
-      const scrollback = await ipc.pty.readScrollback(tab.id)
-      if (scrollback && scrollback.length > 0) {
-        hasScrollback = true
-        replayIntoTerminal(tab.id, tab.term, scrollback)
-        replayIntoTerminal(tab.id, tab.term, '\r\n\x1b[2m[history restored]\x1b[0m\r\n')
-        replayIntoTerminal(tab.id, tab.term, POST_REPLAY_MODE_RESET)
-      }
-    } catch {
-      // ignore: best-effort replay
-    }
-
-    try {
-      const id = await ipc.pty.spawn(worktreePathRef.current, { BRAID_TERMINAL_ID: tab.id })
-      tab.ptyId = id
-      const observer = createTerminalCommandObserver(worktreePathRef.current, { refreshWorktrees: true })
-      tab.commandObserver = observer
-      // Register for daemon-side scrollback persistence (writes ~/Braid/bigTerminals/<id>.scrollback on exit/kill/quit).
-      ipc.pty.registerBigTerminal(id, tab.id)
-      tab.term.onData((data: string) => {
-        // Suppress xterm auto-replies emitted during scrollback replay.
-        if (isReplaying(tab.id)) return
-        observer.accept(data)
-        ipc.pty.write(id, data)
-      })
-      requestAnimationFrame(() => {
-        try { tab.fitAddon.fit(); ipc.pty.resize(id, tab.term.cols, tab.term.rows) } catch { /* ignore */ }
-      })
-      // Auto-run a queued command only on fresh terminals (not on restored history).
-      if (pendingCommandRef.current && !hasScrollback) {
-        const cmd = pendingCommandRef.current
-        pendingCommandRef.current = null
-        setTimeout(() => {
-          observer.accept(cmd + '\n')
-          ipc.pty.write(id, cmd + '\n')
-        }, 100)
-      }
-    } catch (err) {
-      tab.term.write(`\x1b[31mError: ${err instanceof Error ? err.message : 'Failed to spawn terminal'}\x1b[0m\r\n`)
-    }
-  }, [])
+  const spawnTab = useCallback((tab: TermTab) => spawnRightTab(tab, worktreePathRef.current, pendingCommandRef), [])
 
   const addTab = useCallback(() => {
     const tabId = nextTabId()
@@ -287,7 +218,7 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
     dispatch({ type: 'UPDATE_TABS', fn: (prev) => {
       const idx = prev.findIndex((t) => t.id === tabId)
       const tab = prev[idx]
-      if (tab) { if (tab.ptyId) ipc.pty.kill(tab.ptyId); ipc.pty.deleteScrollback(tabId); tab.commandObserver?.dispose(); tab.resizeObserver?.disconnect(); tab.term.dispose(); containerRefs.current.delete(tabId) }
+      if (tab) { if (tab.ptyId) ipc.pty.kill(tab.ptyId); ipc.pty.deleteScrollback(tabId); tab.commandObserver?.dispose(); tab.resizeObserver?.disconnect(); webglPool.forget(tab.term); tab.term.dispose(); containerRefs.current.delete(tabId) }
       const next = prev.filter((t) => t.id !== tabId)
       tabsRef.current = next
       const cached = terminalCache.get(worktreePathRef.current)
@@ -336,6 +267,9 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
       switchTab(tabs[0].id)
     }
   }, [showFixedTabs, isSpecialTab, tabs[0]?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Visibility: only the active tab of an open, expanded panel is shown ─
+  useRightTerminalVisibility(tabs, !hidden && !collapsed && !isSpecialTab ? activeTabId : null)
 
   // ── Lifecycle hooks (PTY routing, theme, font size, worktree switch) ───
   useTerminalLifecycle({
@@ -424,7 +358,7 @@ export function TabbedTerminal({ worktreePath, projectId, projectPath, hidden, c
                   if (pending) { pendingAttach.current.delete(tab.id); attachTerm(pending, el); setupResizeObserver(pending, el); spawnTab(pending) }
                   else if (tab.term.element && !el.contains(tab.term.element)) {
                     // Container was recreated (e.g. after collapse/uncollapse) — move the existing terminal element and re-observe
-                    el.appendChild(tab.term.element)
+                    webglPool.move(tab.term, () => el.appendChild(tab.term.element!))
                     setupResizeObserver(tab, el)
                   }
                 }

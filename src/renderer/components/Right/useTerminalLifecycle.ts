@@ -1,6 +1,7 @@
 import { useEffect, useCallback, type MutableRefObject } from 'react'
 import * as ipc from '@/lib/ipc'
 import { useUIStore } from '@/store/ui'
+import { webglPool } from '@/lib/webglPool'
 import {
   SETUP_TAB_ID,
   terminalCache, nextTabId, createTerminal, initGlobalPtyRouting, reThemeAllTerminals,
@@ -173,7 +174,7 @@ export function useTerminalLifecycle({
         for (const tab of restoredTabs) {
           const el = containerRefs.current.get(tab.id)
           if (el && tab.term.element) {
-            el.appendChild(tab.term.element)
+            webglPool.move(tab.term, () => el.appendChild(tab.term.element!))
             setupResizeObserver(tab, el)
           }
         }
@@ -237,7 +238,7 @@ export function useTerminalLifecycle({
       if (tab) {
         const el = containerRefs.current.get(tab.id)
         if (el && tab.term.element && !el.contains(tab.term.element)) {
-          el.appendChild(tab.term.element)
+          webglPool.move(tab.term, () => el.appendChild(tab.term.element!))
         }
         try {
           tab.fitAddon.fit()

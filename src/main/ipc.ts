@@ -1,16 +1,19 @@
 import { logger } from './lib/logger'
-import { ipcMain, dialog, shell, app, nativeImage, clipboard, BrowserWindow } from 'electron'
-import { existsSync } from 'fs'
+import { ipcMain, dialog, shell, app, clipboard, BrowserWindow } from 'electron'
 import { writeFile } from 'fs/promises'
 import { randomUUID } from 'crypto'
-import { execFile, type ExecFileOptionsWithStringEncoding } from 'child_process'
-import { tmpdir, homedir } from 'os'
+import { execFile } from 'child_process'
 import { join } from 'path'
 import { storageService } from './services/storage'
-import { gitService } from './services/git'
 import { agentService } from './services/agent'
 import { ptyService } from './services/pty'
-import { githubService, type GitHubReactionContent } from './services/github'
+import { registerPtyIpcHandlers } from './ptyIpc'
+import { registerGitIpc } from './ipcHandlers/git'
+import { registerGithubIpc } from './ipcHandlers/github'
+import { registerAppsIpc } from './ipcHandlers/apps'
+import { registerClaudeConfigIpc } from './ipcHandlers/claudeConfig'
+import { registerMobileIpc } from './ipcHandlers/mobile'
+import { registerUsageIpc } from './ipcHandlers/usage'
 import { sessionStorageService, PersistedSession } from './services/sessionStorage'
 import { filesService } from './services/files'
 import { searchService } from './services/search'
@@ -21,51 +24,19 @@ import { templatesService } from './services/templates'
 import type { TemplateKind, CreateTemplateArgs } from '../shared/templates'
 import type { SearchFileResult, SearchMatch, SearchOptions } from '../shared/search'
 import { windowCaptureService } from './services/windowCapture'
-import { claudeConfigService, ClaudePermissions, ClaudeHookConfig, SkillDetail, McpServerEntry, McpServerConfig } from './services/claudeConfig'
 import { notesService } from './services/notes'
 import { registerBrowserIpc } from './services/browser'
-import { mobileServer, deviceStore } from './services/mobileServer'
 import { setAgentAwakeEnabled } from './services/agentAwake'
-import { mobileNgrokTunnel } from './services/mobileServer/ngrokTunnel'
-import type { MobileNgrokRegion, MobilePairingTransport } from './services/mobileServer/types'
-import { broadcastMobileNotification } from './services/mobileServer/broadcast'
-import { agentSessionStore } from './services/agentSessions'
-import { hasKnownBigTerminals, setKnownBigTerminals, type KnownBigTerminal } from './services/mobileServer/knownBigTerminals'
-import { isMobileTerminalActive, setDesktopActiveTerminal } from './services/mobileServer/mobileTerminalPresence'
-import { setMobileDisplayMode, getMobileDisplayMode, type MobileDisplayMode } from './services/mobileServer/mobileTerminalDisplay'
-import { getMobileTerminalActor } from './services/mobileServer/mobileTerminalActor'
+import type { MobileNgrokRegion } from './services/mobileServer/types'
 import { lspService, LspServerConfig } from './services/lsp'
-import { jiraService } from './services/jira'
-import { githubAuthService } from './services/githubAuth'
 import { resolveCliPath } from './services/claudePath'
 import { enrichedEnv } from './lib/enrichedEnv'
 import { toolInstaller } from './services/toolInstaller'
 import { downloadUpdate, installUpdate, checkForUpdates } from './services/autoUpdate'
-import { ClaudeUsageStore } from './services/claudeUsage'
-import type { ClaudeUsageScope, ClaudeUsageRange, ClaudeUsageBreakdownKind } from '../shared/claude-usage-types'
-import { CodexUsageStore } from './services/codexUsage'
-import type { CodexUsageScope, CodexUsageRange, CodexUsageBreakdownKind } from '../shared/codex-usage-types'
 import { rateLimitService } from './services/rateLimits/service'
-import { collectResourceSnapshot } from './services/rateLimits/resourceCollector'
 import { DEFAULT_TERMINAL_SCROLLBACK_LINES, clampTerminalScrollbackLines, getTerminalScrollbackBufferMaxLength } from '../shared/terminal'
 
 export { rateLimitService }
-
-function execFileText(
-  file: string,
-  args: string[],
-  options: ExecFileOptionsWithStringEncoding
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    execFile(file, args, options, (error, stdout) => {
-      if (error) {
-        reject(error)
-        return
-      }
-      resolve(stdout)
-    })
-  })
-}
 
 function defaultUserShell(): string {
   return process.platform === 'darwin' ? '/bin/zsh' : '/bin/sh'
@@ -111,78 +82,7 @@ export function registerIpcHandlers(): void {
     storageService.saveWorktreeIds(map)
   )
 
-  // Git
-  ipcMain.handle('git:getWorktrees', (_e, repoPath: string) => gitService.getWorktrees(repoPath))
-  ipcMain.handle('git:addWorktree', (_e, repoPath: string, branch: string, projectName: string, baseBranch?: string) =>
-    gitService.addWorktree(repoPath, branch, projectName, baseBranch, mainSettings.worktreeStoragePath || undefined)
-  )
-  ipcMain.handle('git:removeWorktree', (_e, repoPath: string, worktreePath: string, worktreeId?: string) => {
-    if (worktreeId) notesService.delete(worktreeId)
-    return gitService.removeWorktree(repoPath, worktreePath)
-  })
-  ipcMain.handle('git:getBranches', (_e, repoPath: string) => gitService.getBranches(repoPath))
-  ipcMain.handle('git:getStatus', (_e, worktreePath: string) => gitService.getStatus(worktreePath))
-  ipcMain.handle('git:getDiff', (_e, worktreePath: string) => gitService.getDiff(worktreePath))
-  ipcMain.handle('git:getFileDiff', (_e, worktreePath: string, file: string, status: string, staged: boolean) =>
-    gitService.getFileDiff(worktreePath, file, status, staged)
-  )
-  ipcMain.handle('git:getFileTree', (_e, worktreePath: string, _subPath?: string, forceRefresh?: boolean) =>
-    gitService.getFileTree(worktreePath, '', forceRefresh))
-  ipcMain.handle('git:invalidateFileTree', (_e, worktreePath: string) => gitService.invalidateFileTree(worktreePath))
-  ipcMain.handle('git:invalidateTrackedFiles', (_e, worktreePath: string) => gitService.invalidateTrackedFiles(worktreePath))
-  ipcMain.handle('git:readFile', (_e, filePath: string) => gitService.readFile(filePath))
-  ipcMain.handle('git:readFileAsBase64', (_e, filePath: string) => gitService.readFileAsBase64(filePath))
-  ipcMain.handle('git:getFileSize', (_e, filePath: string) => gitService.getFileSize(filePath))
-  ipcMain.handle('git:writeFile', (_e, filePath: string, content: string) => gitService.writeFile(filePath, content))
-  ipcMain.handle('git:getTrackingBranch', (_e, worktreePath: string, branch: string) =>
-    gitService.getTrackingBranch(worktreePath, branch)
-  )
-  ipcMain.handle('git:getRemoteBranches', (_e, worktreePath: string, forceRefresh?: boolean) =>
-    gitService.getRemoteBranches(worktreePath, forceRefresh)
-  )
-  ipcMain.handle('git:getRemoteUrl', (_e, repoPath: string) =>
-    gitService.getRemoteUrl(repoPath)
-  )
-  ipcMain.handle('git:renameBranch', (_e, worktreePath: string, oldName: string, newName: string) =>
-    gitService.renameBranch(worktreePath, oldName, newName)
-  )
-  ipcMain.handle('git:setUpstream', (_e, worktreePath: string, branch: string, upstream: string) =>
-    gitService.setUpstream(worktreePath, branch, upstream)
-  )
-  ipcMain.handle('git:isBranchProtected', (_e, worktreePath: string, branch: string) =>
-    gitService.isBranchProtected(worktreePath, branch)
-  )
-  ipcMain.handle('git:cloneRepo', (_e, url: string) => gitService.cloneRepo(url, mainSettings.worktreeStoragePath || undefined))
-  ipcMain.handle('git:stageFiles', (_e, worktreePath: string, files: string[]) =>
-    gitService.stageFiles(worktreePath, files)
-  )
-  ipcMain.handle('git:unstageFiles', (_e, worktreePath: string, files: string[]) =>
-    gitService.unstageFiles(worktreePath, files)
-  )
-  ipcMain.handle('git:discardChanges', (_e, worktreePath: string, file: string, status: string, staged?: boolean) =>
-    gitService.discardChanges(worktreePath, file, status, staged)
-  )
-  ipcMain.handle('git:commit', (_e, worktreePath: string, message: string) =>
-    gitService.commit(worktreePath, message)
-  )
-  ipcMain.handle('git:pull', (_e, worktreePath: string, strategy?: string) =>
-    gitService.pull(worktreePath, strategy as 'rebase' | 'merge' | undefined)
-  )
-  ipcMain.handle('git:push', (_e, worktreePath: string) => gitService.push(worktreePath))
-  ipcMain.handle('git:getTrackedFiles', (_e, worktreePath: string) => gitService.getTrackedFiles(worktreePath))
-  ipcMain.handle('git:getRemotes', (_e, repoPath: string) => gitService.getRemotes(repoPath))
-  ipcMain.handle('git:getGitUserConfig', (_e, repoPath: string) => gitService.getGitUserConfig(repoPath))
-  ipcMain.handle('git:setGitUserConfig', (_e, repoPath: string, name: string, email: string) =>
-    gitService.setGitUserConfig(repoPath, name, email)
-  )
-  ipcMain.handle('git:clearGitUserConfig', (_e, repoPath: string) => gitService.clearGitUserConfig(repoPath))
-  ipcMain.handle('git:initRepo', (_e, dirPath: string) => gitService.initRepo(dirPath))
-  ipcMain.handle('git:isRepoRoot', (_e, repoPath: string) => gitService.isRepoRoot(repoPath))
-  ipcMain.handle('git:findChildRepos', (_e, parentPath: string) => gitService.findChildRepos(parentPath))
-  ipcMain.handle('git:createSnapshot', (_e, worktreePath: string) => gitService.createSnapshot(worktreePath))
-  ipcMain.handle('git:restoreSnapshot', (_e, worktreePath: string, snapSha: string) =>
-    gitService.restoreSnapshot(worktreePath, snapSha)
-  )
+  registerGitIpc()
 
   // Agent
   ipcMain.handle('agent:startSession', (_e, sessionId: string, worktreeId: string, worktreePath: string, prompt: string, model: string, thinking: boolean, extendedContext: boolean, effortLevel: string, planMode: boolean, sessionName: string, images?: string[], additionalDirectories?: string[], linkedWorktreeContext?: string, connectedDeviceId?: string, mobileFramework?: string) =>
@@ -219,25 +119,6 @@ export function registerIpcHandlers(): void {
     agentService.generateSessionTitle(userMessage, assistantSummary, currentTitle)
   )
 
-  // PTY
-  ipcMain.handle('pty:spawn', (_e, cwd: string, envOverrides?: Record<string, string>) => ptyService.spawn(cwd, envOverrides))
-  ipcMain.on('pty:write', (_e, id: string, data: string) => ptyService.write(id, data))
-  ipcMain.on('pty:resize', (_e, id: string, cols: number, rows: number) => {
-    // Suppress desktop-driven resizes while a mobile device owns this terminal's
-    // viewport (phone-fit). A shared PTY can't satisfy both sizes; the phone is
-    // the active driver, so the desktop must not fit the PTY to its own pane and
-    // clobber the phone-fit dims (which would wrap the phone's output wrong). The
-    // desktop reclaims by hitting "Restore desktop size" (-> display mode
-    // 'desktop'), which lifts this guard. Defense-in-depth behind
-    // BigTerminalView's own held check, covering the mount/connect race before
-    // the renderer learns it's held.
-    const terminalId = ptyService.listInstances().find((item) => item.ptyId === id)?.terminalId
-    if (terminalId && getMobileTerminalActor(terminalId) && getMobileDisplayMode(terminalId) !== 'desktop') {
-      return
-    }
-    ptyService.resize(id, cols, rows)
-  })
-
   // Dock badge
   ipcMain.on('dock:setBadgeCount', (_e, count: number) => {
     if (process.platform === 'darwin' && app.dock) {
@@ -245,202 +126,9 @@ export function registerIpcHandlers(): void {
       app.dock.setBadge(safe > 0 ? String(safe) : '')
     }
   })
-  ipcMain.handle('pty:kill', (_e, id: string) => ptyService.kill(id))
-  ipcMain.handle('pty:runScript', (_e, cwd: string, command: string) => ptyService.runScript(cwd, command))
-  ipcMain.handle('pty:readTerminalOutput', (_e, worktreePath: string) => ptyService.readTerminalOutput(worktreePath))
-  ipcMain.on('pty:registerBigTerminal', (_e, ptyId: string, terminalId: string) => {
-    ptyService.registerBigTerminal(ptyId, terminalId)
-    // A big terminal just went live - either freshly created on the desktop, or
-    // restored/reattached after a cold start when its worktree was opened. Tell
-    // connected devices so their tab strip refreshes; the mobile terminal screen
-    // doesn't poll terminal.list on its own, so without this a restored terminal
-    // stays invisible until the user manually pulls to refresh.
-    const worktreePath = ptyService.listInstances().find((t) => t.terminalId === terminalId)?.cwd
-    broadcastMobileNotification({ jsonrpc: '2.0', method: 'terminal.listChanged', params: { worktreePath } })
-  })
-  ipcMain.on('pty:setBigTerminalMetadata', (_e, metadata: { terminalId: string; worktreeId?: string; label?: string; agentId?: string }) =>
-    ptyService.setBigTerminalMetadata?.(metadata))
-  ipcMain.on('pty:removeBigTerminalMetadata', (_e, terminalId: string) =>
-    ptyService.removeBigTerminalMetadata?.(terminalId))
-  // Rename: persist the new label, then mirror it to other desktop windows and
-  // every connected mobile device so the tab strip updates live everywhere.
-  ipcMain.on('pty:renameBigTerminal', (e, payload: { terminalId: string; worktreeId?: string; label: string; agentId?: string }) => {
-    ptyService.setBigTerminalMetadata?.({
-      terminalId: payload.terminalId,
-      worktreeId: payload.worktreeId,
-      label: payload.label,
-      agentId: payload.agentId,
-    })
-    const worktreePath = ptyService.listInstances().find((t) => t.terminalId === payload.terminalId)?.cwd
-    const notice = { terminalId: payload.terminalId, worktreeId: payload.worktreeId, worktreePath, label: payload.label }
-    for (const win of BrowserWindow.getAllWindows()) {
-      if (!win.isDestroyed() && win.webContents !== e.sender) win.webContents.send('pty:bigTerminalRenamed', notice)
-    }
-    broadcastMobileNotification({ jsonrpc: '2.0', method: 'terminal.tabRenamed', params: notice })
-  })
-  ipcMain.on('pty:killBigTerminal', (e, terminalId: string) => {
-    // Capture worktree context before the kill clears the metadata.
-    const instance = ptyService.listInstances().find((t) => t.terminalId === terminalId)
-    const notice = { terminalId, worktreeId: instance?.worktreeId, worktreePath: instance?.cwd }
-    ptyService.killBigTerminal?.(terminalId)
-    for (const win of BrowserWindow.getAllWindows()) {
-      if (!win.isDestroyed() && win.webContents !== e.sender) win.webContents.send('pty:bigTerminalClosed', notice)
-    }
-    broadcastMobileNotification({ jsonrpc: '2.0', method: 'terminal.tabClosed', params: notice })
-  })
-  ipcMain.handle('pty:readScrollback', (_e, terminalId: string) => ptyService.readScrollback(terminalId))
-  ipcMain.handle('pty:isMobileTerminalActive', (_e, terminalId: string) => isMobileTerminalActive(terminalId))
-  ipcMain.on('pty:setDesktopActiveTerminal', (e, terminalId: string | null) =>
-    setDesktopActiveTerminal(e.sender.id, terminalId))
-  ipcMain.on('pty:setMobileDisplayMode', (_e, terminalId: string, mode: MobileDisplayMode) =>
-    setMobileDisplayMode(terminalId, mode))
-  ipcMain.on('pty:deleteScrollback', (_e, terminalId: string) => ptyService.deleteScrollback(terminalId))
-  ipcMain.handle('pty:reattach', (_e, sessionId: string) => {
-    if ('reattach' in ptyService && typeof ptyService.reattach === 'function') {
-      return ptyService.reattach(sessionId)
-    }
-    return null
-  })
-  ipcMain.handle('pty:consumeColdRestore', (_e, sessionId: string) =>
-    ptyService.consumeColdRestore?.(sessionId) ?? false)
-  ipcMain.handle('pty:listSessions', () => {
-    if ('listSessions' in ptyService && typeof ptyService.listSessions === 'function') {
-      return ptyService.listSessions()
-    }
-    return []
-  })
-  ipcMain.handle('pty:listOrphanedBigTerminals', (_e, knownTerminalIds: string[]) => {
-    if ('listOrphanedBigTerminals' in ptyService && typeof ptyService.listOrphanedBigTerminals === 'function') {
-      return ptyService.listOrphanedBigTerminals(knownTerminalIds)
-    }
-    return []
-  })
-  ipcMain.handle('pty:killOrphanedBigTerminals', (_e, terminalIds: string[]) => {
-    if ('killOrphanedBigTerminals' in ptyService && typeof ptyService.killOrphanedBigTerminals === 'function') {
-      return ptyService.killOrphanedBigTerminals(terminalIds)
-    }
-    return 0
-  })
-  // The renderer reports the full set of big-terminal ids it tracks (across all
-  // worktrees) so the mobile terminal.list can surface terminals in worktrees the
-  // desktop hasn't reopened while still excluding orphaned daemon sessions.
-  ipcMain.on('pty:setKnownBigTerminals', (_e, items: KnownBigTerminal[]) => {
-    // The first set unlocks daemon-sourced listing (before it, mobile falls back
-    // to clicked-only). Nudge connected devices to re-query so a device that
-    // loaded during the startup window picks up the full list. Later updates are
-    // already covered by the create/close listChanged broadcasts.
-    const first = !hasKnownBigTerminals()
-    setKnownBigTerminals(Array.isArray(items) ? items : [])
-    // The same set is authoritative for which saved agent sessions still matter.
-    if (Array.isArray(items)) {
-      agentSessionStore.retainOnly(new Set(items.map((i) => i?.terminalId).filter((id): id is string => typeof id === 'string')))
-    }
-    if (first) broadcastMobileNotification({ jsonrpc: '2.0', method: 'terminal.listChanged', params: {} })
-  })
+  registerPtyIpcHandlers()
 
-  // GitHub
-  ipcMain.handle('github:getPrStatus', (_e, worktreePath: string, forceRefresh?: boolean) =>
-    githubService.getPrStatus(worktreePath, forceRefresh))
-  ipcMain.handle('github:listWorkItems', (_e, repoPath: string, limit?: number, query?: string, forceRefresh?: boolean) =>
-    githubService.listWorkItems(repoPath, limit, query, forceRefresh))
-  ipcMain.handle('github:countWorkItems', (_e, repoPath: string, query?: string, forceRefresh?: boolean) =>
-    githubService.countWorkItems(repoPath, query, forceRefresh))
-  ipcMain.handle('github:getPrDetail', (_e, repoPath: string, number: number, forceRefresh?: boolean) =>
-    githubService.getPrDetail(repoPath, number, forceRefresh))
-  ipcMain.handle('github:getPrSummary', (_e, repoPath: string, number: number, forceRefresh?: boolean) =>
-    githubService.getPrSummary(repoPath, number, forceRefresh))
-  ipcMain.handle('github:listReviewerSuggestions', (_e, repoPath: string, query?: string, limit?: number, forceRefresh?: boolean) =>
-    githubService.listReviewerSuggestions(repoPath, query, limit, forceRefresh))
-  ipcMain.handle('github:listLabelSuggestions', (_e, repoPath: string, query?: string, limit?: number, forceRefresh?: boolean) =>
-    githubService.listLabelSuggestions(repoPath, query, limit, forceRefresh))
-  ipcMain.handle('github:addPrComment', (_e, repoPath: string, number: number, body: string) =>
-    githubService.addPrComment(repoPath, number, body))
-  ipcMain.handle('github:replyToPrReviewComment', (_e, repoPath: string, number: number, commentId: number, body: string) =>
-    githubService.replyToPrReviewComment(repoPath, number, commentId, body))
-  ipcMain.handle('github:addPrReviewComment', (_e, repoPath: string, number: number, args: { body: string; commitId: string; path: string; side: 'LEFT' | 'RIGHT'; line: number }) =>
-    githubService.addPrReviewComment(repoPath, number, args))
-  ipcMain.handle('github:submitPrReview', (_e, repoPath: string, number: number, event: 'COMMENT' | 'APPROVE' | 'REQUEST_CHANGES', body?: string) =>
-    githubService.submitPrReview(repoPath, number, event, body))
-  ipcMain.handle('github:resolvePrReviewThread', (_e, repoPath: string, number: number, threadId: string, resolve: boolean) =>
-    githubService.resolvePrReviewThread(repoPath, number, threadId, resolve))
-  ipcMain.handle('github:setPrFileViewed', (_e, repoPath: string, number: number, pullRequestId: string, path: string, viewed: boolean) =>
-    githubService.setPrFileViewed(repoPath, number, pullRequestId, path, viewed))
-  ipcMain.handle('github:getPrFilePreview', (_e, repoPath: string, number: number, path: string, ref: string) =>
-    githubService.getPrFilePreview(repoPath, number, path, ref))
-  ipcMain.handle('github:requestPrReviewer', (_e, repoPath: string, number: number, reviewer: string) =>
-    githubService.requestPrReviewer(repoPath, number, reviewer))
-  ipcMain.handle('github:removePrReviewer', (_e, repoPath: string, number: number, reviewer: string) =>
-    githubService.removePrReviewer(repoPath, number, reviewer))
-  ipcMain.handle('github:addPrLabel', (_e, repoPath: string, number: number, label: string) =>
-    githubService.addPrLabel(repoPath, number, label))
-  ipcMain.handle('github:removePrLabel', (_e, repoPath: string, number: number, label: string) =>
-    githubService.removePrLabel(repoPath, number, label))
-  ipcMain.handle('github:rerunCheck', (_e, repoPath: string, checkUrl: string, failedOnly: boolean) =>
-    githubService.rerunCheck(repoPath, checkUrl, failedOnly))
-  ipcMain.handle('github:toggleReaction', (_e, repoPath: string, number: number, subjectId: string, content: string, reacted: boolean) =>
-    githubService.toggleReaction(repoPath, number, subjectId, content as GitHubReactionContent, reacted))
-  ipcMain.handle('github:getChecks', (_e, worktreePath: string, forceRefresh?: boolean) =>
-    githubService.getChecks(worktreePath, forceRefresh))
-  ipcMain.handle('github:getDeployments', (_e, worktreePath: string, forceRefresh?: boolean) =>
-    githubService.getDeployments(worktreePath, forceRefresh))
-  ipcMain.handle('github:getOwnerAvatarUrl', (_e, cwd: string) =>
-    githubService.getOwnerAvatarUrl(cwd))
-  ipcMain.handle('github:getGitSyncStatus', (_e, worktreePath: string, baseBranch: string, forceRefresh?: boolean) =>
-    githubService.getGitSyncStatus(worktreePath, baseBranch, forceRefresh)
-  )
-  ipcMain.handle('github:mergePr', (_e, worktreePath: string, strategy: string) =>
-    githubService.mergePr(worktreePath, strategy as 'merge' | 'squash' | 'rebase')
-  )
-  ipcMain.handle('github:markPrReady', (_e, worktreePath: string) =>
-    githubService.markPrReady(worktreePath)
-  )
-  ipcMain.handle('github:mergePrByNumber', (_e, repoPath: string, number: number, strategy: string) =>
-    githubService.mergePrByNumber(repoPath, number, strategy as 'merge' | 'squash' | 'rebase')
-  )
-  ipcMain.handle('github:closePrByNumber', (_e, repoPath: string, number: number) =>
-    githubService.closePrByNumber(repoPath, number)
-  )
-  ipcMain.handle('github:markPrReadyByNumber', (_e, repoPath: string, number: number) =>
-    githubService.markPrReadyByNumber(repoPath, number)
-  )
-  ipcMain.handle('github:getCheckRunLog', (_e, worktreePath: string, checkUrl: string) =>
-    githubService.getCheckRunLog(worktreePath, checkUrl)
-  )
-  ipcMain.handle('github:getReviews', (_e, worktreePath: string, forceRefresh?: boolean) =>
-    githubService.getReviews(worktreePath, forceRefresh)
-  )
-  ipcMain.handle('github:replyToReviewComment', (_e, worktreePath: string, commentId: number, body: string) =>
-    githubService.replyToReviewComment(worktreePath, commentId, body)
-  )
-  ipcMain.handle('github:openCheckLog', async (_e, worktreePath: string, checkUrl: string, checkName: string) => {
-    const log = await githubService.getCheckRunLog(worktreePath, checkUrl)
-    const safe = checkName.replace(/[^a-zA-Z0-9-_]/g, '_')
-    const tmpPath = join(tmpdir(), `ci-log-${safe}.log`)
-    await writeFile(tmpPath, log || '(no log output)', 'utf8')
-    return tmpPath
-  })
-
-  // GitHub Device Flow OAuth
-  ipcMain.handle('github:startDeviceFlow', async () => {
-    const code = await githubAuthService.requestDeviceCode()
-    githubAuthService.startPolling(code.device_code, code.interval, code.expires_in)
-    return { userCode: code.user_code, verificationUri: code.verification_uri, expiresIn: code.expires_in }
-  })
-  ipcMain.handle('github:cancelDeviceFlow', () => githubAuthService.cancel())
-  ipcMain.handle('github:feedGhToken', async (_e, token: string) => ({
-    success: await githubAuthService.feedTokenToGh(token),
-  }))
-
-  // Jira (optional — only available if acli is installed)
-  ipcMain.handle('jira:isAvailable', () => jiraService.isAvailable())
-  ipcMain.handle('jira:recheckAvailability', () => jiraService.recheckAvailability())
-  ipcMain.handle('jira:getIssuesForBranch', (_e, worktreePath: string, overrideBaseUrl?: string, forceRefresh?: boolean) =>
-    jiraService.getIssuesForBranch(worktreePath, overrideBaseUrl, forceRefresh)
-  )
-  ipcMain.handle('jira:getIssueByKey', (_e, key: string, overrideBaseUrl?: string, forceRefresh?: boolean, includeContext?: boolean) =>
-    jiraService.getIssueByKey(key, overrideBaseUrl, forceRefresh, includeContext)
-  )
-  ipcMain.handle('jira:invalidateCache', (_e, key?: string) => jiraService.invalidateCache(key))
+  registerGithubIpc()
 
   // Sessions
   ipcMain.handle('sessions:save', (_e, data: PersistedSession) => sessionStorageService.saveSession(data))
@@ -477,90 +165,7 @@ export function registerIpcHandlers(): void {
     })
   })
 
-  // App registry — keyed by bundle identifier for reliable discovery
-  const APP_REGISTRY = [
-    // File manager
-    { id: 'finder',         name: 'Finder',          bundleId: 'com.apple.finder' },
-    // Editors & IDEs
-    { id: 'cursor',         name: 'Cursor',           bundleId: 'com.todesktop.230313mzl4w4u92' },
-    { id: 'vscode',         name: 'VS Code',          bundleId: 'com.microsoft.VSCode' },
-    { id: 'windsurf',       name: 'Windsurf',         bundleId: 'com.codeium.windsurf' },
-    { id: 'zed',            name: 'Zed',              bundleId: 'dev.zed.Zed' },
-    { id: 'sublime-text',   name: 'Sublime Text',     bundleId: 'com.sublimetext.4' },
-    { id: 'nova',           name: 'Nova',             bundleId: 'com.panic.Nova' },
-    { id: 'xcode',          name: 'Xcode',            bundleId: 'com.apple.dt.Xcode' },
-    { id: 'intellij',       name: 'IntelliJ IDEA',    bundleId: 'com.jetbrains.intellij' },
-    { id: 'webstorm',       name: 'WebStorm',         bundleId: 'com.jetbrains.WebStorm' },
-    { id: 'android-studio', name: 'Android Studio',   bundleId: 'com.google.android.studio' },
-    // Terminals
-    { id: 'terminal',       name: 'Terminal',         bundleId: 'com.apple.Terminal' },
-    { id: 'iterm2',         name: 'iTerm2',           bundleId: 'com.googlecode.iterm2' },
-    { id: 'ghostty',        name: 'Ghostty',          bundleId: 'com.mitchellh.ghostty' },
-    { id: 'warp',           name: 'Warp',             bundleId: 'dev.warp.Warp-Stable' },
-    { id: 'kitty',          name: 'Kitty',            bundleId: 'net.kovidgoyal.kitty' },
-    { id: 'alacritty',      name: 'Alacritty',        bundleId: 'org.alacritty' },
-    { id: 'wezterm',        name: 'WezTerm',          bundleId: 'org.wezfurlong.wezterm' },
-    // Git clients
-    { id: 'github-desktop', name: 'GitHub Desktop',   bundleId: 'com.github.GitHubClient' },
-    { id: 'tower',          name: 'Tower',            bundleId: 'com.fournova.Tower3' },
-    { id: 'fork',           name: 'Fork',             bundleId: 'com.DanPristupov.Fork' },
-  ]
-
-  const bundleIdForApp: Record<string, string> = Object.fromEntries(
-    APP_REGISTRY.map((a) => [a.id, a.bundleId])
-  )
-
-  // Find .app path by bundle identifier using Spotlight index
-  function findAppByBundleId(bundleId: string): Promise<string | null> {
-    return new Promise((resolve) => {
-      execFile(
-        'mdfind',
-        [`kMDItemCFBundleIdentifier == '${bundleId}'`, '-onlyin', '/'],
-        { timeout: 5_000 },
-        (err, stdout) => {
-          if (err || !stdout.trim()) return resolve(null)
-          resolve(stdout.trim().split('\n')[0])
-        }
-      )
-    })
-  }
-
-  ipcMain.handle('shell:getInstalledApps', async () => {
-    if (process.platform !== 'darwin') return []
-
-    const resolved = await Promise.all(
-      APP_REGISTRY.map(async ({ id, name, bundleId }) => {
-        const appPath = await findAppByBundleId(bundleId)
-        if (!appPath) {
-          logger.debug(`[Shell] App not found: ${id} (${bundleId})`)
-          return null
-        }
-        try {
-          const thumbnail = await nativeImage.createThumbnailFromPath(appPath, { width: 32, height: 32 })
-          const dataUrl = thumbnail.toDataURL()
-          return { id, name, icon: dataUrl }
-        } catch (err) {
-          logger.warn(`[Shell] Icon fetch failed for ${id} at ${appPath}:`, err)
-          return { id, name, icon: null }
-        }
-      })
-    )
-    return resolved.filter(Boolean) as Array<{ id: string; name: string; icon: string | null }>
-  })
-
-  ipcMain.handle('shell:openInApp', (_e, appId: string, targetPath: string) => {
-    if (process.platform !== 'darwin') {
-      shell.showItemInFolder(targetPath)
-      return
-    }
-    if (appId === 'finder') return shell.showItemInFolder(targetPath)
-    const bundleId = bundleIdForApp[appId]
-    if (bundleId) {
-      execFile('open', ['-b', bundleId, targetPath], (err) => {
-        if (err) logger.error(`[Shell] Failed to open ${appId}:`, err.message)
-      })
-    }
-  })
+  registerAppsIpc()
 
   // Simulator
   ipcMain.handle('simulator:listDevices', () => simulatorService.listDevices())
@@ -714,99 +319,14 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('settings:getWorktreeStoragePath', () => mainSettings.worktreeStoragePath)
   ipcMain.handle('settings:getSystemPromptSuffix', () => mainSettings.systemPromptSuffix)
 
-  // Claude Config
-  ipcMain.handle('claudeConfig:getPermissions', () => claudeConfigService.getPermissions())
-  ipcMain.handle('claudeConfig:setPermissions', (_e, perms: ClaudePermissions) => claudeConfigService.setPermissions(perms))
-  ipcMain.handle('claudeConfig:getProjectPermissions', (_e, projectPath: string) => claudeConfigService.getProjectPermissions(projectPath))
-  ipcMain.handle('claudeConfig:setProjectPermissions', (_e, projectPath: string, perms: ClaudePermissions) =>
-    claudeConfigService.setProjectPermissions(projectPath, perms)
-  )
-  ipcMain.handle('claudeConfig:getHooks', () => claudeConfigService.getHooks())
-  ipcMain.handle('claudeConfig:setHooks', (_e, hooks: Record<string, ClaudeHookConfig[]>) => claudeConfigService.setHooks(hooks))
-  ipcMain.handle('claudeConfig:getGlobalInstructions', () => claudeConfigService.getGlobalInstructions())
-  ipcMain.handle('claudeConfig:setGlobalInstructions', (_e, content: string) => claudeConfigService.setGlobalInstructions(content))
-  ipcMain.handle('claudeConfig:getProjectInstructions', (_e, projectPath: string) => claudeConfigService.getProjectInstructions(projectPath))
-  ipcMain.handle('claudeConfig:setProjectInstructions', (_e, projectPath: string, content: string) =>
-    claudeConfigService.setProjectInstructions(projectPath, content)
-  )
-  ipcMain.handle('claudeConfig:getPlugins', () => claudeConfigService.getPlugins())
-  ipcMain.handle('claudeConfig:setPluginEnabled', (_e, pluginId: string, enabled: boolean) => claudeConfigService.setPluginEnabled(pluginId, enabled))
-  ipcMain.handle('claudeConfig:getSkills', (_e, projectPath?: string) => claudeConfigService.getSkills(projectPath))
-  ipcMain.handle('claudeConfig:getSkillDetail', (_e, skillPath: string) => claudeConfigService.getSkillDetail(skillPath))
-  ipcMain.handle('claudeConfig:setSkillDetail', (_e, skillPath: string, detail: SkillDetail) => claudeConfigService.setSkillDetail(skillPath, detail))
-  ipcMain.handle('claudeConfig:createSkill', (_e, scope: string, name: string, description: string, projectPath?: string) =>
-    claudeConfigService.createSkill(scope as 'global' | 'project', name, description, projectPath)
-  )
-  ipcMain.handle('claudeConfig:deleteSkill', (_e, skillPath: string) => claudeConfigService.deleteSkill(skillPath))
-  ipcMain.handle('claudeConfig:getMcpServers', () => claudeConfigService.getMcpServers())
-  ipcMain.handle('claudeConfig:setMcpServers', (_e, servers: McpServerEntry[]) => claudeConfigService.setMcpServers(servers))
-  ipcMain.handle('claudeConfig:getProjectMcpServers', (_e, projectPath: string) => claudeConfigService.getProjectMcpServers(projectPath))
-  ipcMain.handle('claudeConfig:getPluginMcpServers', () => claudeConfigService.getPluginMcpServers())
-  ipcMain.handle('claudeConfig:checkMcpHealth', async (_e, servers: Array<{ name: string; config: McpServerConfig }>) => {
-    const { checkMcpServersHealth } = await import('./services/mcpHealth')
-    return checkMcpServersHealth(servers)
-  })
-  ipcMain.handle('claudeConfig:authenticateMcpServer', async (_e, serverName: string, serverConfig: McpServerConfig) => {
-    const { authenticateMcpServer } = await import('./services/mcpAuth')
-    return authenticateMcpServer(
-      serverName,
-      serverConfig,
-      {
-        apiKey: mainSettings.apiKey,
-        systemPromptSuffix: mainSettings.systemPromptSuffix,
-        claudeCodeExecutablePath: mainSettings.claudeCodeExecutablePath,
-        bypassPermissions: mainSettings.bypassPermissions,
-      },
-      (url) => shell.openExternal(url)
-    )
-  })
+  registerClaudeConfigIpc()
 
   // Notes
   ipcMain.handle('notes:load', (_e, worktreeId: string) => notesService.load(worktreeId))
   ipcMain.handle('notes:save', (_e, worktreeId: string, content: string) => notesService.save(worktreeId, content))
   ipcMain.handle('notes:delete', (_e, worktreeId: string) => notesService.delete(worktreeId))
 
-  // Mobile Companion Server
-  ipcMain.handle('mobile:getStatus', () => mobileServer.getStatus())
-  ipcMain.handle('mobile:start', async () => {
-    const result = await mobileServer.start()
-    mainSettings.mobileServerEnabled = true
-    return result
-  })
-  ipcMain.handle('mobile:stop', () => {
-    mobileNgrokTunnel.stop()
-    mobileServer.stop()
-    mainSettings.mobileServerEnabled = false
-  })
-  ipcMain.handle('mobile:generatePairingOffer', async (_e, options?: { transport?: MobilePairingTransport }) => {
-    const transport = options?.transport ?? 'lan'
-    if (transport === 'ngrok') {
-      const status = mobileServer.getStatus()
-      if (!status.port) return null
-      const tunnel = await mobileNgrokTunnel.start(status.port, mainSettings.mobileNgrokRegion)
-      if (!tunnel.endpoint) throw new Error('ngrok tunnel did not provide a public endpoint')
-      return mobileServer.generatePairingOffer({ endpoint: tunnel.endpoint, transport })
-    }
-    return mobileServer.generatePairingOffer({ transport })
-  })
-  ipcMain.handle('mobile:getNgrokTunnelStatus', () => mobileNgrokTunnel.getStatus())
-  ipcMain.handle('mobile:startNgrokTunnel', async () => {
-    const status = mobileServer.getStatus()
-    if (!status.port) throw new Error('Start the mobile companion server before starting ngrok.')
-    return mobileNgrokTunnel.start(status.port, mainSettings.mobileNgrokRegion)
-  })
-  ipcMain.handle('mobile:stopNgrokTunnel', () => {
-    mobileNgrokTunnel.stop()
-    return mobileNgrokTunnel.getStatus()
-  })
-  ipcMain.handle('mobile:getDevices', () => deviceStore.load())
-  ipcMain.handle('mobile:removeDevice', (_e, deviceId: string) => {
-    // Drop the live socket first so its notification subscription stops firing,
-    // then forget the device. Order matters: removing from the store alone leaves
-    // an open connection that keeps pushing notifications to the phone.
-    mobileServer.disconnectDevice(deviceId)
-    deviceStore.removeDevice(deviceId)
-  })
+  registerMobileIpc()
 
   // LSP
   ipcMain.handle('lsp:detectServers', (_e, projectPath: string, userConfigs: LspServerConfig[]) =>
@@ -854,91 +374,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('updater:install', () => installUpdate())
   ipcMain.handle('updater:check', () => checkForUpdates())
 
-  // Usage Analytics (shared worktree provider)
-  const usageWorktreeProvider = async () => {
-    const data = storageService.load()
-    const refs: Array<{ worktreeId: string; path: string; displayName: string }> = []
-    for (const project of data.projects ?? []) {
-      try {
-        const output = await execFileText('git', ['worktree', 'list', '--porcelain'], {
-          cwd: project.path,
-          encoding: 'utf-8',
-          timeout: 5000,
-        })
-        let currentPath: string | null = null
-        let currentBranch: string | null = null
-        for (const line of output.split('\n')) {
-          if (line.startsWith('worktree ')) currentPath = line.slice(9)
-          else if (line.startsWith('branch refs/heads/')) currentBranch = line.slice(18)
-          else if (line === '' && currentPath) {
-            refs.push({ worktreeId: `${project.id}:${currentPath}`, path: currentPath, displayName: currentBranch ? `${project.name}/${currentBranch}` : project.name })
-            currentPath = null; currentBranch = null
-          }
-        }
-        if (currentPath) refs.push({ worktreeId: `${project.id}:${currentPath}`, path: currentPath, displayName: currentBranch ? `${project.name}/${currentBranch}` : project.name })
-      } catch { /* not a git repo */ }
-    }
-    return refs
-  }
-
-  const claudeUsageStore = new ClaudeUsageStore(usageWorktreeProvider)
-  ipcMain.handle('claudeUsage:getScanState', () => claudeUsageStore.getScanState())
-  ipcMain.handle('claudeUsage:setEnabled', (_e, args: { enabled: boolean }) =>
-    claudeUsageStore.setEnabled(args.enabled)
-  )
-  ipcMain.handle('claudeUsage:clearData', () => claudeUsageStore.clearData())
-  ipcMain.handle('claudeUsage:refresh', (_e, args?: { force?: boolean }) =>
-    claudeUsageStore.refresh(args?.force ?? false)
-  )
-  ipcMain.handle('claudeUsage:getSnapshot', (_e, args: { scope: ClaudeUsageScope; range: ClaudeUsageRange; limit?: number; force?: boolean }) =>
-    claudeUsageStore.getSnapshot(args.scope, args.range, args.limit, args.force ?? false)
-  )
-  ipcMain.handle('claudeUsage:getSummary', (_e, args: { scope: ClaudeUsageScope; range: ClaudeUsageRange }) =>
-    claudeUsageStore.getSummary(args.scope, args.range)
-  )
-  ipcMain.handle('claudeUsage:getDaily', (_e, args: { scope: ClaudeUsageScope; range: ClaudeUsageRange }) =>
-    claudeUsageStore.getDaily(args.scope, args.range)
-  )
-  ipcMain.handle('claudeUsage:getBreakdown', (_e, args: { scope: ClaudeUsageScope; range: ClaudeUsageRange; kind: ClaudeUsageBreakdownKind }) =>
-    claudeUsageStore.getBreakdown(args.scope, args.range, args.kind)
-  )
-  ipcMain.handle('claudeUsage:getRecentSessions', (_e, args: { scope: ClaudeUsageScope; range: ClaudeUsageRange; limit?: number }) =>
-    claudeUsageStore.getRecentSessions(args.scope, args.range, args.limit)
-  )
-
-  // Codex Usage Analytics
-  const codexUsage = new CodexUsageStore(usageWorktreeProvider)
-
-  ipcMain.handle('codexUsage:getScanState', () => codexUsage.getScanState())
-  ipcMain.handle('codexUsage:setEnabled', (_e, args: { enabled: boolean }) =>
-    codexUsage.setEnabled(args.enabled)
-  )
-  ipcMain.handle('codexUsage:clearData', () => codexUsage.clearData())
-  ipcMain.handle('codexUsage:refresh', (_e, args?: { force?: boolean }) =>
-    codexUsage.refresh(args?.force ?? false)
-  )
-  ipcMain.handle('codexUsage:getSnapshot', (_e, args: { scope: CodexUsageScope; range: CodexUsageRange; limit?: number; force?: boolean }) =>
-    codexUsage.getSnapshot(args.scope, args.range, args.limit, args.force ?? false)
-  )
-  ipcMain.handle('codexUsage:getSummary', (_e, args: { scope: CodexUsageScope; range: CodexUsageRange }) =>
-    codexUsage.getSummary(args.scope, args.range)
-  )
-  ipcMain.handle('codexUsage:getDaily', (_e, args: { scope: CodexUsageScope; range: CodexUsageRange }) =>
-    codexUsage.getDaily(args.scope, args.range)
-  )
-  ipcMain.handle('codexUsage:getBreakdown', (_e, args: { scope: CodexUsageScope; range: CodexUsageRange; kind: CodexUsageBreakdownKind }) =>
-    codexUsage.getBreakdown(args.scope, args.range, args.kind)
-  )
-  ipcMain.handle('codexUsage:getRecentSessions', (_e, args: { scope: CodexUsageScope; range: CodexUsageRange; limit?: number }) =>
-    codexUsage.getRecentSessions(args.scope, args.range, args.limit)
-  )
-
-  // Rate Limits
-  ipcMain.handle('rateLimits:get', () => rateLimitService.getState())
-  ipcMain.handle('rateLimits:refresh', () => rateLimitService.refresh())
-
-  // Resource Usage
-  ipcMain.handle('resource:getSnapshot', () => collectResourceSnapshot())
+  registerUsageIpc()
 
   // ── Menu ──────────────────────────────────────────────────────────────────
   ipcMain.on('menu:closeWindow', () => {
