@@ -8,6 +8,7 @@ import { runBrowserAction } from '@/lib/browser/browserCommands'
 import * as ipc from '@/lib/ipc'
 import { BrowserOmnibox } from './BrowserOmnibox'
 import { DesignModeToggle, ProfilePicker, ViewportControl } from './BrowserToolbarExtras'
+import { BROWSER_ICON } from './browserChrome'
 import type { BrowserViewport } from '@shared/browser'
 
 interface Props {
@@ -49,36 +50,38 @@ export const BrowserToolbar = memo(function BrowserToolbar({
 
   return (
     <div className="browser-toolbar">
-      <Tooltip content={t('browser.back')} shortcut={'⌘['} position="bottom">
-        <Button size="icon" className="browser-icon-btn" aria-label={t('browser.back')} disabled={!canGoBack} onClick={() => runBrowserAction(tabId, 'back')}>
-          <IconArrowLeft size={14} />
-        </Button>
-      </Tooltip>
-      <Tooltip content={t('browser.forward')} shortcut={'⌘]'} position="bottom">
-        <Button size="icon" className="browser-icon-btn" aria-label={t('browser.forward')} disabled={!canGoForward} onClick={() => runBrowserAction(tabId, 'forward')}>
-          <IconArrowRight size={14} />
-        </Button>
-      </Tooltip>
-      {loading ? (
-        <Tooltip content={t('browser.stop')} position="bottom">
-          <Button size="icon" className="browser-icon-btn" aria-label={t('browser.stop')} onClick={onStop}>
-            <IconClose size={12} />
+      <div className="browser-toolbar-group">
+        <Tooltip content={t('browser.back')} shortcut={'⌘['} position="bottom">
+          <Button size="icon" className="browser-icon-btn" aria-label={t('browser.back')} disabled={!canGoBack} onClick={() => runBrowserAction(tabId, 'back')}>
+            <IconArrowLeft size={BROWSER_ICON.nav} />
           </Button>
         </Tooltip>
-      ) : (
-        <Tooltip content={`${t('browser.reload')} · ${t('browser.reloadHint')}`} shortcut={'⌘R'} position="bottom">
-          <Button
-            size="icon"
-            className="browser-icon-btn"
-            aria-label={t('browser.reload')}
-            disabled={!hasPage}
-            onClick={() => runBrowserAction(tabId, 'reload')}
-            onContextMenu={openReloadMenu}
-          >
-            <IconRefresh size={13} />
+        <Tooltip content={t('browser.forward')} shortcut={'⌘]'} position="bottom">
+          <Button size="icon" className="browser-icon-btn" aria-label={t('browser.forward')} disabled={!canGoForward} onClick={() => runBrowserAction(tabId, 'forward')}>
+            <IconArrowRight size={BROWSER_ICON.nav} />
           </Button>
         </Tooltip>
-      )}
+        {loading ? (
+          <Tooltip content={t('browser.stop')} position="bottom">
+            <Button size="icon" className="browser-icon-btn" aria-label={t('browser.stop')} onClick={onStop}>
+              <IconClose size={BROWSER_ICON.reload} />
+            </Button>
+          </Tooltip>
+        ) : (
+          <Tooltip content={`${t('browser.reload')} · ${t('browser.reloadHint')}`} shortcut={'⌘R'} position="bottom">
+            <Button
+              size="icon"
+              className="browser-icon-btn"
+              aria-label={t('browser.reload')}
+              disabled={!hasPage}
+              onClick={() => runBrowserAction(tabId, 'reload')}
+              onContextMenu={openReloadMenu}
+            >
+              <IconRefresh size={BROWSER_ICON.reload} />
+            </Button>
+          </Tooltip>
+        )}
+      </div>
 
       <BrowserOmnibox
         tabId={tabId}
@@ -89,19 +92,21 @@ export const BrowserToolbar = memo(function BrowserToolbar({
         onDone={onFocusPage}
       />
 
-      <ProfilePicker profileId={profileId} onChange={onProfileChange} />
-      <DesignModeToggle active={designActive} disabled={!hasPage} onToggle={onToggleDesign} />
-      <ViewportControl viewport={viewport} disabled={!hasPage} onChange={onViewportChange} />
-      <Tooltip content={t('browser.openInSystemBrowser')} position="bottom">
-        <Button size="icon" className="browser-icon-btn" aria-label={t('browser.openInSystemBrowser')} disabled={!hasPage} onClick={() => ipc.shell.openExternal(url)}>
-          <IconExternalLink size={13} />
-        </Button>
-      </Tooltip>
-      <Tooltip content={t('browser.devtools')} shortcut={'⌘⌥I'} position="bottom">
-        <Button size="icon" className="browser-icon-btn" aria-label={t('browser.devtools')} disabled={!hasPage} onClick={() => runBrowserAction(tabId, 'devtools')}>
-          <IconCodeBrackets size={13} />
-        </Button>
-      </Tooltip>
+      <div className="browser-toolbar-group">
+        <ProfilePicker profileId={profileId} onChange={onProfileChange} />
+        <DesignModeToggle active={designActive} disabled={!hasPage} onToggle={onToggleDesign} />
+        <ViewportControl viewport={viewport} disabled={!hasPage} onChange={onViewportChange} />
+        <Tooltip content={t('browser.openInSystemBrowser')} position="bottom">
+          <Button size="icon" className="browser-icon-btn" aria-label={t('browser.openInSystemBrowser')} disabled={!hasPage} onClick={() => ipc.shell.openExternal(url)}>
+            <IconExternalLink size={BROWSER_ICON.tool} />
+          </Button>
+        </Tooltip>
+        <Tooltip content={t('browser.devtools')} shortcut={'⌘⌥I'} position="bottom">
+          <Button size="icon" className="browser-icon-btn" aria-label={t('browser.devtools')} disabled={!hasPage} onClick={() => runBrowserAction(tabId, 'devtools')}>
+            <IconCodeBrackets size={BROWSER_ICON.tool} />
+          </Button>
+        </Tooltip>
+      </div>
 
       {reloadMenu && (
         <ContextMenu x={reloadMenu.x} y={reloadMenu.y} items={reloadItems} onClose={() => setReloadMenu(null)} />
