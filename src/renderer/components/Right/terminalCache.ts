@@ -14,6 +14,7 @@ import { initPtyOutputRouting, registerPtyFinder as registerOutputFinder } from 
 import { openTerminalLink } from '@/lib/ptyOutput/restoredLinks'
 import { bindWebglPoolToVisibility, webglPool } from '@/lib/webglPool'
 import { bindRevealOnShow } from '@/lib/ptyOutput/revealOnShow'
+import { setExitMarker } from '@/lib/ptyOutput/reveal'
 import { initPtyFeatures } from '@/lib/ptyFeatures'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -41,6 +42,8 @@ export interface RenameState {
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
+
+const PROCESS_EXITED = '\r\n\x1b[2m[Process exited]\x1b[0m\r\n'
 
 export const SETUP_TAB_ID = '__setup__'
 export const RUN_TAB_ID = '__run__'
@@ -91,7 +94,11 @@ export function initGlobalPtyRouting(): void {
   bindRevealOnShow()
   void initPtyFeatures()
   ipc.pty.onExit((id) => {
-    findTabByPtyId(id)?.term.write('\r\n\x1b[2m[Process exited]\x1b[0m\r\n')
+    const tab = findTabByPtyId(id)
+    if (!tab) return
+    tab.term.write(PROCESS_EXITED)
+    // A hidden tab's screen is replaced by its final snapshot when shown.
+    setExitMarker(id, PROCESS_EXITED)
   })
 }
 

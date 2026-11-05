@@ -6,7 +6,7 @@ import * as ipc from '@/lib/ipc'
 import { createTerminalCommandObserver } from '@/lib/terminalCommandRefresh'
 import { replayIntoTerminal, isReplaying, POST_REPLAY_MODE_RESET } from '@/lib/replayGuard'
 import { syncShown } from '@/lib/ptyOutput/visibility'
-import { revealTerminal } from '@/lib/ptyOutput/reveal'
+import { revealTerminal, setReplyGuard } from '@/lib/ptyOutput/reveal'
 import { initPtyFeatures, isOffloadEnabled } from '@/lib/ptyFeatures'
 import type { TermTab } from './terminalCache'
 
@@ -20,6 +20,7 @@ export async function spawnRightTab(tab: TermTab, worktreePath: string, pendingC
     const result = await ipc.pty.reattach(tab.id, offload ? { snapshot: false } : undefined)
     if (result && (offload || result.snapshot)) {
       tab.ptyId = result.sessionId
+      setReplyGuard(result.sessionId, tab.id)
       syncShown(tab)
       const observer = createTerminalCommandObserver(worktreePath, { refreshWorktrees: true })
       tab.commandObserver = observer
@@ -27,8 +28,8 @@ export async function spawnRightTab(tab: TermTab, worktreePath: string, pendingC
       // daemon death (cold app restart), matching big-terminal behavior.
       ipc.pty.registerBigTerminal(result.sessionId, tab.id)
       if (offload) {
+        // The snapshot is the live program's exact screen: no banner (see bigTerminalConnect).
         await revealTerminal({ ptyId: result.sessionId, guardId: tab.id, term: tab.term })
-        replayIntoTerminal(tab.id, tab.term, '\r\n\x1b[2m[session reconnected]\x1b[0m\r\n')
       } else {
         // Replay under guard to suppress xterm auto-replies (DA1, DECRQM, etc.)
         // leaking back into the reconnected shell as keystrokes.
@@ -67,6 +68,7 @@ export async function spawnRightTab(tab: TermTab, worktreePath: string, pendingC
   try {
     const id = await ipc.pty.spawn(worktreePath, { BRAID_TERMINAL_ID: tab.id })
     tab.ptyId = id
+    setReplyGuard(id, tab.id)
     syncShown(tab)
     const observer = createTerminalCommandObserver(worktreePath, { refreshWorktrees: true })
     tab.commandObserver = observer

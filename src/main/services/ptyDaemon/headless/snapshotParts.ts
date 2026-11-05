@@ -43,25 +43,30 @@ export function readSavedCursor(term: Terminal): SavedCursor | null {
 /**
  * Cursor state to append after the serialized content: saved cursor (saved
  * against a full region so old margins can't move it), scroll region, origin
- * mode, then the absolute cursor. A wrap-pending cursor (x == cols) gets no
- * CUP: CUP would clamp it and the next character would overwrite the last
- * column instead of wrapping; the serialized content already left it there.
+ * mode, then the absolute cursor. A wrap-pending cursor (x == cols) can't be
+ * placed with CUP (it would clamp, and the next character would overwrite the
+ * last column instead of wrapping), so its row is written again from column
+ * 1 (`serializeRow`), which leaves the cursor wrap-pending at its end.
  */
-export function cursorRestoreSequence(term: Terminal): string {
-  const { cursorX, cursorY } = term.buffer.active
+export function cursorRestoreSequence(term: Terminal, serializeRow?: (row: number) => string): string {
+  const { cursorX, cursorY, baseY } = term.buffer.active
   const b = core(term)?.buffer
   const scrollTop = b?.scrollTop ?? 0
   const scrollBottom = b?.scrollBottom ?? term.rows - 1
   const originMode = term.modes.originMode
   const saved = readSavedCursor(term)
   const cupY = cursorY - (originMode ? scrollTop : 0)
-  const canPlace = cursorX >= 0 && cursorX < term.cols && cupY >= 0 && cupY < term.rows
+  const rowOk = cupY >= 0 && cupY < term.rows
+  const canPlace = rowOk && cursorX >= 0 && cursorX < term.cols
+  const rewrite = rowOk && cursorX === term.cols && serializeRow ? serializeRow(baseY + cursorY) : ''
+  const place = canPlace || rewrite !== ''
   const hasRegion = scrollTop !== 0 || scrollBottom !== term.rows - 1
   let s = ''
   if (saved) s += `\x1b[r\x1b[?6${saved.originMode ? 'h' : 'l'}\x1b[${saved.y + 1};${saved.x + 1}H\x1b7`
-  if (hasRegion && (canPlace || saved)) s += `\x1b[${scrollTop + 1};${scrollBottom + 1}r`
+  if (hasRegion && (place || saved)) s += `\x1b[${scrollTop + 1};${scrollBottom + 1}r`
   if (saved || originMode) s += `\x1b[?6${originMode ? 'h' : 'l'}`
   if (canPlace) s += `\x1b[${cupY + 1};${cursorX + 1}H`
+  else if (rewrite) s += `\x1b[${cupY + 1};1H${rewrite}`
   return s
 }
 

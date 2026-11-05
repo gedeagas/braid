@@ -10,11 +10,19 @@ import { openTerminalLink, restoreSnapshotLinks, type LinkTerminal } from '../pt
 
 interface Provided { range: { start: { x: number; y: number }; end: { x: number; y: number } }; text: string; activate(e: unknown, text: string): void }
 
-function fakeTerm(baseY: number, cursorY: number) {
+function fakeTerm(baseY: number, cursorY: number, lines: Map<number, string> = new Map()) {
   const markers: Array<{ line: number; isDisposed: boolean; dispose(): void }> = []
   let provider: { provideLinks(y: number, cb: (links: Provided[] | undefined) => void): void } | null = null
   const term: LinkTerminal & { scroll(n: number): void; linksAt(y: number): Provided[] } = {
-    buffer: { active: { baseY, cursorY } },
+    buffer: {
+      active: {
+        baseY, cursorY,
+        getLine: (row: number) => {
+          const text = lines.get(row)
+          return text === undefined ? undefined : { translateToString: (_t?: boolean, s = 0, e = text.length) => text.slice(s, e) }
+        },
+      },
+    },
     registerMarker: (offset: number) => {
       const m = { line: baseY + cursorY + offset, isDisposed: false, dispose() { m.isDisposed = true } }
       markers.push(m)
@@ -46,6 +54,15 @@ describe('restoreSnapshotLinks (OSC 8 hyperlinks after a snapshot)', () => {
     restoreSnapshotLinks(term, [{ row: 50, startCol: 0, endCol: 3, uri: 'https://x.test' }], vi.fn())
     term.scroll(10)
     expect(term.linksAt(41)).toHaveLength(1)
+  })
+
+  it('stops serving a link once its text is overwritten', () => {
+    const lines = new Map([[3, 'see docs here']])
+    const term = fakeTerm(0, 5, lines)
+    restoreSnapshotLinks(term, [{ row: 3, startCol: 4, endCol: 8, uri: 'https://example.com/a' }], vi.fn())
+    expect(term.linksAt(4)).toHaveLength(1)
+    lines.set(3, '$ ls -la')
+    expect(term.linksAt(4)).toEqual([])
   })
 
   it('replaces the links of an earlier snapshot', () => {

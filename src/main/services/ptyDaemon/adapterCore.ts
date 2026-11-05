@@ -119,6 +119,7 @@ export abstract class DaemonAdapterCore implements IPtyService {
       this.cwdBySession.delete(sessionId)
       this.bigTerminalBySession.delete(sessionId)
       this.buffers.delete(sessionId)
+      this.sessionExited(sessionId)
       // Trailing output goes out before the exit notice.
       this.delivery.drain(sessionId)
       sendToRenderer('pty:exit', sessionId, exitCode)
@@ -232,6 +233,9 @@ export abstract class DaemonAdapterCore implements IPtyService {
 
   /** The daemon keeps screen state and agent status: hidden terminals get no output. */
   /** Shows that announced a snapshot to the daemon, until it is requested. */
+  /** A session's PTY exited; its delivery state is still there. */
+  protected sessionExited(_id: string): void {}
+
   protected announcedSnapshots = new Set<string>()
 
   /** Tell the daemon whether we deliver `id`; on show, give delivery its show point. */

@@ -26,14 +26,17 @@ vi.mock('../daemonLauncher', () => ({
   connectToDaemon: async (client: { connect(): Promise<void>; hello(): Promise<unknown> }) => { await client.connect(); await client.hello() },
 }))
 
-interface MockPty { emit: (d: string) => void; write: ReturnType<typeof vi.fn> }
+interface MockPty { emit: (d: string) => void; exit: (code: number) => void; write: ReturnType<typeof vi.fn> }
 const ptys: MockPty[] = []
 vi.mock('node-pty', () => ({
   spawn: vi.fn(() => {
     const data: Array<(d: string) => void> = []
+    const exits: Array<(e: { exitCode: number }) => void> = []
     const pty = {
-      onData: vi.fn((cb: (d: string) => void) => { data.push(cb) }), onExit: vi.fn(), write: vi.fn(), resize: vi.fn(),
-      kill: vi.fn(), pause: vi.fn(), resume: vi.fn(), emit: (d: string) => { for (const cb of data) cb(d) },
+      onData: vi.fn((cb: (d: string) => void) => { data.push(cb) }), onExit: vi.fn((cb: (e: { exitCode: number }) => void) => { exits.push(cb) }),
+      write: vi.fn(), resize: vi.fn(), kill: vi.fn(), pause: vi.fn(), resume: vi.fn(),
+      emit: (d: string) => { for (const cb of data) cb(d) },
+      exit: (exitCode: number) => { for (const cb of exits) cb({ exitCode }) },
     }
     ptys.push(pty)
     return pty
@@ -162,6 +165,25 @@ describe('new main + this build\'s daemon (offload)', () => {
 
     // Shown all along since: no snapshot needed.
     expect(await adapter.headlessSnapshot(id)).toEqual({ upToDate: true })
+    adapter.disconnectFromDaemon()
+  })
+
+  it('keeps the final screen of a terminal that exits while hidden, for its next reveal', async () => {
+    const adapter = new PtyDaemonAdapter()
+    const id = await adapter.spawn(TEST_DIR, { BRAID_TERMINAL_ID: 'bt-5-5' })
+    expect(await adapter.getFeatures()).toContain('headless-snapshot')
+    adapter.setVisible(id, false)
+    await new Promise((r) => setTimeout(r, 20))
+    ptys[0].emit('result')
+    ptys[0].exit(0)
+    await waitFor(() => sent.some((s) => s.channel === 'pty:exit' && s.args[0] === id))
+    expect(dataFor(id)).toBe('')
+
+    const snap = await adapter.headlessSnapshot(id)
+    if (!snap || snap.upToDate) throw new Error('expected the final snapshot')
+    expect(snap.exited).toBe(true)
+    expect(snap.data).toContain('result')
+    expect(await adapter.headlessSnapshot(id)).toEqual({ upToDate: true }) // handed out once
     adapter.disconnectFromDaemon()
   })
 

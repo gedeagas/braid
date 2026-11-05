@@ -16,6 +16,8 @@ export interface HeadlessSnapshotData {
   title: string
   /** OSC 8 hyperlinks (absolute rows of the active buffer), which the serialized text drops. */
   links?: Array<{ row: number; startCol: number; endCol: number; uri: string }>
+  /** The final screen of a PTY that exited while hidden. */
+  exited?: true
 }
 
 /** `upToDate`: the renderer's xterm missed nothing, no snapshot needed. */

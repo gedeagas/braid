@@ -17,6 +17,9 @@ import type { ReattachResult, SessionInfo } from './types'
 import type { HeadlessSnapshot, TerminalColors } from './protocol'
 import { getTerminalScrollbackBufferMaxLength } from '../../../shared/terminal'
 
+/** Final snapshots of exited hidden terminals kept for their next reveal, at most. */
+const MAX_EXITED_SNAPSHOTS = 8
+
 export class PtyDaemonAdapter extends DaemonAdapterCore {
   // ── Daemon-specific operations ─────────────────────────────────────────
 
@@ -71,8 +74,15 @@ export class PtyDaemonAdapter extends DaemonAdapterCore {
    * confirms with snapshotApplied(). `upToDate` when the renderer's xterm
    * missed nothing; null in legacy mode or when the session is gone.
    */
-  async headlessSnapshot(sessionId: string): Promise<(HeadlessSnapshot & { upToDate?: false }) | { upToDate: true } | null> {
+  async headlessSnapshot(sessionId: string): Promise<(HeadlessSnapshot & { upToDate?: false; exited?: true }) | { upToDate: true } | null> {
     if (!this.delivery.isOffloading()) return null
+    const final = this.exitedSnapshots.get(sessionId)
+    this.exitedSnapshots.delete(sessionId)
+    // A respawn reuses the id (big terminals): its final snapshot is outdated.
+    if (final && !this.buffers.has(sessionId)) {
+      const snap = await final
+      return snap ? { ...snap, exited: true } : null
+    }
     // A snapshot announced to the daemon is taken even when nothing was missed,
     // or the daemon keeps answering until its handoff times out.
     const announced = this.announcedSnapshots.delete(sessionId)
@@ -90,7 +100,21 @@ export class PtyDaemonAdapter extends DaemonAdapterCore {
 
   /** The renderer wrote the snapshot: send live output newer than `seq`. */
   snapshotApplied(sessionId: string, seq: number): void {
-    this.delivery.endHold(sessionId, seq)
+    if (this.buffers.has(sessionId)) this.delivery.endHold(sessionId, seq) // not for a final snapshot
+  }
+
+  /**
+   * Final screens of hidden terminals that exited, fetched right away (the
+   * daemon keeps them briefly) and handed out on the next reveal: the renderer
+   * got none of the output printed before the exit.
+   */
+  private exitedSnapshots = new Map<string, Promise<HeadlessSnapshot | null>>()
+
+  protected override sessionExited(id: string): void {
+    if (!this.delivery.isOffloading() || !this.delivery.isStale(id)) return
+    this.exitedSnapshots.set(id, this.client.headlessSnapshot(id).catch(() => null))
+    // Bounded: a terminal never shown again keeps its entry until evicted.
+    if (this.exitedSnapshots.size > MAX_EXITED_SNAPSHOTS) this.exitedSnapshots.delete(this.exitedSnapshots.keys().next().value!)
   }
 
   /** The renderer's terminal colours: hidden terminals answer colour queries with them. */

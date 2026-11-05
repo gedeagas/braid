@@ -11,12 +11,21 @@
 //  - to: the last seq main delivered before it was hidden.
 // While a snapshot is pending (a handoff) the open period is the daemon's: the
 // renderer will only parse output newer than the snapshot.
+//
+// The daemon parses output before main delivers it, so the replies it leaves
+// to the renderer are withheld, not dropped: on hide, those for output main
+// never delivered are returned to be sent (main drops that output).
 
 export interface Period {
   from: number
   to: number
   handoffs: number
+  /** Replies left to the renderer while this period is open, oldest first. */
+  withheld: Array<{ seq: number; data: string }>
 }
+
+/** Replies withheld per open period, at most (queries are rare; this bounds a flood of them). */
+export const MAX_WITHHELD = 64
 
 export class AnswerRule {
   private periods: Period[] = []
@@ -37,18 +46,32 @@ export class AnswerRule {
   show(seq: number): number {
     const open = this.open()
     if (open) return open.from
-    this.periods.push({ from: seq, to: Infinity, handoffs: 0 })
+    this.periods.push({ from: seq, to: Infinity, handoffs: 0, withheld: [] })
     return seq
   }
 
-  /** Hidden: main delivered output through `deliveredThrough` (default: nothing since the show). */
-  hide(deliveredThrough?: number): void {
+  /** The daemon left the reply to the query in live chunk `seq` to the renderer (daemonAnswers was false). */
+  withhold(seq: number, data: string): void {
     const open = this.open()
-    if (!open) return
+    if (!open || seq <= open.from) return // a closed period's: main delivered it
+    open.withheld.push({ seq, data })
+    if (open.withheld.length > MAX_WITHHELD) open.withheld.shift()
+  }
+
+  /**
+   * Hidden: main delivered output through `deliveredThrough` (default: nothing
+   * since the show). Returns the withheld replies of output it never delivered.
+   */
+  hide(deliveredThrough?: number): string[] {
+    const open = this.open()
+    if (!open) return []
     // Mid-handoff the renderer replaces everything with the snapshot or drops it.
     const to = open.handoffs > 0 ? open.from : Math.max(open.from, deliveredThrough ?? open.from)
+    const late = open.withheld.filter((r) => r.seq > to).map((r) => r.data)
+    open.withheld = []
     if (to === open.from) this.periods.pop()
     else open.to = to
+    return late
   }
 
   /** A snapshot for the showing renderer is pending. Null while hidden. */

@@ -10,7 +10,7 @@ import { shouldResumeAfterLoss, startAgentResume, terminalStatusLine } from '@/l
 import { useUIStore } from '@/store/ui'
 import { typeInitialCommand } from './bigTerminalInitialInput'
 import { syncShown } from '@/lib/ptyOutput/visibility'
-import { revealTerminal } from '@/lib/ptyOutput/reveal'
+import { revealTerminal, setReplyGuard } from '@/lib/ptyOutput/reveal'
 import { initPtyFeatures, isOffloadEnabled } from '@/lib/ptyFeatures'
 import type { BigTermEntry } from './bigTerminalCache'
 
@@ -43,6 +43,7 @@ export async function connectBigTerminal(entry: BigTermEntry, opts: ConnectOptio
       reattached = true
       hasScrollback = true
       entry.ptyId = result.sessionId
+      setReplyGuard(result.sessionId, terminalId)
       syncShown(entry)
       const commandObserver = createTerminalCommandObserver(worktreePath, { refreshWorktrees: true })
       entry.commandObserver = commandObserver
@@ -51,8 +52,9 @@ export async function connectBigTerminal(entry: BigTermEntry, opts: ConnectOptio
       // second window or the phone can't also relaunch) before resuming.
       const claimed = result.coldRestored === true && await ipc.pty.consumeColdRestore(terminalId)
       if (offload) {
+        // The snapshot is the live program's exact screen: no banner, which
+        // would move its cursor or land inside an unfinished escape sequence.
         await revealTerminal({ ptyId: result.sessionId, guardId: terminalId, term })
-        replayIntoTerminal(terminalId, term, '\r\n' + terminalStatusLine(claimed ? 'terminalRestoreHistory' : 'terminalRestoreReconnected'))
       } else {
         replayIntoTerminal(terminalId, term, result.snapshot)
         replayIntoTerminal(terminalId, term, '\r\n' + terminalStatusLine(claimed ? 'terminalRestoreHistory' : 'terminalRestoreReconnected'))
@@ -114,6 +116,7 @@ export async function connectBigTerminal(entry: BigTermEntry, opts: ConnectOptio
       return
     }
     entry.ptyId = ptyId
+    setReplyGuard(ptyId, terminalId)
     syncShown(entry)
     const commandObserver = createTerminalCommandObserver(worktreePath, { refreshWorktrees: true })
     entry.commandObserver = commandObserver

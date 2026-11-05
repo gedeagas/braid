@@ -223,6 +223,21 @@ describe('snapshot edge cases', () => {
     await roundTrip(cap, cap.chunks[0].length)
   })
 
+  it('keeps a wrap-pending cursor when a saved cursor and a scroll region exist', async () => {
+    const cap = { cols: 10, rows: 4, chunks: ['\x1b[2;3H\x1b7\x1b[1;4r\x1b[1;1H\x1b[31m0123456789', 'X\x1b8S'] }
+    await roundTrip(cap, cap.chunks[0].length)
+  })
+
+  it('keeps a wrap-pending cursor on the alternate screen', async () => {
+    const cap = { cols: 10, rows: 4, chunks: ['normal\x1b[?1049h\x1b[2;3H\x1b7\x1b[4;1Hstatus-bar', 'X\x1b8S'] }
+    await roundTrip(cap, cap.chunks[0].length)
+  })
+
+  it('keeps a wrap-pending cursor after a wide character in the last column', async () => {
+    const cap = { cols: 10, rows: 3, chunks: ['\x1b[2;3H\x1b7\x1b[1;1H01234567\u4e2d', 'X\x1b8S'] }
+    await roundTrip(cap, cap.chunks[0].length)
+  })
+
   it('restores the saved cursor (DECRC) and scroll region', async () => {
     const cap = { cols: 20, rows: 6, chunks: ['\x1b[2;5r\x1b[3;7Hsaved\x1b7\x1b[5;1Hbottom', '\x1b8HERE\x1b[5;1H\n\nscrolled'] }
     await roundTrip(cap, cap.chunks[0].length)

@@ -46,6 +46,8 @@ export interface HeadlessHooks {
   colors?: () => TerminalColors | null
   /** Whether to answer the queries in the live write numbered `seq` (default: all). */
   answers?: (seq: number | undefined) => boolean
+  /** A reply `answers` declined, for the live write numbered `seq`. */
+  withheld?: (seq: number, data: string) => void
 }
 
 interface PendingWrite {
@@ -64,6 +66,8 @@ export class HeadlessSession {
   private pending: PendingWrite[] = []
   /** seq of the last parsed live write: what the screen state covers. */
   private parsedSeq = 0
+  /** Live writes parsed so far. */
+  private liveWrites = 0
   private backlogChars = 0
   private behind = false
   private disposed = false
@@ -85,13 +89,16 @@ export class HeadlessSession {
     // is the write being parsed, and its seq decides who answers.
     const reply = (data: string): void => {
       const head = this.pending[0]
-      if (head?.live && (this.hooks.answers?.(head.seq) ?? true)) this.hooks.reply?.(data)
+      if (!head?.live) return
+      if (this.hooks.answers?.(head.seq) ?? true) this.hooks.reply?.(data)
+      else if (head.seq !== undefined) this.hooks.withheld?.(head.seq, data)
     }
     this.term.onData(reply)
     installColorQueryResponder(this.term, () => this.hooks.colors?.() ?? null, reply)
     this.disposeDetectors = registerDaemonDetectors(this.term, {
       expectedAgentType: () => this.hooks.expectedAgentType?.(),
       isLive: () => this.pending[0]?.live ?? true,
+      liveParsed: () => this.liveWrites,
       emit: (event) => this.hooks.status?.(event),
     })
   }
@@ -114,6 +121,7 @@ export class HeadlessSession {
     }
     this.term.write(data, () => {
       this.pending.shift()
+      if (entry.live) this.liveWrites++
       if (entry.seq !== undefined) this.parsedSeq = entry.seq
       this.backlogChars -= entry.chars
       if (this.behind && this.backlogChars < BACKLOG_LOW) {
@@ -170,10 +178,20 @@ export class HeadlessSession {
     this.term.dispose()
   }
 
+  /** One row of the active buffer. serialize()'s `range` reads the normal buffer only. */
+  private serializeRow(row: number): string {
+    const range = { start: row, end: row }
+    if (this.term.buffer.active.type === 'normal') return this.serializer.serialize({ range, excludeModes: true, excludeAltBuffer: true })
+    const byRange = (this.serializer as unknown as {
+      _serializeBufferByRange?(t: Terminal, b: Terminal['buffer']['alternate'], r: typeof range, excludeFinalCursor: boolean): string
+    })._serializeBufferByRange
+    return typeof byRange === 'function' ? byRange.call(this.serializer, this.term, this.term.buffer.alternate, range, true) : ''
+  }
+
   private build(): HeadlessSnapshot {
     let data = this.serializer.serialize({ excludeModes: true })
     data += this.tracker.restoreSequence()
-    data += cursorRestoreSequence(this.term)
+    data += cursorRestoreSequence(this.term, (row) => this.serializeRow(row))
     if (this.title) data += `\x1b]0;${this.title}\x07`
     data += this.tail.value
     const links = collectLinkRanges(this.term)

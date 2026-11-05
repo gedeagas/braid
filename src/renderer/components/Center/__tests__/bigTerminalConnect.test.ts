@@ -19,7 +19,7 @@ vi.mock('@/lib/agentResumeRestore', () => ({
 }))
 vi.mock('@/store/ui', () => ({ useUIStore: { getState: () => ({ clearRestoredBigTerminalStatus: vi.fn() }) } }))
 vi.mock('../bigTerminalInitialInput', () => ({ writeInitialAgentInput: vi.fn(), typeInitialCommand: vi.fn() }))
-const reveal = vi.hoisted(() => ({ revealTerminal: vi.fn(async () => true) }))
+const reveal = vi.hoisted(() => ({ revealTerminal: vi.fn(async () => true), setReplyGuard: vi.fn() }))
 vi.mock('@/lib/ptyOutput/reveal', () => reveal)
 const features = vi.hoisted(() => ({ offload: false }))
 vi.mock('@/lib/ptyFeatures', () => ({ initPtyFeatures: async () => {}, isOffloadEnabled: () => features.offload }))
@@ -83,6 +83,9 @@ describe('connectBigTerminal: reattach after an app update', () => {
     expect(reveal.revealTerminal).toHaveBeenCalledWith(expect.objectContaining({ ptyId: 'bt-1', guardId: 'bt-1' }))
     const written = (e.term.write as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0])
     expect(written).not.toContain(POST_REPLAY_MODE_RESET)
+    // Nothing after the program's exact screen: a banner would move its cursor.
+    expect(written).toEqual([])
+    expect(reveal.setReplyGuard).toHaveBeenCalledWith('bt-1', 'bt-1')
     expect(e.ptyId).toBe('bt-1')
     expect(pty.spawn).not.toHaveBeenCalled()
     // Main treats an unreported terminal as visible: a hidden one says so.

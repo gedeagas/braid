@@ -37,7 +37,16 @@ const inFlight = new Map<string, Promise<boolean>>()
 /** Replay-guard id per PTY, for output whose queries the daemon answers. */
 const guardIds = new Map<string, string>()
 
-/** The replay-guard id of a revealed PTY's terminal, if known. */
+/**
+ * The replay-guard id (terminal / tab id) of the xterm showing `ptyId`. Set as
+ * soon as the PTY id is known: output marked no-reply can arrive before any
+ * reveal (a terminal shown right after it spawns).
+ */
+export function setReplyGuard(ptyId: string, guardId: string): void {
+  guardIds.set(ptyId, guardId)
+}
+
+/** The replay-guard id of a PTY's terminal, if known. */
 export function guardIdFor(ptyId: string): string | undefined {
   return guardIds.get(ptyId)
 }
@@ -47,6 +56,16 @@ export function writeWithoutReplies(ptyId: string, term: WritableTerminal, data:
   const guardId = guardIds.get(ptyId)
   if (guardId) replayIntoTerminal(guardId, term, data, onParsed)
   else term.write(data, onParsed)
+}
+
+/** Text written after a PTY's final screen (it exited while hidden), per PTY. */
+const exitMarkers = new Map<string, string>()
+
+/** What the terminal printed when `ptyId` exited; written again after its final screen is revealed. */
+export function setExitMarker(ptyId: string, text: string): void {
+  exitMarkers.set(ptyId, text)
+  // Main keeps few final snapshots; tabs never shown again don't pile up here.
+  if (exitMarkers.size > 16) exitMarkers.delete(exitMarkers.keys().next().value!)
 }
 
 /** The PTY ended: forget its guard id. */
@@ -95,6 +114,7 @@ async function doReveal({ ptyId, guardId, term }: RevealTarget): Promise<boolean
   const held = awaiting.get(ptyId) ?? []
   awaiting.delete(ptyId)
   if (!snap || snap.upToDate) {
+    exitMarkers.delete(ptyId) // already on screen
     // Nothing replaces the screen, so the output kept aside is the screen's next part.
     for (const chunk of held) {
       if (chunk.noReply) writeWithoutReplies(ptyId, term, chunk.data)
@@ -114,6 +134,12 @@ async function doReveal({ ptyId, guardId, term }: RevealTarget): Promise<boolean
   const linkTerm = term as unknown as Partial<LinkTerminal>
   if (typeof linkTerm.registerMarker === 'function' && typeof linkTerm.registerLinkProvider === 'function') {
     restoreSnapshotLinks(linkTerm as LinkTerminal, data.links)
+  }
+  const marker = exitMarkers.get(ptyId)
+  exitMarkers.delete(ptyId)
+  if (data.exited) {
+    if (marker) replayIntoTerminal(guardId, term, marker)
+    return true
   }
   ipc.pty.snapshotApplied(ptyId, data.seq)
   return true

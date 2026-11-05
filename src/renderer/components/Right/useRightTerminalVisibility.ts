@@ -7,7 +7,8 @@ import type { TermTab } from './terminalCache'
  * when the panel is open and expanded (null otherwise). This component only
  * shows the active worktree's tabs, so switching worktree or unmounting the
  * panel hides them all. Changes are diffed, so unrelated re-renders never
- * flip a tab hidden and back.
+ * flip a tab hidden and back. Tabs are compared by id: renaming one replaces
+ * its wrapper object, not its terminal.
  */
 export function useRightTerminalVisibility(tabs: readonly TermTab[], shownTabId: string | null): void {
   const shownRef = useRef<TermTab | null>(null)
@@ -15,8 +16,8 @@ export function useRightTerminalVisibility(tabs: readonly TermTab[], shownTabId:
   useEffect(() => {
     const next = shownTabId ? tabs.find((t) => t.id === shownTabId) ?? null : null
     const prev = shownRef.current
-    if (prev && prev !== next) setShown(prev, false)
-    for (const tab of tabs) if (tab !== next && tab.shown) setShown(tab, false)
+    if (prev && prev.id !== next?.id) setShown(prev, false)
+    for (const tab of tabs) if (tab.id !== next?.id && tab.shown) setShown(tab, false)
     if (next) setShown(next, true)
     shownRef.current = next
   }, [tabs, shownTabId])

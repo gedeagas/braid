@@ -20,6 +20,8 @@ export interface DetectorContext {
   expectedAgentType(): string | undefined
   /** False while the output being parsed is seeded or replayed history. */
   isLive(): boolean
+  /** How many live writes have been parsed (seeded history doesn't count). */
+  liveParsed(): number
   emit(event: Omit<AgentStatusEvent, 'type' | 'sessionId'>): void
 }
 
@@ -28,6 +30,7 @@ export function registerDaemonDetectors(term: Terminal, ctx: DetectorContext): (
   let scanTimer: ReturnType<typeof setTimeout> | null = null
   let lastScanAt = 0
   let scanMatched = false
+  let scannedLive = 0
 
   const emit = (event: Omit<AgentStatusEvent, 'type' | 'sessionId'>): void => {
     if (event.status.agentType) lastAgentType = event.status.agentType
@@ -51,7 +54,11 @@ export function registerDaemonDetectors(term: Terminal, ctx: DetectorContext): (
   const isCodex = (): boolean => ctx.expectedAgentType() === 'codex' || lastAgentType === 'codex'
   const scan = (): void => {
     scanTimer = null
-    if (!ctx.isLive() || !isCodex()) return
+    // Only live output can show a new prompt: a scan after seeding a
+    // checkpoint would announce the restored history's prompt as new.
+    const live = ctx.liveParsed()
+    if (live === scannedLive || !isCodex()) return
+    scannedLive = live
     const matched = isCodexUserInputPromptText(readTerminalBufferTail(term))
     const now = Date.now()
     if (matched && (!scanMatched || now - lastScanAt >= CODEX_SCAN_REPEAT_MS)) {

@@ -47,11 +47,12 @@ export class SessionScreen {
 
   constructor(private pty: ScreenPty, opts: { cols: number; rows: number; scrollback: number }, hooks: ScreenHooks) {
     this.headless = new HeadlessSession(opts, {
-      reply: (data) => { try { this.pty.write(data) } catch { /* PTY gone */ } },
+      reply: (data) => this.reply(data),
       expectedAgentType: hooks.expectedAgentType,
       colors: () => hooks.colors?.() ?? null,
       backlog: (behind) => { this.backlogPaused = behind; this.applyPause() },
       answers: (seq) => seq === undefined || this.rule.daemonAnswers(seq),
+      withheld: (seq, data) => this.rule.withhold(seq, data),
       status: (event) => {
         this.lastStatus = { ...event.status, source: event.kind === 'title' ? 'title' : event.kind === 'scan' ? 'terminal_scan' : 'hook' }
         hooks.status(event)
@@ -95,7 +96,8 @@ export class SessionScreen {
     }
     this.visibleBy.delete(owner)
     // Before the announced snapshot is dropped: mid-handoff the period goes back whole.
-    if (this.visibleBy.size === 0) this.rule.hide(opts.deliveredThrough)
+    // Replies left to the renderer for output main never delivered go out now.
+    if (this.visibleBy.size === 0) for (const late of this.rule.hide(opts.deliveredThrough)) this.reply(late)
     this.dropAnnounced(owner)
     return this.seq
   }
@@ -153,6 +155,10 @@ export class SessionScreen {
     clearTimeout(pending.timer)
     this.announced.delete(owner)
     this.rule.endHandoff(pending.period, this.headless.parsed)
+  }
+
+  private reply(data: string): void {
+    try { this.pty.write(data) } catch { /* PTY gone */ }
   }
 
   private applyPause(): void {

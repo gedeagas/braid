@@ -177,7 +177,8 @@ export function SetupPanel({ worktreePath, projectId, hidden }: Props) {
     requestAnimationFrame(() => {
       try { cachedRef.current?.fitAddon.fit() } catch {}
     })
-  }, [hidden])
+    // worktreePath: the attach effect above swapped in another worktree's terminal.
+  }, [hidden, worktreePath])
 
   // Consume pending setup run from store
   useEffect(() => {

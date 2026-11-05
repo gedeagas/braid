@@ -16,7 +16,7 @@ vi.mock('@/lib/ipc', () => ({
   },
 }))
 
-import { revealTerminal, isAwaitingSnapshot } from '../ptyOutput/reveal'
+import { revealTerminal, isAwaitingSnapshot, setReplyGuard, setExitMarker } from '../ptyOutput/reveal'
 import { routePtyOutput, registerPtyFinder } from '../ptyOutput/router'
 import { isReplaying } from '../replayGuard'
 
@@ -134,5 +134,25 @@ describe('revealTerminal', () => {
     routePtyOutput('p9', 'new')
     expect(term.log).toEqual(['write:kept', 'write:old', 'write:new'])
     expect(guarded).toEqual([true, true, false])
+  })
+
+  it('guards no-reply output of a terminal that was never revealed (shown right after spawning)', () => {
+    const term = fakeTerm()
+    registerPtyFinder((id) => (id === 'p10' ? term : undefined))
+    const guarded: boolean[] = []
+    term.write.mockImplementation((_data: string, cb?: () => void) => { guarded.push(isReplaying('bt-10')); cb?.() })
+    setReplyGuard('p10', 'bt-10')
+    routePtyOutput('p10', '\x1b[c', true)
+    expect(guarded).toEqual([true])
+  })
+
+  it('shows the final screen of a PTY that exited while hidden, then its exit marker, without confirming a seq', async () => {
+    const term = fakeTerm()
+    term.write.mockImplementation((data: string, cb?: () => void) => { term.log.push(`write:${data}`); cb?.() })
+    setExitMarker('p11', '[exited]')
+    snapshotResult = { data: 'FINAL', cols: 80, rows: 24, seq: 3, title: '', exited: true }
+    expect(await revealTerminal({ ptyId: 'p11', guardId: 'bt-11', term })).toBe(true)
+    expect(term.log).toEqual(['write:', 'reset', 'write:FINAL', 'write:[exited]'])
+    expect(calls).toEqual(['snapshot'])
   })
 })

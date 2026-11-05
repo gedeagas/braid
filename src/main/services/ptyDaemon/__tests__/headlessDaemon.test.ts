@@ -100,7 +100,7 @@ describe('headless daemon over the socket', () => {
     await settle()
     expect(ptys[0].write).not.toHaveBeenCalled()
 
-    await client.setVisible('s1', false)
+    await client.setVisible('s1', false, { deliveredThrough: 1 }) // main delivered it: the renderer answered
     ptys[0].emit('\x1b[c')
     await client.headlessSnapshot('s1')
     await waitFor(() => ptys[0].write.mock.calls.length === 1)
@@ -150,6 +150,18 @@ describe('headless daemon over the socket', () => {
     ptys[0].emit('\x1b[c') // seq 2: the renderer's
     await settle()
     expect(ptys[0].write).toHaveBeenCalledTimes(1)
+  })
+
+  it('answers a query it left to the renderer when main hides the terminal without delivering it', async () => {
+    await client.spawn('s1', TEST_DIR, 40, 5, '/bin/sh', undefined, undefined, { visible: false })
+    await client.setVisible('s1', true)
+    ptys[0].emit('ok') // seq 1: delivered
+    ptys[0].emit('\x1b[c') // seq 2: the renderer's, but still queued in main
+    await settle()
+    expect(ptys[0].write).not.toHaveBeenCalled()
+    await client.setVisible('s1', false, { deliveredThrough: 1 })
+    await waitFor(() => ptys[0].write.mock.calls.length === 1)
+    expect(String(ptys[0].write.mock.calls[0][0])).toMatch(/^\x1b\[\?/)
   })
 
   it('stops a snapshot handoff that never gets its snapshot', async () => {

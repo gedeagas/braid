@@ -20,6 +20,7 @@ const headlessScrollback = (lines: number): number => Math.max(1, Math.min(lines
 import { RingBuffer } from './ringBuffer'
 import { spawnPty } from './spawnPty'
 import { PauseValve } from './delivery/pauseValve'
+import { ExitedScreens } from './headless/exitedScreens'
 import { resolveShellLaunchArgs } from '../../lib/shell'
 import { baseEnv, classifyForeground, normalizeForeground, persistableEnv, restoredEnv } from './sessionEnv'
 import type { DaemonSession, CheckpointData, SessionInfo, DaemonSessionMetadata, ForegroundKind } from './types'
@@ -86,6 +87,8 @@ export class SessionHost {
   private sessions = new Map<string, SessionEntry>()
   private listeners = new Map<EventKey, Set<(...args: unknown[]) => void>>()
   /** Client-requested PTY pauses (flow control), with a safety valve. */
+  /** Screens of sessions that just exited, for a final snapshot. */
+  private exited = new ExitedScreens()
   private valve = new PauseValve((id) => {
     const screen = this.sessions.get(id)?.screen
     return screen && { pause: () => screen.setClientPaused(true), resume: () => screen.setClientPaused(false) }
@@ -212,7 +215,7 @@ export class SessionHost {
     entry.pty.onExit(({ exitCode, signal }: { exitCode: number; signal?: number }) => {
       this.sessions.delete(sessionId)
       this.valve.forget(sessionId)
-      entry.screen.dispose()
+      this.exited.keep(sessionId, entry.screen) // for a final snapshot
       // selfExit: the shell ended on its own (user typed `exit`), not by a
       // signal and not by a client kill (tab close, hibernation).
       this.emit('exit', sessionId, exitCode, entry.killRequested || !signal, !signal && !entry.killRequested)
@@ -295,13 +298,14 @@ export class SessionHost {
   /** Screen snapshot of the session's headless terminal, or null if unknown. `owner`: the requesting client. */
   async headlessSnapshot(sessionId: string, owner?: unknown): Promise<HeadlessSnapshot | null> {
     const entry = this.sessions.get(sessionId)
-    return entry ? entry.screen.snapshot(owner) : null
+    return entry ? entry.screen.snapshot(owner) : this.exited.snapshot(sessionId)
   }
 
   /** Stop timers (daemon shutdown, tests). */
   dispose(): void {
     this.valve.dispose()
     for (const entry of this.sessions.values()) entry.screen.dispose()
+    this.exited.dispose()
   }
 
   /** Resize a session's PTY. */
